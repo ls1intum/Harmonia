@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'de.tum.cit.aet'
-version = '0.0.1-SNAPSHOT'
+version = '0.0.1'
 description = 'Harmonia'
 
 java {
@@ -24,35 +24,37 @@ repositories {
     mavenCentral()
 }
 
-ext {
-    set('springCloudVersion', "2025.1.0-M4")
-}
-
 dependencies {
+
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-liquibase'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
+
+    // Resilience4j for fault tolerance
+    implementation 'io.github.resilience4j:resilience4j-spring-boot2:2.3.0'
+
+    // Spring AI for LLM interaction
+    implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0-RC1"
+
+    // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.8'
+
+    // Lombok for boilerplate code reduction
     compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'org.postgresql:postgresql'
+
     annotationProcessor 'org.projectlombok:lombok'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-batch-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-liquibase-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-}
 
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-    }
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
