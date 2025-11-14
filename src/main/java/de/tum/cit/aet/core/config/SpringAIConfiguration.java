@@ -1,4 +1,4 @@
-package de.tum.cit.aet.config;
+package de.tum.cit.aet.core.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

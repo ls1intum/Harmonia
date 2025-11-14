@@ -9,11 +9,22 @@
     <changeSet id="001-create-initial-tables" author="aniruddhzaveri">
         <comment>Initial schema for Harmonia</comment>
 
-        <createTable tableName="teams">
-            <column name="id" type="bigserial">
-                <constraints primaryKey="true"/>
+        <createTable tableName="user">
+            <column name="user_id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="name" type="varchar(255)"/>
+        </createTable>
+
+        <createTable tableName="teamanalysis">
+            <column name="team_analysis_id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="teamrepository">
+            <column name="team_repository_id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
         </createTable>
 
     </changeSet>

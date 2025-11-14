@@ -1,4 +1,4 @@
-package de.tum.cit.aet.config;
+package de.tum.cit.aet.core.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

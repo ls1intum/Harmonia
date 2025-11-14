@@ -1,7 +1,6 @@
-package de.tum.cit.aet.web;
+package de.tum.cit.aet.ai.web;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,18 +8,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 @RestController
-@RequestMapping("api/story/")
-public class HarmoniaTestResource {
-
-    private static final Logger log = LoggerFactory.getLogger(HarmoniaTestResource.class);
+@RequestMapping("api/ai/")
+@Slf4j
+public class AiResource {
 
     private final ChatClient chatClient;
 
-    public HarmoniaTestResource(ChatClient chatClient) {
+    public AiResource(ChatClient chatClient) {
         this.chatClient = chatClient;
     }
 
@@ -35,6 +30,6 @@ public class HarmoniaTestResource {
                 // 3. Stream the response from the chat client
                 .call()
                 // 4. Extract and return the content of the streamed response
-            .content();
+                .content();
     }
 }
