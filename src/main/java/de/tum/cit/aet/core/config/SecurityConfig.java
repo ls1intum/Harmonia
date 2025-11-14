@@ -25,6 +25,13 @@ public class SecurityConfig {
     @Value("${harmonia.password}")
     private String harmoniaPassword;
 
+    /**
+     * Security filter chain configuration.
+     * All requests require authentication via HTTP Basic.
+     *
+     * @param http the HttpSecurity to configure
+     * @return the configured SecurityFilterChain
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
@@ -37,6 +44,12 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * In-memory user details service configuration.
+     * Creates a single user with credentials from application properties.
+     *
+     * @return the configured UserDetailsService
+     */
     @Bean
     public UserDetailsService userDetailsService() {
         PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
