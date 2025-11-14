@@ -38,7 +38,7 @@ dependencies {
     implementation 'io.github.resilience4j:resilience4j-spring-boot2:2.3.0'
 
     // Spring AI for LLM interaction
-    implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0-RC1"
+    implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0"
 
     // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.8'
