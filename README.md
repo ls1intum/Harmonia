@@ -76,12 +76,7 @@ following commands to build and run the server locally:
 
 ---
 
-## Dependencies Justification
-
-#### `lucide-react`
-
-- Icon library required by **shadcn/ui**
-- Lightweight, consistent, and integrates cleanly with the component system
+## Useful Dependencies
 
 #### `tailwind-merge`
 
