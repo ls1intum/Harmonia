@@ -94,3 +94,39 @@ following commands to build and run the server locally:
 
 - Utility for conditional className construction
 - Cleaner and more readable than manual string concatenation
+
+## 📘 OpenAPI Workflow (Server → React Client)
+
+Harmonia uses SpringDoc to automatically generate an OpenAPI 3.0 specification, which is then used to generate a fully typed React client (TypeScript + Axios).
+
+Whenever you update server-side code (controllers, DTOs, response models, etc.), you must regenerate:
+1.	The OpenAPI YAML file
+2.	The React service code
+
+⸻
+
+### 🔄 Step 1 — Generate the OpenAPI Specification
+
+Run the following command to start the application in the special openapi profile and produce the latest openapi.yaml file:
+
+```bash
+    ./gradlew generateApiDocs -x webapp --stacktrace
+```
+
+The generated file will be located at:
+
+/openapi/openapi.yaml
+
+### 🔄 Step 2 — Generate the React Client Code
+
+Once the OpenAPI spec is updated, generate the React API services:
+
+```bash
+    ./gradlew openApiGenerate
+```
+
+This will generate fully typed API clients and models in:
+
+src/main/webapp/src/app/generated/
+
+These files are overwritten each time you run the generator and should be committed to version control to keep client and server in sync.
