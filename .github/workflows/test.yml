@@ -1,0 +1,163 @@
+name: Test
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - '../../docs-github/**'
+      - '.github/**'
+      - '!.github/workflows/test.yml'
+  push:
+    branches:
+      - main
+    tags: '[0-9]+.[0-9]+.[0-9]+'
+    paths-ignore:
+      - 'README.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - '../../docs-github/**'
+      - '.github/**'
+      - '!.github/workflows/test.yml'
+  release:
+    types:
+      - created
+
+# Limit the number of concurrent runs to one per PR
+# If a run is already in progress, cancel it
+# If the run is not for a PR, then this limit does not apply
+concurrency:
+  group: test-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# Keep in sync with codeql-analysis.yml and build.yml
+env:
+  CI: true
+  node: 24
+  java: 25
+  # Run all tests for non-draft pull-requests or the default branch. Otherwise, only module-affected tests are run.
+  RUN_ALL_TESTS: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event.repository.default_branch == github.ref_name }}
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          # Install Java 25
+          java-version: |
+            25
+            ${{ env.java }}
+          cache: 'gradle'
+      - name: Java Tests (All)
+        # Non-draft pull-request or default branch
+        if: ${{ env.RUN_ALL_TESTS }}
+        run: |
+          set -o pipefail
+          ./gradlew --console=plain test jacocoTestReport -x webapp -Pprod jacocoTestCoverageVerification | tee tests.log
+      - name: Upload JUnit Test Results
+        if: success() || failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: JUnit Test Results
+          path: build/test-results/test/*.xml
+      - name: Print failed tests
+        if: failure()
+        run: grep "Test >.* FAILED\$" tests.log || echo "No failed tests."
+      - name: Annotate Server Test Results
+        uses: ashley-taylor/junit-report-annotations-action@f9c1a5cbe28479439f82b80a5402a6d3aa1990ac
+        if: always() && github.event.pull_request.user.login != 'dependabot[bot]'
+        with:
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: build/test-results/test/*.xml
+          numFailures: 99
+      - name: Test Report
+        uses: dorny/test-reporter@v2
+        if: success() || failure() # run this step even if previous step failed
+        with:
+          name: H2 Tests
+          path: build/test-results/test/*.xml
+          reporter: java-junit
+      - name: Upload Server Test Coverage Report
+        if: success() || failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: Coverage Report Server Tests
+          path: build/reports/jacoco/test/html/
+      - name: Post Coverage Report as Comment if Server Coverage is too low
+        if: failure() && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+
+
+  server-style:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '${{ env.java }}'
+          cache: 'gradle'
+      - name: Java Code Style
+        run: ./gradlew spotlessCheck -Pprod
+      - name: Java Documentation
+        run: ./gradlew checkstyleMain -x webapp -Pprod
+        if: success() || failure()
+      - name: Java Architecture Tests
+        run: ./gradlew test -DincludeTags='ArchitectureTest' -x webapp -Pprod
+        if: success() || failure()
+      - name: Test Report
+        uses: dorny/test-reporter@v2
+        if: success() || failure() # run this step even if previous step failed
+        with:
+          name: Java Architecture Tests
+          path: build/test-results/test/*.xml
+          reporter: java-junit
+
+  client-style:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '${{ env.node }}'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm install
+      - name: TypeScript Formatting
+        run: npm run prettier:check
+      - name: TypeScript Code Style
+        run: npm run lint
+        if: success() || failure()
+
+  client-compilation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '${{ env.node }}'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm install
+      - name: Compile TypeScript Files With Typechecking
+        run: npm run compile:ts

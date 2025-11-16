@@ -26,6 +26,10 @@ configurations {
     }
 }
 
+wrapper {
+    gradleVersion = "9.2.0"
+}
+
 repositories {
     mavenCentral()
 }
