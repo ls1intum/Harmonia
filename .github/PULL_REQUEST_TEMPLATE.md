@@ -23,7 +23,7 @@
 - [ ] **Important**: I implemented the changes with a very good performance, prevented too many (unnecessary) REST calls and made sure the UI is responsive, even with large data (e.g. using paging).
 - [ ] I **strictly** followed the principle of **data economy** for all client-server REST calls.
 - [ ] I **strictly** followed the client coding and design guidelines.
-- [ ] I documented the TypeScript code using JSDoc style.
+- [ ] I documented the React code.
 
 ### Motivation and Context
 
