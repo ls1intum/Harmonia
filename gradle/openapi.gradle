@@ -59,11 +59,6 @@ openApiGenerate {
           withSeparateModelsAndApi: "true",
           apiPackage: "apis",
           modelPackage: "models",
-          useSingleRequestParameter: "true"
-  ]
-  additionalProperties = [
-          useObjectParameters: "true",
-          paramNaming: "camelCase"
   ]
 }
 
