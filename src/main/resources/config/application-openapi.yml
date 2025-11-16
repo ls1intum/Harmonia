@@ -1,0 +1,44 @@
+spring:
+  ai:
+    enabled: false
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.ai.autoconfigure.*
+      - org.springframework.ai.model.azure.openai.autoconfigure.*
+
+  datasource:
+    url: jdbc:h2:mem:openapi;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        hbm2ddl.auto: none
+
+  liquibase:
+    enabled: false
+
+  security:
+    user:
+      name: disabled
+      password: disabled
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  default-produces-media-type: application/json
+
+# Disable security entirely (optional)
+security:
+  basic:
+    enabled: false
