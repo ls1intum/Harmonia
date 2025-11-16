@@ -11,6 +11,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: harmonia
+          POSTGRES_USER: harmonia
+          POSTGRES_PASSWORD: harmonia
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -31,7 +46,7 @@ jobs:
           ./gradlew bootRun > boot.log 2>&1 & SERVER_PID=$!
 
           # Wait for a few seconds to let server start
-          sleep 240
+          sleep 10
 
           # Kill the process to avoid timeout
           kill $SERVER_PID || true
