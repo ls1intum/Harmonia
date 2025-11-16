@@ -16,7 +16,7 @@ jobs:
         image: postgres:17
         env:
           POSTGRES_DB: harmonia
-          POSTGRES_USER: harmonia
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: harmonia
         options: >-
           --health-cmd pg_isready
