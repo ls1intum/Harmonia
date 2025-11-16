@@ -40,7 +40,7 @@
 
 Prerequisites:
 
-1. Log in to TumApply
+1. Log in to Harmonia
 2.
 
 ### Review Progress
