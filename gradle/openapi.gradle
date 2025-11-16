@@ -1,0 +1,287 @@
+import org.yaml.snakeyaml.Yaml
+
+
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath "org.yaml:snakeyaml:${rootProject.property('snakeyaml_version')}"
+    classpath "org.openapitools:openapi-generator-gradle-plugin:7.13.0"
+  }
+}
+
+openApi {
+  apiDocsUrl.set("http://localhost:8080/api-docs")
+  outputDir.set(file("$rootDir/openapi"))
+  outputFileName.set("openapi.yaml")
+  waitTimeInSeconds.set(120)
+
+  customBootRun {
+    jvmArgs = [
+    "-Dspring.profiles.active=openapi",
+    "-Dspringdoc.packages-to-scan=de.tum.cit.aet",
+    "-Dspringdoc.paths-to-match=/api/**",
+    "-Dspringdoc.api-docs.format=yaml",
+    "-Dspring.docker.compose.enabled=false",
+    "-Dspring.docker.compose.lifecycle-management=none"
+    ]
+    args.set([
+      "--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia",
+      "--spring.datasource.username=postgres",
+      "--spring.datasource.password=harmonia",
+      "--spring.datasource.driver-class-name=org.postgresql.Driver"
+    ])
+  }
+}
+
+// 1. TODO Detect if any resources have changed
+// 2. TODO If so, modify the packages to scan accordingly in the task above
+// 3. TODO Replace the existing OpenAPI spec with the new part. Keep the rest as is.
+// 4. Run the OpenAPI generator to generate the complete TypeScript files for the React client
+// 5. Post-process the generated files to remove leading underscores and numeric suffixes from method names
+// 6. Remove unused imports from the generated TypeScript files to satisfy our tsconfig.
+
+openApiGenerate {
+  generatorName = "typescript-axios"
+  inputSpec.set(file("${rootDir}/openapi/openapi.yaml").toURI().toString())
+  outputDir = "${rootDir}/src/main/webapp/src/app/generated"
+  apiPackage = "api"
+  modelPackage = "model"
+  // sets are not properly converted to JSON objects, so we need to use Array instead https://github.com/OpenAPITools/openapi-generator/issues/14055
+  // empty responses should be void, not object
+  typeMappings = [
+    set: 'Array',
+  ]
+  languageSpecificPrimitives = ['void']
+  configOptions = [
+          supportsES6      : "true",
+          withSeparateModelsAndApi: "true",
+          apiPackage: "apis",
+          modelPackage: "models"
+  ]
+}
+
+tasks.register('pruneOpenApiSpec') {
+  description = 'Prune invalid $ref nodes and drop operations (and empty paths) with missing schemas'
+
+  doLast {
+    def projectRoot = project.rootDir
+    def inputFile = file("${projectRoot}/openapi/openapi.yaml")
+    def outputFile = file("${projectRoot}/openapi/openapi.yaml")
+    def yamlParser = new Yaml()
+
+    Map<String, Object> specificationMap =
+      yamlParser.load(inputFile.text) as Map<String, Object>
+
+    Map<String, Map<String, Object>> componentsMap =
+      (specificationMap.components ?: [:]) as Map<String, Map<String, Object>>
+
+    Map<String, Object> prunedSpecificationMap =
+      pruneInvalidReferences(specificationMap, componentsMap)
+
+    removeOperationsWithNullSchemas(prunedSpecificationMap)
+    sortComponentsAndPaths(prunedSpecificationMap)
+
+    outputFile.text = yamlParser.dump(prunedSpecificationMap)
+    println "✔ Pruned specification written to ${outputFile}"
+  }
+}
+
+task webapp(type: NpmTask) {
+  inputs.property('appVersion', project.version)
+  inputs.files("build.gradle")
+          .withPropertyName('build.gradle')
+          .withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.files('src/main/webapp/package-lock.json', 'src/main/webapp/package.json', 'src/main/webapp/tsconfig.json', 'src/main/webapp/vite.config.ts')
+          .withPropertyName('react-build')
+          .withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/main/webapp/src")
+          .withPropertyName("src/main/webapp/src")
+          .withPathSensitivity(PathSensitivity.RELATIVE)
+  outputs.dir("build/resources/main/static/")
+          .withPropertyName("webapp-build-dir")
+
+  dependsOn npmInstall
+
+  args = ["run", "build"]
+}
+
+
+/**
+ * Recursively traverses the given map and prunes any entries that resolve to an invalid $ref.
+ *
+ * <p>For each key/value pair in {@code originalMap}, this method invokes {@link #pruneNode(Object, Map)}
+ * on the value. If the result is non-null, the entry is retained with its original key;
+ * otherwise the entry is dropped.</p>
+ * This is needed as we only include DTOs in the OpenAPI spec.
+ * Not all our endpoints use DTOs, currently, so we get some invalid $ref entries and they need to be pruned.
+ *
+ * @param originalMap the OpenAPI spec (or sub-map) to prune
+ * @param componentsMap a map of component category → (component name → definition)
+ * @return a new map containing only entries whose values did not prune to null
+ */
+private Map<String, Object> pruneInvalidReferences(
+  Map<String, Object> originalMap,
+  Map<String, Map<String, Object>> componentsMap
+) {
+  originalMap.collectEntries { String entryKey, Object entryValue ->
+    Object prunedValue = pruneNode(entryValue, componentsMap)
+    prunedValue != null ? [(entryKey): prunedValue] : [:]
+  }
+}
+
+private Object pruneNode(
+  Object node,
+  Map<String, Map<String, Object>> componentsMap
+) {
+  if (node instanceof Map) {
+    return pruneMapEntries(node as Map<String, Object>, componentsMap)
+  } else if (node instanceof List) {
+    return pruneListEntries(node as List<?>, componentsMap)
+  } else {
+    return node
+  }
+}
+
+private Map<String, Object> pruneMapEntries(
+  Map<String, Object> mapValue,
+  Map<String, Map<String, Object>> componentsMap
+) {
+  if (mapValue.size() == 1 && mapValue.containsKey('$ref')) {
+    String referenceString = mapValue['$ref'] as String
+    // Matches strings like "#/components/{componentType}/{componentName}",
+    def componentMatcher = (referenceString =~ /^#\/components\/([^\/]+)\/(.+)$/)
+    if (componentMatcher.matches()) {
+      def componentTypeIndex = 1
+      def componentNameIndex = 2
+      String componentCategory = componentMatcher[0][componentTypeIndex]
+      String componentIdentifier = componentMatcher[0][componentNameIndex]
+      if (!componentsMap[componentCategory]?.containsKey(componentIdentifier)) {
+        return null
+      }
+    }
+    return mapValue
+  }
+
+  mapValue.collectEntries { String nestedKey, Object nestedValue ->
+    Object prunedNestedValue = pruneNode(nestedValue, componentsMap)
+    prunedNestedValue != null ? [(nestedKey): prunedNestedValue] : [:]
+  }
+}
+
+private List<?> pruneListEntries(
+  List<?> listValue,
+  Map<String, Map<String, Object>> componentsMap
+) {
+  listValue
+    .collect { pruneNode(it, componentsMap) }
+    .findAll { it != null }
+}
+
+private static void removeOperationsWithNullSchemas(Map<String, Object> specificationMap) {
+  Map<String, Map<String, Object>> pathsMap =
+    specificationMap.paths as Map<String, Map<String, Object>>
+  if (pathsMap == null) {
+    return
+  }
+
+  pathsMap.each { String pathName, Map<String, Object> operationsMap ->
+    List<String> operationsToRemove = operationsMap.findAll { String operationName, Object operationValue ->
+      operationContainsNullSchema(operationValue as Map<String, Object>)
+    }.keySet().toList()
+
+    operationsToRemove.each { operationsMap.remove(it) }
+  }
+
+  List<String> emptyPathNames = pathsMap.findAll { String pathName, Map<String, Object> operationsMap ->
+    operationsMap.isEmpty()
+  }.keySet().toList()
+
+  emptyPathNames.each { pathsMap.remove(it) }
+}
+
+private static void sortComponentsAndPaths(Map<String, Object> specificationMap) {
+  // Sort components
+  Map<String, Map<String, Object>> componentsMap = specificationMap.components as Map<String, Map<String, Object>>
+  if (componentsMap != null) {
+    componentsMap.each { String category, Map<String, Object> categoryMap ->
+      if (categoryMap != null) {
+        def sorted = new LinkedHashMap()
+        categoryMap.entrySet().sort { it.key }.each { entry ->
+          def sortedValue = entry.value
+          // If this is a schema object, sort its properties
+          if (sortedValue instanceof Map && sortedValue.containsKey('properties')) {
+            sortedValue = sortSchemaProperties(sortedValue as Map<String, Object>)
+          }
+          sorted[entry.key] = sortedValue
+        }
+        componentsMap[category] = sorted
+      }
+    }
+  }
+
+  // Sort paths
+  Map<String, Map<String, Object>> pathsMap = specificationMap.paths as Map<String, Map<String, Object>>
+  if (pathsMap != null) {
+    def sortedPaths = new LinkedHashMap()
+    pathsMap.entrySet().sort { it.key }.each { sortedPaths[it.key] = it.value }
+    specificationMap.paths = sortedPaths
+  }
+}
+
+private static Map<String, Object> sortSchemaProperties(Map<String, Object> schema) {
+  def sortedSchema = new LinkedHashMap(schema)
+  if (schema.properties instanceof Map) {
+    def sortedProperties = new LinkedHashMap()
+    (schema.properties as Map).entrySet().sort { it.key }.each { 
+      sortedProperties[it.key] = it.value 
+    }
+    sortedSchema.properties = sortedProperties
+  }
+  return sortedSchema
+}
+
+private static boolean operationContainsNullSchema(Map<String, Object> operationDefinition) {
+  boolean requestHasNullSchema = operationDefinition.requestBody
+    ?.content
+    ?.values()
+    ?.any { mediaType -> mediaType.schema == null }
+
+  boolean responseHasNullSchema = operationDefinition.responses
+    ?.values()
+    ?.any { responseObject ->
+      responseObject.content
+        ?.values()
+        ?.any { mediaType -> mediaType.schema == null }
+    }
+
+  return requestHasNullSchema || responseHasNullSchema
+}
+
+
+tasks.named("openApiGenerate") {
+  //finalizedBy("postProcessTsFiles")
+  dependsOn("pruneOpenApiSpec")
+
+  doFirst {
+    def openapiDir = file("${rootDir}/src/main/webapp/src/app/generated")
+    if (openapiDir.exists()) {
+      delete fileTree(dir: openapiDir, exclude: ".openapi-generator-ignore")
+      println "✔ Deleted everything under openapi/ except .openapi-generator-ignore"
+    }
+  }
+}
+
+//TODO: Fix this command
+/*
+tasks.register('postProcessTsFiles', Exec) {
+  description = "Post-process generated OpenAPI TypeScript files"
+
+  def isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows()
+  def npxExecutable = isWindows ? "npx.cmd" : "npx"
+
+  commandLine npxExecutable, "tsx", "gradle/scripts/openapi-post-processing.ts"
+}
+
+ */

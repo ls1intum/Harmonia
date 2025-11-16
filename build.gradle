@@ -5,6 +5,9 @@ plugins {
     id 'com.github.ben-manes.versions' version '0.53.0'
     id 'org.springframework.boot' version '4.0.0-RC2'
     id 'io.spring.dependency-management' version '1.1.7'
+    id "org.springdoc.openapi-gradle-plugin" version "1.9.0"
+    id "org.openapi.generator" version "7.17.0"
+    id "com.github.node-gradle.node" version "7.1.0"
 }
 
 group = 'de.tum.cit.aet'
@@ -25,6 +28,16 @@ configurations {
 
 repositories {
     mavenCentral()
+}
+
+apply from: "gradle/openapi.gradle"
+
+node {
+    download = true
+    version = "22.13.1"
+    npmVersion = "10.9.2"
+    workDir = file("${project.projectDir}/.gradle/nodejs")
+    nodeProjectDir = file("${project.projectDir}/src/main/webapp")
 }
 
 dependencies {
@@ -48,6 +61,17 @@ dependencies {
 
     // Lombok for boilerplate code reduction
     compileOnly 'org.projectlombok:lombok'
+
+    //Openapi dependencies
+    implementation "org.openapitools:jackson-databind-nullable:${jacksonDatabindNullableVersion}"
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14"
+    implementation("org.yaml:snakeyaml") {
+        version {
+            strictly "${snakeyaml_version}"
+            // needed to reduce the number of vulnerabilities, also see https://mvnrepository.com/artifact/org.yaml/snakeyaml
+        }
+    }
+
     annotationProcessor 'org.projectlombok:lombok'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

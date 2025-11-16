@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.*;
 
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.List;
  * Manual configuration without auto-configuration.
  */
 @Configuration
+@Profile("!openapi")
 public class SpringAIConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(SpringAIConfiguration.class);
