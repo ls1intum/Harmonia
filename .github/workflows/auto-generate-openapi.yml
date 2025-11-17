@@ -56,7 +56,18 @@ jobs:
       - name: Generate OpenAPI Spec
         env:
           SPRING_PROFILES_ACTIVE: openapi
-        run: ./gradlew generateApiDocs -x webapp -Dspring.profiles.active=openapi
+        run: |
+          ./gradlew generateApiDocs -x webapp \
+            -Dspring.profiles.active=openapi \
+            -Dspringdoc.packages-to-scan=de.tum.cit.aet \
+            -Dspringdoc.paths-to-match=/api/** \
+            -Dspringdoc.api-docs.format=yaml \
+            -Dspring.docker.compose.enabled=false \
+            -Dspring.docker.compose.lifecycle-management=none \
+            --args="--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia" \
+            --args="--spring.datasource.username=postgres" \
+            --args="--spring.datasource.password=harmonia" \
+            --args="--spring.datasource.driver-class-name=org.postgresql.Driver"
 
       - name: Generate Client Code
         run: ./gradlew openApiGenerate
