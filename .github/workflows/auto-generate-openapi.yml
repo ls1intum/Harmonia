@@ -62,12 +62,13 @@ jobs:
             -Dspringdoc.packages-to-scan=de.tum.cit.aet \
             -Dspringdoc.paths-to-match=/api/** \
             -Dspringdoc.api-docs.format=yaml \
-            -Dspring.docker.compose.enabled=false \
-            -Dspring.docker.compose.lifecycle-management=none \
-            --args="--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia" \
-            --args="--spring.datasource.username=postgres" \
-            --args="--spring.datasource.password=harmonia" \
-            --args="--spring.datasource.driver-class-name=org.postgresql.Driver"
+            -Dspring.datasource.url=jdbc:postgresql://localhost:5432/harmonia \
+            -Dspring.datasource.username=postgres \
+            -Dspring.datasource.password=harmonia \
+            -Dspring.datasource.driver-class-name=org.postgresql.Driver \
+            -Dspring.jpa.hibernate.ddl-auto=none \
+            -Dspring.liquibase.enabled=false \
+            -Dspring.docker.compose.enabled=false
 
       - name: Generate Client Code
         run: ./gradlew openApiGenerate
