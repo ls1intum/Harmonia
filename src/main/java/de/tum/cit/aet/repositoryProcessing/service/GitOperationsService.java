@@ -1,13 +1,10 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
 import de.tum.cit.aet.core.config.ArtemisConfig;
-import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
-import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +17,7 @@ import java.nio.file.Paths;
 
 /**
  * Service for Git operations using JGit library.
- * Handles cloning, pulling, and analyzing repositories.
+ * Handles cloning and pulling repositories.
  */
 @Service
 @Slf4j
@@ -105,39 +102,6 @@ public class GitOperationsService {
     }
 
     /**
-     * Counts the number of commits in a repository, excluding merge commits.
-     *
-     * @param localPath The local path of the repository
-     * @return The number of commits
-     * @throws IOException     If the repository cannot be opened
-     * @throws GitAPIException If the log operation fails
-     */
-    public int countCommits(String localPath) throws IOException, GitAPIException {
-        FileRepositoryBuilder builder = new FileRepositoryBuilder();
-        Repository repository = builder
-                .setGitDir(new File(localPath, ".git"))
-                .readEnvironment()
-                .findGitDir()
-                .build();
-
-        int commitCount = 0;
-
-        try (Git git = new Git(repository)) {
-            Iterable<RevCommit> commits = git.log().call();
-
-            for (RevCommit commit : commits) {
-                // Exclude merge commits (commits with more than one parent)
-                if (commit.getParentCount() <= 1) {
-                    commitCount++;
-                }
-            }
-        }
-
-        log.debug("Repository {} has {} commits", localPath, commitCount);
-        return commitCount;
-    }
-
-    /**
      * Creates credentials provider for Git authentication.
      *
      * @return UsernamePasswordCredentialsProvider with configured credentials
@@ -147,39 +111,5 @@ public class GitOperationsService {
                 artemisConfig.getUsername(),
                 artemisConfig.getPassword()
         );
-    }
-
-    /**
-     * Blabla
-     *
-     * @param participation to give
-     * @return TeamRepositoryDTO
-     */
-    public TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation) {
-        String teamName = participation.team() != null
-                ? participation.team().name()
-                : "Unknown Team";
-
-        String repositoryUri = participation.repositoryUri();
-
-        TeamRepositoryDTO.Builder builder = TeamRepositoryDTO.builder()
-                .teamName(teamName)
-                .repositoryUri(repositoryUri);
-
-        try {
-            String localPath = cloneOrPullRepository(repositoryUri, teamName);
-
-            builder.localPath(localPath)
-                    .isCloned(true);
-
-            log.info("Successfully processed repository for team: {}", teamName);
-
-        } catch (Exception e) {
-            log.error("Failed to clone repository for team: {}", teamName, e);
-            builder.isCloned(false)
-                    .error(e.getMessage());
-        }
-
-        return builder.build();
     }
 }

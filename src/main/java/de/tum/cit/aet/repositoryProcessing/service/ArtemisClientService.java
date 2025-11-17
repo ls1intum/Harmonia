@@ -4,7 +4,6 @@ import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -20,12 +19,15 @@ import java.util.List;
 public class ArtemisClientService {
 
     private final ArtemisConfig artemisConfig;
-    private RestClient restClient;
+    private final RestClient restClient;
 
     @Autowired
     public ArtemisClientService(ArtemisConfig artemisConfig) {
         this.artemisConfig = artemisConfig;
-
+        restClient = RestClient.builder()
+                .baseUrl(artemisConfig.getBaseUrl())
+                .defaultHeader("Cookie", "jwt=" + artemisConfig.getJwtToken())
+                .build();
     }
 
     /**
@@ -34,10 +36,6 @@ public class ArtemisClientService {
      * @return List of participation DTOs containing team and repository information
      */
     public List<ParticipationDTO> fetchParticipations() {
-        restClient = RestClient.builder()
-                .baseUrl(artemisConfig.getBaseUrl())
-                .defaultHeader("Cookie", "jwt=" + artemisConfig.getJwtToken())
-                .build();
         log.info("Fetching participations for exercise ID: {}", artemisConfig.getExerciseId());
 
         String uri = String.format("/exercise/exercises/%d/participations?withLatestResults=false",
