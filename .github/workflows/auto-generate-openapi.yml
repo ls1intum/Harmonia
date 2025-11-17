@@ -54,7 +54,9 @@ jobs:
         run: npm ci
 
       - name: Generate OpenAPI Spec
-        run: ./gradlew generateApiDocs -x webapp
+        env:
+          SPRING_PROFILES_ACTIVE: openapi
+        run: ./gradlew generateApiDocs -x webapp -Dspring.profiles.active=openapi
 
       - name: Generate Client Code
         run: ./gradlew openApiGenerate
