@@ -74,6 +74,7 @@ jobs:
         with:
           node-version: '${{ env.node }}'
           cache: 'npm'
+          cache-dependency-path: 'src/main/webapp/package-lock.json'
       - name: Install Dependencies
         run: npm install
       - name: TypeScript Formatting
@@ -95,6 +96,7 @@ jobs:
         with:
           node-version: '${{ env.node }}'
           cache: 'npm'
+          cache-dependency-path: 'src/main/webapp/package-lock.json'
       - name: Install Dependencies
         run: npm install
       - name: Compile TypeScript Files With Typechecking
