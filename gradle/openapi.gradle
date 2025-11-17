@@ -58,7 +58,7 @@ openApiGenerate {
           supportsES6      : "true",
           withSeparateModelsAndApi: "true",
           apiPackage: "apis",
-          modelPackage: "models"
+          modelPackage: "models",
   ]
 }
 
