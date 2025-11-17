@@ -31,8 +31,11 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'src/main/webapp/package-lock.json'
 
       - name: Install Node Dependencies
+        working-directory: src/main/webapp
         run: npm ci
 
       - name: Generate OpenAPI Spec
@@ -42,6 +45,7 @@ jobs:
         run: ./gradlew openApiGenerate
 
       - name: Format Client Code
+        working-directory: src/main/webapp
         run: npx prettier --write ./src/main/webapp/src/app/generated
 
       - name: Check for Changes
