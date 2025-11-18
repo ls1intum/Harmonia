@@ -14,6 +14,7 @@ import java.util.List;
  * Manual configuration without auto-configuration.
  */
 @Configuration
+@Profile("!openapi")
 public class SpringAIConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(SpringAIConfiguration.class);

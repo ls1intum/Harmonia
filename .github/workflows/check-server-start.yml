@@ -1,0 +1,61 @@
+name: Check Server Startup
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check-server-start:
+    name: Ensure Server Starts Successfully
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: harmonia
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: harmonia
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: '9.2.0'
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Start Spring Boot and check log
+        run: |
+          ./gradlew bootRun > boot.log 2>&1 & SERVER_PID=$!
+
+          # Wait for a few seconds to let server start
+          sleep 240
+
+          # Kill the process to avoid timeout
+          kill $SERVER_PID || true
+
+          # Look for Spring Boot banner
+          if grep -q "Tomcat started on port 8080" boot.log; then
+            echo "✅ Spring Boot started successfully."
+          else
+            echo "❌ Server did not start successfully!"
+            cat boot.log
+            exit 1
+          fi

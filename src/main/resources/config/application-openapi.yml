@@ -1,0 +1,17 @@
+spring:
+  ai:
+    enabled: false
+
+  liquibase:
+    enabled: false
+
+  security:
+    user:
+      name: disabled
+      password: disabled
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  default-produces-media-type: application/json

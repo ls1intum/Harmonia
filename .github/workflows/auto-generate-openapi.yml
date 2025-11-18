@@ -1,0 +1,100 @@
+name: Validate and Autocommit OpenAPI Spec & Client Code
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/java/**/*.java'
+
+jobs:
+  validate-and-commit-openapi:
+    name: Validate & Autocommit OpenAPI Spec + Client
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: harmonia
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: harmonia
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.BOT_USER_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'src/main/webapp/package-lock.json'
+
+      - name: Install Node Dependencies
+        working-directory: src/main/webapp
+        run: npm ci
+
+      - name: Generate OpenAPI Spec
+        env:
+          SPRING_PROFILES_ACTIVE: openapi
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/harmonia
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: harmonia
+          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+          SPRING_JPA_HIBERNATE_DDL_AUTO: none
+          SPRING_LIQUIBASE_ENABLED: false
+          SPRING_DOCKER_COMPOSE_ENABLED: false
+        run: ./gradlew generateApiDocs -x webapp
+
+      - name: Generate Client Code
+        run: ./gradlew openApiGenerate
+
+      - name: Format Client Code
+        working-directory: src/main/webapp
+        run: npx prettier --write src/app/generated
+
+      - name: Check for Changes
+        id: check_changes
+        run: |
+          git add openapi/openapi.yaml src/main/webapp/src/app/generated -f
+          if git diff --cached --quiet; then
+            echo "no_changes_detected=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_changes_detected=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit OpenAPI + Client changes
+        if: steps.check_changes.outputs.no_changes_detected == 'false'
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update OpenAPI spec and generated client"
+          git push https://x-access-token:${{ secrets.BOT_USER_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.event.pull_request.head.ref }}
+
+      - name: Comment on PR
+        run: |
+          COMMENT=$([[ "${{ steps.check_changes.outputs.no_changes_detected }}" == "true" ]] && echo "🤖 No OpenAPI or client changes needed." || echo "🤖 OpenAPI spec and client code auto-updated and committed.")
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\":\"$COMMENT\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
