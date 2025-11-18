@@ -1,11 +1,39 @@
-# React + TypeScript + Vite
+# Harmonia Client-Side Docs
+## Local Development
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+1. Install dependencies:
 
-Currently, two official plugins are available:
+```bash
+npm install
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+2. Run the development server:
+
+```bash
+npm run dev
+```
+
+## Project Structure
+The important folders and structures of the projects are defined as follows:
+```text
+webapp/
+├─ src/                         # Main application source code
+│  ├─ assets/                   # Static assets (images, fonts, icons, etc.)
+│  ├─ components/               # Reusable React components (self-implemented and generated with shadcn)
+│  │  └─ ui/                    # UI components, generated with shadcn
+│  ├─ data/                     # Data loaders (API-related utilities) and mock data
+│  ├─ hooks/                    # Custom React hooks used across the project
+│  ├─ lib/                      # Utilities
+│  ├─ pages/                    # Application pages used by the router
+│  ├─ types/                    # TypeScript types, interfaces, and shared definitions
+│  ├─ config.ts                 # Global configuration (e.g., flags, environment settings)
+│  ├─ main.ts                   # App entry point that initializes React
+│  ├─ index.css                 # Global stylesheet for the application
+│  └─ App.tsx                   # Root component that sets up app structure/layout
+├─ package.json                 # Project dependencies and scripts
+└─ README.md                    # Project documentation
+
+```
 
 ## React Compiler
 

@@ -1,4 +1,3 @@
-// src/pages/Teams.tsx
 import { useState, useEffect} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TeamsList from "@/components/TeamsList";

@@ -1,11 +1,12 @@
 // src/services/dataLoaders.ts
 import type { Team } from "@/types/team";
 import { dummyTeams } from "@/data/dummyTeams";
+import config from "@/config";
 
 // ============================================================
 // CONFIGURATION - Toggle between real API and dummy data
 // ============================================================
-const USE_DUMMY_DATA = true; // Set to false when API is ready
+const USE_DUMMY_DATA = config.USE_DUMMY_DATA;
 
 // ============================================================
 // TYPES
