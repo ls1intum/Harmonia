@@ -7,8 +7,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TeamRepositoryDTO(
-        String teamName,
-        String repositoryUri,
+        ParticipationDTO participation,
         String localPath,
         Integer commitCount,
         Boolean isCloned,
@@ -25,20 +24,14 @@ public record TeamRepositoryDTO(
      * Builder for immutable TeamRepositoryDTO records.
      */
     public static class Builder {
-        private String teamName;
-        private String repositoryUri;
+        private ParticipationDTO participation;
         private String localPath;
         private Integer commitCount;
         private Boolean isCloned;
         private String error;
 
-        public Builder teamName(String teamName) {
-            this.teamName = teamName;
-            return this;
-        }
-
-        public Builder repositoryUri(String repositoryUri) {
-            this.repositoryUri = repositoryUri;
+        public Builder participation(ParticipationDTO participation) {
+            this.participation = participation;
             return this;
         }
 
@@ -63,7 +56,7 @@ public record TeamRepositoryDTO(
         }
 
         public TeamRepositoryDTO build() {
-            return new TeamRepositoryDTO(teamName, repositoryUri, localPath, commitCount, isCloned, error);
+            return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
         }
     }
 
@@ -71,13 +64,13 @@ public record TeamRepositoryDTO(
      * Creates a copy with updated commitCount.
      */
     public TeamRepositoryDTO withCommitCount(Integer commitCount) {
-        return new TeamRepositoryDTO(teamName, repositoryUri, localPath, commitCount, isCloned, error);
+        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
     }
 
     /**
      * Creates a copy with updated error.
      */
     public TeamRepositoryDTO withError(String error) {
-        return new TeamRepositoryDTO(teamName, repositoryUri, localPath, commitCount, isCloned, error);
+        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
     }
 }
