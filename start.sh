@@ -87,7 +87,7 @@ fi
 echo -e "${YELLOW}• Waiting for React client...${NC}"
 timeout=30
 while [ $timeout -gt 0 ]; do
-    if curl -f -s http://localhost:4173 >/dev/null 2>&1; then
+    if curl -f -s http://localhost:5173 >/dev/null 2>&1; then
         echo -e "${GREEN}  ✓ Client is ready${NC}"
         break
     fi
@@ -104,7 +104,7 @@ echo -e "\n${BLUE}========================================${NC}"
 echo -e "${GREEN}✓ Harmonia is now running!${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo -e "${YELLOW}Server:${NC} http://localhost:8080"
-echo -e "${YELLOW}Client:${NC} http://localhost:4173"
+echo -e "${YELLOW}Client:${NC} http://localhost:5173"
 echo -e "${YELLOW}Database:${NC} PostgreSQL on localhost:5432"
 echo -e "\n${YELLOW}Useful commands:${NC}"
 echo -e "${YELLOW}• View logs:${NC} docker compose -f docker/docker-compose.yml logs -f"

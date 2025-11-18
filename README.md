@@ -56,7 +56,7 @@ Harmonia is built as a Java/Spring-based monolith, prioritizing stability and jo
    ```
 
 3. Access the services:
-   * Client (served by nginx): http://localhost:4173
+   * Client (served by nginx): http://localhost:5173
    * Spring Boot server: http://localhost:8080
    * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
 
