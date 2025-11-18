@@ -42,7 +42,6 @@ export default function TeamDetailPage() {
 
         setTeam(fetchedTeam);
       } catch (err) {
-        console.error('Error fetching team:', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load team';
         setError(errorMessage);
         toast.error(errorMessage);

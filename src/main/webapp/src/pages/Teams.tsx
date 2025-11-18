@@ -43,14 +43,12 @@ export default function Teams() {
         exercise,
         // On basic data loaded (fast, partial data)
         (basicTeams: BasicTeamData[]) => {
-          console.log('Basic data loaded:', basicTeams.length, 'teams');
           setTeams(basicTeams as Team[]);
           setBasicLoaded(true);
           setProgress(50);
         },
         // On complex data loaded (slow, complete data)
         (complexTeams: ComplexTeamData[]) => {
-          console.log('Complex data loaded:', complexTeams.length, 'teams');
           setTeams(complexTeams);
           setComplexLoaded(true);
           setProgress(100);
@@ -59,14 +57,12 @@ export default function Teams() {
         },
         // On error
         (error: Error) => {
-          console.error('Error loading team data:', error);
           clearInterval(progressInterval);
           setIsAnalyzing(false);
           toast.error('Failed to load team data', error.message);
         },
       );
-    } catch (error) {
-      console.error('Unexpected error:', error);
+    } catch {
       clearInterval(progressInterval);
       setIsAnalyzing(false);
       toast.error('An unexpected error occurred');
@@ -96,8 +92,7 @@ export default function Teams() {
       await triggerReanalysis(course, exercise);
       // After triggering, restart the analysis
       await startAnalysis();
-    } catch (error) {
-      console.error('Recompute error:', error);
+    } catch {
       toast.error('Failed to trigger reanalysis');
     }
   };
