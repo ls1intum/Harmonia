@@ -51,7 +51,7 @@ export default function TeamDetailPage() {
             }
         };
 
-        fetchTeam();
+        fetchTeam().catch(console.error);
     }, [teamId, team, navigate]);
 
     if (isLoading) {

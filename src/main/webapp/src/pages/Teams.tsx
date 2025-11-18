@@ -1,4 +1,4 @@
-import { useState, useEffect} from "react";
+import {useState, useEffect, useEffectEvent} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TeamsList from "@/components/TeamsList";
 import type { Team } from "@/types/team";
@@ -20,15 +20,6 @@ export default function Teams() {
     const [progress, setProgress] = useState(0);
     const [basicLoaded, setBasicLoaded] = useState(false);
     const [complexLoaded, setComplexLoaded] = useState(false);
-
-    useEffect(() => {
-        if (!course || !exercise) {
-            navigate('/');
-            return;
-        }
-
-        startAnalysis();
-    }, [course, exercise, navigate]);
 
     const startAnalysis = async () => {
         setIsAnalyzing(true);
@@ -89,6 +80,17 @@ export default function Teams() {
         return () => clearInterval(progressInterval);
     };
 
+    const onStartAnalysis = useEffectEvent(startAnalysis)
+
+    useEffect(() => {
+        if (!course || !exercise) {
+            navigate('/');
+            return;
+        }
+
+        onStartAnalysis().catch(console.error);
+    }, [course, exercise, navigate]);
+
     const handleTeamSelect = (team: Team) => {
         navigate(`/teams/${team.id}`, { state: { team, course, exercise } });
     };
@@ -98,7 +100,7 @@ export default function Teams() {
             toast({title: 'Triggering reanalysis...'});
             await triggerReanalysis(course, exercise);
             // After triggering, restart the analysis
-            startAnalysis();
+            await startAnalysis();
         } catch (error) {
             console.error('Recompute error:', error);
             toast.error('Failed to trigger reanalysis');

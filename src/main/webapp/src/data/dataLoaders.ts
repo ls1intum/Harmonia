@@ -1,6 +1,5 @@
-// src/services/dataLoaders.ts
-import type { Team } from "@/types/team";
-import { dummyTeams } from "@/data/dummyTeams";
+import type {Team} from "@/types/team";
+import {dummyTeams} from "@/data/dummyTeams";
 import config from "@/config";
 
 // ============================================================
@@ -14,19 +13,12 @@ const USE_DUMMY_DATA = config.USE_DUMMY_DATA;
 export type BasicTeamData = Omit<Team, 'cqi' | 'isSuspicious' | 'subMetrics'>;
 export type ComplexTeamData = Team;
 
-export interface AnalysisProgress {
-    basicData: BasicTeamData[] | null;
-    complexData: ComplexTeamData[] | null;
-    basicLoaded: boolean;
-    complexLoaded: boolean;
-    error: string | null;
-}
-
 // ============================================================
 // DUMMY DATA HELPERS
 // ============================================================
 function getBasicDummyTeams(): BasicTeamData[] {
     return dummyTeams.map(team => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { cqi, isSuspicious, subMetrics, ...basicData } = team;
         return basicData;
     });
@@ -62,11 +54,10 @@ async function fetchBasicTeamsFromAPI(
         });
 
         if (!response.ok) {
-            throw new Error(`API request failed: ${response.statusText}`);
+            console.log(`API request failed: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Error fetching basic team data:', error);
         throw error;
@@ -95,11 +86,10 @@ async function fetchComplexTeamsFromAPI(
         });
 
         if (!response.ok) {
-            throw new Error(`API request failed: ${response.statusText}`);
+            console.log(`API request failed: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Error fetching complex team data:', error);
         throw error;
@@ -122,11 +112,10 @@ async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | n
             if (response.status === 404) {
                 return null;
             }
-            throw new Error(`API request failed: ${response.statusText}`);
+            console.log(`API request failed: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Error fetching team by ID:', error);
         throw error;
@@ -213,7 +202,7 @@ export async function loadTeamById(teamId: string): Promise<ComplexTeamData | nu
 }
 
 /**
- * Trigger a recomputation/reanalysis
+ * Trigger a re-computation/reanalysis
  */
 export async function triggerReanalysis(
     course: string,

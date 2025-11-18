@@ -4,17 +4,10 @@ import {Card} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Progress} from "@/components/ui/progress";
 import {Skeleton} from "@/components/ui/skeleton";
-import {AlertTriangle, ArrowLeft, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, Filter} from "lucide-react";
+import {AlertTriangle, ArrowLeft, RefreshCw} from "lucide-react";
 import {useState, useMemo} from "react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
-    DropdownMenuTrigger,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import {SortableHeader} from "@/components/SortableHeader.tsx";
+import {StatusFilterButton} from "@/components/StatusFilterButton.tsx";
 
 interface TeamsListProps {
     teams: Team[];
@@ -97,57 +90,6 @@ const TeamsList = ({
 
         return filtered;
     }, [teams, sortColumn, sortDirection, statusFilter]);
-
-    const SortableHeader = ({column, label}: { column: 'name' | 'commits' | 'cqi'; label: string }) => {
-        const isActive = sortColumn === column;
-        return (
-            <button
-                onClick={() => handleHeaderClick(column)}
-                className="flex items-center gap-2 hover:text-primary transition-colors"
-            >
-                {label}
-                {isActive ? (
-                    sortDirection === 'asc' ? (
-                        <ArrowUp className="h-4 w-4 text-primary"/>
-                    ) : (
-                        <ArrowDown className="h-4 w-4 text-primary"/>
-                    )
-                ) : (
-                    <ArrowUpDown className="h-4 w-4"/>
-                )}
-            </button>
-        );
-    };
-
-    const StatusFilterButton = () => {
-        const isActive = statusFilter !== 'all';
-        return (
-            <div className="flex items-center gap-2">
-                Status
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className={`h-6 w-6 ${isActive ? 'bg-primary/10 text-primary' : ''}`}
-                        >
-                            <Filter className="h-3.5 w-3.5"/>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-popover">
-                        <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                        <DropdownMenuSeparator/>
-                        <DropdownMenuRadioGroup value={statusFilter}
-                                                onValueChange={(value) => setStatusFilter(value as 'all' | 'normal' | 'suspicious')}>
-                            <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="normal">Normal</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="suspicious">Suspicious</DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-        );
-    };
 
 
     const courseAverages = useMemo(() => {
@@ -254,17 +196,38 @@ const TeamsList = ({
                         <thead className="bg-muted/50 border-b">
                         <tr>
                             <th className="text-left py-4 px-6 font-semibold text-sm">
-                                <SortableHeader column="name" label="Team Name"/>
+                                <SortableHeader
+                                    column="name"
+                                    label="Team Name"
+                                    sortColumn={sortColumn}
+                                    sortDirection={sortDirection}
+                                    handleHeaderClick={handleHeaderClick}
+                                />
                             </th>
                             <th className="text-left py-4 px-6 font-semibold text-sm">Members</th>
                             <th className="text-left py-4 px-6 font-semibold text-sm">
-                                <SortableHeader column="commits" label="Commits"/>
+                                <SortableHeader
+                                    column="commits"
+                                    label="Commits"
+                                    sortColumn={sortColumn}
+                                    sortDirection={sortDirection}
+                                    handleHeaderClick={handleHeaderClick}
+                                />
                             </th>
                             <th className="text-left py-4 px-6 font-semibold text-sm">
-                                <SortableHeader column="cqi" label="CQI Score"/>
+                                <SortableHeader
+                                    column="cqi"
+                                    label="CQI Score"
+                                    sortColumn={sortColumn}
+                                    sortDirection={sortDirection}
+                                    handleHeaderClick={handleHeaderClick}
+                                />
                             </th>
                             <th className="text-left py-4 px-6 font-semibold text-sm">
-                                <StatusFilterButton/>
+                                <StatusFilterButton
+                                    statusFilter={statusFilter}
+                                    setStatusFilter={setStatusFilter}
+                                />
                             </th>
                         </tr>
                         </thead>

@@ -60,11 +60,4 @@ toast.dismiss = (toastId?: string | number) => {
   sonnerToast.dismiss(toastId)
 }
 
-function useToast() {
-  return {
-    toast,
-    dismiss: toast.dismiss,
-  }
-}
-
-export { useToast, toast }
+export { toast }
