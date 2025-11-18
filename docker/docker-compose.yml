@@ -1,4 +1,5 @@
-version: '3.9'
+name: harmonia
+
 services:
   postgres:
     image: postgres:18.0
@@ -12,6 +13,44 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    container_name: harmonia-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/harmonia
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: harmonia
+      SPRING_AI_AZURE_OPENAI_API_KEY: ${SPRING_AI_AZURE_OPENAI_API_KEY:-change-me}
+      SPRING_AI_AZURE_OPENAI_ENDPOINT: ${SPRING_AI_AZURE_OPENAI_ENDPOINT:-https://ase-se01.openai.azure.com/}
+      SPRING_AI_AZURE_OPENAI_CHAT_OPTIONS_DEPLOYMENT_NAME: ${SPRING_AI_AZURE_OPENAI_CHAT_OPTIONS_DEPLOYMENT_NAME:-gpt-5-mini}
+    ports:
+      - "8080:8080"
+
+  client:
+    build:
+      context: ..
+      dockerfile: docker/client.Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    container_name: harmonia-client
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_started
+    ports:
+      - "4173:80"
 
 volumes:
   postgres_data:
