@@ -47,15 +47,40 @@ Harmonia is built as a Java/Spring-based monolith, prioritizing stability and jo
 
 ## 🐳 Run Harmonia with Docker
 
+### Quick Start with Startup Scripts
+
+Use the provided startup scripts for an automated setup:
+
+**macOS/Linux:**
+```bash
+./start.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+.\start.ps1
+```
+
+The scripts will:
+- Check if Docker is running
+- Clean up any existing containers
+- Build and start all services (database, server, client)
+- Wait for services to be ready
+- Display access URLs and helpful commands
+
 ### Full stack (database + server + client)
 
-1. Build and launch everything:
+Alternatively, you can manually build and launch everything:
+
+Alternatively, you can manually build and launch everything:
+
+1. Build and launch:
 
    ```bash
    docker compose -f docker/docker-compose.yml up --build
    ```
 
-3. Access the services:
+2. Access the services:
    * Client (served by nginx): http://localhost:5173
    * Spring Boot server: http://localhost:8080
    * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
