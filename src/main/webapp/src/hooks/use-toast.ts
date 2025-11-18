@@ -1,63 +1,63 @@
-import { toast as sonnerToast } from "sonner"
+import { toast as sonnerToast } from 'sonner';
 
 type ToastProps = {
-  title?: string
-  description?: string
-  variant?: "default" | "destructive"
+  title?: string;
+  description?: string;
+  variant?: 'default' | 'destructive';
   action?: {
-    label: string
-    onClick: () => void
-  }
-}
+    label: string;
+    onClick: () => void;
+  };
+};
 
 function toast({ title, description, variant, action }: ToastProps) {
-  const message = title || description || ""
-  const descriptionText = title && description ? description : undefined
+  const message = title || description || '';
+  const descriptionText = title && description ? description : undefined;
 
-  if (variant === "destructive") {
+  if (variant === 'destructive') {
     return sonnerToast.error(message, {
       description: descriptionText,
       action: action
-          ? {
+        ? {
             label: action.label,
             onClick: action.onClick,
           }
-          : undefined,
-    })
+        : undefined,
+    });
   }
 
   return sonnerToast(message, {
     description: descriptionText,
     action: action
-        ? {
+      ? {
           label: action.label,
           onClick: action.onClick,
         }
-        : undefined,
-  })
+      : undefined,
+  });
 }
 
 // Additional helper methods for convenience
 toast.success = (message: string, description?: string) => {
-  return sonnerToast.success(message, { description })
-}
+  return sonnerToast.success(message, { description });
+};
 
 toast.error = (message: string, description?: string) => {
-  return sonnerToast.error(message, { description })
-}
+  return sonnerToast.error(message, { description });
+};
 
 toast.info = (message: string, description?: string) => {
-  return sonnerToast.info(message, { description })
-}
+  return sonnerToast.info(message, { description });
+};
 
 toast.warning = (message: string, description?: string) => {
-  return sonnerToast.warning(message, { description })
-}
+  return sonnerToast.warning(message, { description });
+};
 
-toast.promise = sonnerToast.promise
+toast.promise = sonnerToast.promise;
 
 toast.dismiss = (toastId?: string | number) => {
-  sonnerToast.dismiss(toastId)
-}
+  sonnerToast.dismiss(toastId);
+};
 
-export { toast }
+export { toast };

@@ -1,4 +1,5 @@
 # Harmonia Client-Side Docs
+
 ## Local Development
 
 1. Install dependencies:
@@ -14,7 +15,9 @@ npm run dev
 ```
 
 ## Project Structure
+
 The important folders and structures of the projects are defined as follows:
+
 ```text
 webapp/
 ├─ src/                         # Main application source code
@@ -68,15 +71,15 @@ export default defineConfig([
       // other options...
     },
   },
-])
+]);
 ```
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js
 // eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+import reactX from 'eslint-plugin-react-x';
+import reactDom from 'eslint-plugin-react-dom';
 
 export default defineConfig([
   globalIgnores(['dist']),
@@ -97,5 +100,5 @@ export default defineConfig([
       // other options...
     },
   },
-])
+]);
 ```
