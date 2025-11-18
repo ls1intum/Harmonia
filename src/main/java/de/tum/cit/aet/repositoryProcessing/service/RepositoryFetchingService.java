@@ -2,6 +2,7 @@ package de.tum.cit.aet.repositoryProcessing.service;
 
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
+import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTOBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -58,7 +59,7 @@ public class RepositoryFetchingService {
                 : "Unknown Team";
         String repositoryUri = participation.repositoryUri();
 
-        TeamRepositoryDTO.Builder builder = TeamRepositoryDTO.builder()
+        TeamRepositoryDTOBuilder builder = TeamRepositoryDTO.builder()
                 .participation(participation);
         try {
             String localPath = gitOperationsService.cloneOrPullRepository(repositoryUri, teamName);

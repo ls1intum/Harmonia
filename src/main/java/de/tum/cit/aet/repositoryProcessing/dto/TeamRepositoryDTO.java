@@ -16,48 +16,8 @@ public record TeamRepositoryDTO(
     /**
      * Creates a builder for TeamRepositoryDTO.
      */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Builder for immutable TeamRepositoryDTO records.
-     */
-    public static class Builder {
-        private ParticipationDTO participation;
-        private String localPath;
-        private Integer commitCount;
-        private Boolean isCloned;
-        private String error;
-
-        public Builder participation(ParticipationDTO participation) {
-            this.participation = participation;
-            return this;
-        }
-
-        public Builder localPath(String localPath) {
-            this.localPath = localPath;
-            return this;
-        }
-
-        public Builder commitCount(Integer commitCount) {
-            this.commitCount = commitCount;
-            return this;
-        }
-
-        public Builder isCloned(Boolean isCloned) {
-            this.isCloned = isCloned;
-            return this;
-        }
-
-        public Builder error(String error) {
-            this.error = error;
-            return this;
-        }
-
-        public TeamRepositoryDTO build() {
-            return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
-        }
+    public static TeamRepositoryDTOBuilder builder() {
+        return new TeamRepositoryDTOBuilder();
     }
 
     /**

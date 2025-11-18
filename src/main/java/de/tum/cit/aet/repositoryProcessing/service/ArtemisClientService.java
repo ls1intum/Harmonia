@@ -1,6 +1,7 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
 import de.tum.cit.aet.core.config.ArtemisConfig;
+import de.tum.cit.aet.core.exceptions.ArtemisConnectionException;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,7 +56,7 @@ public class ArtemisClientService {
 
         } catch (Exception e) {
             log.error("Error fetching participations from Artemis", e);
-            throw new RuntimeException("Failed to fetch participations from Artemis", e);
+            throw new ArtemisConnectionException("Failed to fetch participations from Artemis", e);
         }
     }
 }

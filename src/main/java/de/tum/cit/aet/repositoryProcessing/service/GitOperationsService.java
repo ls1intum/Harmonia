@@ -37,10 +37,8 @@ public class GitOperationsService {
      * @param repositoryUri The URI of the Git repository
      * @param teamName      The name of the team (used for directory naming)
      * @return The local path where the repository is stored
-     * @throws GitAPIException If Git operations fail
-     * @throws IOException     If file operations fail
      */
-    public String cloneOrPullRepository(String repositoryUri, String teamName) throws GitAPIException, IOException {
+    public String cloneOrPullRepository(String repositoryUri, String teamName) {
         // Extracts the repository name from the URI
         String[] parts = repositoryUri.split("/");
         String repoName = parts[parts.length - 1].replace(".git", "");
@@ -64,40 +62,46 @@ public class GitOperationsService {
      *
      * @param repositoryUri The URI of the Git repository
      * @param localPath     The local path where the repository should be cloned
-     * @throws GitAPIException If the clone operation fails
      */
-    private void cloneRepository(String repositoryUri, Path localPath) throws GitAPIException {
-        Git.cloneRepository()
+    private void cloneRepository(String repositoryUri, Path localPath) {
+        try (Git _ = Git.cloneRepository()
                 .setURI(repositoryUri)
                 .setDirectory(localPath.toFile())
                 .setCredentialsProvider(createCredentialsProvider())
-                .call()
-                .close();
-
-        log.info("Successfully cloned repository to {}", localPath);
+                .call()) {
+            log.info("Successfully cloned repository to {}", localPath);
+        } catch (GitAPIException e) {
+            log.error("Failed to clone repository from {} to {}. Error: {}", repositoryUri, localPath, e.getMessage(), e);
+        }
     }
 
     /**
      * Pulls the latest changes for an existing repository.
      *
      * @param localPath The local path of the repository
-     * @throws GitAPIException If the pull operation fails
-     * @throws IOException     If the repository cannot be opened
      */
-    private void pullRepository(Path localPath) throws GitAPIException, IOException {
-        FileRepositoryBuilder builder = new FileRepositoryBuilder();
-        Repository repository = builder
-                .setGitDir(new File(localPath.toFile(), ".git"))
-                .readEnvironment()
-                .findGitDir()
-                .build();
+    private void pullRepository(Path localPath) {
+        try {
+            FileRepositoryBuilder builder = new FileRepositoryBuilder();
+            Repository repository = builder
+                    .setGitDir(new File(localPath.toFile(), ".git"))
+                    .readEnvironment()
+                    .findGitDir()
+                    .build();
 
-        try (Git git = new Git(repository)) {
-            git.pull()
-                    .setCredentialsProvider(createCredentialsProvider())
-                    .call();
+            try (Git git = new Git(repository)) {
+                git.pull()
+                        .setCredentialsProvider(createCredentialsProvider())
+                        .call();
 
-            log.info("Successfully pulled latest changes for {}", localPath);
+                log.info("Successfully pulled latest changes for {}", localPath);
+            }
+        } catch (IOException e) {
+            // Handle IOException (e.g., .git directory not found or inaccessible)
+            log.error("Failed to open repository at {}. Ensure it is a valid Git repository. Error: {}", localPath, e.getMessage(), e);
+        } catch (GitAPIException e) {
+            // Handle GitAPIException (e.g., authentication failure, network issue during pull)
+            log.error("Failed to pull latest changes for {}. Error: {}", localPath, e.getMessage(), e);
         }
     }
 
