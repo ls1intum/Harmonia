@@ -18,6 +18,7 @@ export type ComplexTeamData = Team;
 // ============================================================
 function getBasicDummyTeams(): BasicTeamData[] {
     return dummyTeams.map(team => {
+        // TODO: Potentially rework
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { cqi, isSuspicious, subMetrics, ...basicData } = team;
         return basicData;
