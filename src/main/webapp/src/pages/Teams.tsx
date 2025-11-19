@@ -1,100 +1,82 @@
-import { useState, useEffect, useEffectEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
-import { loadTeamDataProgressive, triggerReanalysis, type BasicTeamData, type ComplexTeamData } from '@/data/dataLoaders';
+import { loadBasicTeamData, loadComplexTeamData, triggerReanalysis } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
 
 export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { course, exercise } = location.state || {};
 
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [basicLoaded, setBasicLoaded] = useState(false);
-  const [complexLoaded, setComplexLoaded] = useState(false);
+  // Query 1: Fetch basic data (fast)
+  const { data: basicTeams, isLoading: isLoadingBasic } = useQuery({
+    queryKey: ['teams', 'basic', course, exercise],
+    queryFn: async () => {
+      return await loadBasicTeamData(course, exercise);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  const startAnalysis = async () => {
-    setIsAnalyzing(true);
-    setProgress(0);
-    setBasicLoaded(false);
-    setComplexLoaded(false);
+  // Query 2: Fetch complex data (slow, LLM-based)
+  const { data: complexTeams, isLoading: isLoadingComplex } = useQuery({
+    queryKey: ['teams', 'complex', course, exercise],
+    queryFn: async () => {
+      return await loadComplexTeamData(course, exercise);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-    // Simulate progress animation
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        if (basicLoaded && prev < 50) return 50;
-        if (complexLoaded && prev < 100) return 100;
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setIsAnalyzing(false);
-          return 100;
-        }
-        return Math.min(prev + 5, basicLoaded ? 50 : 45);
+  // Merge data: use complex if available, otherwise basic
+  const teams = complexTeams || basicTeams || [];
+
+  // Calculate progress
+  const basicLoaded = !!basicTeams;
+  const complexLoaded = !!complexTeams;
+  const isAnalyzing = isLoadingBasic || isLoadingComplex;
+
+  const progress = (() => {
+    if (complexLoaded) return 100;
+    if (basicLoaded) return 50;
+    if (isLoadingBasic) return 25;
+    return 0;
+  })();
+
+  // Mutation for recompute
+  const reanalyzeMutation = useMutation({
+    mutationFn: async () => {
+      toast({ title: 'Triggering reanalysis...' });
+      await triggerReanalysis(course, exercise);
+    },
+    onSuccess: () => {
+      // Invalidate both queries to refetch
+      queryClient.invalidateQueries({ queryKey: ['teams', 'basic', course, exercise] });
+      queryClient.invalidateQueries({ queryKey: ['teams', 'complex', course, exercise] });
+    },
+    onError: () => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to trigger reanalysis',
       });
-    }, 100);
+    },
+  });
 
-    try {
-      // Load data progressively
-      await loadTeamDataProgressive(
-        course,
-        exercise,
-        // On basic data loaded (fast, partial data)
-        (basicTeams: BasicTeamData[]) => {
-          setTeams(basicTeams as Team[]);
-          setBasicLoaded(true);
-          setProgress(50);
-        },
-        // On complex data loaded (slow, complete data)
-        (complexTeams: ComplexTeamData[]) => {
-          setTeams(complexTeams);
-          setComplexLoaded(true);
-          setProgress(100);
-          setIsAnalyzing(false);
-          clearInterval(progressInterval);
-        },
-        // On error
-        (error: Error) => {
-          clearInterval(progressInterval);
-          setIsAnalyzing(false);
-          toast.error('Failed to load team data', error.message);
-        },
-      );
-    } catch {
-      clearInterval(progressInterval);
-      setIsAnalyzing(false);
-      toast.error('An unexpected error occurred');
-    }
-
-    return () => clearInterval(progressInterval);
-  };
-
-  const onStartAnalysis = useEffectEvent(startAnalysis);
-
-  useEffect(() => {
-    if (!course || !exercise) {
-      navigate('/');
-      return;
-    }
-
-    onStartAnalysis().catch(console.error);
-  }, [course, exercise, navigate]);
+  // Redirect if no course/exercise
+  if (!course || !exercise) {
+    navigate('/');
+    return null;
+  }
 
   const handleTeamSelect = (team: Team) => {
     navigate(`/teams/${team.id}`, { state: { team, course, exercise } });
   };
 
-  const handleRecompute = async () => {
-    try {
-      toast({ title: 'Triggering reanalysis...' });
-      await triggerReanalysis(course, exercise);
-      // After triggering, restart the analysis
-      await startAnalysis();
-    } catch {
-      toast.error('Failed to trigger reanalysis');
-    }
+  const handleRecompute = () => {
+    reanalyzeMutation.mutate();
   };
 
   return (
@@ -105,7 +87,7 @@ export default function Teams() {
       onRecompute={handleRecompute}
       course={course}
       exercise={exercise}
-      isAnalyzing={isAnalyzing}
+      isAnalyzing={isAnalyzing || reanalyzeMutation.isPending}
       progress={progress}
     />
   );
