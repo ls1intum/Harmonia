@@ -13,6 +13,10 @@
  */
 
 
-export * from "./api";
-export * from "./configuration";
-export * from "./models";
+
+export interface ParticipantDTO {
+    'id'?: number;
+    'login'?: string;
+    'name'?: string;
+}
+
