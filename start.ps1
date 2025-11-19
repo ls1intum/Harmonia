@@ -1,4 +1,4 @@
-# Harmonia Startup Script (Windows PowerShell)
+﻿# Harmonia Startup Script (Windows PowerShell)
 # This script starts all services using Docker containers
 
 $ErrorActionPreference = "Stop"
