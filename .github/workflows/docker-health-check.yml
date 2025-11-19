@@ -16,6 +16,9 @@ jobs:
     name: Verify Docker Container Health Checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: docker
 
     steps:
       - name: Checkout code
@@ -25,13 +28,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and start containers
-        run: |
-          cd docker
-          docker compose up --build -d
+        run: docker compose up --build -d
 
       - name: Wait for containers to be healthy
         run: |
-          cd docker
           echo "Waiting for all containers to be healthy..."
           
           # Wait up to 3 minutes for all containers to be healthy
@@ -102,12 +102,9 @@ jobs:
       - name: Show container status
         if: always()
         run: |
-          cd docker
           docker compose ps
           docker ps -a
 
       - name: Cleanup
         if: always()
-        run: |
-          cd docker
-          docker compose down -v
+        run: docker compose down -v
