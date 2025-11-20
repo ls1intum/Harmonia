@@ -1,0 +1,110 @@
+name: Docker Health Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docker/**'
+      - 'src/**'
+      - 'build.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/docker-health-check.yml'
+  workflow_dispatch:
+
+jobs:
+  docker-health-check:
+    name: Verify Docker Container Health Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: docker
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start containers
+        run: docker compose up --build -d
+
+      - name: Wait for containers to be healthy
+        run: |
+          echo "Waiting for all containers to be healthy..."
+          
+          # Wait up to 3 minutes for all containers to be healthy
+          timeout=180
+          elapsed=0
+          interval=5
+          
+          while [ $elapsed -lt $timeout ]; do
+            # Check if all Harmonia containers are healthy
+            postgres_health=$(docker inspect harmonia-postgres --format='{{.State.Health.Status}}' 2>/dev/null || echo "not found")
+            server_health=$(docker inspect harmonia-server --format='{{.State.Health.Status}}' 2>/dev/null || echo "not found")
+            client_health=$(docker inspect harmonia-client --format='{{.State.Health.Status}}' 2>/dev/null || echo "not found")
+            
+            echo "Postgres: $postgres_health | Server: $server_health | Client: $client_health"
+            
+            if [ "$postgres_health" = "healthy" ] && [ "$server_health" = "healthy" ] && [ "$client_health" = "healthy" ]; then
+              echo "✅ All containers are healthy!"
+              exit 0
+            fi
+            
+            # Check if any container is unhealthy (not just starting)
+            if [ "$postgres_health" = "unhealthy" ] || [ "$server_health" = "unhealthy" ] || [ "$client_health" = "unhealthy" ]; then
+              echo "❌ One or more containers are unhealthy!"
+              echo "Container logs:"
+              echo "=== Postgres logs ==="
+              docker logs harmonia-postgres --tail 50
+              echo "=== Server logs ==="
+              docker logs harmonia-server --tail 50
+              echo "=== Client logs ==="
+              docker logs harmonia-client --tail 50
+              exit 1
+            fi
+            
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          echo "❌ Timeout waiting for containers to be healthy"
+          echo "Container logs:"
+          echo "=== Postgres logs ==="
+          docker logs harmonia-postgres --tail 50
+          echo "=== Server logs ==="
+          docker logs harmonia-server --tail 50
+          echo "=== Client logs ==="
+          docker logs harmonia-client --tail 50
+          exit 1
+
+      - name: Verify health endpoints are accessible
+        run: |
+          echo "Testing server health endpoint..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)
+          if [ "$response" = "200" ]; then
+            echo "✅ Server health endpoint is accessible (HTTP $response)"
+          else
+            echo "❌ Server health endpoint returned HTTP $response"
+            exit 1
+          fi
+          
+          echo "Testing client endpoint..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5173)
+          if [ "$response" = "200" ]; then
+            echo "✅ Client endpoint is accessible (HTTP $response)"
+          else
+            echo "❌ Client endpoint returned HTTP $response"
+            exit 1
+          fi
+
+      - name: Show container status
+        if: always()
+        run: |
+          docker compose ps
+          docker ps -a
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

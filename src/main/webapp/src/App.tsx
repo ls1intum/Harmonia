@@ -1,27 +1,28 @@
-import { useState } from 'react';
-import reactLogo from './assets/react.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Home from '@/pages/Home';
+import Teams from '@/pages/Teams';
+import TeamDetailPage from '@/pages/TeamDetailPage';
+import NotFound from '@/pages/NotFound';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
-function App() {
-  const [count, setCount] = useState(0);
+const queryClient = new QueryClient();
 
-  return (
-    <>
-      <div>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount(count => count + 1)}>count is {count}</button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">Click on the Vite and React logos to learn more</p>
-    </>
-  );
-}
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/teams/:teamId" element={<TeamDetailPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;
