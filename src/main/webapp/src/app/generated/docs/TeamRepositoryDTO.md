@@ -1,15 +1,14 @@
 # TeamRepositoryDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**commitCount** | **number** |  | [optional] [default to undefined]
-**error** | **string** |  | [optional] [default to undefined]
-**isCloned** | **boolean** |  | [optional] [default to undefined]
-**localPath** | **string** |  | [optional] [default to undefined]
-**participation** | [**ParticipationDTO**](ParticipationDTO.md) |  | [optional] [default to undefined]
+| Name              | Type                                        | Description | Notes                             |
+| ----------------- | ------------------------------------------- | ----------- | --------------------------------- |
+| **commitCount**   | **number**                                  |             | [optional] [default to undefined] |
+| **error**         | **string**                                  |             | [optional] [default to undefined] |
+| **isCloned**      | **boolean**                                 |             | [optional] [default to undefined] |
+| **localPath**     | **string**                                  |             | [optional] [default to undefined] |
+| **participation** | [**ParticipationDTO**](ParticipationDTO.md) |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -17,11 +16,11 @@ Name | Type | Description | Notes
 import { TeamRepositoryDTO } from './api';
 
 const instance: TeamRepositoryDTO = {
-    commitCount,
-    error,
-    isCloned,
-    localPath,
-    participation,
+  commitCount,
+  error,
+  isCloned,
+  localPath,
+  participation,
 };
 ```
 
