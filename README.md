@@ -54,13 +54,13 @@ Use the provided startup scripts for an automated setup:
 **macOS/Linux:**
 
 ```bash
-./start.sh
+./scripts/docker_start.sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-.\start.ps1
+.\scripts\docker_start.ps1 
 ```
 
 The scripts will:
@@ -106,18 +106,14 @@ following commands to build and run the server locally:
 1. Make sure to run the Docker container.
 
 2. **Build the Project:** Compile the server application.
-
-   | OS      | Command to Build Project        |
-   |:--------|:--------------------------------|
-   | macOS   | `./gradlew clean build -x test` |
-   | Windows | `.\gradlew clean build -x test` |
+    ```bash
+   ./gradlew clean build -x test
+   ```
 
 3. **Run the Server:** Start the Spring Boot application.
-
-   | OS                         | Command to Run Server |
-   |:---------------------------|:----------------------|
-   | macOS                      | `./gradlew bootRun`   |
-   | Windows                    | `.\gradlew bootRun`   |
+    ```bash
+   ./gradlew bootRun
+   ```
 
 ---
 
