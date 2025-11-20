@@ -1,6 +1,5 @@
 package de.tum.cit.aet.core.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,39 +12,38 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${harmonia.user}")
-    private String harmoniaUser;
+    private final HarmoniaProperties harmoniaProperties;
 
-    @Value("${harmonia.password}")
-    private String harmoniaPassword;
+    public SecurityConfig(HarmoniaProperties harmoniaProperties) {
+        this.harmoniaProperties = harmoniaProperties;
+    }
 
     /**
      * Security filter chain configuration.
      * All requests require authentication via HTTP Basic.
      *
      * @param http the HttpSecurity to configure
+     * @param corsConfigurationSource the CORS configuration source
      * @return the configured SecurityFilterChain
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(("/api-docs"))
-                        .permitAll()
-                        .requestMatchers(("/api-docs.yaml"))
-                        .permitAll()
-                        .requestMatchers("/actuator/health")
+                        .requestMatchers("/api-docs", "/api-docs.yaml", "/actuator/health")
                         .permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(_ -> {});
-
         return http.build();
     }
 
@@ -60,8 +58,8 @@ public class SecurityConfig {
         PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
         var builder = User.builder().passwordEncoder(encoder::encode);
         UserDetails user = builder
-                .username(harmoniaUser)
-                .password(harmoniaPassword)
+                .username(harmoniaProperties.getUser())
+                .password(harmoniaProperties.getPassword())
                 .roles("USER")
                 .build();
 

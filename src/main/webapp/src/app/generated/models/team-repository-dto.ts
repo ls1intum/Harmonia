@@ -12,4 +12,14 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/request-resource-api';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { ParticipationDTO } from './participation-dto';
+
+export interface TeamRepositoryDTO {
+  commitCount?: number;
+  error?: string;
+  isCloned?: boolean;
+  localPath?: string;
+  participation?: ParticipationDTO;
+}

@@ -12,4 +12,14 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/request-resource-api';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { ParticipantDTO } from './participant-dto';
+
+export interface TeamDTO {
+  id?: number;
+  name?: string;
+  owner?: ParticipantDTO;
+  shortName?: string;
+  students?: Array<ParticipantDTO>;
+}

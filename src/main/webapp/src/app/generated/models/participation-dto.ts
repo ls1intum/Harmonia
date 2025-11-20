@@ -12,4 +12,12 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/request-resource-api';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { TeamDTO } from './team-dto';
+
+export interface ParticipationDTO {
+  id?: number;
+  repositoryUri?: string;
+  team?: TeamDTO;
+}
