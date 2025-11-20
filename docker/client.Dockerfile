@@ -1,5 +1,5 @@
 # Build the React/Vite client
-FROM node:22-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 COPY src/main/webapp/package*.json ./
@@ -14,7 +14,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Serve the production build with nginx
-FROM nginx:1.27-alpine AS runner
+FROM nginx:1.29-alpine AS runner
 
 # Install curl for health checks
 RUN apk add --no-cache curl
