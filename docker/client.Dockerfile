@@ -1,5 +1,5 @@
 # Build the React/Vite client
-FROM node:22-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 COPY src/main/webapp/package*.json ./
