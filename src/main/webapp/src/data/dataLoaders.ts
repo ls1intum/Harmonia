@@ -61,29 +61,27 @@ function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
   const teamName = dto.participation?.team?.name || 'Unknown Team';
   const students = dto.participation?.team?.students || [];
   const totalCommits = dto.commitCount || 0;
-  
+
   // Mock: Distribute commits among students
   const studentData = students.map((student, index) => {
     // Generate random but realistic commit distribution
     const ratio = 0.4 + Math.random() * 0.2; // Between 40-60%
-    const commits = index === 0 
-      ? Math.floor(totalCommits * ratio)
-      : totalCommits - Math.floor(totalCommits * ratio);
-    
+    const commits = index === 0 ? Math.floor(totalCommits * ratio) : totalCommits - Math.floor(totalCommits * ratio);
+
     // Mock: Calculate lines based on commits (15-25 lines per commit)
     const linesPerCommit = 15 + Math.random() * 10;
     const linesAdded = Math.floor(commits * linesPerCommit);
-    
+
     return {
       name: student.name || 'Unknown',
       commits,
       linesAdded,
     };
   });
-  
+
   // Mock: Calculate total lines
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
-  
+
   return {
     id: dto.participation?.id?.toString() || 'unknown',
     teamName,
@@ -101,14 +99,14 @@ function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
 function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
   const totalCommits = dto.commitCount || 0;
-  
+
   // Mock: Calculate CQI score (0-100)
   // Formula: Base score + commit bonus, capped at 100
   const baseScore = 50;
   const commitBonus = Math.min(40, totalCommits * 0.3);
   const randomVariation = Math.random() * 20 - 10; // ±10 points
   const cqi = Math.max(0, Math.min(100, Math.floor(baseScore + commitBonus + randomVariation)));
-  
+
   // Mock: Generate sub-metrics (placeholder values)
   const subMetrics = [
     {
@@ -140,7 +138,7 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
       details: 'Mock data - real analysis not yet implemented.',
     },
   ];
-  
+
   return {
     ...basicData,
     cqi,
@@ -157,7 +155,7 @@ async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promi
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
-    
+
     // Transform DTOs to BasicTeamData
     return teamRepos.map(transformToBasicTeamData);
   } catch (error) {
@@ -171,7 +169,7 @@ async function fetchComplexTeamsFromAPI(_course: string, _exercise: string): Pro
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
-    
+
     // Transform DTOs to ComplexTeamData with mocked analysis
     return teamRepos.map(transformToComplexTeamData);
   } catch (error) {
@@ -184,14 +182,14 @@ async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | n
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
-    
+
     // Find the team by ID
     const teamRepo = teamRepos.find((repo: TeamRepositoryDTO) => repo.participation?.id?.toString() === teamId);
-    
+
     if (!teamRepo) {
       return null;
     }
-    
+
     return transformToComplexTeamData(teamRepo);
   } catch (error) {
     console.error('Error fetching team by ID:', error);
