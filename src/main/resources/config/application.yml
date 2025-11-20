@@ -51,6 +51,11 @@ management:
 harmonia:
   user: admin
   password: admin1234
+  cors:
+    allowed-origins:
+      - "http://localhost:5173"
+      - "http://localhost:3000"
+      - "http://localhost:8080"
 
 artemis:
   baseUrl: https://artemis-test2.artemis.cit.tum.de/api
