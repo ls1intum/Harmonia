@@ -29,6 +29,7 @@ public class SecurityConfig {
      * All requests require authentication via HTTP Basic.
      *
      * @param http the HttpSecurity to configure
+     * @param corsConfigurationSource the CORS configuration source
      * @return the configured SecurityFilterChain
      */
     @Bean
