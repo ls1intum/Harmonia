@@ -12,4 +12,8 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/request-resource-api';
+export interface ParticipantDTO {
+  id?: number;
+  login?: string;
+  name?: string;
+}
