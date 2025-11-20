@@ -34,6 +34,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: harmonia
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   client:
     build:
@@ -45,9 +51,15 @@ services:
     restart: unless-stopped
     depends_on:
       server:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "5173:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:
