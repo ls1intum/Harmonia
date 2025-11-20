@@ -52,16 +52,19 @@ Harmonia is built as a Java/Spring-based monolith, prioritizing stability and jo
 Use the provided startup scripts for an automated setup:
 
 **macOS/Linux:**
+
 ```bash
 ./start.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 .\start.ps1
 ```
 
 The scripts will:
+
 - Check if Docker is running
 - Clean up any existing containers
 - Build and start all services (database, server, client)
@@ -81,9 +84,9 @@ Alternatively, you can manually build and launch everything:
    ```
 
 2. Access the services:
-   * Client (served by nginx): http://localhost:5173
-   * Spring Boot server: http://localhost:8080
-   * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
+    * Client (served by nginx): http://localhost:5173
+    * Spring Boot server: http://localhost:8080
+    * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
 
 The Compose setup builds the Gradle boot jar inside `docker/server.Dockerfile`, bundles the React client with Vite via `docker/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images restart automatically unless stopped.
 
@@ -104,46 +107,28 @@ following commands to build and run the server locally:
 
 2. **Build the Project:** Compile the server application.
 
-   | OS                         | Command to Build Project        |
-          |:---------------------------|:--------------------------------|
-   | macOS                      | `./gradlew clean build -x test` |
-   | Windows                    | `.\gradlew clean build -x test` |
+   | OS      | Command to Build Project        |
+   |:--------|:--------------------------------|
+   | macOS   | `./gradlew clean build -x test` |
+   | Windows | `.\gradlew clean build -x test` |
 
 3. **Run the Server:** Start the Spring Boot application.
 
    | OS                         | Command to Run Server |
-         |:---------------------------|:----------------------|
+   |:---------------------------|:----------------------|
    | macOS                      | `./gradlew bootRun`   |
    | Windows                    | `.\gradlew bootRun`   |
 
 ---
-
-## Useful Dependencies
-
-#### `tailwind-merge`
-
-- Merges Tailwind classes and resolves conflicts (e.g., `px-2` vs. `px-4`)
-- Needed for shadcn/ui components that combine base & conditional styles
-- **Example:**
-    ```ts
-    const classes = twMerge(
-      "px-4 py-2 text-sm text-gray-500",  // base styles
-      isActive && "text-blue-600 font-bold" // conditional styles
-     );
-    ```
-
-#### `clsx`
-
-- Utility for conditional className construction
-- Cleaner and more readable than manual string concatenation
 
 ## 📘 OpenAPI Workflow (Server → React Client)
 
 Harmonia uses SpringDoc to automatically generate an OpenAPI 3.0 specification, which is then used to generate a fully typed React client (TypeScript + Axios).
 
 Whenever you update server-side code (controllers, DTOs, response models, etc.), you must regenerate:
-1.	The OpenAPI YAML file
-2.	The React service code
+
+1. The OpenAPI YAML file
+2. The React service code
 
 ⸻
 
@@ -172,3 +157,24 @@ This will generate fully typed API clients and models in:
 src/main/webapp/src/app/generated/
 
 These files are overwritten each time you run the generator and should be committed to version control to keep client and server in sync.
+
+---
+
+## Useful Dependencies
+
+#### `tailwind-merge`
+
+- Merges Tailwind classes and resolves conflicts (e.g., `px-2` vs. `px-4`)
+- Needed for shadcn/ui components that combine base & conditional styles
+- **Example:**
+    ```ts
+    const classes = twMerge(
+      "px-4 py-2 text-sm text-gray-500",  // base styles
+      isActive && "text-blue-600 font-bold" // conditional styles
+     );
+    ```
+
+#### `clsx`
+
+- Utility for conditional className construction
+- Cleaner and more readable than manual string concatenation
