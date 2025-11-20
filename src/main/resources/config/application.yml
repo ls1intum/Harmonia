@@ -54,9 +54,9 @@ harmonia:
 
 artemis:
   baseUrl: https://artemis-test2.artemis.cit.tum.de/api
-  username:
-  password:
-  jwtToken:
+  username: 
+  password: 
+  jwtToken: 
   exerciseId: 424
   gitRepoPath: Projects/itp2425teamprojects
   numThreads: 8
