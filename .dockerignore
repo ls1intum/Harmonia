@@ -1,0 +1,14 @@
+.git
+.github
+.gradle
+build/
+out/
+node_modules/
+src/main/webapp/node_modules/
+src/main/webapp/dist/
+*.iml
+.idea/
+Dockerfile
+docker-compose.yml
+docker/postgres_data/
+.DS_Store

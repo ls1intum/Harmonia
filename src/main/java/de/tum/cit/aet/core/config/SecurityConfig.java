@@ -40,6 +40,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(("/api-docs.yaml"))
                         .permitAll()
+                        .requestMatchers("/actuator/health")
+                        .permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(_ -> {});

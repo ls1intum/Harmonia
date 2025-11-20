@@ -54,6 +54,15 @@ jobs:
         run: npm ci
 
       - name: Generate OpenAPI Spec
+        env:
+          SPRING_PROFILES_ACTIVE: openapi
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/harmonia
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: harmonia
+          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+          SPRING_JPA_HIBERNATE_DDL_AUTO: none
+          SPRING_LIQUIBASE_ENABLED: false
+          SPRING_DOCKER_COMPOSE_ENABLED: false
         run: ./gradlew generateApiDocs -x webapp
 
       - name: Generate Client Code
@@ -61,12 +70,12 @@ jobs:
 
       - name: Format Client Code
         working-directory: src/main/webapp
-        run: npx prettier --write ./src/main/webapp/src/app/generated
+        run: npx prettier --write src/app/generated
 
       - name: Check for Changes
         id: check_changes
         run: |
-          git add openapi/openapi.yaml src/main/webapp/app/generated -f
+          git add openapi/openapi.yaml src/main/webapp/src/app/generated -f
           if git diff --cached --quiet; then
             echo "no_changes_detected=true" >> $GITHUB_OUTPUT
           else

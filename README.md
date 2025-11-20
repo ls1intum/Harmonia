@@ -45,13 +45,55 @@ Harmonia is built as a Java/Spring-based monolith, prioritizing stability and jo
 
 ---
 
-## 🐳 Docker Command for PostgreSQL
+## 🐳 Run Harmonia with Docker
 
-Use this command to quickly set up a local instance of the PostgreSQL database required by the server.
+### Quick Start with Startup Scripts
+
+Use the provided startup scripts for an automated setup:
+
+**macOS/Linux:**
+```bash
+./start.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+.\start.ps1
+```
+
+The scripts will:
+- Check if Docker is running
+- Clean up any existing containers
+- Build and start all services (database, server, client)
+- Wait for services to be ready
+- Display access URLs and helpful commands
+
+### Full stack (database + server + client)
+
+Alternatively, you can manually build and launch everything:
+
+Alternatively, you can manually build and launch everything:
+
+1. Build and launch:
 
    ```bash
-    docker compose -f docker/docker-compose.yml up -d
+   docker compose -f docker/docker-compose.yml up --build
    ```
+
+2. Access the services:
+   * Client (served by nginx): http://localhost:5173
+   * Spring Boot server: http://localhost:8080
+   * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
+
+The Compose setup builds the Gradle boot jar inside `docker/server.Dockerfile`, bundles the React client with Vite via `docker/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images restart automatically unless stopped.
+
+### Database only
+
+If you only need the database for local development you can start just the PostgreSQL service:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d postgres
+```
 
 ## 🚀 How to Run the Server
 

@@ -1,23 +1,36 @@
 package de.tum.cit.aet.repositoryProcessing.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import de.tum.cit.aet.repositoryProcessing.domain.TeamRepository;
 
-import java.util.UUID;
-
+/**
+ * DTO representing a team's repository information and analysis results.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record TeamRepositoryDTO(UUID teamRepositoryDTO) {
+public record TeamRepositoryDTO(
+        ParticipationDTO participation,
+        String localPath,
+        Integer commitCount,
+        Boolean isCloned,
+        String error
+) {
+    /**
+     * Creates a builder for TeamRepositoryDTO.
+     */
+    public static TeamRepositoryDTOBuilder builder() {
+        return new TeamRepositoryDTOBuilder();
+    }
 
     /**
-     * @return The teamRepositoryDTO from the teamRepository
+     * Creates a copy with updated commitCount.
      */
-    public static TeamRepositoryDTO getFromEntity(TeamRepository teamRepository) {
-        if (teamRepository == null) {
-            return null;
-        }
+    public TeamRepositoryDTO withCommitCount(Integer commitCount) {
+        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
+    }
 
-        return new TeamRepositoryDTO(
-                teamRepository.getTeamRepositoryId()
-        );
+    /**
+     * Creates a copy with updated error.
+     */
+    public TeamRepositoryDTO withError(String error) {
+        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
     }
 }
