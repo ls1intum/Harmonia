@@ -13,6 +13,9 @@ RUN ./gradlew --no-daemon bootJar -x test \
 FROM eclipse-temurin:25.0.1_8-jre
 WORKDIR /app
 
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/application.jar app.jar
 
 EXPOSE 8080
