@@ -52,16 +52,19 @@ Harmonia is built as a Java/Spring-based monolith, prioritizing stability and jo
 Use the provided startup scripts for an automated setup:
 
 **macOS/Linux:**
+
 ```bash
-./start.sh
+./scripts/docker_start.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
-.\start.ps1
+.\scripts\docker_start.ps1 
 ```
 
 The scripts will:
+
 - Check if Docker is running
 - Clean up any existing containers
 - Build and start all services (database, server, client)
@@ -81,11 +84,13 @@ Alternatively, you can manually build and launch everything:
    ```
 
 2. Access the services:
-   * Client (served by nginx): http://localhost:5173
-   * Spring Boot server: http://localhost:8080
-   * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
+    * Client (served by nginx): http://localhost:5173
+    * Spring Boot server: http://localhost:8080
+    * PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
 
-The Compose setup builds the Gradle boot jar inside `docker/server.Dockerfile`, bundles the React client with Vite via `docker/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images restart automatically unless stopped.
+The Compose setup builds the Gradle boot jar inside `docker/server.Dockerfile`, bundles the React client with Vite via
+`docker/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images
+restart automatically unless stopped.
 
 ### Database only
 
@@ -103,18 +108,53 @@ following commands to build and run the server locally:
 1. Make sure to run the Docker container.
 
 2. **Build the Project:** Compile the server application.
-
-   | OS                         | Command to Build Project        |
-          |:---------------------------|:--------------------------------|
-   | macOS                      | `./gradlew clean build -x test` |
-   | Windows                    | `.\gradlew clean build -x test` |
+    ```bash
+   ./gradlew clean build -x test
+   ```
 
 3. **Run the Server:** Start the Spring Boot application.
+    ```bash
+   ./gradlew bootRun
+   ```
 
-   | OS                         | Command to Run Server |
-         |:---------------------------|:----------------------|
-   | macOS                      | `./gradlew bootRun`   |
-   | Windows                    | `.\gradlew bootRun`   |
+---
+
+## 📘 OpenAPI Workflow (Server → React Client)
+
+Harmonia uses SpringDoc to automatically generate an OpenAPI 3.0 specification, which is then used to generate a fully
+typed React client (TypeScript + Axios).
+
+Whenever you update server-side code (controllers, DTOs, response models, etc.), you must regenerate:
+
+1. The OpenAPI YAML file
+2. The React service code
+
+⸻
+
+### 🔄 Step 1 — Generate the OpenAPI Specification
+
+Run the following command to start the application in the special openapi profile and produce the latest openapi.yaml
+file:
+
+```bash
+./gradlew generateApiDocs -x webapp --stacktrace
+```
+
+The generated file will be located at: [`./openapi/openapi.yaml`](./openapi/openapi.yaml)
+
+### 🔄 Step 2 — Generate the React Client Code
+
+Once the OpenAPI spec is updated, generate the React API services:
+
+```bash
+./gradlew openApiGenerate
+```
+
+This will generate fully typed API clients and models in: [
+`./src/main/webapp/src/app/generated/`](./src/main/webapp/src/app/generated)
+
+These files are overwritten each time you run the generator and should be committed to version control to keep client
+and server in sync.
 
 ---
 
@@ -136,39 +176,3 @@ following commands to build and run the server locally:
 
 - Utility for conditional className construction
 - Cleaner and more readable than manual string concatenation
-
-## 📘 OpenAPI Workflow (Server → React Client)
-
-Harmonia uses SpringDoc to automatically generate an OpenAPI 3.0 specification, which is then used to generate a fully typed React client (TypeScript + Axios).
-
-Whenever you update server-side code (controllers, DTOs, response models, etc.), you must regenerate:
-1.	The OpenAPI YAML file
-2.	The React service code
-
-⸻
-
-### 🔄 Step 1 — Generate the OpenAPI Specification
-
-Run the following command to start the application in the special openapi profile and produce the latest openapi.yaml file:
-
-```bash
-    ./gradlew generateApiDocs -x webapp --stacktrace
-```
-
-The generated file will be located at:
-
-/openapi/openapi.yaml
-
-### 🔄 Step 2 — Generate the React Client Code
-
-Once the OpenAPI spec is updated, generate the React API services:
-
-```bash
-    ./gradlew openApiGenerate
-```
-
-This will generate fully typed API clients and models in:
-
-src/main/webapp/src/app/generated/
-
-These files are overwritten each time you run the generator and should be committed to version control to keep client and server in sync.
