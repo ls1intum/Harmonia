@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, Loader2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username?: string, password?: string) => void;
@@ -14,15 +15,44 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   const [exercise, setExercise] = useState('Final Project');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [serverUrl, setServerUrl] = useState('https://artemis.tum.de');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleCourseChange = (value: string) => {
     setCourse(value);
     setExercise(''); // Reset exercise when course changes
   };
 
-  const handleStart = () => {
-    if (course && exercise && username && password) {
-      onStart(course, exercise, username, password);
+  const handleStart = async () => {
+    if (course && exercise && username && password && serverUrl) {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password, serverUrl }),
+        });
+
+        if (response.ok) {
+          onStart(course, exercise, username, password);
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Login failed',
+            description: 'Please check your credentials and server URL.',
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'An error occurred during login.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -34,6 +64,16 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       </div>
 
       <div className="w-full max-w-md space-y-4 mt-4">
+        <div className="space-y-2">
+          <Label htmlFor="serverUrl">Artemis Server URL</Label>
+          <Input
+            id="serverUrl"
+            placeholder="https://artemis.cit.tum.de"
+            value={serverUrl}
+            onChange={(e) => setServerUrl(e.target.value)}
+          />
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="username">Artemis Username</Label>
           <Input
@@ -85,10 +125,10 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         <Button
           size="lg"
           onClick={handleStart}
-          disabled={!course || !exercise || !username || !password}
+          disabled={!course || !exercise || !username || !password || !serverUrl || isLoading}
           className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
-          <PlayCircle className="mr-2 h-5 w-5" />
+          {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
           Start Analysis
         </Button>
       </div>

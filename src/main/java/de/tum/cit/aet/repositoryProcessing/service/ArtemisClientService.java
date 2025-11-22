@@ -6,10 +6,14 @@ import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service responsible for communicating with the Artemis API.
@@ -29,6 +33,93 @@ public class ArtemisClientService {
                 .baseUrl(artemisConfig.getBaseUrl())
                 .defaultHeader("Cookie", "jwt=" + artemisConfig.getJwtToken())
                 .build();
+    }
+
+    /**
+     * Authenticates with the Artemis server and retrieves the JWT cookie.
+     *
+     * @param serverUrl The Artemis server URL
+     * @param username  The username
+     * @param password  The password
+     * @return The JWT cookie string
+     */
+    public String authenticate(String serverUrl, String username, String password) {
+        return authenticateInternal(serverUrl, username, password, 0);
+    }
+
+    private String authenticateInternal(String serverUrl, String username, String password, int retryCount) {
+        if (retryCount > 3) {
+            throw new ArtemisConnectionException("Too many redirects during authentication");
+        }
+
+        log.info("Authenticating with Artemis at {} (attempt {})", serverUrl, retryCount + 1);
+
+        var authRequest = Map.of(
+                "username", username,
+                "password", password,
+                "rememberMe", true
+        );
+
+        try {
+            // Ensure we hit the correct endpoint structure
+            // Modern Artemis uses /api/core/public/authenticate
+            // We try to construct the path carefully
+            String authPath = "/api/core/public/authenticate";
+            
+            // If the serverUrl already ends with /api, we should avoid doubling it if we were using /api/...
+            // But here we assume serverUrl is the root (e.g. https://artemis.tum.de)
+            
+            ResponseEntity<String> response = RestClient.create(serverUrl).post()
+                    .uri(authPath)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(authRequest)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            log.info("Artemis Auth Response Status: {}", response.getStatusCode());
+            
+            if (response.getStatusCode().is3xxRedirection()) {
+                String newLocation = response.getHeaders().getFirst(HttpHeaders.LOCATION);
+                if (newLocation != null) {
+                    log.info("Redirect detected to: {}", newLocation);
+                    
+                    // Normalize new location to be a base URL
+                    String newBaseUrl = newLocation;
+                    if (newBaseUrl.endsWith(authPath)) {
+                        newBaseUrl = newBaseUrl.substring(0, newBaseUrl.length() - authPath.length());
+                    }
+                    if (newBaseUrl.endsWith("/")) {
+                        newBaseUrl = newBaseUrl.substring(0, newBaseUrl.length() - 1);
+                    }
+                    
+                    return authenticateInternal(newBaseUrl, username, password, retryCount + 1);
+                }
+            }
+
+            log.info("Artemis Auth Response Headers: {}", response.getHeaders());
+            log.info("Artemis Auth Response Body: {}", response.getBody());
+
+            List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+            if (cookies != null) {
+                for (String cookie : cookies) {
+                    if (cookie.startsWith("jwt=")) {
+                        int start = 4;
+                        int end = cookie.indexOf(';');
+                        if (end == -1) {
+                            end = cookie.length();
+                        }
+                        return cookie.substring(start, end);
+                    }
+                }
+            }
+
+            throw new ArtemisConnectionException("No JWT cookie received from Artemis");
+        } catch (ArtemisConnectionException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Authentication failed", e);
+            throw new ArtemisConnectionException("Authentication failed", e);
+        }
     }
 
     /**
