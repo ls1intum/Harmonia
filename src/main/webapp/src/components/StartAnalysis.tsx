@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlayCircle } from 'lucide-react';
 
 interface StartAnalysisProps {
-  onStart: (course: string, exercise: string) => void;
+  onStart: (course: string, exercise: string, username?: string, password?: string) => void;
 }
 
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   const [course, setCourse] = useState('ITP');
   const [exercise, setExercise] = useState('Final Project');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleCourseChange = (value: string) => {
     setCourse(value);
@@ -18,19 +21,42 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   };
 
   const handleStart = () => {
-    if (course && exercise) {
-      onStart(course, exercise);
+    if (course && exercise && username && password) {
+      onStart(course, exercise, username, password);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
+    <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
       <div className="text-center space-y-4 max-w-2xl">
         <h1 className="text-4xl md:text-5xl font-bold bg-gradient-primary bg-clip-text">Welcome to Harmonia!</h1>
         <p className="text-lg text-muted-foreground">Analyze student team projects to assess collaboration quality</p>
       </div>
 
       <div className="w-full max-w-md space-y-4 mt-4">
+        <div className="space-y-2">
+          <Label htmlFor="username">Artemis Username</Label>
+          <Input
+            id="username"
+            placeholder="Enter your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Artemis Password</Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+
+        <div className="my-6 border-t border-border" />
+
         <div className="space-y-2">
           <Label htmlFor="course">Course</Label>
           <Select value={course} onValueChange={handleCourseChange}>
@@ -59,7 +85,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         <Button
           size="lg"
           onClick={handleStart}
-          disabled={!course || !exercise}
+          disabled={!course || !exercise || !username || !password}
           className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           <PlayCircle className="mr-2 h-5 w-5" />
