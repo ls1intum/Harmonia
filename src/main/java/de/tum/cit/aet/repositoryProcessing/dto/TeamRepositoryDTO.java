@@ -9,7 +9,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 public record TeamRepositoryDTO(
         ParticipationDTO participation,
         String localPath,
-        Integer commitCount,
         Boolean isCloned,
         String error
 ) {
@@ -21,16 +20,9 @@ public record TeamRepositoryDTO(
     }
 
     /**
-     * Creates a copy with updated commitCount.
-     */
-    public TeamRepositoryDTO withCommitCount(Integer commitCount) {
-        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
-    }
-
-    /**
      * Creates a copy with updated error.
      */
     public TeamRepositoryDTO withError(String error) {
-        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
+        return new TeamRepositoryDTO(participation, localPath, isCloned, error);
     }
 }

@@ -6,7 +6,6 @@ package de.tum.cit.aet.repositoryProcessing.dto;
 public class TeamRepositoryDTOBuilder {
     private ParticipationDTO participation;
     private String localPath;
-    private Integer commitCount;
     private Boolean isCloned;
     private String error;
 
@@ -20,10 +19,6 @@ public class TeamRepositoryDTOBuilder {
         return this;
     }
 
-    public TeamRepositoryDTOBuilder commitCount(Integer commitCount) {
-        this.commitCount = commitCount;
-        return this;
-    }
 
     public TeamRepositoryDTOBuilder isCloned(Boolean isCloned) {
         this.isCloned = isCloned;
@@ -36,6 +31,6 @@ public class TeamRepositoryDTOBuilder {
     }
 
     public TeamRepositoryDTO build() {
-        return new TeamRepositoryDTO(participation, localPath, commitCount, isCloned, error);
+        return new TeamRepositoryDTO(participation, localPath, isCloned, error);
     }
 }

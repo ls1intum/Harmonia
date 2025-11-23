@@ -14,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record ParticipationDTO(
         Long id,
         String repositoryUri,
-        TeamDTO team
+        TeamDTO team,
+        Integer submissionCount
 ) {
 }
