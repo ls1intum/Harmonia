@@ -52,7 +52,7 @@ function delay(ms: number): Promise<void> {
 }
 
 // ============================================================
-// DATA TRANSFORMATION - Convert DTO to Frontend Types
+// DATA TRANSFORMATION - Convert DTO to Client Types
 // ============================================================
 
 /**
@@ -152,7 +152,7 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // API CALLS (Real Implementation)
 // ============================================================
 async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promise<BasicTeamData[]> {
-  // Note: course and exercise parameters not yet used by backend endpoint
+  // Note: course and exercise parameters not yet used by serevr endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
@@ -166,7 +166,7 @@ async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promi
 }
 
 async function fetchComplexTeamsFromAPI(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
-  // Note: course and exercise parameters not yet used by backend endpoint
+  // Note: course and exercise parameters not yet used by serevr endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
