@@ -3,6 +3,7 @@ title Start Analysis Flow
 
 actor User
 participant "Client (React)" as Client
+participant "AuthController" as Auth
 participant "RequestResource" as Controller
 participant "RequestService" as ReqService
 participant "RepositoryFetchingService" as RepoService
@@ -13,9 +14,13 @@ participant "Git Server" as Git
 
 == Authentication Phase ==
 User -> Client: Enter Credentials & Click "Start"
-Client -> Controller: POST /api/auth/login
+Client -> Auth: POST /api/auth/login
 note right of Client: Sends username, password, serverUrl
-Controller -> Client: 200 OK (Set-Cookie: jwt, username, password)
+Auth -> ArtemisClient: authenticate(url, user, pass)
+ArtemisClient -> Artemis: POST /api/core/public/authenticate
+Artemis --> ArtemisClient: 200 OK (Set-Cookie: jwt)
+ArtemisClient --> Auth: jwtToken
+Auth -> Client: 200 OK (Set-Cookie: jwt, username, password)
 Client -> Client: Navigate to /teams
 
 == Data Loading Phase ==
