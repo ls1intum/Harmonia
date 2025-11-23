@@ -34,7 +34,7 @@ public class SpringAIConfiguration {
         for(ChatModel model : chatModels) {
             log.info("Found Chat Model: {} with temperature: {}", model.getDefaultOptions().getModel(), model.getDefaultOptions().getTemperature());
         }
-        ChatModel chatModel = chatModels.getFirst(); // Use the first available model
+        ChatModel chatModel = chatModels.get(0); // Use the first available model
 
         return ChatClient.builder(chatModel).build();
     }

@@ -20,20 +20,6 @@ class HarmoniaApplicationTests {
     private RepositoryFetchingService repositoryFetchingService;
 
     @Test
-    void testRepositoryCloningAndPulling() {
-        List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories();
-        System.out.println(teamRepositories);
-    }
-
-    @Test
-    void testRepositoryFetching() {
-        List<ParticipationDTO> teamRepositories = artemisClientService.fetchParticipations();
-        for (ParticipationDTO participationDTO : teamRepositories) {
-            System.out.println(participationDTO);
-        }
-    }
-
-    @Test
     void contextLoads() {
     }
 

@@ -1,5 +1,6 @@
 package de.tum.cit.aet.usermanagement.web;
 
+import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import de.tum.cit.aet.usermanagement.dto.LoginRequestDTO;
 import org.springframework.http.HttpHeaders;
@@ -17,9 +18,11 @@ import java.time.Duration;
 public class AuthController {
 
     private final ArtemisClientService artemisClientService;
+    private final CryptoService cryptoService;
 
-    public AuthController(ArtemisClientService artemisClientService) {
+    public AuthController(ArtemisClientService artemisClientService, CryptoService cryptoService) {
         this.artemisClientService = artemisClientService;
+        this.cryptoService = cryptoService;
     }
 
     @PostMapping("/login")
@@ -38,8 +41,37 @@ public class AuthController {
                 .sameSite("Strict")
                 .build();
 
+        ResponseCookie serverUrlCookie = ResponseCookie.from("artemis_server_url", loginRequest.serverUrl())
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(Duration.ofDays(1))
+                .sameSite("Strict")
+                .build();
+
+        ResponseCookie usernameCookie = ResponseCookie.from("artemis_username", loginRequest.username())
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(Duration.ofDays(1))
+                .sameSite("Strict")
+                .build();
+
+        // Encrypt password before storing in cookie
+        String encryptedPassword = cryptoService.encrypt(loginRequest.password());
+        ResponseCookie passwordCookie = ResponseCookie.from("artemis_password", encryptedPassword)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(Duration.ofDays(1))
+                .sameSite("Strict")
+                .build();
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, serverUrlCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, usernameCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, passwordCookie.toString())
                 .build();
     }
 }

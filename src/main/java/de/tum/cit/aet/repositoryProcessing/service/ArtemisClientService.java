@@ -24,15 +24,10 @@ import java.util.Map;
 public class ArtemisClientService {
 
     private final ArtemisConfig artemisConfig;
-    private final RestClient restClient;
 
     @Autowired
     public ArtemisClientService(ArtemisConfig artemisConfig) {
         this.artemisConfig = artemisConfig;
-        restClient = RestClient.builder()
-                .baseUrl(artemisConfig.getBaseUrl())
-                .defaultHeader("Cookie", "jwt=" + artemisConfig.getJwtToken())
-                .build();
     }
 
     /**
@@ -123,18 +118,25 @@ public class ArtemisClientService {
     }
 
     /**
-     * Fetches all participations for the configured exercise from Artemis.
+     * Fetches all participations for the configured exercise from Artemis using provided credentials.
      *
+     * @param serverUrl The Artemis server URL
+     * @param jwtToken  The JWT token for authentication
      * @return List of participation DTOs containing team and repository information
      */
-    public List<ParticipationDTO> fetchParticipations() {
-        log.info("Fetching participations for exercise ID: {}", artemisConfig.getExerciseId());
+    public List<ParticipationDTO> fetchParticipations(String serverUrl, String jwtToken) {
+        log.info("Fetching participations for exercise ID: {} from {}", artemisConfig.getExerciseId(), serverUrl);
 
-        String uri = String.format("/exercise/exercises/%d/participations?withLatestResults=false",
+        String uri = String.format("/api/exercise/exercises/%d/participations?withLatestResults=false",
                 artemisConfig.getExerciseId());
 
         try {
-            List<ParticipationDTO> participations = restClient.get()
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            List<ParticipationDTO> participations = dynamicClient.get()
                     .uri(uri)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
@@ -148,6 +150,40 @@ public class ArtemisClientService {
         } catch (Exception e) {
             log.error("Error fetching participations from Artemis", e);
             throw new ArtemisConnectionException("Failed to fetch participations from Artemis", e);
+        }
+    }
+
+    /**
+     * Fetches a VCS access token for a specific participation.
+     *
+     * @param serverUrl       The Artemis server URL
+     * @param jwtToken        The JWT token for authentication
+     * @param participationId The ID of the participation
+     * @return The VCS access token
+     */
+    public String getVcsAccessToken(String serverUrl, String jwtToken, Long participationId) {
+        log.info("Fetching VCS access token for participation ID: {} from {}", participationId, serverUrl);
+
+        String uri = "/api/core/account/participation-vcs-access-token?participationId=" + participationId;
+
+        try {
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            // Assuming GET as POST failed with 405
+            String vcsToken = dynamicClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(String.class);
+
+            log.debug("Successfully fetched VCS access token for participation {}", participationId);
+            return vcsToken;
+
+        } catch (Exception e) {
+            log.error("Error fetching VCS access token for participation {}", participationId, e);
+            throw new ArtemisConnectionException("Failed to fetch VCS access token", e);
         }
     }
 }

@@ -9,9 +9,9 @@ import { Configuration } from '@/app/generated/configuration';
 // ============================================================
 const USE_DUMMY_DATA = config.USE_DUMMY_DATA;
 
-// Initialize API client with Basic Auth
+// Initialize API client
 const apiConfig = new Configuration({
-  basePath: 'http://localhost:8080',
+  basePath: 'http://localhost:8080', // TODO: Make this configurable or relative
   username: 'admin',
   password: 'admin1234',
   baseOptions: {
@@ -19,6 +19,7 @@ const apiConfig = new Configuration({
       username: 'admin',
       password: 'admin1234',
     },
+    withCredentials: true, // Important: Send cookies (JWT, etc.) with requests
   },
 });
 const requestApi = new RequestResourceApi(apiConfig);

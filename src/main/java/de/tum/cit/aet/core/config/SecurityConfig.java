@@ -43,7 +43,7 @@ public class SecurityConfig {
                         .permitAll()
                         .anyRequest().authenticated()
                 )
-                .httpBasic(_ -> {});
+                .httpBasic(basic -> {});
         return http.build();
     }
 
