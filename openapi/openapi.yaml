@@ -28,6 +28,7 @@ components:
       properties:
         id: {type: integer, format: int64}
         repositoryUri: {type: string}
+        submissionCount: {type: integer, format: int32}
         team: {$ref: '#/components/schemas/TeamDTO'}
     TeamDTO:
       type: object
@@ -42,7 +43,6 @@ components:
     TeamRepositoryDTO:
       type: object
       properties:
-        commitCount: {type: integer, format: int32}
         error: {type: string}
         isCloned: {type: boolean}
         localPath: {type: string}
