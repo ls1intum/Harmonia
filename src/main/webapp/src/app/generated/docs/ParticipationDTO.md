@@ -1,14 +1,13 @@
 # ParticipationDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**id** | **number** |  | [optional] [default to undefined]
-**repositoryUri** | **string** |  | [optional] [default to undefined]
-**submissionCount** | **number** |  | [optional] [default to undefined]
-**team** | [**TeamDTO**](TeamDTO.md) |  | [optional] [default to undefined]
+| Name                | Type                      | Description | Notes                             |
+| ------------------- | ------------------------- | ----------- | --------------------------------- |
+| **id**              | **number**                |             | [optional] [default to undefined] |
+| **repositoryUri**   | **string**                |             | [optional] [default to undefined] |
+| **submissionCount** | **number**                |             | [optional] [default to undefined] |
+| **team**            | [**TeamDTO**](TeamDTO.md) |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -16,10 +15,10 @@ Name | Type | Description | Notes
 import { ParticipationDTO } from './api';
 
 const instance: ParticipationDTO = {
-    id,
-    repositoryUri,
-    submissionCount,
-    team,
+  id,
+  repositoryUri,
+  submissionCount,
+  team,
 };
 ```
 

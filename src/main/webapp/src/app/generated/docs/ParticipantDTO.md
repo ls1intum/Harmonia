@@ -1,13 +1,12 @@
 # ParticipantDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**id** | **number** |  | [optional] [default to undefined]
-**login** | **string** |  | [optional] [default to undefined]
-**name** | **string** |  | [optional] [default to undefined]
+| Name      | Type       | Description | Notes                             |
+| --------- | ---------- | ----------- | --------------------------------- |
+| **id**    | **number** |             | [optional] [default to undefined] |
+| **login** | **string** |             | [optional] [default to undefined] |
+| **name**  | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -15,9 +14,9 @@ Name | Type | Description | Notes
 import { ParticipantDTO } from './api';
 
 const instance: ParticipantDTO = {
-    id,
-    login,
-    name,
+  id,
+  login,
+  name,
 };
 ```
 
