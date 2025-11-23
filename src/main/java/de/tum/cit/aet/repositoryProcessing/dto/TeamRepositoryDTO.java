@@ -4,6 +4,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * DTO representing a team's repository information and analysis results.
+ *
+ * @param participation The participation details, including the team and repository URI.
+ * @param localPath     The path to the local copy of the repository, if successfully cloned.
+ * @param isCloned      A flag indicating whether the repository was successfully cloned locally.
+ * @param error         Any error message encountered during processing (e.g., cloning failure).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TeamRepositoryDTO(
