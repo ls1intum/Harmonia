@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
 import java.time.Duration;
 
 @RestController
@@ -32,13 +33,7 @@ public class AuthController {
      * @return ResponseEntity with the cookies set
      */
     @PostMapping("/login")
-    public ResponseEntity<Void> login(@RequestBody LoginRequestDTO loginRequest) {
-        if (loginRequest.serverUrl() == null || loginRequest.serverUrl().isBlank() ||
-            loginRequest.username() == null || loginRequest.username().isBlank() ||
-            loginRequest.password() == null || loginRequest.password().isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-
+    public ResponseEntity<Void> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
         String jwtToken = artemisClientService.authenticate(
                 loginRequest.serverUrl(),
                 loginRequest.username(),
@@ -79,11 +74,14 @@ public class AuthController {
                 .sameSite("Strict")
                 .build();
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, jwtCookie.toString());
+        headers.add(HttpHeaders.SET_COOKIE, serverUrlCookie.toString());
+        headers.add(HttpHeaders.SET_COOKIE, usernameCookie.toString());
+        headers.add(HttpHeaders.SET_COOKIE, passwordCookie.toString());
+
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, serverUrlCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, usernameCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, passwordCookie.toString())
+                .headers(headers)
                 .build();
     }
 }
