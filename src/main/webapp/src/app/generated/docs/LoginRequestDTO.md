@@ -2,11 +2,11 @@
 
 ## Properties
 
-| Name          | Type       | Description | Notes                             |
-| ------------- | ---------- | ----------- | --------------------------------- |
-| **password**  | **string** |             | [optional] [default to undefined] |
-| **serverUrl** | **string** |             | [optional] [default to undefined] |
-| **username**  | **string** |             | [optional] [default to undefined] |
+| Name          | Type       | Description | Notes                  |
+| ------------- | ---------- | ----------- | ---------------------- |
+| **password**  | **string** |             | [default to undefined] |
+| **serverUrl** | **string** |             | [default to undefined] |
+| **username**  | **string** |             | [default to undefined] |
 
 ## Example
 

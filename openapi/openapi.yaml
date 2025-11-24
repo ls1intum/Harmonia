@@ -48,9 +48,10 @@ components:
     LoginRequestDTO:
       type: object
       properties:
-        password: {type: string}
-        serverUrl: {type: string}
-        username: {type: string}
+        password: {type: string, minLength: 1}
+        serverUrl: {type: string, minLength: 1}
+        username: {type: string, minLength: 1}
+      required: [password, serverUrl, username]
     ParticipantDTO:
       type: object
       properties:

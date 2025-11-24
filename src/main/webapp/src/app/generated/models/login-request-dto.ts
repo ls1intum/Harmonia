@@ -13,7 +13,7 @@
  */
 
 export interface LoginRequestDTO {
-  password?: string;
-  serverUrl?: string;
-  username?: string;
+  password: string;
+  serverUrl: string;
+  username: string;
 }
