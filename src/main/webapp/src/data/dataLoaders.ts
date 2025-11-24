@@ -151,7 +151,7 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // ============================================================
 // API CALLS (Real Implementation)
 // ============================================================
-async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promise<BasicTeamData[]> {
+async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   // Note: course and exercise parameters not yet used by serevr endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
@@ -165,7 +165,7 @@ async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promi
   }
 }
 
-async function fetchComplexTeamsFromAPI(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
+async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
   // Note: course and exercise parameters not yet used by serevr endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
@@ -205,25 +205,27 @@ async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | n
 /**
  * Fetch basic team data (quick, partial information)
  */
-export async function loadBasicTeamData(course: string, exercise: string): Promise<BasicTeamData[]> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function loadBasicTeamData(_course: string, _exercise: string): Promise<BasicTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(500); // Simulate network delay
     return getBasicDummyTeams();
   }
 
-  return fetchBasicTeamsFromAPI(course, exercise);
+  return fetchBasicTeamsFromAPI();
 }
 
 /**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-export async function loadComplexTeamData(course: string, exercise: string): Promise<ComplexTeamData[]> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function loadComplexTeamData(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
     return getComplexDummyTeams();
   }
 
-  return fetchComplexTeamsFromAPI(course, exercise);
+  return fetchComplexTeamsFromAPI();
 }
 
 /**

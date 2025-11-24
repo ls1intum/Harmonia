@@ -25,8 +25,20 @@ public class AuthController {
         this.cryptoService = cryptoService;
     }
 
+    /**
+     * Authenticates the user against Artemis and sets the necessary cookies.
+     *
+     * @param loginRequest The login request containing username, password, and server URL
+     * @return ResponseEntity with the cookies set
+     */
     @PostMapping("/login")
     public ResponseEntity<Void> login(@RequestBody LoginRequestDTO loginRequest) {
+        if (loginRequest.serverUrl() == null || loginRequest.serverUrl().isBlank() ||
+            loginRequest.username() == null || loginRequest.username().isBlank() ||
+            loginRequest.password() == null || loginRequest.password().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
         String jwtToken = artemisClientService.authenticate(
                 loginRequest.serverUrl(),
                 loginRequest.username(),
@@ -35,7 +47,7 @@ public class AuthController {
 
         ResponseCookie jwtCookie = ResponseCookie.from("jwt", jwtToken)
                 .httpOnly(true)
-                .secure(false) // Set to false for localhost development, true for production usually
+                .secure(true) // Set to true for production
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")
@@ -43,7 +55,7 @@ public class AuthController {
 
         ResponseCookie serverUrlCookie = ResponseCookie.from("artemis_server_url", loginRequest.serverUrl())
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")
@@ -51,7 +63,7 @@ public class AuthController {
 
         ResponseCookie usernameCookie = ResponseCookie.from("artemis_username", loginRequest.username())
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")
@@ -61,7 +73,7 @@ public class AuthController {
         String encryptedPassword = cryptoService.encrypt(loginRequest.password());
         ResponseCookie passwordCookie = ResponseCookie.from("artemis_password", encryptedPassword)
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")

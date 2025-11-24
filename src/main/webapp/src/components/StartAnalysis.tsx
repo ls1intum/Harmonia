@@ -44,7 +44,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
             description: 'Please check your credentials and server URL.',
           });
         }
-      } catch (error) {
+      } catch {
         toast({
           variant: 'destructive',
           title: 'Error',

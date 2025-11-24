@@ -47,6 +47,13 @@ public class ArtemisClientService {
             throw new ArtemisConnectionException("Too many redirects during authentication");
         }
 
+        // Strip /api suffix if present
+        if (serverUrl.endsWith("/api")) {
+            serverUrl = serverUrl.substring(0, serverUrl.length() - 4);
+        } else if (serverUrl.endsWith("/api/")) {
+            serverUrl = serverUrl.substring(0, serverUrl.length() - 5);
+        }
+
         log.info("Authenticating with Artemis at {} (attempt {})", serverUrl, retryCount + 1);
 
         var authRequest = Map.of(
