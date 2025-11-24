@@ -1,0 +1,67 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/harmonia
+    username: postgres
+    password: harmonia
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+        implicit-strategy: org.springframework.boot.hibernate.SpringImplicitNamingStrategy
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+  ai:
+    azure:
+      openai:
+        api-key: <openai_key>
+        # open-ai-api-key: <openai_key> # Fallback OpenAI key if needed, sets endpoint automatically
+        endpoint: https://ase-se01.openai.azure.com/
+        # deployment-name should match the Azure OpenAI deployment
+        chat:
+          options:
+            deployment-name: gpt-5-mini
+            # Some Azure/OpenAI deployments (e.g., gpt-5-mini) only support the default temperature (1.0)
+            temperature: 1.0
+
+logging:
+  level:
+    org.springframework: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when-authorized
+
+harmonia:
+  user: admin
+  password: admin1234
+  cors:
+    allowed-origins:
+      - "http://localhost:5173"
+      - "http://localhost:3000"
+      - "http://localhost:8080"
+
+artemis:
+  baseUrl: 
+  username: 
+  password: 
+  jwtToken: 
+  exerciseId: 424
+  gitRepoPath: Projects/itp2425teamprojects
+  numThreads: 8
