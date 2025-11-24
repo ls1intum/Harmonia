@@ -67,10 +67,10 @@ public class ArtemisClientService {
             // Modern Artemis uses /api/core/public/authenticate
             // We try to construct the path carefully
             String authPath = "/api/core/public/authenticate";
-            
+
             // If the serverUrl already ends with /api, we should avoid doubling it if we were using /api/...
             // But here we assume serverUrl is the root (e.g. https://artemis.tum.de)
-            
+
             ResponseEntity<String> response = RestClient.create(serverUrl).post()
                     .uri(authPath)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -79,12 +79,12 @@ public class ArtemisClientService {
                     .toEntity(String.class);
 
             log.info("Artemis Auth Response Status: {}", response.getStatusCode());
-            
+
             if (response.getStatusCode().is3xxRedirection()) {
                 String newLocation = response.getHeaders().getFirst(HttpHeaders.LOCATION);
                 if (newLocation != null) {
                     log.info("Redirect detected to: {}", newLocation);
-                    
+
                     // Normalize new location to be a base URL
                     String newBaseUrl = newLocation;
                     if (newBaseUrl.endsWith(authPath)) {
@@ -93,7 +93,7 @@ public class ArtemisClientService {
                     if (newBaseUrl.endsWith("/")) {
                         newBaseUrl = newBaseUrl.substring(0, newBaseUrl.length() - 1);
                     }
-                    
+
                     return authenticateInternal(newBaseUrl, username, password, retryCount + 1);
                 }
             }

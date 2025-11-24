@@ -45,11 +45,11 @@ public class RequestResource {
             @CookieValue(value = "artemis_password", required = false) String encryptedPassword
     ) {
         log.info("GET request received: fetchAndCloneRepositories");
-        
+
         List<TeamRepositoryDTO> repositories;
         if (jwtToken != null && serverUrl != null) {
             log.info("Using dynamic credentials from cookies");
-            
+
             String password = null;
             if (encryptedPassword != null) {
                 try {
@@ -58,13 +58,13 @@ public class RequestResource {
                     log.error("Failed to decrypt password from cookie", e);
                 }
             }
-            
+
             repositories = requestService.fetchAndCloneRepositories(serverUrl, jwtToken, username, password);
         } else {
             log.warn("No credentials found in cookies. Authentication required.");
             return ResponseEntity.status(401).build();
         }
-        
+
         log.info("Successfully fetched and cloned {} repositories", repositories.size());
         return ResponseEntity.ok(repositories);
     }
