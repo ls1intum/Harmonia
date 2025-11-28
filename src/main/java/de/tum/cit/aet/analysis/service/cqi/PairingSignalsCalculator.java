@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -41,7 +40,7 @@ public class PairingSignalsCalculator {
 
         // Apply threshold penalties
         if (alternationRate < ALTERNATION_THRESHOLD || coEditingRate < CO_EDITING_THRESHOLD) {
-            log.info("Pairing thresholds not met (alternation: {}, co-editing: {}), applying penalty", 
+            log.info("Pairing thresholds not met (alternation: {}, co-editing: {}), applying penalty",
                     alternationRate, coEditingRate);
             pairingScore *= 0.5; // 50% penalty for poor collaboration
         }
@@ -64,10 +63,10 @@ public class PairingSignalsCalculator {
 
             // Check if commits touch same files
             Set<String> commonFiles = getCommonFiles(current.getModifiedFiles(), previous.getModifiedFiles());
-            
+
             if (!commonFiles.isEmpty()) {
                 totalEligibleCommits++;
-                
+
                 // Check if different authors worked on same files
                 if (!current.getAuthor().equals(previous.getAuthor())) {
                     alternatingCommits++;
@@ -89,15 +88,15 @@ public class PairingSignalsCalculator {
 
         for (int i = 0; i < commits.size(); i++) {
             CommitInfo current = commits.get(i);
-            
+
             // Look for commits within time window
             for (int j = i + 1; j < commits.size(); j++) {
                 CommitInfo other = commits.get(j);
-                
+
                 // Check if within time window
                 if (isWithinTimeWindow(current.getTimestamp(), other.getTimestamp())) {
                     // Check if different authors editing same files
-                    if (!current.getAuthor().equals(other.getAuthor()) && 
+                    if (!current.getAuthor().equals(other.getAuthor()) &&
                         hasCommonFiles(current.getModifiedFiles(), other.getModifiedFiles())) {
                         coEditingCommits++;
                         break; // Count each commit only once
