@@ -1,0 +1,12 @@
+spring:
+  ai:
+    model:
+      chat: openai
+    openai:
+      base-url: http://localhost:1234
+      api-key: dummy-key
+      chat:
+        completions-path: /v1/chat/completions
+        options:
+          model: openai/gpt-oss-20b
+          temperature: 0.0

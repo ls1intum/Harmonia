@@ -79,15 +79,14 @@ when testing locally.
 ## Testing the Integration
 
 1. Start the Harmonia server _(Make sure the Harmonia Server Run Configuration includes the `local` profile)_
-2. Call the storyWithStream API endpoint
-3. 
-4. View the **LMS Server logs**
+2. Call the storyWithStream API endpoint, i.e. `GET /api/ai/generate?message={message}`
+3View the **LMS Server logs**
     1. Via CLI
         ```bash
         lms log stream
         ```
     2. By opening LM Studio GUI and going into the Developer view
-5. Verify the logs
+4. Verify the logs
     1. include the prompt sent
     2. show progress status
     3. show the generated prediction
