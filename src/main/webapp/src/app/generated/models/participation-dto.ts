@@ -19,5 +19,6 @@ import type { TeamDTO } from './team-dto';
 export interface ParticipationDTO {
   id?: number;
   repositoryUri?: string;
+  submissionCount?: number;
   team?: TeamDTO;
 }

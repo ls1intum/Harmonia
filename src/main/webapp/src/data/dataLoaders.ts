@@ -60,7 +60,7 @@ function delay(ms: number): Promise<void> {
 function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
   const teamName = dto.participation?.team?.name || 'Unknown Team';
   const students = dto.participation?.team?.students || [];
-  const totalCommits = dto.commitCount || 0;
+  const totalCommits = dto.participation?.submissionCount || 0;
 
   // Mock: Distribute commits among students
   const studentData = students.map((student, index) => {
@@ -98,7 +98,7 @@ function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
  */
 function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
-  const totalCommits = dto.commitCount || 0;
+  const totalCommits = dto.participation?.submissionCount || 0;
 
   // Mock: Calculate CQI score (0-100)
   // Formula: Base score + commit bonus, capped at 100

@@ -17,7 +17,6 @@
 import type { ParticipationDTO } from './participation-dto';
 
 export interface TeamRepositoryDTO {
-  commitCount?: number;
   error?: string;
   isCloned?: boolean;
   localPath?: string;
