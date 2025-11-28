@@ -5,13 +5,11 @@ import Teams from '@/pages/Teams';
 import TeamDetailPage from '@/pages/TeamDetailPage';
 import NotFound from '@/pages/NotFound';
 import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
       <Toaster />
       <BrowserRouter>
         <Routes>
@@ -21,7 +19,6 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </TooltipProvider>
   </QueryClientProvider>
 );
 
