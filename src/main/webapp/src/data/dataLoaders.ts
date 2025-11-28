@@ -150,6 +150,8 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // ============================================================
 // API CALLS (Real Implementation)
 // ============================================================
+// TODO: Use course and exercise
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promise<BasicTeamData[]> {
   // Note: course and exercise parameters not yet used by backend endpoint
   try {
@@ -164,6 +166,8 @@ async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promi
   }
 }
 
+// TODO: Use course and exercise
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchComplexTeamsFromAPI(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
   // Note: course and exercise parameters not yet used by backend endpoint
   try {
