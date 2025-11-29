@@ -7,7 +7,7 @@ import { PlayCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface StartAnalysisProps {
-  onStart: (course: string, exercise: string, username?: string, password?: string) => void;
+  onStart: (course: string, exercise: string, username: string, password: string) => void;
 }
 
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
