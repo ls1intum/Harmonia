@@ -1,12 +1,12 @@
 .gitignore
 .npmignore
 api.ts
-apis/auth-controller-api.ts
+apis/auth-resource-api.ts
 apis/request-resource-api.ts
 base.ts
 common.ts
 configuration.ts
-docs/AuthControllerApi.md
+docs/AuthResourceApi.md
 docs/LoginRequestDTO.md
 docs/ParticipantDTO.md
 docs/ParticipationDTO.md
