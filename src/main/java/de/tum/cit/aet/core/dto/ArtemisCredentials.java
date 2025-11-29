@@ -19,7 +19,7 @@ public record ArtemisCredentials(
      * @return true if serverUrl and jwtToken are present
      */
     public boolean isValid() {
-        return serverUrl != null && !serverUrl.isBlank() 
+        return serverUrl != null && !serverUrl.isBlank()
                 && jwtToken != null && !jwtToken.isBlank();
     }
 
@@ -29,7 +29,7 @@ public record ArtemisCredentials(
      * @return true if both username and password are present
      */
     public boolean hasGitCredentials() {
-        return username != null && !username.isBlank() 
+        return username != null && !username.isBlank()
                 && password != null && !password.isBlank();
     }
 }
