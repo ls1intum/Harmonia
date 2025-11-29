@@ -76,6 +76,8 @@ dependencies {
 
     // Spring AI for LLM interaction
     implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0"
+    // use newest version of nimbus-jose-jwt to avoid security issues through outdated dependencies
+    implementation "com.nimbusds:nimbus-jose-jwt:10.6"
 
     // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.8'
