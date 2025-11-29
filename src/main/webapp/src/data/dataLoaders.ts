@@ -151,7 +151,7 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // ============================================================
 // API CALLS (Real Implementation)
 // ============================================================
-// TODO: Use course and exercise parameters when backend supports them
+// TODO: Use course and exercise parameters when server supports them
 async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   try {
     const response = await requestApi.fetchAndCloneRepositories();
@@ -165,7 +165,7 @@ async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   }
 }
 
-// TODO: Use course and exercise parameters when backend supports them
+// TODO: Use course and exercise parameters when server supports them
 async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
   try {
     const response = await requestApi.fetchAndCloneRepositories();
