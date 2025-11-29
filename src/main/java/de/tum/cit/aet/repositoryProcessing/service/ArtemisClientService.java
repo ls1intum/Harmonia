@@ -56,7 +56,7 @@ public class ArtemisClientService {
 
         log.info("Authenticating with Artemis at {} (attempt {})", serverUrl, retryCount + 1);
 
-        var authRequest = Map.of(
+        Map<String, Object> authRequest = Map.of(
                 "username", username,
                 "password", password,
                 "rememberMe", true

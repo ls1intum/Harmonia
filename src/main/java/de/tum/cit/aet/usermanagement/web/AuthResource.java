@@ -3,6 +3,7 @@ package de.tum.cit.aet.usermanagement.web;
 import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import de.tum.cit.aet.usermanagement.dto.LoginRequestDTO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -14,14 +15,15 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import java.time.Duration;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
-public class AuthController {
+public class AuthResource {
 
     private final ArtemisClientService artemisClientService;
     private final CryptoService cryptoService;
 
-    public AuthController(ArtemisClientService artemisClientService, CryptoService cryptoService) {
+    public AuthResource(ArtemisClientService artemisClientService, CryptoService cryptoService) {
         this.artemisClientService = artemisClientService;
         this.cryptoService = cryptoService;
     }
@@ -34,6 +36,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
+        log.info("POST request received: /api/auth/login for server {}", loginRequest.serverUrl());
         String jwtToken = artemisClientService.authenticate(
                 loginRequest.serverUrl(),
                 loginRequest.username(),
