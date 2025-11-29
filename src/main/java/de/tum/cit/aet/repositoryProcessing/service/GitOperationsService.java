@@ -1,6 +1,7 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
 import de.tum.cit.aet.core.config.ArtemisConfig;
+import de.tum.cit.aet.core.exceptions.GitOperationException;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -78,7 +79,7 @@ public class GitOperationsService {
             log.info("Successfully cloned repository to {}", localPath);
         } catch (GitAPIException e) {
             log.error("Failed to clone repository from {} to {}. Error: {}", repositoryUri, localPath, e.getMessage(), e);
-            throw new RuntimeException("Failed to clone repository: " + e.getMessage(), e);
+            throw new GitOperationException("Failed to clone repository: " + e.getMessage(), e);
         }
     }
 
@@ -107,11 +108,11 @@ public class GitOperationsService {
         } catch (IOException e) {
             // Handle IOException (e.g., .git directory not found or inaccessible)
             log.error("Failed to open repository at {}. Ensure it is a valid Git repository. Error: {}", localPath, e.getMessage(), e);
-            throw new RuntimeException("Failed to open repository: " + e.getMessage(), e);
+            throw new GitOperationException("Failed to open repository: " + e.getMessage(), e);
         } catch (GitAPIException e) {
             // Handle GitAPIException (e.g., authentication failure, network issue during pull)
             log.error("Failed to pull latest changes for {}. Error: {}", localPath, e.getMessage(), e);
-            throw new RuntimeException("Failed to pull repository: " + e.getMessage(), e);
+            throw new GitOperationException("Failed to pull repository: " + e.getMessage(), e);
         }
     }
 }

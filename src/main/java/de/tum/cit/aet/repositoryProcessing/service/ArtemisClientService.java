@@ -78,13 +78,9 @@ public class ArtemisClientService {
                     .retrieve()
                     .toEntity(String.class);
 
-            log.info("Artemis Auth Response Status: {}", response.getStatusCode());
-
             if (response.getStatusCode().is3xxRedirection()) {
                 String newLocation = response.getHeaders().getFirst(HttpHeaders.LOCATION);
                 if (newLocation != null) {
-                    log.info("Redirect detected to: {}", newLocation);
-
                     // Normalize new location to be a base URL
                     String newBaseUrl = newLocation;
                     if (newBaseUrl.endsWith(authPath)) {
@@ -97,9 +93,6 @@ public class ArtemisClientService {
                     return authenticateInternal(newBaseUrl, username, password, retryCount + 1);
                 }
             }
-
-            log.info("Artemis Auth Response Headers: {}", response.getHeaders());
-            log.info("Artemis Auth Response Body: {}", response.getBody());
 
             List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
             if (cookies != null) {
@@ -169,8 +162,6 @@ public class ArtemisClientService {
      * @return The VCS access token
      */
     public String getVcsAccessToken(String serverUrl, String jwtToken, Long participationId) {
-        log.info("Fetching VCS access token for participation ID: {} from {}", participationId, serverUrl);
-
         String uri = "/api/core/account/participation-vcs-access-token?participationId=" + participationId;
 
         try {
@@ -185,7 +176,6 @@ public class ArtemisClientService {
                     .retrieve()
                     .body(String.class);
 
-            log.debug("Successfully fetched VCS access token for participation {}", participationId);
             return vcsToken;
 
         } catch (Exception e) {
