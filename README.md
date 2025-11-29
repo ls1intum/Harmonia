@@ -75,8 +75,6 @@ The scripts will:
 
 Alternatively, you can manually build and launch everything:
 
-Alternatively, you can manually build and launch everything:
-
 1. Build and launch:
 
    ```bash

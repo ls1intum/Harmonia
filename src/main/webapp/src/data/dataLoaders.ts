@@ -61,7 +61,7 @@ function delay(ms: number): Promise<void> {
 function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
   const teamName = dto.participation?.team?.name || 'Unknown Team';
   const students = dto.participation?.team?.students || [];
-  const totalCommits = dto.commitCount || 0;
+  const totalCommits = dto.participation?.submissionCount || 0;
 
   // Mock: Distribute commits among students
   const studentData = students.map((student, index) => {
@@ -99,7 +99,7 @@ function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
  */
 function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
-  const totalCommits = dto.commitCount || 0;
+  const totalCommits = dto.participation?.submissionCount || 0;
 
   // Mock: Calculate CQI score (0-100)
   // Formula: Base score + commit bonus, capped at 100
@@ -151,8 +151,8 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // ============================================================
 // API CALLS (Real Implementation)
 // ============================================================
+// TODO: Use course and exercise parameters when backend supports them
 async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
-  // Note: course and exercise parameters not yet used by server endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
@@ -165,8 +165,8 @@ async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   }
 }
 
+// TODO: Use course and exercise parameters when backend supports them
 async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
-  // Note: course and exercise parameters not yet used by server endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;

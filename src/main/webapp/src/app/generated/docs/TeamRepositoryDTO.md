@@ -4,7 +4,6 @@
 
 | Name              | Type                                        | Description | Notes                             |
 | ----------------- | ------------------------------------------- | ----------- | --------------------------------- |
-| **commitCount**   | **number**                                  |             | [optional] [default to undefined] |
 | **error**         | **string**                                  |             | [optional] [default to undefined] |
 | **isCloned**      | **boolean**                                 |             | [optional] [default to undefined] |
 | **localPath**     | **string**                                  |             | [optional] [default to undefined] |
@@ -16,7 +15,6 @@
 import { TeamRepositoryDTO } from './api';
 
 const instance: TeamRepositoryDTO = {
-  commitCount,
   error,
   isCloned,
   localPath,
