@@ -1,5 +1,6 @@
 package de.tum.cit.aet.dataProcessing.service;
 
+import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
 import lombok.extern.slf4j.Slf4j;
@@ -22,14 +23,11 @@ public class RequestService {
     /**
      * Fetches and clones all repositories from Artemis using dynamic credentials.
      *
-     * @param serverUrl The Artemis server URL
-     * @param jwtToken  The JWT token
-     * @param username  The username (optional, for fallback)
-     * @param password  The password (optional, for fallback)
+     * @param credentials The Artemis credentials
      * @return List of TeamRepositoryDTO containing repository information
      */
-    public List<TeamRepositoryDTO> fetchAndCloneRepositories(String serverUrl, String jwtToken, String username, String password) {
-        log.info("RequestService: Initiating repository fetch and clone process (Dynamic Auth)");
-        return repositoryFetchingService.fetchAndCloneRepositories(serverUrl, jwtToken, username, password);
+    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials) {
+        log.info("RequestService: Initiating repository fetch and clone process");
+        return repositoryFetchingService.fetchAndCloneRepositories(credentials);
     }
 }

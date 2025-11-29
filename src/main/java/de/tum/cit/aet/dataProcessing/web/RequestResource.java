@@ -1,5 +1,6 @@
 package de.tum.cit.aet.dataProcessing.web;
 
+import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
@@ -33,8 +34,8 @@ public class RequestResource {
      *
      * @param jwtToken The JWT token from the cookie
      * @param serverUrl The Artemis server URL from the cookie
-     * @param username The Artemis username from the cookie (optional)
-     * @param encryptedPassword The encrypted Artemis password from the cookie (optional)
+     * @param username The Artemis username from the cookie
+     * @param encryptedPassword The encrypted Artemis password from the cookie
      * @return ResponseEntity containing the list of TeamRepositoryDTO
      */
     @GetMapping("fetchAndCloneRepositories")
@@ -46,26 +47,28 @@ public class RequestResource {
     ) {
         log.info("GET request received: fetchAndCloneRepositories");
 
-        List<TeamRepositoryDTO> repositories;
-        if (jwtToken != null && serverUrl != null) {
-            log.info("Using dynamic credentials from cookies");
+        String password = decryptPassword(encryptedPassword);
+        ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
 
-            String password = null;
-            if (encryptedPassword != null) {
-                try {
-                    password = cryptoService.decrypt(encryptedPassword);
-                } catch (Exception e) {
-                    log.error("Failed to decrypt password from cookie", e);
-                }
-            }
-
-            repositories = requestService.fetchAndCloneRepositories(serverUrl, jwtToken, username, password);
-        } else {
+        if (!credentials.isValid()) {
             log.warn("No credentials found in cookies. Authentication required.");
             return ResponseEntity.status(401).build();
         }
 
+        List<TeamRepositoryDTO> repositories = requestService.fetchAndCloneRepositories(credentials);
         log.info("Successfully fetched and cloned {} repositories", repositories.size());
         return ResponseEntity.ok(repositories);
+    }
+
+    private String decryptPassword(String encryptedPassword) {
+        if (encryptedPassword == null) {
+            return null;
+        }
+        try {
+            return cryptoService.decrypt(encryptedPassword);
+        } catch (Exception e) {
+            log.error("Failed to decrypt password from cookie", e);
+            return null;
+        }
     }
 }

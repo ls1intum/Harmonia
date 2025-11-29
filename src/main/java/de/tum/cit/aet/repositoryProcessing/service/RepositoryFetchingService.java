@@ -1,5 +1,6 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
+import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTOBuilder;
@@ -27,31 +28,29 @@ public class RepositoryFetchingService {
     }
 
     /**
-     * Fetches all team repositories from Artemis and clones/pulls them locally using dynamic credentials.
+     * Fetches all team repositories from Artemis and clones/pulls them locally.
      *
-     * @param serverUrl The Artemis server URL
-     * @param jwtToken  The JWT token
-     * @param username  The username (optional, for fallback)
-     * @param password  The password (optional, for fallback)
+     * @param credentials The Artemis credentials
      * @return List of TeamRepositoryDTO containing repository information
      */
-    public List<TeamRepositoryDTO> fetchAndCloneRepositories(String serverUrl, String jwtToken, String username, String password) {
-        log.info("Starting repository fetching process (Dynamic Auth)");
+    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials) {
+        log.info("Starting repository fetching process");
 
         // Step 1: Fetch participations from Artemis
-        List<ParticipationDTO> participations = artemisClientService.fetchParticipations(serverUrl, jwtToken);
+        List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
+                credentials.serverUrl(), credentials.jwtToken());
 
         // Step 2: Filter participations with repositories and clone them
         List<TeamRepositoryDTO> teamRepositories = participations.stream()
                 .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
-                .map(p -> cloneTeamRepository(p, serverUrl, jwtToken, username, password))
+                .map(p -> cloneTeamRepository(p, credentials))
                 .toList();
 
         log.info("Completed repository fetching. Total repositories: {}", teamRepositories.size());
         return teamRepositories;
     }
 
-    private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, String serverUrl, String jwtToken, String username, String password) {
+    private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
         String teamName = participation.team() != null
                 ? participation.team().name()
                 : "Unknown Team";
@@ -61,21 +60,20 @@ public class RepositoryFetchingService {
                 .participation(participation);
 
         try {
-            String localPath;
-            if (username != null && password != null) {
-                // Instructors always use username/password as they cannot generate VCS tokens for student repos
-                localPath = gitOperationsService.cloneOrPullRepository(repositoryUri, teamName, username, password);
-            } else {
-                throw new RuntimeException("No credentials provided for cloning. Username and password are required for instructors.");
+            if (!credentials.hasGitCredentials()) {
+                throw new IllegalStateException("No credentials provided for cloning. Username and password are required.");
             }
+
+            String localPath = gitOperationsService.cloneOrPullRepository(
+                    repositoryUri, teamName, credentials.username(), credentials.password());
 
             builder.localPath(localPath)
                     .isCloned(true);
 
-            log.info("Successfully processed repository for team: {} (Dynamic Auth)", teamName);
+            log.info("Successfully processed repository for team: {}", teamName);
 
         } catch (Exception e) {
-            log.error("Failed to clone repository for team: {} (Dynamic Auth)", teamName, e);
+            log.error("Failed to clone repository for team: {}", teamName, e);
             builder.isCloned(false)
                     .error(e.getMessage());
         }

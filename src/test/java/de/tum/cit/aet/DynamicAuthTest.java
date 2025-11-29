@@ -1,5 +1,6 @@
 package de.tum.cit.aet;
 
+import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
@@ -36,8 +37,9 @@ class DynamicAuthTest {
         String jwtToken = artemisClientService.authenticate(SERVER_URL, USERNAME, PASSWORD);
         System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
 
-        // 2. Fetch and Clone using the token (and fallback credentials)
-        List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories(SERVER_URL, jwtToken, USERNAME, PASSWORD);
+        // 2. Fetch and Clone using credentials DTO
+        ArtemisCredentials credentials = new ArtemisCredentials(SERVER_URL, jwtToken, USERNAME, PASSWORD);
+        List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories(credentials);
 
         System.out.println("Fetched " + teamRepositories.size() + " repositories.");
         teamRepositories.forEach(repo -> {
