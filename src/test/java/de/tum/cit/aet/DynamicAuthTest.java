@@ -13,11 +13,6 @@ import java.util.List;
 @SpringBootTest
 class DynamicAuthTest {
 
-    // TODO: Enter your credentials here to run the dynamic auth test manually
-    private static final String SERVER_URL = "https://artemis-test2.artemis.cit.tum.de";
-    private static final String USERNAME = "REPLACE_WITH_USERNAME";
-    private static final String PASSWORD = "REPLACE_WITH_PASSWORD";
-
     @Autowired
     private ArtemisClientService artemisClientService;
 
@@ -26,19 +21,21 @@ class DynamicAuthTest {
 
     @Test
     void testDynamicAuthenticationAndCloning() {
-        if (USERNAME.equals("REPLACE_WITH_USERNAME")) {
-            System.out.println("Skipping testDynamicAuthenticationAndCloning: Credentials not set.");
+        TestCredentialsLoader loader = new TestCredentialsLoader();
+        if (!loader.isAvailable()) {
+            System.out.println("Skipping test: " + loader.getSkipMessage());
             return;
         }
 
         System.out.println("Starting Dynamic Auth Test...");
 
         // 1. Authenticate
-        String jwtToken = artemisClientService.authenticate(SERVER_URL, USERNAME, PASSWORD);
+        String jwtToken = artemisClientService.authenticate(
+                loader.getServerUrl(), loader.getUsername(), loader.getPassword());
         System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
 
         // 2. Fetch and Clone using credentials DTO
-        ArtemisCredentials credentials = new ArtemisCredentials(SERVER_URL, jwtToken, USERNAME, PASSWORD);
+        ArtemisCredentials credentials = loader.getCredentials(jwtToken);
         List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories(credentials);
 
         System.out.println("Fetched " + teamRepositories.size() + " repositories.");

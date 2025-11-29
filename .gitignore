@@ -37,3 +37,4 @@ out/
 .vscode/
 
 Projects/
+test-credentials.properties
