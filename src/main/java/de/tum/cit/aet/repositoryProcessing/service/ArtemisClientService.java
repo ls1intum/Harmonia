@@ -109,8 +109,6 @@ public class ArtemisClientService {
             }
 
             throw new ArtemisConnectionException("No JWT cookie received from Artemis");
-        } catch (ArtemisConnectionException e) {
-            throw e;
         } catch (Exception e) {
             log.error("Authentication failed", e);
             throw new ArtemisConnectionException("Authentication failed", e);
