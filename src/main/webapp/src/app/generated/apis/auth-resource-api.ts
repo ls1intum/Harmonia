@@ -34,9 +34,9 @@ import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError
 // @ts-ignore
 import type { LoginRequestDTO } from '../models';
 /**
- * AuthControllerApi - axios parameter creator
+ * AuthResourceApi - axios parameter creator
  */
-export const AuthControllerApiAxiosParamCreator = function (configuration?: Configuration) {
+export const AuthResourceApiAxiosParamCreator = function (configuration?: Configuration) {
   return {
     /**
      *
@@ -75,10 +75,10 @@ export const AuthControllerApiAxiosParamCreator = function (configuration?: Conf
 };
 
 /**
- * AuthControllerApi - functional programming interface
+ * AuthResourceApi - functional programming interface
  */
-export const AuthControllerApiFp = function (configuration?: Configuration) {
-  const localVarAxiosParamCreator = AuthControllerApiAxiosParamCreator(configuration);
+export const AuthResourceApiFp = function (configuration?: Configuration) {
+  const localVarAxiosParamCreator = AuthResourceApiAxiosParamCreator(configuration);
   return {
     /**
      *
@@ -92,7 +92,7 @@ export const AuthControllerApiFp = function (configuration?: Configuration) {
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
       const localVarAxiosArgs = await localVarAxiosParamCreator.login(loginRequestDTO, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-      const localVarOperationServerBasePath = operationServerMap['AuthControllerApi.login']?.[localVarOperationServerIndex]?.url;
+      const localVarOperationServerBasePath = operationServerMap['AuthResourceApi.login']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
@@ -100,10 +100,10 @@ export const AuthControllerApiFp = function (configuration?: Configuration) {
 };
 
 /**
- * AuthControllerApi - factory interface
+ * AuthResourceApi - factory interface
  */
-export const AuthControllerApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
-  const localVarFp = AuthControllerApiFp(configuration);
+export const AuthResourceApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+  const localVarFp = AuthResourceApiFp(configuration);
   return {
     /**
      *
@@ -118,9 +118,9 @@ export const AuthControllerApiFactory = function (configuration?: Configuration,
 };
 
 /**
- * AuthControllerApi - object-oriented interface
+ * AuthResourceApi - object-oriented interface
  */
-export class AuthControllerApi extends BaseAPI {
+export class AuthResourceApi extends BaseAPI {
   /**
    *
    * @param {LoginRequestDTO} loginRequestDTO
@@ -128,7 +128,7 @@ export class AuthControllerApi extends BaseAPI {
    * @throws {RequiredError}
    */
   public login(loginRequestDTO: LoginRequestDTO, options?: RawAxiosRequestConfig) {
-    return AuthControllerApiFp(this.configuration)
+    return AuthResourceApiFp(this.configuration)
       .login(loginRequestDTO, options)
       .then(request => request(this.axios, this.basePath));
   }

@@ -5,7 +5,7 @@ servers:
 paths:
   /api/auth/login:
     post:
-      tags: [auth-controller]
+      tags: [auth-resource]
       operationId: login
       requestBody:
         content:

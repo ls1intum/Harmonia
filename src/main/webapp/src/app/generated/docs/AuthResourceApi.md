@@ -1,4 +1,4 @@
-# AuthControllerApi
+# AuthResourceApi
 
 All URIs are relative to _http://localhost:8080_
 
@@ -13,10 +13,10 @@ All URIs are relative to _http://localhost:8080_
 ### Example
 
 ```typescript
-import { AuthControllerApi, Configuration, LoginRequestDTO } from './api';
+import { AuthResourceApi, Configuration, LoginRequestDTO } from './api';
 
 const configuration = new Configuration();
-const apiInstance = new AuthControllerApi(configuration);
+const apiInstance = new AuthResourceApi(configuration);
 
 let loginRequestDTO: LoginRequestDTO; //
 
