@@ -1,5 +1,6 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
+import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTOBuilder;
@@ -29,31 +30,27 @@ public class RepositoryFetchingService {
     /**
      * Fetches all team repositories from Artemis and clones/pulls them locally.
      *
+     * @param credentials The Artemis credentials
      * @return List of TeamRepositoryDTO containing repository information
      */
-    public List<TeamRepositoryDTO> fetchAndCloneRepositories() {
+    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials) {
         log.info("Starting repository fetching process");
 
         // Step 1: Fetch participations from Artemis
-        List<ParticipationDTO> participations = artemisClientService.fetchParticipations();
+        List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
+                credentials.serverUrl(), credentials.jwtToken());
 
         // Step 2: Filter participations with repositories and clone them
         List<TeamRepositoryDTO> teamRepositories = participations.stream()
                 .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
-                .map(this::cloneTeamRepository)
+                .map(p -> cloneTeamRepository(p, credentials))
                 .toList();
 
         log.info("Completed repository fetching. Total repositories: {}", teamRepositories.size());
         return teamRepositories;
     }
 
-    /**
-     * Clones a single team repository and creates a TeamRepositoryDTO.
-     *
-     * @param participation The participation containing repository information
-     * @return TeamRepositoryDTO with clone status and information
-     */
-    private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation) {
+    private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
         String teamName = participation.team() != null
                 ? participation.team().name()
                 : "Unknown Team";
@@ -61,8 +58,14 @@ public class RepositoryFetchingService {
 
         TeamRepositoryDTOBuilder builder = TeamRepositoryDTO.builder()
                 .participation(participation);
+
         try {
-            String localPath = gitOperationsService.cloneOrPullRepository(repositoryUri, teamName);
+            if (!credentials.hasGitCredentials()) {
+                throw new IllegalStateException("No credentials provided for cloning. Username and password are required.");
+            }
+
+            String localPath = gitOperationsService.cloneOrPullRepository(
+                    repositoryUri, teamName, credentials.username(), credentials.password());
 
             builder.localPath(localPath)
                     .isCloned(true);

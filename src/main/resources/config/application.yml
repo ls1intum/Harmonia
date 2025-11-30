@@ -58,7 +58,7 @@ harmonia:
       - "http://localhost:8080"
 
 artemis:
-  baseUrl: https://artemis-test2.artemis.cit.tum.de/api
+  baseUrl: 
   username: 
   password: 
   jwtToken: 

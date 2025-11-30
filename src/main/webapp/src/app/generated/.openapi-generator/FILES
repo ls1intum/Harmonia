@@ -1,10 +1,13 @@
 .gitignore
 .npmignore
 api.ts
+apis/auth-resource-api.ts
 apis/request-resource-api.ts
 base.ts
 common.ts
 configuration.ts
+docs/AuthResourceApi.md
+docs/LoginRequestDTO.md
 docs/ParticipantDTO.md
 docs/ParticipationDTO.md
 docs/RequestResourceApi.md
@@ -13,6 +16,7 @@ docs/TeamRepositoryDTO.md
 git_push.sh
 index.ts
 models/index.ts
+models/login-request-dto.ts
 models/participant-dto.ts
 models/participation-dto.ts
 models/team-dto.ts

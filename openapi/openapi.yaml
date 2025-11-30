@@ -3,10 +3,38 @@ info: {title: OpenAPI definition, version: v0}
 servers:
 - {url: 'http://localhost:8080', description: Generated server url}
 paths:
+  /api/auth/login:
+    post:
+      tags: [auth-resource]
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequestDTO'}
+        required: true
+      responses:
+        '200': {description: OK}
   /api/requestResource/fetchAndCloneRepositories:
     get:
       tags: [request-resource]
       operationId: fetchAndCloneRepositories
+      parameters:
+      - name: jwt
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_server_url
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_username
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_password
+        in: cookie
+        required: false
+        schema: {type: string}
       responses:
         '200':
           description: OK
@@ -17,6 +45,13 @@ paths:
                 items: {$ref: '#/components/schemas/TeamRepositoryDTO'}
 components:
   schemas:
+    LoginRequestDTO:
+      type: object
+      properties:
+        password: {type: string, minLength: 1}
+        serverUrl: {type: string, minLength: 1}
+        username: {type: string, minLength: 1}
+      required: [password, serverUrl, username]
     ParticipantDTO:
       type: object
       properties:

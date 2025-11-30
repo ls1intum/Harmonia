@@ -12,5 +12,8 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/auth-resource-api';
-export * from './apis/request-resource-api';
+export interface LoginRequestDTO {
+  password: string;
+  serverUrl: string;
+  username: string;
+}

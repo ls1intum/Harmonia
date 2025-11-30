@@ -40,10 +40,20 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
   return {
     /**
      *
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    fetchAndCloneRepositories: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+    fetchAndCloneRepositories: async (
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
       const localVarPath = `/api/requestResource/fetchAndCloneRepositories`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -76,13 +86,27 @@ export const RequestResourceApiFp = function (configuration?: Configuration) {
   return {
     /**
      *
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async fetchAndCloneRepositories(
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<TeamRepositoryDTO>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.fetchAndCloneRepositories(options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.fetchAndCloneRepositories(
+        jwt,
+        artemisServerUrl,
+        artemisUsername,
+        artemisPassword,
+        options,
+      );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['RequestResourceApi.fetchAndCloneRepositories']?.[localVarOperationServerIndex]?.url;
@@ -100,11 +124,23 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
   return {
     /**
      *
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    fetchAndCloneRepositories(options?: RawAxiosRequestConfig): AxiosPromise<Array<TeamRepositoryDTO>> {
-      return localVarFp.fetchAndCloneRepositories(options).then(request => request(axios, basePath));
+    fetchAndCloneRepositories(
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<Array<TeamRepositoryDTO>> {
+      return localVarFp
+        .fetchAndCloneRepositories(jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+        .then(request => request(axios, basePath));
     },
   };
 };
@@ -115,12 +151,22 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
 export class RequestResourceApi extends BaseAPI {
   /**
    *
+   * @param {string} [jwt]
+   * @param {string} [artemisServerUrl]
+   * @param {string} [artemisUsername]
+   * @param {string} [artemisPassword]
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public fetchAndCloneRepositories(options?: RawAxiosRequestConfig) {
+  public fetchAndCloneRepositories(
+    jwt?: string,
+    artemisServerUrl?: string,
+    artemisUsername?: string,
+    artemisPassword?: string,
+    options?: RawAxiosRequestConfig,
+  ) {
     return RequestResourceApiFp(this.configuration)
-      .fetchAndCloneRepositories(options)
+      .fetchAndCloneRepositories(jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
       .then(request => request(this.axios, this.basePath));
   }
 }

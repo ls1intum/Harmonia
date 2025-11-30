@@ -1,0 +1,55 @@
+@startuml StartAnalysisFlow
+title Start Analysis Flow
+
+actor User
+participant "Client (React)" as Client
+participant "AuthController" as Auth
+participant "RequestResource" as Controller
+participant "RequestService" as ReqService
+participant "RepositoryFetchingService" as RepoService
+participant "ArtemisClientService" as ArtemisClient
+participant "GitOperationsService" as GitService
+participant "Artemis Server" as Artemis
+participant "Git Server" as Git
+
+== Authentication Phase ==
+User -> Client: Enter Credentials & Click "Start"
+Client -> Auth: POST /api/auth/login
+note right of Client: Sends username, password, serverUrl
+Auth -> ArtemisClient: authenticate(url, user, pass)
+ArtemisClient -> Artemis: POST /api/core/public/authenticate
+Artemis --> ArtemisClient: 200 OK (Set-Cookie: jwt)
+ArtemisClient --> Auth: jwtToken
+Auth -> Client: 200 OK (Set-Cookie: jwt, username, password)
+Client -> Client: Navigate to /teams
+
+== Data Loading Phase ==
+Client -> Controller: GET /api/requestResource/fetchAndCloneRepositories
+note right of Client: Cookies included automatically
+Controller -> Controller: Extract & Decrypt Credentials
+Controller -> ReqService: fetchAndCloneRepositories(url, jwt, user, pass)
+ReqService -> RepoService: fetchAndCloneRepositories(url, jwt, user, pass)
+
+== Fetching Participations ==
+RepoService -> ArtemisClient: fetchParticipations(url, jwt)
+ArtemisClient -> Artemis: GET /api/exercise/exercises/{id}/participations
+Artemis --> ArtemisClient: List<ParticipationDTO>
+ArtemisClient --> RepoService: List<ParticipationDTO>
+
+== Cloning Repositories ==
+loop For each Participation
+    RepoService -> GitService: cloneOrPullRepository(uri, teamName, user, pass)
+    GitService -> Git: git clone / git pull
+    note right of GitService: Uses Instructor Username/Password directly
+    Git --> GitService: Repository Content
+    GitService --> RepoService: Local Path
+end
+
+== Response Phase ==
+RepoService --> ReqService: List<TeamRepositoryDTO>
+ReqService --> Controller: List<TeamRepositoryDTO>
+Controller --> Client: 200 OK (JSON List)
+Client -> Client: Transform Data (Mock Analysis)
+Client -> User: Display Team Cards
+
+@enduml

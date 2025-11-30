@@ -9,9 +9,9 @@ import { Configuration } from '@/app/generated/configuration';
 // ============================================================
 const USE_DUMMY_DATA = config.USE_DUMMY_DATA;
 
-// Initialize API client with Basic Auth
+// Initialize API client
 const apiConfig = new Configuration({
-  basePath: 'http://localhost:8080',
+  basePath: 'http://localhost:8080', // TODO: Make this configurable or relative
   username: 'admin',
   password: 'admin1234',
   baseOptions: {
@@ -19,6 +19,7 @@ const apiConfig = new Configuration({
       username: 'admin',
       password: 'admin1234',
     },
+    withCredentials: true, // Important: Send cookies (JWT, etc.) with requests
   },
 });
 const requestApi = new RequestResourceApi(apiConfig);
@@ -51,7 +52,7 @@ function delay(ms: number): Promise<void> {
 }
 
 // ============================================================
-// DATA TRANSFORMATION - Convert DTO to Frontend Types
+// DATA TRANSFORMATION - Convert DTO to Client Types
 // ============================================================
 
 /**
@@ -150,10 +151,8 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // ============================================================
 // API CALLS (Real Implementation)
 // ============================================================
-// TODO: Use course and exercise
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promise<BasicTeamData[]> {
-  // Note: course and exercise parameters not yet used by backend endpoint
+// TODO: Use course and exercise parameters when server supports them
+async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
@@ -166,10 +165,8 @@ async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promi
   }
 }
 
-// TODO: Use course and exercise
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchComplexTeamsFromAPI(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
-  // Note: course and exercise parameters not yet used by backend endpoint
+// TODO: Use course and exercise parameters when server supports them
+async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
   try {
     const response = await requestApi.fetchAndCloneRepositories();
     const teamRepos = response.data;
@@ -208,25 +205,27 @@ async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | n
 /**
  * Fetch basic team data (quick, partial information)
  */
-export async function loadBasicTeamData(course: string, exercise: string): Promise<BasicTeamData[]> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function loadBasicTeamData(_course: string, _exercise: string): Promise<BasicTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(500); // Simulate network delay
     return getBasicDummyTeams();
   }
 
-  return fetchBasicTeamsFromAPI(course, exercise);
+  return fetchBasicTeamsFromAPI();
 }
 
 /**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-export async function loadComplexTeamData(course: string, exercise: string): Promise<ComplexTeamData[]> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function loadComplexTeamData(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
     return getComplexDummyTeams();
   }
 
-  return fetchComplexTeamsFromAPI(course, exercise);
+  return fetchComplexTeamsFromAPI();
 }
 
 /**
