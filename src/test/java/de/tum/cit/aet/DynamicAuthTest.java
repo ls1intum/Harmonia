@@ -49,4 +49,25 @@ class DynamicAuthTest {
             System.out.println("---");
         });
     }
+
+    @Test
+    void testfetchVCSAccessLog()
+    {
+        TestCredentialsLoader loader = new TestCredentialsLoader();
+        if (!loader.isAvailable()) {
+            System.out.println("Skipping test: " + loader.getSkipMessage());
+            return;
+        }
+
+        System.out.println("Starting VCS Access Log Test...");
+
+        // 1. Authenticate
+        String jwtToken = artemisClientService.authenticate(
+                loader.getServerUrl(), loader.getUsername(), loader.getPassword());
+        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
+
+        // 2. Fetch VCS Access Log
+        ArtemisCredentials credentials = loader.getCredentials(jwtToken);
+        artemisClientService.fetchVCSAccessLog(credentials.serverUrl(), credentials.jwtToken(), 32774L);
+    }
 }

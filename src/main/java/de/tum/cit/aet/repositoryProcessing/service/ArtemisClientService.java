@@ -3,6 +3,7 @@ package de.tum.cit.aet.repositoryProcessing.service;
 import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.exceptions.ArtemisConnectionException;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
+import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
@@ -179,6 +180,36 @@ public class ArtemisClientService {
         } catch (Exception e) {
             log.error("Error fetching VCS access token for participation {}", participationId, e);
             throw new ArtemisConnectionException("Failed to fetch VCS access token", e);
+        }
+    }
+
+    public void fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
+        log.info("Fetching VCS access log for participation ID: {}", participationId);
+
+        String uri = String.format("/api/programming/programming-exercise-participations/%d/vcs-access-log", participationId);
+        try {
+
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            List<VCSLogDTO> r = dynamicClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {
+                    });
+
+            if (r != null) {
+                r.stream()
+                        .filter(entry -> "WRITE".equals(entry.repositoryActionType()))
+                        .forEach(a -> System.out.println(a.commitHash() + " - " + a.repositoryActionType() + " - " + a.email()));
+            }
+
+            log.info("Successful");
+
+        } catch (Exception e) {
+            log.error("Error fetching participations from Artemis", e);
         }
     }
 }
