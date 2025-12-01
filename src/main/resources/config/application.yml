@@ -62,6 +62,11 @@ harmonia:
     commit-classifier:
       enabled: true
       confidence-threshold: 0.7
+    anomaly-detector:
+      enabled: true
+      confidence-threshold: 0.7
+    file-clustering:
+      enabled: false
 
 artemis:
   baseUrl: 
