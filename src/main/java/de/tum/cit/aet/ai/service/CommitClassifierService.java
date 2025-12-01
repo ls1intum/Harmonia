@@ -5,10 +5,12 @@ import de.tum.cit.aet.ai.dto.CommitClassificationRequest;
 import de.tum.cit.aet.core.config.AiProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
+@Profile("!openapi")
 public class CommitClassifierService {
 
     private final ChatClient chatClient;
