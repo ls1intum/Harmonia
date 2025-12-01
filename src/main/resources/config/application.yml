@@ -9,7 +9,7 @@ spring:
     open-in-view: false
     show-sql: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
       naming:
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
         implicit-strategy: org.springframework.boot.hibernate.SpringImplicitNamingStrategy
@@ -63,5 +63,5 @@ artemis:
   password: 
   jwtToken: 
   exerciseId: 424
-  gitRepoPath: Projects/itp2425teamprojects
+  gitRepoPath: Projects/itp2526teamprojects
   numThreads: 8

@@ -17,4 +17,16 @@ public class TeamRepository {
     @Column(name = "team_repository_id", nullable = false)
     private UUID teamRepositoryId;
 
+    @OneToOne
+    @JoinColumn(name = "participation_id", nullable = false)
+    private TeamParticipation teamParticipation;
+
+    @Column(name = "local_path")
+    private String localPath;
+
+    @Column(name = "is_cloned")
+    private Boolean isCloned;
+
+    @Column(name = "error")
+    private String error;
 }
