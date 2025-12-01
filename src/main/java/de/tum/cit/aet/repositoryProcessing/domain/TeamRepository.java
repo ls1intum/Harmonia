@@ -2,6 +2,7 @@ package de.tum.cit.aet.repositoryProcessing.domain;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.UUID;
@@ -9,6 +10,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@NoArgsConstructor
 @Table(name = "teamrepository")
 public class TeamRepository {
 
@@ -29,4 +31,11 @@ public class TeamRepository {
 
     @Column(name = "error")
     private String error;
+
+    public TeamRepository(TeamParticipation teamParticipation, String localPath, Boolean isCloned, String error) {
+        this.teamParticipation = teamParticipation;
+        this.localPath = localPath;
+        this.isCloned = isCloned;
+        this.error = error;
+    }
 }

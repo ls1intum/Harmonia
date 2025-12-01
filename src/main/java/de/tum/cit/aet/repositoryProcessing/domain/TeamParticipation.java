@@ -2,6 +2,7 @@ package de.tum.cit.aet.repositoryProcessing.domain;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.UUID;
@@ -9,6 +10,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@NoArgsConstructor
 @Table(name = "participations")
 public class TeamParticipation {
 
@@ -38,4 +40,14 @@ public class TeamParticipation {
 
     @Column(name = "submission_count")
     private Integer submissionCount;
+
+    public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName, String repositoryUrl, Integer submissionCount) {
+        this.participation = participation;
+        this.team = team;
+        this.tutor = tutor;
+        this.name = name;
+        this.shortName = shortName;
+        this.repositoryUrl = repositoryUrl;
+        this.submissionCount = submissionCount;
+    }
 }
