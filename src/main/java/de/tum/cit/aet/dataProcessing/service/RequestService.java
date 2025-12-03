@@ -9,7 +9,10 @@ import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
+import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
+import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
+import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,11 +27,17 @@ public class RequestService {
 
     private final RepositoryFetchingService repositoryFetchingService;
     private final TeamRepositoryRepository teamRepositoryRepository;
+    private final TeamParticipationRepository teamParticipationRepository;
+    private final TutorRepository tutorRepository;
+    private final StudentRepository studentRepository;
 
     @Autowired
-    public RequestService(RepositoryFetchingService repositoryFetchingService, TeamRepositoryRepository teamRepositoryRepository) {
+    public RequestService(RepositoryFetchingService repositoryFetchingService, TeamRepositoryRepository teamRepositoryRepository, TeamParticipationRepository teamParticipationRepository, TutorRepository tutorRepository, StudentRepository studentRepository) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.teamRepositoryRepository = teamRepositoryRepository;
+        this.teamParticipationRepository = teamParticipationRepository;
+        this.tutorRepository = tutorRepository;
+        this.studentRepository = studentRepository;
     }
 
     /**
@@ -55,15 +64,22 @@ public class RequestService {
         for (TeamRepositoryDTO repo : repositories) {
             ParticipantDTO tut = repo.participation().team().owner();
             Tutor tutor = new Tutor(tut.id(), tut.login(), tut.name());
+            tutorRepository.save(tutor);
+
             ParticipationDTO participation = repo.participation();
             TeamDTO team = participation.team();
             TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(), team.shortName(), participation.repositoryUri(), participation.submissionCount());
+            teamParticipationRepository.save(teamParticipation);
+
             List<Student> students = new ArrayList<>();
             for (ParticipantDTO student : repo.participation().team().students()) {
                 students.add(new Student(student.id(), student.login(), student.name(), teamParticipation));
             }
+            studentRepository.saveAll(students);
+
             TeamRepository teamRepo = new TeamRepository(teamParticipation, repo.localPath(), repo.isCloned(), repo.error());
             teamRepositoryRepository.save(teamRepo);
+
             log.info("Processed repository for team: {}", team.name());
         }
     }
