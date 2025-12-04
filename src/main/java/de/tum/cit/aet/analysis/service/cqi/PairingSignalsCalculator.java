@@ -19,6 +19,9 @@ public class PairingSignalsCalculator {
      * Calculates pairing signals score (0-100) based on collaboration patterns
      * Formula: 100 * (alternationRate * coEditingRate)
      * Applies penalty if alternation < 30% or co-editing < 15%
+     *
+     * @param commits List of commit information for analysis
+     * @return Pairing signals score between 0 and 100
      */
     public double calculate(List<CommitInfo> commits) {
         if (commits == null || commits.isEmpty()) {
@@ -52,7 +55,9 @@ public class PairingSignalsCalculator {
      * Calculates alternation rate: fraction of commits where team members alternate on same files
      */
     private double calculateAlternationRate(List<CommitInfo> commits) {
-        if (commits.size() < 2) return 0.0;
+        if (commits.size() < 2) {
+            return 0.0;
+        }
 
         int alternatingCommits = 0;
         int totalEligibleCommits = 0;
@@ -81,7 +86,9 @@ public class PairingSignalsCalculator {
      * Calculates co-editing rate: fraction of commits with multiple authors editing same file within time window
      */
     private double calculateCoEditingRate(List<CommitInfo> commits) {
-        if (commits.size() < 2) return 0.0;
+        if (commits.size() < 2) {
+            return 0.0;
+        }
 
         int coEditingCommits = 0;
         int totalCommits = commits.size();

@@ -150,7 +150,7 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // ============================================================
 // API CALLS (Real Implementation)
 // ============================================================
-async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promise<BasicTeamData[]> {
+async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   // Note: course and exercise parameters not yet used by backend endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
@@ -164,7 +164,7 @@ async function fetchBasicTeamsFromAPI(_course: string, _exercise: string): Promi
   }
 }
 
-async function fetchComplexTeamsFromAPI(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
+async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
   // Note: course and exercise parameters not yet used by backend endpoint
   try {
     const response = await requestApi.fetchAndCloneRepositories();
@@ -210,7 +210,7 @@ export async function loadBasicTeamData(course: string, exercise: string): Promi
     return getBasicDummyTeams();
   }
 
-  return fetchBasicTeamsFromAPI(course, exercise);
+  return fetchBasicTeamsFromAPI();
 }
 
 /**
@@ -222,7 +222,7 @@ export async function loadComplexTeamData(course: string, exercise: string): Pro
     return getComplexDummyTeams();
   }
 
-  return fetchComplexTeamsFromAPI(course, exercise);
+  return fetchComplexTeamsFromAPI();
 }
 
 /**

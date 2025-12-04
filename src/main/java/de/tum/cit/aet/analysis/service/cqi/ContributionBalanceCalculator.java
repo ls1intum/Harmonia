@@ -13,6 +13,9 @@ public class ContributionBalanceCalculator {
      * Calculates contribution balance score (0-100) based on commit distribution
      * Formula: 100 * (1 - stdev(commit_frequency) / max_stdev)
      * Applies 10% penalty if any member contributes > 70%
+     *
+     * @param commitCounts Map of contributor names to their commit counts
+     * @return Contribution balance score between 0 and 100
      */
     public double calculate(Map<String, Integer> commitCounts) {
         if (commitCounts == null || commitCounts.isEmpty()) {
@@ -81,7 +84,9 @@ public class ContributionBalanceCalculator {
                 .mapToInt(Integer::intValue)
                 .sum();
 
-        if (totalCommits == 0) return false;
+        if (totalCommits == 0) {
+            return false;
+        }
 
         return commitCounts.values().stream()
                 .anyMatch(count -> count > totalCommits * 0.7);  // Check if ANY person > 70%
