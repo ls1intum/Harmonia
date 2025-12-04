@@ -82,3 +82,12 @@ components:
         isCloned: {type: boolean}
         localPath: {type: string}
         participation: {$ref: '#/components/schemas/ParticipationDTO'}
+        vcsLogs:
+          type: array
+          items: {$ref: '#/components/schemas/VCSLogDTO'}
+    VCSLogDTO:
+      type: object
+      properties:
+        commitHash: {type: string}
+        email: {type: string}
+        repositoryActionType: {type: string}
