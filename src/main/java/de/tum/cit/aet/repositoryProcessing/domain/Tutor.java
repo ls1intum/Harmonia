@@ -28,9 +28,13 @@ public class Tutor {
     @Column(name = "name")
     private String name;
 
-    public Tutor(Long id, String login, String name) {
+    @Column(name = "email")
+    private String email;
+
+    public Tutor(Long id, String login, String name, String email) {
         this.id = id;
         this.login = login;
         this.name = name;
+        this.email = email;
     }
 }

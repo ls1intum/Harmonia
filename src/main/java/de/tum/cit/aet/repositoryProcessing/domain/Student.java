@@ -28,6 +28,9 @@ public class Student {
     @Column(name = "name")
     private String name;
 
+    @Column(name = "email")
+    private String email;
+
     @Column(name = "commit_count")
     private Integer commitCount;
 
@@ -44,10 +47,11 @@ public class Student {
     @JoinColumn(name = "teamParticipation_id")
     private TeamParticipation team;
 
-    public Student(Long id, String login, String name, TeamParticipation teamParticipation) {
+    public Student(Long id, String login, String name, String email, TeamParticipation teamParticipation) {
         this.id = id;
         this.login = login;
         this.name = name;
+        this.email = email;
         this.team = teamParticipation;
     }
 }

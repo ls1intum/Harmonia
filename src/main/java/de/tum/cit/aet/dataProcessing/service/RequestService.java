@@ -45,6 +45,7 @@ public class RequestService {
     }
 
 
+
     /**
      * Saves the fetched repository information into the database.
      *
@@ -62,7 +63,7 @@ public class RequestService {
             if (tut == null) {
                 log.warn("No tutor found for team: {}", repo.participation().team().name());
             } else {
-                tutor = new Tutor(tut.id(), tut.login(), tut.name());
+                tutor = new Tutor(tut.id(), tut.login(), tut.name(), tut.email());
                 tutorRepository.save(tutor);
             }
 
@@ -73,7 +74,7 @@ public class RequestService {
 
             List<Student> students = new ArrayList<>();
             for (ParticipantDTO student : repo.participation().team().students()) {
-                students.add(new Student(student.id(), student.login(), student.name(), teamParticipation));
+                students.add(new Student(student.id(), student.login(), student.name(), student.email(),teamParticipation));
             }
             studentRepository.saveAll(students);
 
