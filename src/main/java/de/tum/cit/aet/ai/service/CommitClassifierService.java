@@ -1,7 +1,7 @@
 package de.tum.cit.aet.ai.service;
 
-import de.tum.cit.aet.ai.dto.CommitClassification;
-import de.tum.cit.aet.ai.dto.CommitClassificationRequest;
+import de.tum.cit.aet.ai.dto.CommitClassificationDTO;
+import de.tum.cit.aet.ai.dto.CommitClassificationRequestDTO;
 import de.tum.cit.aet.core.config.AiProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -34,10 +34,10 @@ public class CommitClassifierService {
      * @param request the commit classification request
      * @return the commit classification result
      */
-    public CommitClassification classify(CommitClassificationRequest request) {
+    public CommitClassificationDTO classify(CommitClassificationRequestDTO request) {
         if (!aiProperties.isEnabled() || !aiProperties.getCommitClassifier().isEnabled()) {
             log.debug("Commit classifier is disabled, returning TRIVIAL classification");
-            return new CommitClassification(CommitClassification.CommitLabel.TRIVIAL, 0.0, "AI disabled");
+            return new CommitClassificationDTO(CommitClassificationDTO.CommitLabel.TRIVIAL, 0.0, "AI disabled");
         }
 
         log.info("Classifying commit: {}", request.sha());
@@ -48,19 +48,19 @@ public class CommitClassifierService {
                 .call()
                 .content();
 
-        CommitClassification result = parseResponse(response);
+        CommitClassificationDTO result = parseResponse(response);
 
         if (result.confidence() < aiProperties.getCommitClassifier().getConfidenceThreshold()) {
             log.debug("Low confidence ({}) for commit {}, treating as TRIVIAL",
                     result.confidence(), request.sha());
-            return new CommitClassification(CommitClassification.CommitLabel.TRIVIAL,
+            return new CommitClassificationDTO(CommitClassificationDTO.CommitLabel.TRIVIAL,
                     result.confidence(), "Low confidence: " + result.reasoning());
         }
 
         return result;
     }
 
-    private String buildPrompt(CommitClassificationRequest request) {
+    private String buildPrompt(CommitClassificationRequestDTO request) {
         String basePrompt = String.format("""
                 You are a commit classifier. Analyze this commit and classify it into ONE category:
 
@@ -92,7 +92,7 @@ public class CommitClassifierService {
         return basePrompt;
     }
 
-    private CommitClassification parseResponse(String response) {
+    private CommitClassificationDTO parseResponse(String response) {
         try {
             String cleaned = response.trim();
             if (cleaned.startsWith("```json")) {
@@ -121,11 +121,11 @@ public class CommitClassifierService {
             int reasonEnd = cleaned.lastIndexOf("\"");
             String reasoning = cleaned.substring(reasonStart, reasonEnd);
 
-            CommitClassification.CommitLabel commitLabel = CommitClassification.CommitLabel.valueOf(label);
-            return new CommitClassification(commitLabel, confidence, reasoning);
+            CommitClassificationDTO.CommitLabel commitLabel = CommitClassificationDTO.CommitLabel.valueOf(label);
+            return new CommitClassificationDTO(commitLabel, confidence, reasoning);
         } catch (Exception e) {
             log.error("Failed to parse LLM response: {}", response, e);
-            return new CommitClassification(CommitClassification.CommitLabel.TRIVIAL, 0.0,
+            return new CommitClassificationDTO(CommitClassificationDTO.CommitLabel.TRIVIAL, 0.0,
                     "Parse error: " + e.getMessage());
         }
     }

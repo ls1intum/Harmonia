@@ -1,6 +1,9 @@
 package de.tum.cit.aet.ai.web;
 
-import de.tum.cit.aet.ai.dto.*;
+import de.tum.cit.aet.ai.dto.AnomalyDetectionRequestDTO;
+import de.tum.cit.aet.ai.dto.AnomalyReportDTO;
+import de.tum.cit.aet.ai.dto.CommitClassificationDTO;
+import de.tum.cit.aet.ai.dto.CommitClassificationRequestDTO;
 import de.tum.cit.aet.ai.service.AnomalyDetectorService;
 import de.tum.cit.aet.ai.service.CommitClassifierService;
 import java.time.LocalDateTime;
@@ -16,6 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Example REST controller for AI-related endpoints.
+ * 
+ * TODO: This file is only for test purposes and should be removed or replaced
+ * with proper endpoints once the AI services are integrated into the main application flow.
  */
 @RestController
 @RequestMapping("api/ai/")
@@ -62,14 +68,14 @@ public class AiResource {
      * @return classification result
      */
     @GetMapping("classify-commit")
-    public CommitClassification classifyCommit(
+    public CommitClassificationDTO classifyCommit(
             @RequestParam(defaultValue = "abc123") String sha,
             @RequestParam(defaultValue = "Add user authentication") String message,
             @RequestParam(defaultValue = "src/auth/AuthController.java,src/auth/AuthService.java") String files,
             @RequestParam(required = false) String diff) {
         log.info("Test classification request for commit: {}", sha);
         List<String> filePaths = List.of(files.split(","));
-        CommitClassificationRequest request = new CommitClassificationRequest(sha, message, filePaths, diff);
+        CommitClassificationRequestDTO request = new CommitClassificationRequestDTO(sha, message, filePaths, diff);
         return commitClassifierService.classify(request);
     }
 
@@ -80,72 +86,72 @@ public class AiResource {
      * @return anomaly report
      */
     @GetMapping("detect-anomalies")
-    public AnomalyReport detectAnomalies(@RequestParam(defaultValue = "late-dump") String scenario) {
+    public AnomalyReportDTO detectAnomalies(@RequestParam(defaultValue = "late-dump") String scenario) {
         log.info("Test anomaly detection request: {}", scenario);
 
         LocalDateTime start = LocalDateTime.now().minusDays(30);
         LocalDateTime end = LocalDateTime.now();
-        List<AnomalyDetectionRequest.CommitSummary> commits;
+        List<AnomalyDetectionRequestDTO.CommitSummary> commits;
 
         switch (scenario) {
             case "solo" -> {
                 // SOLO_DEVELOPMENT: Alice does 90% of work
                 commits = List.of(
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(3), 100),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(6), 80),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(10), 120),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(14), 90),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(18), 110),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(22), 100),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(25), 80),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(27), 95),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusDays(1), 70),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", end.minusHours(2), 25)
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(3), 100),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(6), 80),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(10), 120),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(14), 90),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(18), 110),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(22), 100),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(25), 80),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(27), 95),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusDays(1), 70),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", end.minusHours(2), 25)
                 );
             }
             case "inactive" -> {
                 // INACTIVE_PERIOD: 16-day gap in middle
                 commits = List.of(
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(2), 100),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(4), 80),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(6), 90),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(2), 100),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(4), 80),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(6), 90),
                         // 16-day gap here (53% of 30 days)
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(22), 100),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(25), 110),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(28), 95),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusDays(1), 70)
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(22), 100),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(25), 110),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(28), 95),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusDays(1), 70)
                 );
             }
             case "good" -> {
                 // GOOD: Balanced, spread out, both contributing
                 commits = List.of(
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(2), 80),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(5), 70),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(8), 90),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(12), 85),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(16), 75),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(20), 80),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(24), 70),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", start.plusDays(27), 65),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusDays(1), 75)
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(2), 80),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(5), 70),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(8), 90),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(12), 85),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(16), 75),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(20), 80),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(24), 70),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", start.plusDays(27), 65),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusDays(1), 75)
                 );
             }
             default -> {
                 // LATE_DUMP + SOLO_DEVELOPMENT: Most work by Alice at deadline
                 commits = List.of(
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(3), 50),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(8), 40),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", start.plusDays(15), 30),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusDays(2), 200),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusDays(1), 150),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusHours(10), 180),
-                        new AnomalyDetectionRequest.CommitSummary("Alice", end.minusHours(5), 120),
-                        new AnomalyDetectionRequest.CommitSummary("Bob", end.minusHours(3), 30)
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(3), 50),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(8), 40),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", start.plusDays(15), 30),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusDays(2), 200),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusDays(1), 150),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusHours(10), 180),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Alice", end.minusHours(5), 120),
+                        new AnomalyDetectionRequestDTO.CommitSummary("Bob", end.minusHours(3), 30)
                 );
             }
         }
 
-        AnomalyDetectionRequest request = new AnomalyDetectionRequest("team-" + scenario, commits, start, end);
+        AnomalyDetectionRequestDTO request = new AnomalyDetectionRequestDTO("team-" + scenario, commits, start, end);
         return anomalyDetectorService.detect(request);
     }
 }

@@ -1,5 +1,6 @@
 package de.tum.cit.aet.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,11 +12,13 @@ import java.util.List;
  * @param assignmentStart assignment start date
  * @param assignmentEnd assignment end date (deadline)
  */
-public record AnomalyDetectionRequest(
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record AnomalyDetectionRequestDTO(
     String teamId,
     List<CommitSummary> commits,
     LocalDateTime assignmentStart,
     LocalDateTime assignmentEnd
 ) {
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record CommitSummary(String author, LocalDateTime timestamp, int linesChanged) {}
 }
