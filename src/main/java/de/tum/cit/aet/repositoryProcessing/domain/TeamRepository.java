@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -23,6 +24,9 @@ public class TeamRepository {
     @JoinColumn(name = "participation_id", nullable = false)
     private TeamParticipation teamParticipation;
 
+    @OneToMany(mappedBy = "teamRepository", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<VCSLog> vcsLogs;
+
     @Column(name = "local_path")
     private String localPath;
 
@@ -32,8 +36,10 @@ public class TeamRepository {
     @Column(name = "error")
     private String error;
 
-    public TeamRepository(TeamParticipation teamParticipation, String localPath, Boolean isCloned, String error) {
+
+    public TeamRepository(TeamParticipation teamParticipation, List<VCSLog> vcsLogs ,String localPath, Boolean isCloned, String error) {
         this.teamParticipation = teamParticipation;
+        this.vcsLogs = vcsLogs;
         this.localPath = localPath;
         this.isCloned = isCloned;
         this.error = error;

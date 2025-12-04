@@ -183,7 +183,15 @@ public class ArtemisClientService {
         }
     }
 
-    public void fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
+    /**
+     * Fetches the VCS access log for a specific participation.
+     *
+     * @param serverUrl       The Artemis server URL
+     * @param jwtToken        The JWT token for authentication
+     * @param participationId The ID of the participation
+     * @return List of VCS log DTOs filtered for WRITE actions
+     */
+    public List<VCSLogDTO> fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
         log.info("Fetching VCS access log for participation ID: {}", participationId);
 
         String uri = String.format("/api/programming/programming-exercise-participations/%d/vcs-access-log", participationId);
@@ -194,22 +202,22 @@ public class ArtemisClientService {
                     .defaultHeader("Cookie", "jwt=" + jwtToken)
                     .build();
 
-            List<VCSLogDTO> r = dynamicClient.get()
+            List<VCSLogDTO> vcsLogs = dynamicClient.get()
                     .uri(uri)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
                     });
 
-            if (r != null) {
-                r.stream()
+            if (vcsLogs != null) {
+                vcsLogs = vcsLogs.stream()
                         .filter(entry -> "WRITE".equals(entry.repositoryActionType()))
-                        .forEach(a -> System.out.println(a.commitHash() + " - " + a.repositoryActionType() + " - " + a.email()));
+                        .toList();
             }
 
-            log.info("Successful");
-
+            return vcsLogs;
         } catch (Exception e) {
             log.error("Error fetching participations from Artemis", e);
+            throw new ArtemisConnectionException("Failed to fetch VCS access logs from Artemis", e);
         }
     }
 }

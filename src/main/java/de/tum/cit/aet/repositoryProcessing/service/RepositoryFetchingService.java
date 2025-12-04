@@ -4,6 +4,7 @@ import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTOBuilder;
+import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class RepositoryFetchingService {
         return teamRepositories;
     }
 
+
     private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
         String teamName = participation.team() != null
                 ? participation.team().name()
@@ -67,17 +69,35 @@ public class RepositoryFetchingService {
             String localPath = gitOperationsService.cloneOrPullRepository(
                     repositoryUri, teamName, credentials.username(), credentials.password());
 
+            List<VCSLogDTO> vcsLogs = fetchVCSAccessLog(credentials, participation.id());
+
             builder.localPath(localPath)
-                    .isCloned(true);
+                    .isCloned(true)
+                    .vcsLogs(vcsLogs);
 
             log.info("Successfully processed repository for team: {}", teamName);
 
         } catch (Exception e) {
-            log.error("Failed to clone repository for team: {}", teamName, e);
+            log.error("Failed to fetch repository for team: {}", teamName, e);
             builder.isCloned(false)
                     .error(e.getMessage());
         }
 
         return builder.build();
+    }
+
+    /**
+     * Fetches the VCS access log for a specific participation from Artemis.
+     *
+     * @param credentials     The Artemis credentials
+     * @param participationId The ID of the participation
+     * @return List of VCSLogDTO containing VCS access log entries
+     */
+    private List<VCSLogDTO> fetchVCSAccessLog(ArtemisCredentials credentials, Long participationId) {
+        List<VCSLogDTO> vcsLogs = artemisClientService.fetchVCSAccessLog(
+                credentials.serverUrl(), credentials.jwtToken(), participationId);
+
+        log.info("Fetched {} VCS access log entries", vcsLogs.size());
+        return vcsLogs;
     }
 }

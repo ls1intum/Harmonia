@@ -1,18 +1,9 @@
 package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.repositoryProcessing.domain.Student;
-import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
-import de.tum.cit.aet.repositoryProcessing.domain.TeamRepository;
-import de.tum.cit.aet.repositoryProcessing.domain.Tutor;
-import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
-import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
-import de.tum.cit.aet.repositoryProcessing.dto.TeamDTO;
-import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
-import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
-import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
-import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
-import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
+import de.tum.cit.aet.repositoryProcessing.domain.*;
+import de.tum.cit.aet.repositoryProcessing.dto.*;
+import de.tum.cit.aet.repositoryProcessing.repository.*;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,12 +50,21 @@ public class RequestService {
      *
      * @param repositories List of TeamRepositoryDTO to be saved
      */
-    public void saveResults(List<TeamRepositoryDTO> repositories)
-    {
+    public void saveResults(List<TeamRepositoryDTO> repositories) {
+        teamRepositoryRepository.deleteAll();
+        studentRepository.deleteAll();
+        teamParticipationRepository.deleteAll();
+        tutorRepository.deleteAll();
+
         for (TeamRepositoryDTO repo : repositories) {
             ParticipantDTO tut = repo.participation().team().owner();
-            Tutor tutor = new Tutor(tut.id(), tut.login(), tut.name());
-            tutorRepository.save(tutor);
+            Tutor tutor = null;
+            if (tut == null) {
+                log.warn("No tutor found for team: {}", repo.participation().team().name());
+            } else {
+                tutor = new Tutor(tut.id(), tut.login(), tut.name());
+                tutorRepository.save(tutor);
+            }
 
             ParticipationDTO participation = repo.participation();
             TeamDTO team = participation.team();
@@ -77,7 +77,11 @@ public class RequestService {
             }
             studentRepository.saveAll(students);
 
-            TeamRepository teamRepo = new TeamRepository(teamParticipation, repo.localPath(), repo.isCloned(), repo.error());
+            TeamRepository teamRepo = new TeamRepository(teamParticipation, null, repo.localPath(), repo.isCloned(), repo.error());
+
+            List<VCSLog> vcsLogs = repo.vcsLogs().stream().map(log -> new VCSLog(teamRepo, log.commitHash(), log.email())).toList();
+
+            teamRepo.setVcsLogs(vcsLogs);
             teamRepositoryRepository.save(teamRepo);
 
             log.info("Processed repository for team: {}", team.name());
