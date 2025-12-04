@@ -28,23 +28,23 @@ public class AnomalyDetectorService {
      */
     private static final String ANOMALY_DETECTION_PROMPT = """
             You are a collaboration anomaly detector. Analyze this team's commit history and detect suspicious patterns.
-            
+
             Assignment Period: %s to %s (%d days)
             Total Commits: %d
             Team Members: %s
-            
+
             Commit Timeline:
             %s
-            
+
             Detect these anomalies:
             - LATE_DUMP: >50%% of commits in last 20%% of time period
             - SOLO_DEVELOPMENT: One person has >70%% of commits
             - INACTIVE_PERIOD: Gap of >50%% of assignment period with no commits
             - UNEVEN_DISTRIBUTION: Commits clustered in short bursts rather than spread out
-            
+
             Respond ONLY with valid JSON:
             {"flags": ["LATE_DUMP", "SOLO_DEVELOPMENT"], "confidence": 0.85, "reasons": ["60%% of commits in last 2 days", "Alice has 75%% of commits"]}
-            
+
             Valid flags: LATE_DUMP, SOLO_DEVELOPMENT, INACTIVE_PERIOD, UNEVEN_DISTRIBUTION
             """;
 
@@ -116,7 +116,7 @@ public class AnomalyDetectorService {
             double percentage = (count * 100.0) / totalCommits;
             if (percentage > 70) {
                 flags.add(AnomalyFlag.SOLO_DEVELOPMENT);
-                reasons.add(String.format("%s has %.1f%% of commits (%d/%d)", 
+                reasons.add(String.format("%s has %.1f%% of commits (%d/%d)",
                         author, percentage, count, totalCommits));
             }
         });
@@ -165,7 +165,7 @@ public class AnomalyDetectorService {
         }
 
         // Keep LLM confidence if it found something, otherwise use rule-based
-        double confidence = mergedFlags.isEmpty() ? 0.0 : 
+        double confidence = mergedFlags.isEmpty() ? 0.0 :
                 (flags.isEmpty() ? llmResult.confidence() : 1.0);
 
         return new AnomalyReportDTO(mergedFlags, confidence, mergedReasons);

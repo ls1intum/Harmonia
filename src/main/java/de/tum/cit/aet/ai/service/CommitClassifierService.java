@@ -103,7 +103,7 @@ public class CommitClassifierService {
 
     private String buildPrompt(CommitClassificationRequestDTO request) {
         StringBuilder prompt = new StringBuilder();
-        
+
         prompt.append(String.format(COMMIT_CLASSIFICATION_PROMPT,
                 request.sha(),
                 request.message(),

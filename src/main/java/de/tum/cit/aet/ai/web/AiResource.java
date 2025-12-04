@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Example REST controller for AI-related endpoints.
- * 
+ *
  * TODO: This file is only for test purposes and should be removed or replaced
  * with proper endpoints once the AI services are integrated into the main application flow.
  */
