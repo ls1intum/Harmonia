@@ -233,7 +233,9 @@ public class AnomalyDetectorService {
             // Parse confidence
             int confStart = cleaned.indexOf("\"confidence\": ") + 15;
             int confEnd = cleaned.indexOf(",", confStart);
-            if (confEnd == -1) confEnd = cleaned.indexOf("}", confStart);
+            if (confEnd == -1) {
+                confEnd = cleaned.indexOf("}", confStart);
+            }
             double confidence = Double.parseDouble(cleaned.substring(confStart, confEnd).trim());
 
             // Parse reasons array
