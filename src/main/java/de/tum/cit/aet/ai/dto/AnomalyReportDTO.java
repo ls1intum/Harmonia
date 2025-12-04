@@ -16,10 +16,4 @@ public record AnomalyReportDTO(
     double confidence,
     List<String> reasons
 ) {
-    public enum AnomalyFlag {
-        LATE_DUMP,
-        SOLO_DEVELOPMENT,
-        INACTIVE_PERIOD,
-        UNEVEN_DISTRIBUTION
-    }
 }

@@ -1,6 +1,7 @@
 package de.tum.cit.aet.ai.service;
 
 import de.tum.cit.aet.ai.dto.AnomalyDetectionRequestDTO;
+import de.tum.cit.aet.ai.dto.AnomalyFlag;
 import de.tum.cit.aet.ai.dto.AnomalyReportDTO;
 import de.tum.cit.aet.core.config.AiProperties;
 import lombok.extern.slf4j.Slf4j;
@@ -70,7 +71,7 @@ public class AnomalyDetectorService {
      * Corrects percentages and adds missing obvious anomalies.
      */
     private AnomalyReportDTO validateWithRules(AnomalyDetectionRequestDTO request, AnomalyReportDTO llmResult) {
-        List<AnomalyReportDTO.AnomalyFlag> flags = new ArrayList<>();
+        List<AnomalyFlag> flags = new ArrayList<>();
         List<String> reasons = new ArrayList<>();
 
         // Calculate exact statistics
@@ -88,7 +89,7 @@ public class AnomalyDetectorService {
         commitsByAuthor.forEach((author, count) -> {
             double percentage = (count * 100.0) / totalCommits;
             if (percentage > 70) {
-                flags.add(AnomalyReportDTO.AnomalyFlag.SOLO_DEVELOPMENT);
+                flags.add(AnomalyFlag.SOLO_DEVELOPMENT);
                 reasons.add(String.format("%s has %.1f%% of commits (%d/%d)", 
                         author, percentage, count, totalCommits));
             }
@@ -100,7 +101,7 @@ public class AnomalyDetectorService {
                 .count();
         double lateDumpPercentage = (commitsInLastPeriod * 100.0) / totalCommits;
         if (lateDumpPercentage > 50) {
-            flags.add(AnomalyReportDTO.AnomalyFlag.LATE_DUMP);
+            flags.add(AnomalyFlag.LATE_DUMP);
             reasons.add(String.format("%.1f%% of commits (%d/%d) in last %d days",
                     lateDumpPercentage, commitsInLastPeriod, totalCommits, lastPeriodDays));
         }
@@ -116,17 +117,17 @@ public class AnomalyDetectorService {
             maxGapDays = Math.max(maxGapDays, gapDays);
         }
         if (maxGapDays > totalDays * 0.5) {
-            flags.add(AnomalyReportDTO.AnomalyFlag.INACTIVE_PERIOD);
+            flags.add(AnomalyFlag.INACTIVE_PERIOD);
             reasons.add(String.format("%d-day gap (%.1f%% of assignment period)",
                     maxGapDays, (maxGapDays * 100.0) / totalDays));
         }
 
         // Merge LLM findings with rule-based corrections
-        List<AnomalyReportDTO.AnomalyFlag> mergedFlags = new ArrayList<>(llmResult.flags());
+        List<AnomalyFlag> mergedFlags = new ArrayList<>(llmResult.flags());
         List<String> mergedReasons = new ArrayList<>(llmResult.reasons());
 
         // Add rule-based flags if LLM missed them
-        for (AnomalyReportDTO.AnomalyFlag flag : flags) {
+        for (AnomalyFlag flag : flags) {
             if (!mergedFlags.contains(flag)) {
                 mergedFlags.add(flag);
             }
@@ -215,14 +216,14 @@ public class AnomalyDetectorService {
             cleaned = cleaned.trim();
 
             // Parse flags array
-            List<AnomalyReportDTO.AnomalyFlag> flags = new ArrayList<>();
+            List<AnomalyFlag> flags = new ArrayList<>();
             int flagsStart = cleaned.indexOf("\"flags\": [") + 10;
             int flagsEnd = cleaned.indexOf("]", flagsStart);
             String flagsStr = cleaned.substring(flagsStart, flagsEnd);
             for (String flag : flagsStr.split(",")) {
                 String cleanFlag = flag.trim().replace("\"", "");
                 if (!cleanFlag.isEmpty()) {
-                    flags.add(AnomalyReportDTO.AnomalyFlag.valueOf(cleanFlag));
+                    flags.add(AnomalyFlag.valueOf(cleanFlag));
                 }
             }
 

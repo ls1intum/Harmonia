@@ -2,6 +2,7 @@ package de.tum.cit.aet.ai.service;
 
 import de.tum.cit.aet.ai.dto.CommitClassificationDTO;
 import de.tum.cit.aet.ai.dto.CommitClassificationRequestDTO;
+import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.core.config.AiProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -37,7 +38,7 @@ public class CommitClassifierService {
     public CommitClassificationDTO classify(CommitClassificationRequestDTO request) {
         if (!aiProperties.isEnabled() || !aiProperties.getCommitClassifier().isEnabled()) {
             log.debug("Commit classifier is disabled, returning TRIVIAL classification");
-            return new CommitClassificationDTO(CommitClassificationDTO.CommitLabel.TRIVIAL, 0.0, "AI disabled");
+            return new CommitClassificationDTO(CommitLabel.TRIVIAL, 0.0, "AI disabled");
         }
 
         log.info("Classifying commit: {}", request.sha());
@@ -53,7 +54,7 @@ public class CommitClassifierService {
         if (result.confidence() < aiProperties.getCommitClassifier().getConfidenceThreshold()) {
             log.debug("Low confidence ({}) for commit {}, treating as TRIVIAL",
                     result.confidence(), request.sha());
-            return new CommitClassificationDTO(CommitClassificationDTO.CommitLabel.TRIVIAL,
+            return new CommitClassificationDTO(CommitLabel.TRIVIAL,
                     result.confidence(), "Low confidence: " + result.reasoning());
         }
 
@@ -121,11 +122,11 @@ public class CommitClassifierService {
             int reasonEnd = cleaned.lastIndexOf("\"");
             String reasoning = cleaned.substring(reasonStart, reasonEnd);
 
-            CommitClassificationDTO.CommitLabel commitLabel = CommitClassificationDTO.CommitLabel.valueOf(label);
+            CommitLabel commitLabel = CommitLabel.valueOf(label);
             return new CommitClassificationDTO(commitLabel, confidence, reasoning);
         } catch (Exception e) {
             log.error("Failed to parse LLM response: {}", response, e);
-            return new CommitClassificationDTO(CommitClassificationDTO.CommitLabel.TRIVIAL, 0.0,
+            return new CommitClassificationDTO(CommitLabel.TRIVIAL, 0.0,
                     "Parse error: " + e.getMessage());
         }
     }
