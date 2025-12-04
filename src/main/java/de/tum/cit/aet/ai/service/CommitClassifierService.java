@@ -14,6 +14,46 @@ import org.springframework.stereotype.Service;
 @Profile("!openapi")
 public class CommitClassifierService {
 
+    /**
+     * Base prompt template for commit classification.
+     * Placeholders: sha, message, filePaths
+     */
+    private static final String COMMIT_CLASSIFICATION_PROMPT = """
+            You are a commit classifier. Analyze this commit and classify it into ONE category:
+
+            - FEATURE: New functionality or significant enhancement
+            - BUG_FIX: Fixes a bug or error
+            - TEST: Adds or modifies tests only
+            - REFACTOR: Code restructuring without behavior change
+            - TRIVIAL: Formatting, comments, docs, whitespace, typos
+
+            Commit SHA: %s
+            Message: %s
+            Files changed: %s
+            """;
+
+    /**
+     * Additional prompt when diff content is provided.
+     */
+    private static final String DIFF_ANALYSIS_PROMPT = """
+
+            Actual code changes:
+            %s
+
+            IMPORTANT: Base your classification mostly on the actual code changes above, not only the commit message. \
+            If the code changes don't match the commit message, classify based on what the code actually does. \
+            Misleading commit messages should result in TRIVIAL classification with low confidence.""";
+
+    /**
+     * Response format instruction.
+     */
+    private static final String RESPONSE_FORMAT_PROMPT = """
+
+            Respond ONLY with valid JSON in this exact format:
+            {"label": "FEATURE", "confidence": 0.95, "reasoning": "brief explanation"}
+
+            Valid labels: FEATURE, BUG_FIX, TEST, REFACTOR, TRIVIAL""";
+
     private final ChatClient chatClient;
 
     private final AiProperties aiProperties;
@@ -62,35 +102,20 @@ public class CommitClassifierService {
     }
 
     private String buildPrompt(CommitClassificationRequestDTO request) {
-        String basePrompt = String.format("""
-                You are a commit classifier. Analyze this commit and classify it into ONE category:
-
-                - FEATURE: New functionality or significant enhancement
-                - BUG_FIX: Fixes a bug or error
-                - TEST: Adds or modifies tests only
-                - REFACTOR: Code restructuring without behavior change
-                - TRIVIAL: Formatting, comments, docs, whitespace, typos
-
-                Commit SHA: %s
-                Message: %s
-                Files changed: %s
-                """,
+        StringBuilder prompt = new StringBuilder();
+        
+        prompt.append(String.format(COMMIT_CLASSIFICATION_PROMPT,
                 request.sha(),
                 request.message(),
-                String.join(", ", request.filePaths()));
+                String.join(", ", request.filePaths())));
 
         if (request.diffContent() != null && !request.diffContent().isBlank()) {
-            basePrompt += "\n\nActual code changes:\n" + request.diffContent();
-            basePrompt += "\n\nIMPORTANT: Base your classification mostly on the actual code changes above, not only the commit message. ";
-            basePrompt += "If the code changes don't match the commit message, classify based on what the code actually does. ";
-            basePrompt += "Misleading commit messages should result in TRIVIAL classification with low confidence.";
+            prompt.append(String.format(DIFF_ANALYSIS_PROMPT, request.diffContent()));
         }
 
-        basePrompt += "\n\nRespond ONLY with valid JSON in this exact format:\n";
-        basePrompt += "{\"label\": \"FEATURE\", \"confidence\": 0.95, \"reasoning\": \"brief explanation\"}\n\n";
-        basePrompt += "Valid labels: FEATURE, BUG_FIX, TEST, REFACTOR, TRIVIAL";
+        prompt.append(RESPONSE_FORMAT_PROMPT);
 
-        return basePrompt;
+        return prompt.toString();
     }
 
     private CommitClassificationDTO parseResponse(String response) {
