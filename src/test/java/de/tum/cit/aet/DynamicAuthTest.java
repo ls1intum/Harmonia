@@ -1,6 +1,7 @@
 package de.tum.cit.aet;
 
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
+import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
@@ -18,6 +19,9 @@ class DynamicAuthTest {
 
     @Autowired
     private RepositoryFetchingService repositoryFetchingService;
+
+    @Autowired
+    private RequestService requestService;
 
     @Test
     void testDynamicAuthenticationAndCloning() {
@@ -51,7 +55,7 @@ class DynamicAuthTest {
     }
 
     @Test
-    void testfetchVCSAccessLog()
+    void testFetchingAndSaving()
     {
         TestCredentialsLoader loader = new TestCredentialsLoader();
         if (!loader.isAvailable()) {
@@ -68,6 +72,6 @@ class DynamicAuthTest {
 
         // 2. Fetch VCS Access Log
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        artemisClientService.fetchVCSAccessLog(credentials.serverUrl(), credentials.jwtToken(), 32774L);
+        requestService.fetchAndCloneRepositories(credentials);
     }
 }
