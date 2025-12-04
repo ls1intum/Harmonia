@@ -13,6 +13,7 @@
  */
 
 export interface ParticipantDTO {
+  email?: string;
   id?: number;
   login?: string;
   name?: string;

@@ -55,6 +55,7 @@ components:
     ParticipantDTO:
       type: object
       properties:
+        email: {type: string}
         id: {type: integer, format: int64}
         login: {type: string}
         name: {type: string}
