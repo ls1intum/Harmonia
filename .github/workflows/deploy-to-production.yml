@@ -32,7 +32,7 @@ jobs:
     with:
       environment: ${{ inputs.environment_name }}
       docker-compose-file: './docker/compose-prod.yaml'
-      main-image-name: ls1intum/harmonia
+      main-image-name: ghcr.io/ls1intum/harmonia-server
       image-tag: ${{ inputs.image-tag }}
       deployment-base-path: '/opt/harmonia'
     secrets: inherit
