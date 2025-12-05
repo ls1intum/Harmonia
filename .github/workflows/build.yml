@@ -1,0 +1,32 @@
+name: Build and Push Docker Image
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+      - '../../docs-github/**'
+      - '.github/**'
+      - '!.github/workflows/build.yml'
+  push:
+    branches:
+      - main
+    tags: '[0-9]+.[0-9]+.[0-9]+'
+    paths-ignore:
+      - 'README.md'
+      - '../../docs-github/**'
+      - '.github/**'
+      - '!.github/workflows/build.yml'
+  release:
+    types:
+      - created
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        service: [ client, server ]
+    uses: ls1intum/.github/.github/workflows/build-and-push-docker-image.yml@main
+    with:
+      image-name: ghcr.io/ls1intum/harmonia-${{ matrix.service }}
+      docker-file: docker/${{ matrix.service }}.Dockerfile
+    secrets: inherit
