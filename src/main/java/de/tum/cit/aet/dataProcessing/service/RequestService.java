@@ -128,13 +128,21 @@ public class RequestService {
 
                     Tutor tutor = participation.getTutor();
 
+                    List<StudentAnalysisDTO> studentAnalysisDTOS = students.stream().map(student -> (new StudentAnalysisDTO(
+                                    student.getName(),
+                                    student.getCommitCount(),
+                                    student.getLinesAdded(),
+                                    student.getLinesDeleted(),
+                                    student.getLinesChanged())))
+                            .toList();
+
                     return new ClientResponseDTO(
                             tutor.getName(),
                             participation.getTeam(),
                             participation.getName(),
                             participation.getShortName(),
                             participation.getSubmissionCount(),
-                            students
+                            studentAnalysisDTOS
                     );
                 })
                 .toList();
