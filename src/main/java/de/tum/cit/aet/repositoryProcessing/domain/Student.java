@@ -47,11 +47,14 @@ public class Student {
     @JoinColumn(name = "teamParticipation_id")
     private TeamParticipation team;
 
-    public Student(Long id, String login, String name, String email, TeamParticipation teamParticipation) {
+    public Student(Long id, String login, String name, String email, TeamParticipation teamParticipation, Integer linesAdded, Integer linesDeleted, Integer linesChanged) {
         this.id = id;
         this.login = login;
         this.name = name;
         this.email = email;
         this.team = teamParticipation;
+        this.linesAdded = linesAdded;
+        this.linesDeleted = linesDeleted;
+        this.linesChanged = linesChanged;
     }
 }

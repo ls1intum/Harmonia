@@ -1,6 +1,8 @@
 package de.tum.cit.aet.analysis.service;
 
 import de.tum.cit.aet.repositoryProcessing.dto.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,6 +13,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Service
+@Slf4j
 public class GitContributionAnalysisService {
 
     public final Map<Long, int[]> authorContributions = new HashMap<>();
@@ -89,6 +93,8 @@ public class GitContributionAnalysisService {
                 currentContributions[0] += linesAdded;
                 currentContributions[1] += linesRemoved;
                 authorContributions.put(authorId, currentContributions);
+
+                log.info("Student ID {}: +{} -{} lines for commit {}", authorId, linesAdded, linesRemoved, commitHash);
 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

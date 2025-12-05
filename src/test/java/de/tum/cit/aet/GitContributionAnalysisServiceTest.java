@@ -24,8 +24,7 @@ class GitContributionAnalysisServiceTest {
     private final GitContributionAnalysisService gitContributionAnalysisService = new GitContributionAnalysisService();
 
     @Test
-    void testFetchingAndSaving()
-    {
+    void testFetchingAndSaving() {
         TestCredentialsLoader loader = new TestCredentialsLoader();
         if (!loader.isAvailable()) {
             System.out.println("Skipping test: " + loader.getSkipMessage());
@@ -43,11 +42,31 @@ class GitContributionAnalysisServiceTest {
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
         List<TeamRepositoryDTO> repos = requestService.fetchAndCloneRepositories(credentials);
 
-        Map<Long, int[]> map =  gitContributionAnalysisService.processAllRepositories(repos);
+        Map<Long, int[]> map = gitContributionAnalysisService.processAllRepositories(repos);
         for (Long studentId : map.keySet()) {
             System.out.println("Processed student ID: " + studentId);
             int[] contributions = map.get(studentId);
             System.out.println("Added = " + contributions[0] + ", Deleted = " + contributions[1]);
         }
+    }
+
+    @Test
+    void testAll() {
+        TestCredentialsLoader loader = new TestCredentialsLoader();
+        if (!loader.isAvailable()) {
+            System.out.println("Skipping test: " + loader.getSkipMessage());
+            return;
+        }
+
+        System.out.println("Starting Dynamic Auth Test...");
+
+        // 1. Authenticate
+        String jwtToken = artemisClientService.authenticate(
+                loader.getServerUrl(), loader.getUsername(), loader.getPassword());
+        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
+
+        // 2. Fetch and Clone using credentials DTO
+        ArtemisCredentials credentials = loader.getCredentials(jwtToken);
+        requestService.fetchAnalyzeAndSaveRepositories(credentials);
     }
 }
