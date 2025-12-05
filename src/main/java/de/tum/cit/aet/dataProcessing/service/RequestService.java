@@ -51,17 +51,18 @@ public class RequestService {
         return analysisService.analyzeContributions(repositories);
     }
 
-    public Map<Long, int[]> fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
+    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
         // Fetch and clone repositories
         List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials);
 
         // Analyze contributions
         Map<Long, int[]> contributionData = getContributionData(repositories);
+        for (int[] lines : contributionData.values()) {
+            log.info("Contribution Data - Added Lines: {}, Deleted Lines: {}", lines[0], lines[1]);
+        }
 
         // Save results to the database
         saveResults(repositories, contributionData);
-
-        return contributionData;
     }
 
     /**
@@ -93,7 +94,8 @@ public class RequestService {
             List<Student> students = new ArrayList<>();
             for (ParticipantDTO student : repo.participation().team().students()) {
                 int[] lines = contributionData.get(student.id());
-                students.add(new Student(student.id(), student.login(), student.name(), student.email(),teamParticipation, lines[0], lines[1], lines[0] + lines[1]));
+                if (lines == null) lines = new int[]{0, 0};
+                students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation, lines[0], lines[1], lines[0] + lines[1]));
             }
             studentRepository.saveAll(students);
 
@@ -106,5 +108,38 @@ public class RequestService {
 
             log.info("Processed repository for team: {}", team.name());
         }
+    }
+
+    /**
+     * Extracts all saved repository and contribution data from the database.
+     *
+     * @return A list of ClientResponseDTOs containing all aggregated team and student data.
+     */
+    public List<ClientResponseDTO> getAllRepositoryData() {
+        log.info("RequestService: Initiating data extraction from database");
+
+        // 1. Fetch all TeamParticipation records
+        List<TeamParticipation> participations = teamParticipationRepository.findAll();
+
+        // 2. Map and assemble the data into ClientResponseDTOs
+        List<ClientResponseDTO> responseDTOs = participations.stream()
+                .map(participation -> {
+                    List<Student> students = studentRepository.findByTeamParticipation(participation);
+
+                    Tutor tutor = participation.getTutor();
+
+                    return new ClientResponseDTO(
+                            tutor.getName(),
+                            participation.getTeam(),
+                            participation.getName(),
+                            participation.getShortName(),
+                            participation.getSubmissionCount(),
+                            students
+                    );
+                })
+                .toList();
+
+        log.info("RequestService: Extracted {} team participation records.", responseDTOs.size());
+        return responseDTOs;
     }
 }
