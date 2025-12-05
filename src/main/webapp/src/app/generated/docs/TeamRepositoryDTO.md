@@ -8,6 +8,7 @@
 | **isCloned**      | **boolean**                                 |             | [optional] [default to undefined] |
 | **localPath**     | **string**                                  |             | [optional] [default to undefined] |
 | **participation** | [**ParticipationDTO**](ParticipationDTO.md) |             | [optional] [default to undefined] |
+| **vcsLogs**       | [**Array&lt;VCSLogDTO&gt;**](VCSLogDTO.md)  |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -19,6 +20,7 @@ const instance: TeamRepositoryDTO = {
   isCloned,
   localPath,
   participation,
+  vcsLogs,
 };
 ```
 

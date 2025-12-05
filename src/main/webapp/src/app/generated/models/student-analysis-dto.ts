@@ -12,17 +12,10 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { ParticipationDTO } from './participation-dto';
-// May contain unused imports in some cases
-// @ts-ignore
-import type { VCSLogDTO } from './vcslog-dto';
-
-export interface TeamRepositoryDTO {
-  error?: string;
-  isCloned?: boolean;
-  localPath?: string;
-  participation?: ParticipationDTO;
-  vcsLogs?: Array<VCSLogDTO>;
+export interface StudentAnalysisDTO {
+  commitCount?: number;
+  linesAdded?: number;
+  linesChanged?: number;
+  linesDeleted?: number;
+  name?: string;
 }

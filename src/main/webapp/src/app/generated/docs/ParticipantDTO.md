@@ -4,6 +4,7 @@
 
 | Name      | Type       | Description | Notes                             |
 | --------- | ---------- | ----------- | --------------------------------- |
+| **email** | **string** |             | [optional] [default to undefined] |
 | **id**    | **number** |             | [optional] [default to undefined] |
 | **login** | **string** |             | [optional] [default to undefined] |
 | **name**  | **string** |             | [optional] [default to undefined] |
@@ -14,6 +15,7 @@
 import { ParticipantDTO } from './api';
 
 const instance: ParticipantDTO = {
+  email,
   id,
   login,
   name,

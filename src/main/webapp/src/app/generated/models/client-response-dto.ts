@@ -14,15 +14,13 @@
 
 // May contain unused imports in some cases
 // @ts-ignore
-import type { ParticipationDTO } from './participation-dto';
-// May contain unused imports in some cases
-// @ts-ignore
-import type { VCSLogDTO } from './vcslog-dto';
+import type { StudentAnalysisDTO } from './student-analysis-dto';
 
-export interface TeamRepositoryDTO {
-  error?: string;
-  isCloned?: boolean;
-  localPath?: string;
-  participation?: ParticipationDTO;
-  vcsLogs?: Array<VCSLogDTO>;
+export interface ClientResponseDTO {
+  shortName?: string;
+  students?: Array<StudentAnalysisDTO>;
+  submissionCount?: number;
+  teamId?: number;
+  teamName?: string;
+  tutor?: string;
 }
