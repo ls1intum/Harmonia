@@ -31,7 +31,7 @@ jobs:
     uses: ls1intum/.github/.github/workflows/deploy-docker-compose.yml@main
     with:
       environment: ${{ inputs.environment_name }}
-      docker-compose-file: './docker/compose-prod.yaml'
+      docker-compose-file: './docker/docker-compose-prod.yaml'
       main-image-name: ghcr.io/ls1intum/harmonia-server
       image-tag: ${{ inputs.image-tag }}
       deployment-base-path: '/opt/harmonia'
