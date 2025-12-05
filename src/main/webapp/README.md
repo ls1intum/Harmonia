@@ -47,7 +47,7 @@ Brief explanations of each dependency and its role:
 - **radix-ui/react-label (2.1.8)** – Form label component  (e.g. in _Start Analysis_ screen)
 - **radix-ui/react-progress (1.1.8)** – Progress bar component
 - **radix-ui/react-select (2.2.6)** – Select menu primitives (e.g. in _Start Analysis_ screen)
-- **radix-ui/react-slot (1.2.4)** – Slot utility for buttons
+- **radix-ui/react-slot (1.2.4)** – Slot utility (dependency of buttons)
 
 ### UI & Icons
 - **lucide-react (0.555.0)** – Lightweight React SVG icon set (e.g. sorting arrows)
@@ -64,7 +64,7 @@ Brief explanations of each dependency and its role:
 - **class-variance-authority (0.7.1)** – Utility for managing Tailwind class variants
 - **clsx (2.1.1)** – Conditional className builder
 - **tailwind-merge (3.4.0)** – Merges conflicting Tailwind classes
-- **next-themes (0.4.6)** – Manages dark/light/system theme switching (dependency of toast notification)
+- **next-themes (0.4.6)** – Manages dark/light/system theme switching (dependency of toast notifications)
 
 ### Core React
 - **react (19.2.0)** – Main React framework
