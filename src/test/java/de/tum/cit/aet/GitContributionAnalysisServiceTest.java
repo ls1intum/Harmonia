@@ -69,4 +69,25 @@ class GitContributionAnalysisServiceTest {
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
         requestService.fetchAnalyzeAndSaveRepositories(credentials);
     }
+
+    @Test
+    void testDatabase() {
+        TestCredentialsLoader loader = new TestCredentialsLoader();
+        if (!loader.isAvailable()) {
+            System.out.println("Skipping test: " + loader.getSkipMessage());
+            return;
+        }
+
+        System.out.println("Starting Dynamic Auth Test...");
+
+        // 1. Authenticate
+        String jwtToken = artemisClientService.authenticate(
+                loader.getServerUrl(), loader.getUsername(), loader.getPassword());
+        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
+
+        // 2. Fetch and Clone using credentials DTO
+        ArtemisCredentials credentials = loader.getCredentials(jwtToken);
+        testAll();
+        requestService.getAllRepositoryData();
+    }
 }

@@ -138,7 +138,8 @@ public class RequestService {
         // 2. Map and assemble the data into ClientResponseDTOs
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(participation -> {
-                    List<Student> students = studentRepository.findByTeamParticipation(participation);
+                    List<Student> students = studentRepository.findAllByTeam(participation);
+                    log.info(students.toString());
 
                     Tutor tutor = participation.getTutor();
 
@@ -151,7 +152,7 @@ public class RequestService {
                             .toList();
 
                     return new ClientResponseDTO(
-                            tutor.getName(),
+                            tutor != null ? tutor.getName() : "Tutor not set",
                             participation.getTeam(),
                             participation.getName(),
                             participation.getShortName(),

@@ -71,7 +71,7 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 
     // Mock: Calculate lines based on commits (15-25 lines per commit)
     const linesPerCommit = 15 + Math.random() * 10;
-    const linesAdded = Math.floor(commits * linesPerCommit);
+    const linesAdded = student.linesChanged;
 
     return {
       name: student.name || 'Unknown',
