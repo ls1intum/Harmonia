@@ -23,7 +23,6 @@ concurrency: ${{ github.event.inputs.environment_name }}
 
 env:
   CI: true
-  # Keep filename in sync with the workflow responsible for automatic builds on PRs
   PR_AUTO_BUILD_FILE_NAME: 'build.yml'
   RAW_URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.inputs.branch_name }}
 
