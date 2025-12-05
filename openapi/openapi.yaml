@@ -43,8 +43,48 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/TeamRepositoryDTO'}
+  /api/requestResource/fetchData:
+    get:
+      tags: [request-resource]
+      operationId: fetchData
+      parameters:
+      - name: jwt
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_server_url
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_username
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_password
+        in: cookie
+        required: false
+        schema: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
 components:
   schemas:
+    ClientResponseDTO:
+      type: object
+      properties:
+        shortName: {type: string}
+        students:
+          type: array
+          items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
+        submissionCount: {type: integer, format: int32}
+        teamId: {type: integer, format: int64}
+        teamName: {type: string}
+        tutor: {type: string}
     LoginRequestDTO:
       type: object
       properties:
@@ -66,6 +106,14 @@ components:
         repositoryUri: {type: string}
         submissionCount: {type: integer, format: int32}
         team: {$ref: '#/components/schemas/TeamDTO'}
+    StudentAnalysisDTO:
+      type: object
+      properties:
+        commitCount: {type: integer, format: int32}
+        linesAdded: {type: integer, format: int32}
+        linesChanged: {type: integer, format: int32}
+        linesDeleted: {type: integer, format: int32}
+        name: {type: string}
     TeamDTO:
       type: object
       properties:
