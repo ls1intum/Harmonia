@@ -47,10 +47,21 @@ public class RequestService {
         return repositoryFetchingService.fetchAndCloneRepositories(credentials);
     }
 
+    /**
+     * Analyzes contributions for the given list of repositories.
+     *
+     * @param repositories List of TeamRepositoryDTO to be analyzed
+     * @return Map of Participant ID to an array of contribution metrics (e.g., lines added, lines deleted)
+     */
     public Map<Long, int[]> getContributionData(List<TeamRepositoryDTO> repositories) {
         return analysisService.analyzeContributions(repositories);
     }
 
+    /**
+     * Fetches, analyzes, and saves repository data using the provided Artemis credentials.
+     *
+     * @param credentials The Artemis credentials
+     */
     public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
         // Fetch and clone repositories
         List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials);
@@ -68,7 +79,8 @@ public class RequestService {
     /**
      * Saves the fetched repository information into the database.
      *
-     * @param repositories List of TeamRepositoryDTO to be saved
+     * @param repositories     List of TeamRepositoryDTO to be saved
+     * @param contributionData Map of Participant ID to an array of contribution metrics (e.g., lines added, lines deleted)
      */
     public void saveResults(List<TeamRepositoryDTO> repositories, Map<Long, int[]> contributionData) {
         teamRepositoryRepository.deleteAll();
@@ -94,7 +106,9 @@ public class RequestService {
             List<Student> students = new ArrayList<>();
             for (ParticipantDTO student : repo.participation().team().students()) {
                 int[] lines = contributionData.get(student.id());
-                if (lines == null) lines = new int[]{0, 0};
+                if (lines == null) {
+                    lines = new int[]{0, 0};
+                }
                 students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation, lines[0], lines[1], lines[0] + lines[1]));
             }
             studentRepository.saveAll(students);

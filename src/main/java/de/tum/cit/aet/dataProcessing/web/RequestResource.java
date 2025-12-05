@@ -73,6 +73,17 @@ public class RequestResource {
         }
     }
 
+    /**
+     * GET endpoint to fetch, analyze, and save repository data.
+     * Triggers the fetching of participations from Artemis, clones/pulls all repositories,
+     * analyzes them, and saves the results.
+     *
+     * @param jwtToken          The JWT token from the cookie
+     * @param serverUrl         The Artemis server URL from the cookie
+     * @param username          The Artemis username from the cookie
+     * @param encryptedPassword The encrypted Artemis password from the cookie
+     * @return ResponseEntity containing the list of ClientResponseDTO
+     */
     @GetMapping("fetchData")
     public ResponseEntity<List<ClientResponseDTO>> fetchData(
             @CookieValue(value = "jwt", required = false) String jwtToken,

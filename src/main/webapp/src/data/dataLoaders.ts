@@ -1,7 +1,7 @@
 import type { Team } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import {type ClientResponseDTO, RequestResourceApi} from '@/app/generated';
+import { type ClientResponseDTO, RequestResourceApi } from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
