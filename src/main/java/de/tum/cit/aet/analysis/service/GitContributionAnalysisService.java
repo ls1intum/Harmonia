@@ -2,25 +2,32 @@ package de.tum.cit.aet.analysis.service;
 
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.jgit.diff.DiffEntry;
+import org.eclipse.jgit.diff.DiffFormatter;
+import org.eclipse.jgit.diff.Edit;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectReader;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.patch.FileHeader;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.treewalk.EmptyTreeIterator;
+import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 @Slf4j
 public class GitContributionAnalysisService {
 
     public final Map<Long, int[]> authorContributions = new HashMap<>();
-    // Regex to parse the output of 'git show --numstat <commit-hash>'
-    // Example line: "12\t4\tsrc/main/java/Class.java" (lines added \t lines deleted \t filename)
-    private static final Pattern NUMSTAT_PATTERN = Pattern.compile("^(\\d+)\\s+(\\d+)\\s+.*");
 
     /**
      * Maps commit hashes from VCS logs to the corresponding participant's email.
@@ -47,63 +54,69 @@ public class GitContributionAnalysisService {
     public void analyzeRepositoryContributions(String localPath, Map<String, Long> commitToAuthor) throws IOException {
         System.out.println("Running git analysis on local path: " + localPath);
 
-        // Iterate through all commits provided in the DTO
-        for (String commitHash : commitToAuthor.keySet()) {
-            Long authorId = commitToAuthor.get(commitHash);
+        File gitDir = new File(localPath, ".git");
+        try (Repository repository = new FileRepositoryBuilder()
+                .setGitDir(gitDir)
+                .readEnvironment()
+                .build()) {
 
-            // Execute: git show --numstat <commit-hash>
-            ProcessBuilder pb = new ProcessBuilder(
-                    "git", "-C", localPath, "show", "--numstat", commitHash
-            );
+            try (ObjectReader reader = repository.newObjectReader();
+                 RevWalk revWalk = new RevWalk(repository)) {
 
-            try {
-                Process p = pb.start();
+                for (Map.Entry<String, Long> entry : commitToAuthor.entrySet()) {
+                    String commitHash = entry.getKey();
+                    Long authorId = entry.getValue();
 
-                // Read the output of the git command
-                BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                String line;
-                int linesAdded = 0;
-                int linesRemoved = 0;
+                    ObjectId commitId = repository.resolve(commitHash);
+                    if (commitId == null) {
+                        System.err.println("Unable to resolve commit " + commitHash);
+                        continue;
+                    }
 
-                while ((line = reader.readLine()) != null) {
-                    Matcher matcher = NUMSTAT_PATTERN.matcher(line);
+                    RevCommit commit = revWalk.parseCommit(commitId);
 
-                    if (matcher.find()) {
-                        // Group 1 is lines added, Group 2 is lines removed
-                        try {
-                            linesAdded += Integer.parseInt(matcher.group(1));
-                            linesRemoved += Integer.parseInt(matcher.group(2));
-                        } catch (NumberFormatException e) {
-                            // Handle cases where numstat output might be non-standard (e.g., '-\t-\tfilename')
-                            System.err.println("Non-numeric line stat encountered: " + line);
+                    CanonicalTreeParser newTreeIter = new CanonicalTreeParser();
+                    newTreeIter.reset(reader, commit.getTree().getId());
+
+                    org.eclipse.jgit.treewalk.AbstractTreeIterator oldTreeIter;
+                    if (commit.getParentCount() > 0) {
+                        RevCommit parent = revWalk.parseCommit(commit.getParent(0).getId());
+                        CanonicalTreeParser parentTreeIter = new CanonicalTreeParser();
+                        parentTreeIter.reset(reader, parent.getTree().getId());
+                        oldTreeIter = parentTreeIter;
+                    } else {
+                        oldTreeIter = new EmptyTreeIterator();
+                    }
+
+                    int linesAdded = 0;
+                    int linesRemoved = 0;
+
+                    try (DiffFormatter df = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
+                        df.setRepository(repository);
+                        df.setDetectRenames(true);
+
+                        List<DiffEntry> diffs = df.scan(oldTreeIter, newTreeIter);
+                        for (DiffEntry diff : diffs) {
+                            FileHeader fh = df.toFileHeader(diff);
+                            for (Edit edit : fh.toEditList()) {
+                                linesAdded += edit.getLengthB();
+                                linesRemoved += edit.getLengthA();
+                            }
                         }
                     }
+
+                    int[] currentContributions = authorContributions.getOrDefault(authorId, new int[]{0, 0, 0});
+                    currentContributions[0] += linesAdded;
+                    currentContributions[1] += linesRemoved;
+                    currentContributions[2] += 1; // commit count
+                    authorContributions.put(authorId, currentContributions);
+
+                    log.info("Student ID {}: +{} -{} lines for commit {}", authorId, linesAdded, linesRemoved, commitHash);
                 }
-
-                // Wait for the process to finish
-                int exitCode = p.waitFor();
-                if (exitCode != 0) {
-                    // Log error if git command failed
-                    System.err.println("Git command failed for commit " + commitHash + " with exit code " + exitCode);
-                }
-
-                // Update the authorContributions map
-                // [0] = linesAdded, [1] = linesRemoved
-                int[] currentContributions = authorContributions.getOrDefault(authorId, new int[]{0, 0});
-                currentContributions[0] += linesAdded;
-                currentContributions[1] += linesRemoved;
-                authorContributions.put(authorId, currentContributions);
-
-                log.info("Student ID {}: +{} -{} lines for commit {}", authorId, linesAdded, linesRemoved, commitHash);
-
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Git command interrupted", e);
-            } catch (Exception e) {
-                throw new IOException("Error executing git command for commit " + commitHash, e);
             }
+        } catch (Exception e) {
+            throw new IOException("Error processing repository at " + localPath, e);
         }
-
     }
 
     /**
@@ -113,6 +126,7 @@ public class GitContributionAnalysisService {
      * @return A map of student email to their total lines added and removed [added, removed].
      */
     public Map<Long, int[]> processAllRepositories(List<TeamRepositoryDTO> teamRepositories) {
+        authorContributions.clear();
 
         for (TeamRepositoryDTO repo : teamRepositories) {
             // 1. Map commits to student emails (based on logs)

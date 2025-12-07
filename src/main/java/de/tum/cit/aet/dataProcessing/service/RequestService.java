@@ -107,9 +107,9 @@ public class RequestService {
             for (ParticipantDTO student : repo.participation().team().students()) {
                 int[] lines = contributionData.get(student.id());
                 if (lines == null) {
-                    lines = new int[]{0, 0};
+                    lines = new int[]{0, 0, 0};
                 }
-                students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation, lines[0], lines[1], lines[0] + lines[1]));
+                students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation, lines[2], lines[0], lines[1], lines[0] + lines[1]));
             }
             studentRepository.saveAll(students);
 
@@ -139,7 +139,6 @@ public class RequestService {
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(participation -> {
                     List<Student> students = studentRepository.findAllByTeam(participation);
-                    log.info(students.toString());
 
                     Tutor tutor = participation.getTutor();
 

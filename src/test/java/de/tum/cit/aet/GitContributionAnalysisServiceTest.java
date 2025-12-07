@@ -3,6 +3,7 @@ package de.tum.cit.aet;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import org.junit.jupiter.api.Test;
@@ -72,22 +73,8 @@ class GitContributionAnalysisServiceTest {
 
     @Test
     void testDatabase() {
-        TestCredentialsLoader loader = new TestCredentialsLoader();
-        if (!loader.isAvailable()) {
-            System.out.println("Skipping test: " + loader.getSkipMessage());
-            return;
-        }
-
-        System.out.println("Starting Dynamic Auth Test...");
-
-        // 1. Authenticate
-        String jwtToken = artemisClientService.authenticate(
-                loader.getServerUrl(), loader.getUsername(), loader.getPassword());
-        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
-
-        // 2. Fetch and Clone using credentials DTO
-        ArtemisCredentials credentials = loader.getCredentials(jwtToken);
         testAll();
-        requestService.getAllRepositoryData();
+        List<ClientResponseDTO> test = requestService.getAllRepositoryData();
+        System.out.println("Fetched " + test.size() + " entries from database.");
     }
 }
