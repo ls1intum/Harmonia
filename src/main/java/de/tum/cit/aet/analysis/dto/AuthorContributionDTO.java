@@ -16,4 +16,3 @@ public record AuthorContributionDTO(
         Integer commitCount
 ) {
 }
-
