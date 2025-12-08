@@ -3,6 +3,7 @@ export interface Student {
   commits?: number;
   linesAdded?: number;
   linesDeleted?: number;
+  linesChanged?: number;
 }
 
 export interface SubMetric {

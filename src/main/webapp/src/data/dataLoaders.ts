@@ -68,12 +68,14 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
     const commits = student.commitCount || 0;
     const linesAdded = student.linesAdded || 0;
     const linesDeleted = student.linesDeleted || 0;
+    const linesChanged = student.linesChanged || 0;
 
     return {
       name: student.name || 'Unknown',
       commits,
       linesAdded,
       linesDeleted,
+      linesChanged,
     };
   });
 
