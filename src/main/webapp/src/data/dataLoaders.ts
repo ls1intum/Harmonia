@@ -63,7 +63,6 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
   const students = dto.students || [];
   const totalCommits = dto.submissionCount || 0;
 
-  // Mock: Distribute commits among students
   const studentData = students.map(student => {
     const commits = student.commitCount || 0;
     const linesAdded = student.linesAdded || 0;
@@ -79,7 +78,6 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
     };
   });
 
-  // Mock: Calculate total lines
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
 
   return {
