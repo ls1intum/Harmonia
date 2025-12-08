@@ -1,19 +1,17 @@
 package de.tum.cit.aet.analysis.service;
 
+import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.diff.Edit;
 import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.patch.FileHeader;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
-import org.eclipse.jgit.treewalk.CanonicalTreeParser;
-import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.springframework.stereotype.Service;
 
@@ -27,10 +25,13 @@ import java.util.List;
 @Slf4j
 public class GitContributionAnalysisService {
 
-    public final Map<Long, int[]> authorContributions = new HashMap<>();
+    public final Map<Long, AuthorContributionDTO> authorContributions = new HashMap<>();
 
     /**
-     * Maps commit hashes from VCS logs to the corresponding participant's email.
+     * Maps each commit hash to the corresponding author ID based on the VCS logs and team participation data.
+     *
+     * @param repo The TeamRepositoryDTO containing participation and logs.
+     * @return A map from commit hash (String) to Author ID (Long).
      */
     private Map<String, Long> mapCommitToAuthor(TeamRepositoryDTO repo) {
         Map<String, Long> commitToStudent = new HashMap<>();
@@ -44,74 +45,72 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Calculates the total lines added and removed for each author in a single repository
-     * by running the 'git show --numstat' command for each commit.
+     * Analyzes the Git repository at the given local path and updates the author contributions map.
      *
-     * @param localPath      The local path to the repository on the file system.
-     * @param commitToAuthor A map from commit hash (String) to Author ID (Long).
-     * @throws IOException If an I/O error occurs during process execution.
+     * @param localPath      The local file system path to the Git repository.
+     * @param commitToAuthor A map from commit hash to author ID.
+     * @throws IOException If an error occurs while accessing the repository.
      */
     public void analyzeRepositoryContributions(String localPath, Map<String, Long> commitToAuthor) throws IOException {
-        System.out.println("Running git analysis on local path: " + localPath);
+        log.info("Running git analysis on local path: {}", localPath);
 
+        // Initialize the JGit Repository object using the .git directory.
         File gitDir = new File(localPath, ".git");
+
         try (Repository repository = new FileRepositoryBuilder()
                 .setGitDir(gitDir)
                 .readEnvironment()
                 .build()) {
 
-            try (ObjectReader reader = repository.newObjectReader();
-                 RevWalk revWalk = new RevWalk(repository)) {
+            // Use RevWalk for commit traversal and DiffFormatter to calculate line changes.
+            try (RevWalk revWalk = new RevWalk(repository);
+                 DiffFormatter df = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
+
+                df.setRepository(repository);
+                // Enable rename detection for more accurate tracking.
+                df.setDetectRenames(true);
 
                 for (Map.Entry<String, Long> entry : commitToAuthor.entrySet()) {
                     String commitHash = entry.getKey();
                     Long authorId = entry.getValue();
 
+                    // Resolve the hash string to JGit's internal ObjectId.
                     ObjectId commitId = repository.resolve(commitHash);
                     if (commitId == null) {
-                        System.err.println("Unable to resolve commit " + commitHash);
+                        log.warn("Unable to resolve commit {}", commitHash);
                         continue;
                     }
 
                     RevCommit commit = revWalk.parseCommit(commitId);
 
-                    CanonicalTreeParser newTreeIter = new CanonicalTreeParser();
-                    newTreeIter.reset(reader, commit.getTree().getId());
-
-                    org.eclipse.jgit.treewalk.AbstractTreeIterator oldTreeIter;
-                    if (commit.getParentCount() > 0) {
-                        RevCommit parent = revWalk.parseCommit(commit.getParent(0).getId());
-                        CanonicalTreeParser parentTreeIter = new CanonicalTreeParser();
-                        parentTreeIter.reset(reader, parent.getTree().getId());
-                        oldTreeIter = parentTreeIter;
-                    } else {
-                        oldTreeIter = new EmptyTreeIterator();
-                    }
+                    // Find the parent commit (the 'before' state) for calculating the diff.
+                    RevCommit oldCommit = (commit.getParentCount() > 0)
+                            ? revWalk.parseCommit(commit.getParent(0).getId())
+                            : null;
 
                     int linesAdded = 0;
-                    int linesRemoved = 0;
+                    int linesDeleted = 0;
 
-                    try (DiffFormatter df = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
-                        df.setRepository(repository);
-                        df.setDetectRenames(true);
+                    // Scan the difference between the parent and the current commit.
+                    List<DiffEntry> diffs = df.scan(oldCommit, commit);
 
-                        List<DiffEntry> diffs = df.scan(oldTreeIter, newTreeIter);
-                        for (DiffEntry diff : diffs) {
-                            FileHeader fh = df.toFileHeader(diff);
-                            for (Edit edit : fh.toEditList()) {
-                                linesAdded += edit.getLengthB();
-                                linesRemoved += edit.getLengthA();
-                            }
+                    for (DiffEntry diff : diffs) {
+                        FileHeader fh = df.toFileHeader(diff);
+                        for (Edit edit : fh.toEditList()) {
+                            linesAdded += edit.getLengthB();
+                            linesDeleted += edit.getLengthA();
                         }
                     }
 
-                    int[] currentContributions = authorContributions.getOrDefault(authorId, new int[]{0, 0, 0});
-                    currentContributions[0] += linesAdded;
-                    currentContributions[1] += linesRemoved;
-                    currentContributions[2] += 1; // commit count
-                    authorContributions.put(authorId, currentContributions);
+                    // Update the total contributions for the author.
+                    // Assumes authorContributions is a Map<Long, int[]> with format [linesAdded, linesRemoved, commitCount].
+                    AuthorContributionDTO currentContributions = authorContributions.getOrDefault(authorId, new AuthorContributionDTO(0, 0, 0));
+                    authorContributions.put(authorId, new AuthorContributionDTO(
+                            currentContributions.linesAdded() + linesAdded,
+                            currentContributions.linesDeleted() + linesDeleted,
+                            currentContributions.commitCount() + 1));
 
-                    log.info("Student ID {}: +{} -{} lines for commit {}", authorId, linesAdded, linesRemoved, commitHash);
+                    log.info("Student ID {}: +{} -{} lines for commit {}", authorId, linesAdded, linesDeleted, commitHash);
                 }
             }
         } catch (Exception e) {
@@ -120,26 +119,24 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Main method to orchestrate the analysis.
+     * Processes all team repositories to analyze contributions.
      *
-     * @param teamRepositories The list of DTOs containing participation and logs.
-     * @return A map of student email to their total lines added and removed [added, removed].
+     * @param teamRepositories List of TeamRepositoryDTO to process.
+     * @return A map from author ID to their contribution statistics.
      */
-    public Map<Long, int[]> processAllRepositories(List<TeamRepositoryDTO> teamRepositories) {
+    public Map<Long, AuthorContributionDTO> processAllRepositories(List<TeamRepositoryDTO> teamRepositories) {
         authorContributions.clear();
 
         for (TeamRepositoryDTO repo : teamRepositories) {
-            // 1. Map commits to student emails (based on logs)
+            // Map commits to student emails (based on logs)
             Map<String, Long> commitToAuthor = mapCommitToAuthor(repo);
 
-            // 2. Iterate and analyze each repository
+            // Iterate and analyze each repository
             String localPath = repo.localPath();
             try {
-                // The results are accumulated into the authorContributions map
                 analyzeRepositoryContributions(localPath, commitToAuthor);
             } catch (IOException e) {
-                System.err.println("Error processing repository " + repo.participation().repositoryUri() + ": " + e.getMessage());
-                // Handle or log error
+                log.error("Error processing repository {}: {}", repo.participation().repositoryUri(), e.getMessage());
             }
         }
         return authorContributions;
