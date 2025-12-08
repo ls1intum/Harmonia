@@ -1,5 +1,6 @@
 package de.tum.cit.aet;
 
+import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
@@ -25,7 +26,7 @@ class GitContributionAnalysisServiceTest {
     private final GitContributionAnalysisService gitContributionAnalysisService = new GitContributionAnalysisService();
 
     @Test
-    void testFetchingAndSaving() {
+    void testFetchingAndAnalyzing() {
         TestCredentialsLoader loader = new TestCredentialsLoader();
         if (!loader.isAvailable()) {
             System.out.println("Skipping test: " + loader.getSkipMessage());
@@ -39,20 +40,21 @@ class GitContributionAnalysisServiceTest {
                 loader.getServerUrl(), loader.getUsername(), loader.getPassword());
         System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
 
-        // 2. Fetch VCS Access Log
+        // 2. Fetch and Clone using credentials DTO
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
         List<TeamRepositoryDTO> repos = requestService.fetchAndCloneRepositories(credentials);
 
-        Map<Long, int[]> map = gitContributionAnalysisService.processAllRepositories(repos);
+        // 3. Analyze contributions
+        Map<Long, AuthorContributionDTO> map = gitContributionAnalysisService.processAllRepositories(repos);
         for (Long studentId : map.keySet()) {
             System.out.println("Processed student ID: " + studentId);
-            int[] contributions = map.get(studentId);
-            System.out.println("Added = " + contributions[0] + ", Deleted = " + contributions[1]);
+            AuthorContributionDTO contributions = map.get(studentId);
+            System.out.println("Added = " + contributions.linesAdded() + ", Deleted = " + contributions.linesDeleted());
         }
     }
 
     @Test
-    void testAll() {
+    void testSaving() {
         TestCredentialsLoader loader = new TestCredentialsLoader();
         if (!loader.isAvailable()) {
             System.out.println("Skipping test: " + loader.getSkipMessage());
@@ -66,14 +68,16 @@ class GitContributionAnalysisServiceTest {
                 loader.getServerUrl(), loader.getUsername(), loader.getPassword());
         System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
 
-        // 2. Fetch and Clone using credentials DTO
+        // 2. Fetch, Analyze and Save
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
         requestService.fetchAnalyzeAndSaveRepositories(credentials);
     }
 
     @Test
     void testDatabase() {
-        testAll();
+        testSaving();
+
+        // 3. Fetch from database
         List<ClientResponseDTO> test = requestService.getAllRepositoryData();
         System.out.println("Fetched " + test.size() + " entries from database.");
     }

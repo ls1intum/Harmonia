@@ -1,7 +1,6 @@
 package de.tum.cit.aet;
 
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
@@ -19,9 +18,6 @@ class DynamicAuthTest {
 
     @Autowired
     private RepositoryFetchingService repositoryFetchingService;
-
-    @Autowired
-    private RequestService requestService;
 
     @Test
     void testDynamicAuthenticationAndCloning() {
@@ -52,26 +48,5 @@ class DynamicAuthTest {
             }
             System.out.println("---");
         });
-    }
-
-    @Test
-    void testFetchingAndSaving()
-    {
-        TestCredentialsLoader loader = new TestCredentialsLoader();
-        if (!loader.isAvailable()) {
-            System.out.println("Skipping test: " + loader.getSkipMessage());
-            return;
-        }
-
-        System.out.println("Starting VCS Access Log Test...");
-
-        // 1. Authenticate
-        String jwtToken = artemisClientService.authenticate(
-                loader.getServerUrl(), loader.getUsername(), loader.getPassword());
-        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
-
-        // 2. Fetch VCS Access Log
-        ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        requestService.fetchAndCloneRepositories(credentials);
     }
 }
