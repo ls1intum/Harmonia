@@ -1,5 +1,6 @@
 package de.tum.cit.aet.dataProcessing.service;
 
+import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.service.AnalysisService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
@@ -37,6 +38,22 @@ public class RequestService {
     }
 
     /**
+     * Fetches, analyzes, and saves repository data using the provided Artemis credentials.
+     *
+     * @param credentials The Artemis credentials
+     */
+    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
+        // Fetch and clone repositories
+        List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials);
+
+        // Analyze contributions
+        Map<Long, AuthorContributionDTO> contributionData = getContributionData(repositories);
+
+        // Save results to the database
+        saveResults(repositories, contributionData);
+    }
+
+    /**
      * Fetches and clones all repositories from Artemis using dynamic credentials.
      *
      * @param credentials The Artemis credentials
@@ -53,27 +70,8 @@ public class RequestService {
      * @param repositories List of TeamRepositoryDTO to be analyzed
      * @return Map of Participant ID to an array of contribution metrics (e.g., lines added, lines deleted)
      */
-    public Map<Long, int[]> getContributionData(List<TeamRepositoryDTO> repositories) {
+    public Map<Long, AuthorContributionDTO> getContributionData(List<TeamRepositoryDTO> repositories) {
         return analysisService.analyzeContributions(repositories);
-    }
-
-    /**
-     * Fetches, analyzes, and saves repository data using the provided Artemis credentials.
-     *
-     * @param credentials The Artemis credentials
-     */
-    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
-        // Fetch and clone repositories
-        List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials);
-
-        // Analyze contributions
-        Map<Long, int[]> contributionData = getContributionData(repositories);
-        for (int[] lines : contributionData.values()) {
-            log.info("Contribution Data - Added Lines: {}, Deleted Lines: {}", lines[0], lines[1]);
-        }
-
-        // Save results to the database
-        saveResults(repositories, contributionData);
     }
 
     /**
@@ -82,13 +80,15 @@ public class RequestService {
      * @param repositories     List of TeamRepositoryDTO to be saved
      * @param contributionData Map of Participant ID to an array of contribution metrics (e.g., lines added, lines deleted)
      */
-    public void saveResults(List<TeamRepositoryDTO> repositories, Map<Long, int[]> contributionData) {
+    public void saveResults(List<TeamRepositoryDTO> repositories, Map<Long, AuthorContributionDTO> contributionData) {
+        // Clear existing data in database tables. We assume a full refresh of all data is intended, effectively treating the run as idempotent
         teamRepositoryRepository.deleteAll();
         studentRepository.deleteAll();
         teamParticipationRepository.deleteAll();
         tutorRepository.deleteAll();
 
         for (TeamRepositoryDTO repo : repositories) {
+            // Save tutor
             ParticipantDTO tut = repo.participation().team().owner();
             Tutor tutor = null;
             if (tut == null) {
@@ -98,25 +98,35 @@ public class RequestService {
                 tutorRepository.save(tutor);
             }
 
+            // Save team participation
             ParticipationDTO participation = repo.participation();
             TeamDTO team = participation.team();
             TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(), team.shortName(), participation.repositoryUri(), participation.submissionCount());
             teamParticipationRepository.save(teamParticipation);
 
+            // Save students with contributions
             List<Student> students = new ArrayList<>();
             for (ParticipantDTO student : repo.participation().team().students()) {
-                int[] lines = contributionData.get(student.id());
-                if (lines == null) {
-                    lines = new int[]{0, 0, 0};
+                AuthorContributionDTO contributionDTO = contributionData.get(student.id());
+
+                // Handle the case where a student made no contributions (e.g., if they were registered but never committed)
+                if (contributionDTO == null) {
+                    contributionDTO = new AuthorContributionDTO(0, 0, 0);
                 }
-                students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation, lines[2], lines[0], lines[1], lines[0] + lines[1]));
+
+                students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation,
+                        contributionDTO.commitCount(), contributionDTO.linesAdded(), contributionDTO.linesDeleted(),
+                        contributionDTO.linesAdded() + contributionDTO.linesDeleted()));
             }
             studentRepository.saveAll(students);
 
+            // Save team repository
             TeamRepository teamRepo = new TeamRepository(teamParticipation, null, repo.localPath(), repo.isCloned(), repo.error());
 
+            // Process VCS logs
             List<VCSLog> vcsLogs = repo.vcsLogs().stream().map(log -> new VCSLog(teamRepo, log.commitHash(), log.email())).toList();
 
+            // Save the TeamRepository (through cascade, VCSLogs will also be saved)
             teamRepo.setVcsLogs(vcsLogs);
             teamRepositoryRepository.save(teamRepo);
 
@@ -125,17 +135,17 @@ public class RequestService {
     }
 
     /**
-     * Extracts all saved repository and contribution data from the database.
+     * Retrieves all stored repository data from the database and assembles it into ClientResponseDTOs.
      *
-     * @return A list of ClientResponseDTOs containing all aggregated team and student data.
+     * @return List of ClientResponseDTO containing the assembled data
      */
     public List<ClientResponseDTO> getAllRepositoryData() {
         log.info("RequestService: Initiating data extraction from database");
 
-        // 1. Fetch all TeamParticipation records
+        // Fetch all TeamParticipation records
         List<TeamParticipation> participations = teamParticipationRepository.findAll();
 
-        // 2. Map and assemble the data into ClientResponseDTOs
+        // Map and assemble the data into ClientResponseDTOs
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(participation -> {
                     List<Student> students = studentRepository.findAllByTeam(participation);
@@ -161,7 +171,7 @@ public class RequestService {
                 })
                 .toList();
 
-        log.info("RequestService: Extracted {} team participation records.", responseDTOs.size());
+        log.info("RequestService: Extracted {} team participation records from the database.", responseDTOs.size());
         return responseDTOs;
     }
 }

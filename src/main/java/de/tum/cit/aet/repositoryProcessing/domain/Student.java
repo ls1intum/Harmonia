@@ -37,7 +37,7 @@ public class Student {
     @Column(name = "lines_added")
     private Integer linesAdded;
 
-    @Column(name  = "lines_deleted")
+    @Column(name = "lines_deleted")
     private Integer linesDeleted;
 
     @Column(name = "lines_changed")

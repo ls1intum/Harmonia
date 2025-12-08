@@ -56,7 +56,6 @@ public class RequestResource {
         }
 
         requestService.fetchAnalyzeAndSaveRepositories(credentials);
-        log.info("Successfully fetched, analyzed, and saved repository data");
         List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
         return ResponseEntity.ok(clientResponseDTOS);
     }

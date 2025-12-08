@@ -189,7 +189,7 @@ public class ArtemisClientService {
      * @param serverUrl       The Artemis server URL
      * @param jwtToken        The JWT token for authentication
      * @param participationId The ID of the participation
-     * @return List of VCS log DTOs filtered for WRITE actions
+     * @return List of VCS log DTOs filtered for commits
      */
     public List<VCSLogDTO> fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
         log.info("Fetching VCS access log for participation ID: {}", participationId);
@@ -208,6 +208,7 @@ public class ArtemisClientService {
                     .body(new ParameterizedTypeReference<>() {
                     });
 
+            // Filter the fetched logs to only include "WRITE" actions, indicating a commit
             if (vcsLogs != null) {
                 vcsLogs = vcsLogs.stream()
                         .filter(entry -> "WRITE".equals(entry.repositoryActionType()))
