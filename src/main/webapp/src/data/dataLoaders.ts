@@ -67,11 +67,13 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
   const studentData = students.map(student => {
     const commits = student.commitCount || 0;
     const linesAdded = student.linesAdded || 0;
+    const linesDeleted = student.linesDeleted || 0;
 
     return {
       name: student.name || 'Unknown',
       commits,
       linesAdded,
+      linesDeleted,
     };
   });
 

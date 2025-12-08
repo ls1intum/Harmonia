@@ -2,6 +2,7 @@ export interface Student {
   name: string;
   commits?: number;
   linesAdded?: number;
+  linesDeleted?: number;
 }
 
 export interface SubMetric {

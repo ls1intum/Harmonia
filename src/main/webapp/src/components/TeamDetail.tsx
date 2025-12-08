@@ -55,9 +55,9 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
                     <p className="text-lg font-medium">{student.name}</p>
-                    {student.commits !== undefined && student.linesAdded !== undefined && (
+                    {student.commits !== undefined && student.linesAdded !== undefined && student.linesDeleted !== undefined && (
                       <p className="text-xs text-muted-foreground">
-                        {student.commits} commits • {student.linesAdded} lines added
+                        {student.commits} commits • {student.linesAdded} lines added • {student.linesDeleted} lines deleted
                       </p>
                     )}
                   </div>
