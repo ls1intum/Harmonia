@@ -48,7 +48,6 @@ components:
     ClientResponseDTO:
       type: object
       properties:
-        shortName: {type: string}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentAnalysisDTO'}

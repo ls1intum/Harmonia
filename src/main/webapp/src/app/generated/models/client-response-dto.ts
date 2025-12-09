@@ -17,7 +17,6 @@
 import type { StudentAnalysisDTO } from './student-analysis-dto';
 
 export interface ClientResponseDTO {
-  shortName?: string;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
   teamId?: number;
