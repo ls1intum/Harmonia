@@ -2,7 +2,7 @@ import type { Team } from '@/types/team';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 
 interface TeamDetailProps {
@@ -67,6 +67,10 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                       )}
                   </div>
                 ))}
+              </div>
+              <div className="flex items-center gap-2 mt-5">
+                <ClipboardCheck className="h-5 w-5 text-primary" />
+                <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
               </div>
               <div className="pt-2">
                 {team.isSuspicious ? (

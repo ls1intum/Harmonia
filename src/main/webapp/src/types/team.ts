@@ -22,6 +22,7 @@ export interface BasicMetrics {
 export interface Team {
   id: string;
   teamName: string;
+  tutor: string;
   students: Student[];
   cqi?: number;
   isSuspicious?: boolean;
