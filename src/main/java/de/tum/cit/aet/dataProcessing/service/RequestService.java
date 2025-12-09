@@ -81,6 +81,7 @@ public class RequestService {
      * @param contributionData Map of Participant ID to an array of contribution metrics (e.g., lines added, lines deleted)
      */
     public void saveResults(List<TeamRepositoryDTO> repositories, Map<Long, AuthorContributionDTO> contributionData) {
+        // TODO: Implement a better strategy for updating existing records instead of deleting all data
         // Clear existing data in database tables. We assume a full refresh of all data is intended, effectively treating the run as idempotent
         teamRepositoryRepository.deleteAll();
         studentRepository.deleteAll();
