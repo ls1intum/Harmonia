@@ -161,7 +161,7 @@ public class RequestService {
                             .toList();
 
                     return new ClientResponseDTO(
-                            tutor != null ? tutor.getName() : "Tutor not set",
+                            tutor != null ? tutor.getName() : "Unassigned",
                             participation.getTeam(),
                             participation.getName(),
                             participation.getShortName(),
