@@ -164,7 +164,6 @@ public class RequestService {
                             tutor != null ? tutor.getName() : "Unassigned",
                             participation.getTeam(),
                             participation.getName(),
-                            participation.getShortName(),
                             participation.getSubmissionCount(),
                             studentAnalysisDTOS
                     );

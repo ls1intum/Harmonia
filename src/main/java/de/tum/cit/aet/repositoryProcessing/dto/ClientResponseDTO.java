@@ -10,7 +10,6 @@ import java.util.List;
  * @param tutor           The name of the tutor associated with the team.
  * @param teamId          The unique identifier of the team.
  * @param teamName        The full name of the team.
- * @param shortName       The short name or abbreviation of the team.
  * @param submissionCount The number of submissions made by the team.
  * @param students        A list of StudentAnalysisDTO representing individual student analyses within the team.
  */
@@ -19,7 +18,6 @@ public record ClientResponseDTO(
         String tutor,
         Long teamId,
         String teamName,
-        String shortName,
         Integer submissionCount,
         List<StudentAnalysisDTO> students
 ) {
