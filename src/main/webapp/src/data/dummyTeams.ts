@@ -4,6 +4,7 @@ export const dummyTeams: Team[] = [
   {
     id: 'team-1',
     teamName: 'Team Alpha',
+    tutor: 'Dr. Smith',
     students: [
       { name: 'Emma Johnson', commits: 78, linesAdded: 1234 },
       { name: 'Michael Chen', commits: 72, linesAdded: 1186 },
@@ -52,6 +53,7 @@ export const dummyTeams: Team[] = [
   {
     id: 'team-2',
     teamName: 'Team Beta',
+    tutor: 'Dr. Smith',
     students: [
       { name: 'Sarah Williams', commits: 92, linesAdded: 1876 },
       { name: 'James Rodriguez', commits: 8, linesAdded: 142 },
@@ -100,6 +102,7 @@ export const dummyTeams: Team[] = [
   {
     id: 'team-3',
     teamName: 'Team Gamma',
+    tutor: 'Dr. Smith',
     students: [
       { name: 'Olivia Martinez', commits: 64, linesAdded: 1458 },
       { name: 'Daniel Kim', commits: 46, linesAdded: 1042 },
@@ -148,6 +151,7 @@ export const dummyTeams: Team[] = [
   {
     id: 'team-4',
     teamName: 'Team Delta',
+    tutor: 'Dr. Smith',
     students: [
       { name: 'Ethan Brown', commits: 89, linesAdded: 1672 },
       { name: 'Sophia Lee', commits: 86, linesAdded: 1598 },
@@ -196,6 +200,7 @@ export const dummyTeams: Team[] = [
   {
     id: 'team-5',
     teamName: 'Team Epsilon',
+    tutor: 'Dr. Smith',
     students: [
       { name: 'Ava Taylor', commits: 12, linesAdded: 234 },
       { name: 'Noah Anderson', commits: 68, linesAdded: 1546 },
@@ -244,6 +249,7 @@ export const dummyTeams: Team[] = [
   {
     id: 'team-6',
     teamName: 'Team Zeta',
+    tutor: 'Dr. Smith',
     students: [
       { name: 'Isabella Garcia', commits: 78, linesAdded: 1512 },
       { name: 'Liam Wilson', commits: 61, linesAdded: 1188 },

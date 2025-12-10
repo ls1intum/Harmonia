@@ -12,8 +12,14 @@
  * Do not edit the class manually.
  */
 
-export interface ParticipantDTO {
-  id?: number;
-  login?: string;
-  name?: string;
+// May contain unused imports in some cases
+// @ts-ignore
+import type { StudentAnalysisDTO } from './student-analysis-dto';
+
+export interface ClientResponseDTO {
+  students?: Array<StudentAnalysisDTO>;
+  submissionCount?: number;
+  teamId?: number;
+  teamName?: string;
+  tutor?: string;
 }
