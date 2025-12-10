@@ -32,7 +32,7 @@ import {
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
-import type { TeamRepositoryDTO } from '../models';
+import type { ClientResponseDTO } from '../models';
 /**
  * RequestResourceApi - axios parameter creator
  */
@@ -40,11 +40,21 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
   return {
     /**
      *
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    fetchAndCloneRepositories: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      const localVarPath = `/api/requestResource/fetchAndCloneRepositories`;
+    fetchData: async (
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
+      const localVarPath = `/api/requestResource/fetchData`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -76,16 +86,23 @@ export const RequestResourceApiFp = function (configuration?: Configuration) {
   return {
     /**
      *
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    async fetchAndCloneRepositories(
+    async fetchData(
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
       options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<TeamRepositoryDTO>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.fetchAndCloneRepositories(options);
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-      const localVarOperationServerBasePath =
-        operationServerMap['RequestResourceApi.fetchAndCloneRepositories']?.[localVarOperationServerIndex]?.url;
+      const localVarOperationServerBasePath = operationServerMap['RequestResourceApi.fetchData']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
@@ -100,11 +117,23 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
   return {
     /**
      *
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    fetchAndCloneRepositories(options?: RawAxiosRequestConfig): AxiosPromise<Array<TeamRepositoryDTO>> {
-      return localVarFp.fetchAndCloneRepositories(options).then(request => request(axios, basePath));
+    fetchData(
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<Array<ClientResponseDTO>> {
+      return localVarFp
+        .fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+        .then(request => request(axios, basePath));
     },
   };
 };
@@ -115,12 +144,22 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
 export class RequestResourceApi extends BaseAPI {
   /**
    *
+   * @param {string} [jwt]
+   * @param {string} [artemisServerUrl]
+   * @param {string} [artemisUsername]
+   * @param {string} [artemisPassword]
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public fetchAndCloneRepositories(options?: RawAxiosRequestConfig) {
+  public fetchData(
+    jwt?: string,
+    artemisServerUrl?: string,
+    artemisUsername?: string,
+    artemisPassword?: string,
+    options?: RawAxiosRequestConfig,
+  ) {
     return RequestResourceApiFp(this.configuration)
-      .fetchAndCloneRepositories(options)
+      .fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
       .then(request => request(this.axios, this.basePath));
   }
 }

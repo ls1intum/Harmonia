@@ -39,11 +39,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api-docs", "/api-docs.yaml", "/actuator/health")
+                        .requestMatchers("/api-docs", "/api-docs.yaml", "/actuator/health", "/api/auth/**")
                         .permitAll()
                         .anyRequest().authenticated()
                 )
-                .httpBasic(_ -> {});
+                .httpBasic(basic -> {});
         return http.build();
     }
 

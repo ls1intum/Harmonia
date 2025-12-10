@@ -14,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record ParticipantDTO(
         Long id,
         String login,
-        String name
+        String name,
+        String email
 ) {
 }

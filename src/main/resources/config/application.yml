@@ -27,11 +27,12 @@ spring:
       openai:
         api-key: <openai_key>
         # open-ai-api-key: <openai_key> # Fallback OpenAI key if needed, sets endpoint automatically
-        endpoint: https://ase-se01.openai.azure.com/
+        # endpoint: https://ase-se01.openai.azure.com/
         # deployment-name should match the Azure OpenAI deployment
+        endpoint: https://api.openai.com/v1
         chat:
           options:
-            deployment-name: gpt-5-mini
+            deployment-name: gpt-4o-mini
             # Some Azure/OpenAI deployments (e.g., gpt-5-mini) only support the default temperature (1.0)
             temperature: 1.0
 
@@ -56,12 +57,22 @@ harmonia:
       - "http://localhost:5173"
       - "http://localhost:3000"
       - "http://localhost:8080"
+  ai:
+    enabled: true
+    commit-classifier:
+      enabled: true
+      confidence-threshold: 0.7
+    anomaly-detector:
+      enabled: true
+      confidence-threshold: 0.7
+    file-clustering:
+      enabled: false
 
 artemis:
-  baseUrl: https://artemis-test2.artemis.cit.tum.de/api
+  baseUrl: 
   username: 
   password: 
   jwtToken: 
   exerciseId: 424
-  gitRepoPath: Projects/itp2425teamprojects
+  gitRepoPath: Projects/itp2526teamprojects
   numThreads: 8

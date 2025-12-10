@@ -3,7 +3,7 @@ plugins {
     id 'java'
     id 'com.diffplug.spotless' version '8.1.0'
     id 'com.github.ben-manes.versions' version '0.53.0'
-    id 'org.springframework.boot' version '4.0.0-RC2'
+    id 'org.springframework.boot' version '4.0.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id "org.springdoc.openapi-gradle-plugin" version "1.9.0"
     id "org.openapi.generator" version "7.17.0"
@@ -76,6 +76,8 @@ dependencies {
 
     // Spring AI for LLM interaction
     implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0"
+    // use newest version of nimbus-jose-jwt to avoid security issues through outdated dependencies
+    implementation "com.nimbusds:nimbus-jose-jwt:10.6"
 
     // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.8'
@@ -85,7 +87,7 @@ dependencies {
 
     //Openapi dependencies
     implementation "org.openapitools:jackson-databind-nullable:${jacksonDatabindNullableVersion}"
-    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14"
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0"
     implementation("org.yaml:snakeyaml") {
         version {
             strictly "${snakeyaml_version}"

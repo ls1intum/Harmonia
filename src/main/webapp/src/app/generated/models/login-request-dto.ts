@@ -12,8 +12,8 @@
  * Do not edit the class manually.
  */
 
-export interface ParticipantDTO {
-  id?: number;
-  login?: string;
-  name?: string;
+export interface LoginRequestDTO {
+  password: string;
+  serverUrl: string;
+  username: string;
 }
