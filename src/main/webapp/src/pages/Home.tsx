@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 export default function Home() {
   const navigate = useNavigate();
 
-  const handleStartAnalysis = (course: string, exercise: string) => {
-    navigate('/teams', { state: { course, exercise } });
+  const handleStartAnalysis = (course: string, exercise: string, username: string, password: string) => {
+    navigate('/teams', { state: { course, exercise, username, password } });
   };
 
   return <StartAnalysis onStart={handleStartAnalysis} />;

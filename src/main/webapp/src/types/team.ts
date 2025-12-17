@@ -2,6 +2,8 @@ export interface Student {
   name: string;
   commits?: number;
   linesAdded?: number;
+  linesDeleted?: number;
+  linesChanged?: number;
 }
 
 export interface SubMetric {
@@ -20,6 +22,7 @@ export interface BasicMetrics {
 export interface Team {
   id: string;
   teamName: string;
+  tutor: string;
   students: Student[];
   cqi?: number;
   isSuspicious?: boolean;

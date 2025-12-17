@@ -110,10 +110,4 @@ echo -e "\n${YELLOW}Useful commands:${NC}"
 echo -e "${YELLOW}• View logs:${NC} docker compose -f docker/docker-compose.yml logs -f"
 echo -e "${YELLOW}• Stop services:${NC} docker compose -f docker/docker-compose.yml down"
 echo -e "${YELLOW}• Restart services:${NC} docker compose -f docker/docker-compose.yml restart"
-echo -e "\n${YELLOW}Press Ctrl+C to stop all services${NC}\n"
 
-# Keep script running and handle Ctrl+C
-trap "echo -e '\n${RED}Shutting down all services...${NC}'; docker compose -f docker/docker-compose.yml down; exit" INT
-
-# Follow logs to keep script running
-docker compose -f docker/docker-compose.yml logs -f

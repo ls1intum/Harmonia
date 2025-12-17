@@ -2,13 +2,13 @@
 
 All URIs are relative to _http://localhost:8080_
 
-| Method                                                      | HTTP request                                           | Description |
-| ----------------------------------------------------------- | ------------------------------------------------------ | ----------- |
-| [**fetchAndCloneRepositories**](#fetchandclonerepositories) | **GET** /api/requestResource/fetchAndCloneRepositories |             |
+| Method                      | HTTP request                           | Description |
+| --------------------------- | -------------------------------------- | ----------- |
+| [**fetchData**](#fetchdata) | **GET** /api/requestResource/fetchData |             |
 
-# **fetchAndCloneRepositories**
+# **fetchData**
 
-> Array<TeamRepositoryDTO> fetchAndCloneRepositories()
+> Array<ClientResponseDTO> fetchData()
 
 ### Example
 
@@ -18,16 +18,26 @@ import { RequestResourceApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new RequestResourceApi(configuration);
 
-const { status, data } = await apiInstance.fetchAndCloneRepositories();
+let jwt: string; // (optional) (default to undefined)
+let artemisServerUrl: string; // (optional) (default to undefined)
+let artemisUsername: string; // (optional) (default to undefined)
+let artemisPassword: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword);
 ```
 
 ### Parameters
 
-This endpoint does not have any parameters.
+| Name                 | Type         | Description | Notes                            |
+| -------------------- | ------------ | ----------- | -------------------------------- |
+| **jwt**              | [**string**] |             | (optional) defaults to undefined |
+| **artemisServerUrl** | [**string**] |             | (optional) defaults to undefined |
+| **artemisUsername**  | [**string**] |             | (optional) defaults to undefined |
+| **artemisPassword**  | [**string**] |             | (optional) defaults to undefined |
 
 ### Return type
 
-**Array<TeamRepositoryDTO>**
+**Array<ClientResponseDTO>**
 
 ### Authorization
 

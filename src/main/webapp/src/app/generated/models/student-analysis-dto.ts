@@ -12,14 +12,10 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { ParticipationDTO } from './participation-dto';
-
-export interface TeamRepositoryDTO {
+export interface StudentAnalysisDTO {
   commitCount?: number;
-  error?: string;
-  isCloned?: boolean;
-  localPath?: string;
-  participation?: ParticipationDTO;
+  linesAdded?: number;
+  linesChanged?: number;
+  linesDeleted?: number;
+  name?: string;
 }

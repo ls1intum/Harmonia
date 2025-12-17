@@ -74,12 +74,17 @@ dependencies {
 
 
     // JGit
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.5.0.202512021534-r'
 
+    // Uses patched netty version to resolve vulnerability in Spring AI
+    implementation 'io.netty:netty-codec-http:4.1.129.Final'
     // Spring AI for LLM interaction
     implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M1')
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     implementation 'org.springframework.ai:spring-ai-starter-model-azure-openai'
+
+    // use newest version of nimbus-jose-jwt to avoid security issues through outdated dependencies
+    implementation "com.nimbusds:nimbus-jose-jwt:10.6"
 
     // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.8'
