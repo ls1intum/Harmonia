@@ -24,7 +24,7 @@ spring:
 
   ai:
     openai:
-      enabled: false
+      api-key: <dummy_local_key>
 
     azure:
       openai:
