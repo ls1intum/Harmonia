@@ -1,16 +1,24 @@
 package de.tum.cit.aet.repositoryProcessing.dto;
 
+import java.util.List;
+
 /**
  * Builder for immutable TeamRepositoryDTO records.
  */
 public class TeamRepositoryDTOBuilder {
     private ParticipationDTO participation;
+    private List<VCSLogDTO> vcsLogs;
     private String localPath;
     private Boolean isCloned;
     private String error;
 
     public TeamRepositoryDTOBuilder participation(ParticipationDTO participation) {
         this.participation = participation;
+        return this;
+    }
+
+    public TeamRepositoryDTOBuilder vcsLogs(List<VCSLogDTO> vcsLogs) {
+        this.vcsLogs = vcsLogs;
         return this;
     }
 
@@ -31,6 +39,6 @@ public class TeamRepositoryDTOBuilder {
     }
 
     public TeamRepositoryDTO build() {
-        return new TeamRepositoryDTO(participation, localPath, isCloned, error);
+        return new TeamRepositoryDTO(participation, vcsLogs, localPath, isCloned, error);
     }
 }

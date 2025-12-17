@@ -1,7 +1,7 @@
 import type { Team } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import { RequestResourceApi, type TeamRepositoryDTO } from '@/app/generated';
+import { RequestResourceApi, type ClientResponseDTO } from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
@@ -56,36 +56,34 @@ function delay(ms: number): Promise<void> {
 // ============================================================
 
 /**
- * Transform TeamRepositoryDTO to BasicTeamData with mocked analysis
+ * Transform ClientResponseDTO to BasicTeamData with mocked analysis
  */
-function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
-  const teamName = dto.participation?.team?.name || 'Unknown Team';
-  const students = dto.participation?.team?.students || [];
-  const totalCommits = dto.participation?.submissionCount || 0;
+function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
+  const teamName = dto.teamName || 'Unknown Team';
+  const students = dto.students || [];
+  const totalCommits = dto.submissionCount || 0;
 
-  // Mock: Distribute commits among students
-  const studentData = students.map((student, index) => {
-    // Generate random but realistic commit distribution
-    const ratio = 0.4 + Math.random() * 0.2; // Between 40-60%
-    const commits = index === 0 ? Math.floor(totalCommits * ratio) : totalCommits - Math.floor(totalCommits * ratio);
-
-    // Mock: Calculate lines based on commits (15-25 lines per commit)
-    const linesPerCommit = 15 + Math.random() * 10;
-    const linesAdded = Math.floor(commits * linesPerCommit);
+  const studentData = students.map(student => {
+    const commits = student.commitCount || 0;
+    const linesAdded = student.linesAdded || 0;
+    const linesDeleted = student.linesDeleted || 0;
+    const linesChanged = student.linesChanged || 0;
 
     return {
       name: student.name || 'Unknown',
       commits,
       linesAdded,
+      linesDeleted,
+      linesChanged,
     };
   });
 
-  // Mock: Calculate total lines
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
 
   return {
-    id: dto.participation?.id?.toString() || 'unknown',
+    id: dto.teamId?.toString() || 'unknown',
     teamName,
+    tutor: dto.tutor || 'Unassigned',
     students: studentData,
     basicMetrics: {
       totalCommits,
@@ -95,11 +93,11 @@ function transformToBasicTeamData(dto: TeamRepositoryDTO): BasicTeamData {
 }
 
 /**
- * Transform TeamRepositoryDTO to ComplexTeamData with mocked CQI analysis
+ * Transform ClientResponseDTO to ComplexTeamData with mocked CQI analysis
  */
-function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
+function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
-  const totalCommits = dto.participation?.submissionCount || 0;
+  const totalCommits = dto.submissionCount || 0;
 
   // Mock: Calculate CQI score (0-100)
   // Formula: Base score + commit bonus, capped at 100
@@ -154,7 +152,7 @@ function transformToComplexTeamData(dto: TeamRepositoryDTO): ComplexTeamData {
 // TODO: Use course and exercise parameters when server supports them
 async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
   try {
-    const response = await requestApi.fetchAndCloneRepositories();
+    const response = await requestApi.fetchData();
     const teamRepos = response.data;
 
     // Transform DTOs to BasicTeamData
@@ -168,7 +166,7 @@ async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
 // TODO: Use course and exercise parameters when server supports them
 async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
   try {
-    const response = await requestApi.fetchAndCloneRepositories();
+    const response = await requestApi.fetchData();
     const teamRepos = response.data;
 
     // Transform DTOs to ComplexTeamData with mocked analysis
@@ -181,11 +179,11 @@ async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
 
 async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | null> {
   try {
-    const response = await requestApi.fetchAndCloneRepositories();
+    const response = await requestApi.fetchData();
     const teamRepos = response.data;
 
     // Find the team by ID
-    const teamRepo = teamRepos.find((repo: TeamRepositoryDTO) => repo.participation?.id?.toString() === teamId);
+    const teamRepo = teamRepos.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
 
     if (!teamRepo) {
       return null;

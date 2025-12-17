@@ -1,32 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<databaseChangeLog
-        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="
-           http://www.liquibase.org/xml/ns/dbchangelog
-           http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.4.xsd">
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+                   objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
 
-    <changeSet id="001-create-initial-tables" author="aniruddhzaveri">
-        <comment>Initial schema for Harmonia</comment>
-
-        <createTable tableName="user">
-            <column name="user_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-        </createTable>
-
-        <createTable tableName="teamanalysis">
-            <column name="team_analysis_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-        </createTable>
-
-        <createTable tableName="teamrepository">
-            <column name="team_repository_id" type="uuid">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-        </createTable>
-
-    </changeSet>
+    <include file="db/changelog/001-changelog.xml"/>
 
 </databaseChangeLog>
