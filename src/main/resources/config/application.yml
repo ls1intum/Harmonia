@@ -23,6 +23,9 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.xml
 
   ai:
+    openai:
+      enabled: false
+
     azure:
       openai:
         api-key: <openai_key>
