@@ -2,7 +2,7 @@ import type { Team } from '@/types/team';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 
 interface TeamDetailProps {
@@ -55,13 +55,22 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
                     <p className="text-lg font-medium">{student.name}</p>
-                    {student.commits !== undefined && student.linesAdded !== undefined && (
-                      <p className="text-xs text-muted-foreground">
-                        {student.commits} commits • {student.linesAdded} lines added
-                      </p>
-                    )}
+                    {student.commits !== undefined &&
+                      student.linesAdded !== undefined &&
+                      student.linesDeleted !== undefined &&
+                      student.linesChanged !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          {student.commits} commits • {student.linesChanged} lines changed (
+                          <span className="text-green-600">+{student.linesAdded}</span>{' '}
+                          <span className="text-red-600">-{student.linesDeleted}</span>)
+                        </p>
+                      )}
                   </div>
                 ))}
+              </div>
+              <div className="flex items-center gap-2 mt-5">
+                <ClipboardCheck className="h-5 w-5 text-primary" />
+                <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
               </div>
               <div className="pt-2">
                 {team.isSuspicious ? (

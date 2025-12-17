@@ -14,10 +14,10 @@ paths:
         required: true
       responses:
         '200': {description: OK}
-  /api/requestResource/fetchAndCloneRepositories:
+  /api/requestResource/fetchData:
     get:
       tags: [request-resource]
-      operationId: fetchAndCloneRepositories
+      operationId: fetchData
       parameters:
       - name: jwt
         in: cookie
@@ -42,9 +42,19 @@ paths:
             application/json:
               schema:
                 type: array
-                items: {$ref: '#/components/schemas/TeamRepositoryDTO'}
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
 components:
   schemas:
+    ClientResponseDTO:
+      type: object
+      properties:
+        students:
+          type: array
+          items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
+        submissionCount: {type: integer, format: int32}
+        teamId: {type: integer, format: int64}
+        teamName: {type: string}
+        tutor: {type: string}
     LoginRequestDTO:
       type: object
       properties:
@@ -52,33 +62,11 @@ components:
         serverUrl: {type: string, minLength: 1}
         username: {type: string, minLength: 1}
       required: [password, serverUrl, username]
-    ParticipantDTO:
+    StudentAnalysisDTO:
       type: object
       properties:
-        id: {type: integer, format: int64}
-        login: {type: string}
+        commitCount: {type: integer, format: int32}
+        linesAdded: {type: integer, format: int32}
+        linesChanged: {type: integer, format: int32}
+        linesDeleted: {type: integer, format: int32}
         name: {type: string}
-    ParticipationDTO:
-      type: object
-      properties:
-        id: {type: integer, format: int64}
-        repositoryUri: {type: string}
-        submissionCount: {type: integer, format: int32}
-        team: {$ref: '#/components/schemas/TeamDTO'}
-    TeamDTO:
-      type: object
-      properties:
-        id: {type: integer, format: int64}
-        name: {type: string}
-        owner: {$ref: '#/components/schemas/ParticipantDTO'}
-        shortName: {type: string}
-        students:
-          type: array
-          items: {$ref: '#/components/schemas/ParticipantDTO'}
-    TeamRepositoryDTO:
-      type: object
-      properties:
-        error: {type: string}
-        isCloned: {type: boolean}
-        localPath: {type: string}
-        participation: {$ref: '#/components/schemas/ParticipationDTO'}

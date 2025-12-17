@@ -72,7 +72,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
     // JGit
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.5.0.202512021534-r'
 
     // Spring AI for LLM interaction
     implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0"

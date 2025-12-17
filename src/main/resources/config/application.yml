@@ -74,5 +74,5 @@ artemis:
   password: 
   jwtToken: 
   exerciseId: 424
-  gitRepoPath: Projects/itp2425teamprojects
+  gitRepoPath: Projects/itp2526teamprojects
   numThreads: 8
