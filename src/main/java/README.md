@@ -79,8 +79,10 @@ when testing locally.
 ## Testing the Integration
 
 1. Start the Harmonia server _(Make sure the Harmonia Server Run Configuration includes the `local` profile)_
-2. Call the storyWithStream API endpoint, i.e. `GET /api/ai/generate?message={message}`
-3View the **LMS Server logs**
+2. Call the storyWithStream API endpoint, i.e. `GET /api/ai/generate?message={message}` 
+either on Swagger http://localhost:8080/swagger-ui.html or via clients like Postman
+**Note:** Calling the API requires authentication
+3. View the **LMS Server logs**
     1. Via CLI
         ```bash
         lms log stream
