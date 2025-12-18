@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +22,7 @@ public class RequestService {
 
     private final RepositoryFetchingService repositoryFetchingService;
     private final AnalysisService analysisService;
+    private final de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator;
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
@@ -28,9 +30,10 @@ public class RequestService {
     private final StudentRepository studentRepository;
 
     @Autowired
-    public RequestService(RepositoryFetchingService repositoryFetchingService, AnalysisService analysisService, TeamRepositoryRepository teamRepositoryRepository, TeamParticipationRepository teamParticipationRepository, TutorRepository tutorRepository, StudentRepository studentRepository) {
+    public RequestService(RepositoryFetchingService repositoryFetchingService, AnalysisService analysisService, de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator, TeamRepositoryRepository teamRepositoryRepository, TeamParticipationRepository teamParticipationRepository, TutorRepository tutorRepository, StudentRepository studentRepository) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
+        this.balanceCalculator = balanceCalculator;
         this.teamRepositoryRepository = teamRepositoryRepository;
         this.teamParticipationRepository = teamParticipationRepository;
         this.tutorRepository = tutorRepository;
@@ -158,13 +161,13 @@ public class RequestService {
                 participation.team().id(),
                 participation.team().name(),
                 participation.submissionCount(),
-                studentAnalysisDTOS
+                studentAnalysisDTOS,
+                null,
+                false
         );
     }
 
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId, java.util.function.Consumer<Object> eventEmitter) {
-        clearDatabase();
-
         List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials, exerciseId);
         
         // Emit total count
@@ -178,7 +181,7 @@ public class RequestService {
         for (ParticipationDTO participation : validParticipations) {
             try {
                 // Clone
-                TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials);
+                TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials, exerciseId);
                 
                 // Analyze
                 Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
@@ -223,12 +226,24 @@ public class RequestService {
                                     student.getLinesChanged())))
                             .toList();
 
+                    // Calculate CQI (Balance score only for now)
+                    Double cqi = null;
+                    Map<String, Integer> commitCounts = new HashMap<>();
+                    students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                    
+                    if (!commitCounts.isEmpty()) {
+                        double balanceScore = balanceCalculator.calculate(commitCounts);
+                        cqi = balanceScore; // 100% balance for now
+                    }
+
                     return new ClientResponseDTO(
                             tutor != null ? tutor.getName() : "Unassigned",
                             participation.getTeam(),
                             participation.getName(),
                             participation.getSubmissionCount(),
-                            studentAnalysisDTOS
+                            studentAnalysisDTOS,
+                            cqi,
+                            false
                     );
                 })
                 .toList();

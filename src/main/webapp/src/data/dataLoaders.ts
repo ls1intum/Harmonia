@@ -52,6 +52,19 @@ function delay(ms: number): Promise<void> {
 }
 
 // ============================================================
+// CACHE - Store transformed team data to ensure consistency
+// ============================================================
+const teamCache = new Map<string, ComplexTeamData>();
+
+function getCachedTeam(teamId: string): ComplexTeamData | undefined {
+  return teamCache.get(teamId);
+}
+
+function setCachedTeam(teamId: string, team: ComplexTeamData): void {
+  teamCache.set(teamId, team);
+}
+
+// ============================================================
 // DATA TRANSFORMATION - Convert DTO to Client Types
 // ============================================================
 
@@ -93,62 +106,63 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 }
 
 /**
- * Transform ClientResponseDTO to ComplexTeamData with mocked CQI analysis
+ * Transform ClientResponseDTO to ComplexTeamData using server-calculated CQI
  */
 function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
-  const totalCommits = dto.submissionCount || 0;
+  const teamId = dto.teamId?.toString() || 'unknown';
 
-  // Mock: Calculate CQI score (0-100)
-  // Formula: Base score + commit bonus, capped at 100
-  const baseScore = 50;
-  const commitBonus = Math.min(40, totalCommits * 0.3);
-  const randomVariation = Math.random() * 20 - 10; // ±10 points
-  const cqi = Math.max(0, Math.min(100, Math.floor(baseScore + commitBonus + randomVariation)));
+  // Check if we already have this team cached to avoid re-transforming
+  const cached = getCachedTeam(teamId);
+  if (cached) {
+    return cached;
+  }
 
-  // Mock: Generate sub-metrics (placeholder values)
+  // Use CQI from server (calculated server-side)
+  const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
+  const isSuspicious = dto.isSuspicious ?? false;
+
+    // Sub-metrics not yet implemented on server
   const subMetrics = [
     {
       name: 'Contribution Balance',
-      value: 85 + Math.floor(Math.random() * 15),
-      weight: 30,
+      value: cqi,
+      weight: 40,
       description: 'Are teammates contributing at similar levels?',
-      details: 'Mock data - real analysis not yet implemented.',
-    },
-    {
-      name: 'Pairing Signals',
-      value: 75 + Math.floor(Math.random() * 20),
-      weight: 30,
-      description: 'Did teammates actually work together?',
-      details: 'Mock data - real analysis not yet implemented.',
+      details: 'Calculated from commit distribution.',
     },
     {
       name: 'Ownership Distribution',
-      value: 80 + Math.floor(Math.random() * 15),
-      weight: 20,
+      value: 0,
+      weight: 30,
       description: 'Are key files shared rather than monopolized?',
-      details: 'Mock data - real analysis not yet implemented.',
+      details: 'Calculated from git blame analysis.',
     },
     {
-      name: 'Quality Hygiene at HEAD',
-      value: 70 + Math.floor(Math.random() * 20),
-      weight: 10,
-      description: 'Basic quality standards met?',
-      details: 'Mock data - real analysis not yet implemented.',
+      name: 'Pairing Signals',
+      value: 0,
+      weight: 30,
+      description: 'Did teammates actually work together?',
+      details: 'Not yet implemented.',
     },
   ];
 
-  return {
+  const team: ComplexTeamData = {
     ...basicData,
     cqi,
-    isSuspicious: false, // Always normal for now
+    isSuspicious,
     subMetrics,
   };
+
+  // Cache the transformed team
+  setCachedTeam(teamId, team);
+  return team;
 }
 
 // ============================================================
-// API CALLS (Real Implementation)
+// SERVER API CALLS
 // ============================================================
+
 // TODO: Use course and exercise parameters when server supports them
 async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData[]> {
   try {
@@ -177,28 +191,16 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeam
   }
 }
 
-async function fetchTeamByIdFromAPI(teamId: string, exerciseId?: string): Promise<ComplexTeamData | null> {
+/**
+ * Fetch a single team by ID from server
+ */
+async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData | null> {
   try {
-    // If exerciseId is not provided, we can't fetch data from backend as it is required.
-    // However, for backward compatibility or if we assume it's cached, we might need a strategy.
-    // But since we changed backend to require it, we must provide it.
-    if (!exerciseId) {
-        console.error("Exercise ID is required to fetch team data");
-        return null;
-    }
-    const response = await requestApi.fetchData(parseInt(exerciseId));
-    const teamRepos = response.data;
-
-    // Find the team by ID
-    const teamRepo = teamRepos.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
-
-    if (!teamRepo) {
-      return null;
-    }
-
-    return transformToComplexTeamData(teamRepo);
+    const response = await requestApi.getData();
+    const teamRepo = response.data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
+    return teamRepo ? transformToComplexTeamData(teamRepo) : null;
   } catch (error) {
-    console.error('Error fetching team by ID:', error);
+    console.error('Error fetching team by ID from server:', error);
     throw error;
   }
 }
@@ -208,30 +210,18 @@ async function fetchTeamByIdFromAPI(teamId: string, exerciseId?: string): Promis
 // ============================================================
 
 /**
- * Fetch basic team data (quick, partial information)
- */
-export async function loadBasicTeamData(_course: string, exercise: string): Promise<BasicTeamData[]> {
-  if (USE_DUMMY_DATA) {
-    await delay(500); // Simulate network delay
-    return getBasicDummyTeams();
-  }
-
-  return fetchBasicTeamsFromAPI(exercise);
-}
-
-/**
- * Fetch basic team data via SSE stream
+ * Stream team data from server via SSE
  */
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
-  onUpdate: (team: BasicTeamData) => void,
+  onUpdate: (team: ComplexTeamData) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
 ): () => void {
   if (USE_DUMMY_DATA) {
     // Simulate streaming for dummy data
-    const teams = getBasicDummyTeams();
+    const teams = getComplexDummyTeams();
     onStart(teams.length);
     let i = 0;
     const interval = setInterval(() => {
@@ -256,7 +246,8 @@ export function loadBasicTeamDataStream(
       if (data.type === 'START') {
         onStart(data.total);
       } else if (data.type === 'UPDATE') {
-        onUpdate(transformToBasicTeamData(data.data));
+        // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to ComplexTeamData
+        onUpdate(transformToComplexTeamData(data.data));
       } else if (data.type === 'DONE') {
         eventSource.close();
         onComplete();
@@ -273,6 +264,18 @@ export function loadBasicTeamDataStream(
   };
 
   return () => eventSource.close();
+}
+
+/**
+ * Fetch basic team data (quick, partial information)
+ */
+export async function loadBasicTeamData(_course: string, exercise: string): Promise<BasicTeamData[]> {
+  if (USE_DUMMY_DATA) {
+    await delay(500); // Simulate network delay
+    return getBasicDummyTeams();
+  }
+
+  return fetchBasicTeamsFromAPI(exercise);
 }
 
 /**
@@ -325,7 +328,7 @@ export async function loadTeamById(teamId: string, exerciseId?: string): Promise
     return dummyTeams.find(t => t.id === teamId) || null;
   }
 
-  return fetchTeamByIdFromAPI(teamId, exerciseId);
+  return fetchTeamByIdFromServer(teamId);
 }
 
 /**

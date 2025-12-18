@@ -1,5 +1,6 @@
 package de.tum.cit.aet.dataProcessing.web;
 
+import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
@@ -22,11 +23,13 @@ public class RequestResource {
 
     private final RequestService requestService;
     private final CryptoService cryptoService;
+    private final ArtemisConfig artemisConfig;
 
     @Autowired
-    public RequestResource(RequestService requestService, CryptoService cryptoService) {
+    public RequestResource(RequestService requestService, CryptoService cryptoService, ArtemisConfig artemisConfig) {
         this.requestService = requestService;
         this.cryptoService = cryptoService;
+        this.artemisConfig = artemisConfig;
     }
 
     /**
@@ -53,12 +56,35 @@ public class RequestResource {
         String password = decryptPassword(encryptedPassword);
         ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
 
+        // Fallback to config if cookies are missing
         if (!credentials.isValid()) {
-            log.warn("No credentials found in cookies. Authentication required.");
-            return ResponseEntity.status(401).build();
+            log.info("No credentials in cookies, using config values");
+            credentials = new ArtemisCredentials(
+                artemisConfig.getBaseUrl(),
+                artemisConfig.getJwtToken(),
+                artemisConfig.getUsername(),
+                artemisConfig.getPassword()
+            );
+            
+            if (!credentials.isValid()) {
+                log.warn("No valid credentials found. Authentication required.");
+                return ResponseEntity.status(401).build();
+            }
         }
 
         requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
+        List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
+        return ResponseEntity.ok(clientResponseDTOS);
+    }
+
+    /**
+     * GET endpoint to retrieve already-analyzed data from database without re-analyzing.
+     *
+     * @return ResponseEntity containing the list of ClientResponseDTO
+     */
+    @GetMapping("getData")
+    public ResponseEntity<List<ClientResponseDTO>> getData() {
+        log.info("GET request received: getData (from database)");
         List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
         return ResponseEntity.ok(clientResponseDTOS);
     }
