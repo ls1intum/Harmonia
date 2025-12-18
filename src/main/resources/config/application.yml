@@ -82,7 +82,7 @@ harmonia:
       gitRepoPath: Projects/itp2526teamprojects
 
 artemis:
-  git-repo-path: ./repos
+  git-repo-path: ./repos # Path where repositories will be cloned; update .gitignore accordingly
   baseUrl: 
   username: 
   password: 
