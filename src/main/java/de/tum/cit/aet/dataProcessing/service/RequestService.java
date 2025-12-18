@@ -156,13 +156,23 @@ public class RequestService {
 
         log.info("Processed repository for team: {}", team.name());
 
+        // Calculate CQI (Balance score only for now)
+        Double cqi = null;
+        Map<String, Integer> commitCounts = new HashMap<>();
+        students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+        
+        if (!commitCounts.isEmpty()) {
+            double balanceScore = balanceCalculator.calculate(commitCounts);
+            cqi = balanceScore; // 100% balance for now
+        }
+
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
                 participation.team().id(),
                 participation.team().name(),
                 participation.submissionCount(),
                 studentAnalysisDTOS,
-                null,
+                cqi,
                 false
         );
     }
