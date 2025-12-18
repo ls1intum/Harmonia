@@ -81,6 +81,32 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
         options: localVarRequestOptions,
       };
     },
+    /**
+     *
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getData: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      const localVarPath = `/api/requestResource/getData`;
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
   };
 };
 
@@ -121,6 +147,18 @@ export const RequestResourceApiFp = function (configuration?: Configuration) {
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
+    /**
+     *
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async getData(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getData(options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath = operationServerMap['RequestResourceApi.getData']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
   };
 };
 
@@ -152,6 +190,14 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
         .fetchData(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
         .then(request => request(axios, basePath));
     },
+    /**
+     *
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getData(options?: RawAxiosRequestConfig): AxiosPromise<Array<ClientResponseDTO>> {
+      return localVarFp.getData(options).then(request => request(axios, basePath));
+    },
   };
 };
 
@@ -179,6 +225,16 @@ export class RequestResourceApi extends BaseAPI {
   ) {
     return RequestResourceApiFp(this.configuration)
       .fetchData(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+  /**
+   *
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public getData(options?: RawAxiosRequestConfig) {
+    return RequestResourceApiFp(this.configuration)
+      .getData(options)
       .then(request => request(this.axios, this.basePath));
   }
 }
