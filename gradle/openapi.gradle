@@ -24,14 +24,11 @@ openApi {
     "-Dspringdoc.paths-to-match=/api/**",
     "-Dspringdoc.api-docs.format=yaml",
     "-Dspring.docker.compose.enabled=false",
-    "-Dspring.docker.compose.lifecycle-management=none"
+    "-Dspring.docker.compose.lifecycle-management=none",
+    "-Dspring.datasource.url=jdbc:h2:mem:testdb",
+    "-Dspring.datasource.driver-class-name=org.h2.Driver",
+    "-Dspring.jpa.hibernate.ddl-auto=create-drop"
     ]
-    args.set([
-      "--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia",
-      "--spring.datasource.username=postgres",
-      "--spring.datasource.password=harmonia",
-      "--spring.datasource.driver-class-name=org.postgresql.Driver"
-    ])
   }
 }
 
