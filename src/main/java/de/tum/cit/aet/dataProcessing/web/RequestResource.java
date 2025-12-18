@@ -65,7 +65,7 @@ public class RequestResource {
                 artemisConfig.getUsername(),
                 artemisConfig.getPassword()
             );
-            
+
             if (!credentials.isValid()) {
                 log.warn("No valid credentials found. Authentication required.");
                 return ResponseEntity.status(401).build();

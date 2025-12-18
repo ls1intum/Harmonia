@@ -95,6 +95,9 @@ public class RequestService {
         }
     }
 
+    /**
+     * Clears all data from the database tables.
+     */
     public void clearDatabase() {
         teamRepositoryRepository.deleteAll();
         studentRepository.deleteAll();
@@ -102,6 +105,13 @@ public class RequestService {
         tutorRepository.deleteAll();
     }
 
+    /**
+     * Saves a single repository analysis result to the database.
+     *
+     * @param repo Repository data to save
+     * @param contributionData Contribution data by student ID
+     * @return Client response DTO with calculated metrics
+     */
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo, Map<Long, AuthorContributionDTO> contributionData) {
         // Save tutor
         ParticipantDTO tut = repo.participation().team().owner();
@@ -160,7 +170,7 @@ public class RequestService {
         Double cqi = null;
         Map<String, Integer> commitCounts = new HashMap<>();
         students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-        
+
         if (!commitCounts.isEmpty()) {
             double balanceScore = balanceCalculator.calculate(commitCounts);
             cqi = balanceScore; // 100% balance for now
@@ -177,9 +187,16 @@ public class RequestService {
         );
     }
 
+    /**
+     * Fetches, analyzes, and saves repositories with streaming updates.
+     *
+     * @param credentials Artemis credentials
+     * @param exerciseId Exercise ID to fetch repositories for
+     * @param eventEmitter Consumer to emit progress events
+     */
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId, java.util.function.Consumer<Object> eventEmitter) {
         List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials, exerciseId);
-        
+
         // Emit total count
         eventEmitter.accept(Map.of("type", "START", "total", participations.size()));
 
@@ -192,13 +209,13 @@ public class RequestService {
             try {
                 // Clone
                 TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials, exerciseId);
-                
+
                 // Analyze
                 Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
-                
+
                 // Save
                 ClientResponseDTO dto = saveSingleResult(repo, contributions);
-                
+
                 // Emit result
                 eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
             } catch (Exception e) {
@@ -206,7 +223,7 @@ public class RequestService {
                 // Optionally emit error event
             }
         }
-        
+
         eventEmitter.accept(Map.of("type", "DONE"));
     }
 
@@ -240,7 +257,7 @@ public class RequestService {
                     Double cqi = null;
                     Map<String, Integer> commitCounts = new HashMap<>();
                     students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-                    
+
                     if (!commitCounts.isEmpty()) {
                         double balanceScore = balanceCalculator.calculate(commitCounts);
                         cqi = balanceScore; // 100% balance for now

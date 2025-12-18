@@ -1,9 +1,7 @@
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import TeamDetail from '@/components/TeamDetail';
-import type { ComplexTeamData } from '@/data/dataLoaders';
 
 export default function TeamDetailPage() {
-  const { teamId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { team, course, exercise } = location.state || {};

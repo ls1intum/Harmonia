@@ -42,38 +42,57 @@ export default function Teams() {
     }
 
     // Only stream if we don't have cached data
-    setTotalRepos(0);
-    setProcessedRepos(0);
-    setIsStreaming(true);
-
     const streamedTeams: ComplexTeamData[] = [];
+    
+    // Initialize state for streaming
+    let mounted = true;
+    
+    // Use Promise.resolve to defer setState to avoid the ESLint error
+    Promise.resolve().then(() => {
+      if (mounted) {
+        setTotalRepos(0);
+        setProcessedRepos(0);
+        setIsStreaming(true);
+      }
+    });
 
     const closeStream = loadBasicTeamDataStream(
       exercise,
       (total) => {
-        setTotalRepos(total);
+        if (mounted) {
+          setTotalRepos(total);
+        }
       },
       (team) => {
         streamedTeams.push(team);
-        setProcessedRepos(streamedTeams.length);
-        // Update React Query cache in real-time
-        queryClient.setQueryData(['teams', exercise], streamedTeams);
+        if (mounted) {
+          setProcessedRepos(streamedTeams.length);
+          // Update React Query cache in real-time
+          queryClient.setQueryData(['teams', exercise], streamedTeams);
+        }
       },
       () => {
-        setIsStreaming(false);
+        if (mounted) {
+          setIsStreaming(false);
+        }
       },
       (error) => {
         console.error('Stream error:', error);
-        setIsStreaming(false);
-        toast({
-          variant: 'destructive',
-          title: 'Error loading teams',
-          description: 'Connection lost or failed.',
-        });
+        if (mounted) {
+          setIsStreaming(false);
+          toast({
+            variant: 'destructive',
+            title: 'Error loading teams',
+            description: 'Connection lost or failed.',
+          });
+        }
       }
     );
 
-    return () => closeStream();
+    return () => {
+      mounted = false;
+      closeStream();
+    };
   }, [exercise, course, queryClient]); // Only depend on exercise and course
 
   // Calculate progress

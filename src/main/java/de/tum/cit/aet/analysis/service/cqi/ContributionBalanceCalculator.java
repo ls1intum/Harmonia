@@ -52,7 +52,9 @@ public class ContributionBalanceCalculator {
     }
 
     private double calculateStandardDeviation(double[] values) {
-        if (values.length <= 1) return 0.0;
+        if (values.length <= 1) {
+            return 0.0;
+        }
 
         double mean = calculateMean(values);
         double sumSquaredDiffs = 0.0;

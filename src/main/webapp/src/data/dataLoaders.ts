@@ -322,7 +322,7 @@ export async function loadTeamDataProgressive(
 /**
  * Fetch a single team by ID
  */
-export async function loadTeamById(teamId: string, exerciseId?: string): Promise<ComplexTeamData | null> {
+export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<ComplexTeamData | null> {
   if (USE_DUMMY_DATA) {
     await delay(300); // Simulate network delay
     return dummyTeams.find(t => t.id === teamId) || null;

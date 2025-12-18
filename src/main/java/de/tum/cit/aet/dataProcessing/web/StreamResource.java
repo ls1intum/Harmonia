@@ -31,6 +31,16 @@ public class StreamResource {
         this.cryptoService = cryptoService;
     }
 
+    /**
+     * Endpoint for streaming repository analysis results using Server-Sent Events.
+     *
+     * @param exerciseId Exercise ID to analyze
+     * @param jwtToken JWT token from cookie
+     * @param serverUrl Artemis server URL from cookie
+     * @param username Artemis username from cookie
+     * @param encryptedPassword Encrypted Artemis password from cookie
+     * @return SSE emitter for streaming results
+     */
     @GetMapping(value = "stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamData(
             @RequestParam(value = "exerciseId") Long exerciseId,
