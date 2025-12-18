@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Service responsible for communicating with the Artemis API.
@@ -211,8 +212,9 @@ public class ArtemisClientService {
 
             // Filter the fetched logs to only include "WRITE" actions, indicating a commit
             if (vcsLogs != null) {
+                Set<String> validActions = Set.of("WRITE", "PUSH");
                 vcsLogs = vcsLogs.stream()
-                        .filter(entry -> "WRITE".equals(entry.repositoryActionType()))
+                        .filter(entry -> validActions.contains(entry.repositoryActionType()))
                         .toList();
             }
 
