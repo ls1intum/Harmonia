@@ -13,13 +13,11 @@ ENV NODE_ENV=production
 
 RUN npm run build
 
-# Serve the production build with nginx
 FROM nginx:1.29-alpine AS runner
 
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80

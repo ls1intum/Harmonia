@@ -13,6 +13,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - harmonia-network
 
   server:
     image: 'ghcr.io/ls1intum/harmonia-server:${IMAGE_TAG}'
@@ -28,6 +30,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       retries: 5
+    networks:
+      - harmonia-network
 
   client:
     image: 'ghcr.io/ls1intum/harmonia-client:${IMAGE_TAG}'
@@ -37,14 +41,35 @@ services:
     depends_on:
       server:
         condition: service_healthy
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    expose:
+      - "80"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 10s
       retries: 5
+    networks:
+      - harmonia-network
+
+  nginx:
+    image: nginx:1.29-alpine
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      client:
+        condition: service_healthy
+    volumes:
+      - ./docker/nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 10s
+      retries: 5
+    networks:
+      - harmonia-network
 
 volumes:
   postgres_data:
+
+networks:
+  harmonia-network:
+    driver: bridge
