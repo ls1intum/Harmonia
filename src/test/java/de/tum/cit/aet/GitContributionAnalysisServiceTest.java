@@ -42,7 +42,7 @@ class GitContributionAnalysisServiceTest {
 
         // 2. Fetch and Clone using credentials DTO
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        List<TeamRepositoryDTO> repos = requestService.fetchAndCloneRepositories(credentials, 424L);
+        List<TeamRepositoryDTO> repos = requestService.fetchAndCloneRepositories(credentials, 18806L);
 
         // 3. Analyze contributions
         Map<Long, AuthorContributionDTO> map = gitContributionAnalysisService.processAllRepositories(repos);
@@ -70,7 +70,7 @@ class GitContributionAnalysisServiceTest {
 
         // 2. Fetch, Analyze and Save
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        requestService.fetchAnalyzeAndSaveRepositories(credentials, 424L);
+        requestService.fetchAnalyzeAndSaveRepositories(credentials, 18806L);
     }
 
     @Test

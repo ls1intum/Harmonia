@@ -82,6 +82,7 @@ harmonia:
       gitRepoPath: Projects/itp2526teamprojects
 
 artemis:
+  git-repo-path: ./repos
   baseUrl: 
   username: 
   password: 
