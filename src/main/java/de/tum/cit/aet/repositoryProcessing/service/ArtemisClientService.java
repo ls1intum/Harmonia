@@ -221,7 +221,7 @@ public class ArtemisClientService {
                 log.info("Action types found: {}", actionTypes);
             }
 
-            // Filter the fetched logs to only include "WRITE" actions, indicating a commit
+            // Filter the fetched logs
             if (vcsLogs != null) {
                 Set<String> validActions = Set.of("WRITE", "PUSH");
                 int beforeFilter = vcsLogs.size();
