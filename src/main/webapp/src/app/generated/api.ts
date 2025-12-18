@@ -14,4 +14,6 @@
 
 export * from './apis/analysis-resource-api';
 export * from './apis/auth-resource-api';
+export * from './apis/config-resource-api';
 export * from './apis/request-resource-api';
+export * from './apis/stream-resource-api';
