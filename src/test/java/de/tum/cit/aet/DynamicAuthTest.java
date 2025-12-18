@@ -36,7 +36,7 @@ class DynamicAuthTest {
 
         // 2. Fetch and Clone using credentials DTO
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories(credentials);
+        List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories(credentials, 424L);
 
         System.out.println("Fetched " + teamRepositories.size() + " repositories.");
         teamRepositories.forEach(repo -> {

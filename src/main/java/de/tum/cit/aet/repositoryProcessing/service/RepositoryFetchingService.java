@@ -53,7 +53,19 @@ public class RepositoryFetchingService {
     }
 
 
-    private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
+    /**
+     * Fetches participations from Artemis.
+     *
+     * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID
+     * @return List of ParticipationDTO
+     */
+    public List<ParticipationDTO> fetchParticipations(ArtemisCredentials credentials, Long exerciseId) {
+        return artemisClientService.fetchParticipations(
+                credentials.serverUrl(), credentials.jwtToken(), exerciseId);
+    }
+
+    public TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
         String teamName = participation.team() != null
                 ? participation.team().name()
                 : "Unknown Team";

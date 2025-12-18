@@ -210,7 +210,6 @@ async function fetchTeamByIdFromAPI(teamId: string, exerciseId?: string): Promis
 /**
  * Fetch basic team data (quick, partial information)
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function loadBasicTeamData(_course: string, exercise: string): Promise<BasicTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(500); // Simulate network delay
@@ -221,9 +220,64 @@ export async function loadBasicTeamData(_course: string, exercise: string): Prom
 }
 
 /**
+ * Fetch basic team data via SSE stream
+ */
+export function loadBasicTeamDataStream(
+  exerciseId: string,
+  onStart: (total: number) => void,
+  onUpdate: (team: BasicTeamData) => void,
+  onComplete: () => void,
+  onError: (error: unknown) => void,
+): () => void {
+  if (USE_DUMMY_DATA) {
+    // Simulate streaming for dummy data
+    const teams = getBasicDummyTeams();
+    onStart(teams.length);
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < teams.length) {
+        onUpdate(teams[i]);
+        i++;
+      } else {
+        clearInterval(interval);
+        onComplete();
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }
+
+  const eventSource = new EventSource(`/api/requestResource/stream?exerciseId=${exerciseId}`, {
+    withCredentials: true,
+  });
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'START') {
+        onStart(data.total);
+      } else if (data.type === 'UPDATE') {
+        onUpdate(transformToBasicTeamData(data.data));
+      } else if (data.type === 'DONE') {
+        eventSource.close();
+        onComplete();
+      }
+    } catch (e) {
+      console.error('Error parsing SSE event:', e);
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('SSE Error:', error);
+    eventSource.close();
+    onError(error);
+  };
+
+  return () => eventSource.close();
+}
+
+/**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function loadComplexTeamData(_course: string, exercise: string): Promise<ComplexTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
