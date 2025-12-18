@@ -1,11 +1,13 @@
 .gitignore
 .npmignore
 api.ts
+apis/analysis-resource-api.ts
 apis/auth-resource-api.ts
 apis/request-resource-api.ts
 base.ts
 common.ts
 configuration.ts
+docs/AnalysisResourceApi.md
 docs/AuthResourceApi.md
 docs/ClientResponseDTO.md
 docs/LoginRequestDTO.md
