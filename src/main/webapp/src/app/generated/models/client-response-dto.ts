@@ -22,4 +22,6 @@ export interface ClientResponseDTO {
   teamId?: number;
   teamName?: string;
   tutor?: string;
+  cqi?: number;
+  isSuspicious?: boolean;
 }
