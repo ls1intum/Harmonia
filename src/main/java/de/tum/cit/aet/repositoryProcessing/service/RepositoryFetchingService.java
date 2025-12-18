@@ -1,5 +1,6 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
+import de.tum.cit.aet.core.config.HarmoniaProperties;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
@@ -21,11 +22,13 @@ public class RepositoryFetchingService {
 
     private final ArtemisClientService artemisClientService;
     private final GitOperationsService gitOperationsService;
+    private final HarmoniaProperties harmoniaProperties;
 
     @Autowired
-    public RepositoryFetchingService(ArtemisClientService artemisClientService, GitOperationsService gitOperationsService) {
+    public RepositoryFetchingService(ArtemisClientService artemisClientService, GitOperationsService gitOperationsService, HarmoniaProperties harmoniaProperties) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
+        this.harmoniaProperties = harmoniaProperties;
     }
 
     /**
@@ -45,7 +48,7 @@ public class RepositoryFetchingService {
         // Step 2: Filter participations with repositories and clone them
         List<TeamRepositoryDTO> teamRepositories = participations.stream()
                 .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
-                .map(p -> cloneTeamRepository(p, credentials))
+                .map(p -> cloneTeamRepository(p, credentials, exerciseId))
                 .toList();
 
         log.info("Completed repository fetching. Total repositories: {}", teamRepositories.size());
@@ -65,7 +68,7 @@ public class RepositoryFetchingService {
                 credentials.serverUrl(), credentials.jwtToken(), exerciseId);
     }
 
-    public TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
+    public TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials, Long exerciseId) {
         String teamName = participation.team() != null
                 ? participation.team().name()
                 : "Unknown Team";
@@ -79,8 +82,15 @@ public class RepositoryFetchingService {
                 throw new IllegalStateException("No credentials provided for cloning. Username and password are required.");
             }
 
+            // Find gitRepoPath for this exercise
+            String gitRepoPath = harmoniaProperties.getProjects().stream()
+                    .filter(p -> p.getExerciseId().equals(exerciseId))
+                    .findFirst()
+                    .map(HarmoniaProperties.Project::getGitRepoPath)
+                    .orElse("Projects/repos");
+
             String localPath = gitOperationsService.cloneOrPullRepository(
-                    repositoryUri, teamName, credentials.username(), credentials.password());
+                    repositoryUri, teamName, credentials.username(), credentials.password(), gitRepoPath);
 
             List<VCSLogDTO> vcsLogs = fetchVCSAccessLog(credentials, participation.id());
 
@@ -93,7 +103,8 @@ public class RepositoryFetchingService {
         } catch (Exception e) {
             log.error("Failed to fetch repository for team: {}", teamName, e);
             builder.isCloned(false)
-                    .error(e.getMessage());
+                    .error(e.getMessage())
+                    .vcsLogs(List.of()); // Empty list instead of null
         }
 
         return builder.build();
