@@ -72,13 +72,9 @@ Verify http://localhost:1234/api/v0/models lists the models.
 
 The model `openai/gpt-oss-20b` should appear in the list.
 
-### Configuring Harmonia
-The `application-local.yml` is available in folder `src/main/resources/config`. Make sure to use that profile
-when testing locally.
-
 ## Testing the Integration
 
-1. Start the Harmonia server _(Make sure the Harmonia Server Run Configuration includes the `local` profile)_
+1. Start the Harmonia server
 2. Call the storyWithStream API endpoint, i.e. `GET /api/ai/generate?message={message}` 
 either on Swagger http://localhost:8080/swagger-ui.html or via clients like Postman
 **Note:** Calling the API requires authentication
