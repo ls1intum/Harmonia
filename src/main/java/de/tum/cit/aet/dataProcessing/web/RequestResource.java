@@ -78,6 +78,18 @@ public class RequestResource {
     }
 
     /**
+     * GET endpoint to retrieve already-analyzed data from database without re-analyzing.
+     *
+     * @return ResponseEntity containing the list of ClientResponseDTO
+     */
+    @GetMapping("getData")
+    public ResponseEntity<List<ClientResponseDTO>> getData() {
+        log.info("GET request received: getData (from database)");
+        List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
+        return ResponseEntity.ok(clientResponseDTOS);
+    }
+
+    /**
      * Decrypts the encrypted password using the CryptoService.
      *
      * @param encryptedPassword The encrypted password
