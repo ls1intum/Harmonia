@@ -5,8 +5,8 @@ spring:
     azure:
       openai:
         api-key: ${SPRING_AI_AZURE_API_KEY}
-        endpoint: https://your-resource-name.openai.azure.com/
+        endpoint: https://endpoint.openai.azure.com
         chat:
           options:
-            deployment-name: gpt-4o-mini
+            deployment-name: gpt-5-mini
             temperature: 1.0
