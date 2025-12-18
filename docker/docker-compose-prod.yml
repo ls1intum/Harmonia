@@ -3,6 +3,8 @@ name: harmonia
 services:
   postgres:
     image: postgres:18.1
+    env_file:
+      - .env
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -14,6 +16,8 @@ services:
 
   server:
     image: 'ghcr.io/ls1intum/harmonia-server:${IMAGE_TAG}'
+    env_file:
+      - .env
     restart: unless-stopped
     depends_on:
       postgres:
@@ -27,6 +31,8 @@ services:
 
   client:
     image: 'ghcr.io/ls1intum/harmonia-client:${IMAGE_TAG}'
+    env_file:
+      - .env
     restart: unless-stopped
     depends_on:
       server:
