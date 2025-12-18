@@ -1,43 +1,67 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
-import { loadBasicTeamDataStream, triggerReanalysis, type BasicTeamData } from '@/data/dataLoaders';
+import { loadBasicTeamDataStream, triggerReanalysis, type ComplexTeamData } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
 
 export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { course, exercise } = location.state || {};
 
-  const [teams, setTeams] = useState<BasicTeamData[]>([]);
   const [totalRepos, setTotalRepos] = useState(0);
   const [processedRepos, setProcessedRepos] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
 
+  // Use React Query to cache teams data per exercise
+  const {
+    data: teams = [],
+  } = useQuery({
+    queryKey: ['teams', exercise],
+    queryFn: async () => {
+      // This function won't be called if data is already cached
+      // We'll manually set the data via setQueryData instead
+      return [];
+    },
+    staleTime: Infinity, // Never auto-refetch - only manual invalidation
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    enabled: !!exercise,
+  });
+
   useEffect(() => {
     if (!course || !exercise) return;
 
-    // Reset state
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTeams([]);
+    // Check if we already have cached teams for this exercise
+    const cachedTeams = queryClient.getQueryData<ComplexTeamData[]>(['teams', exercise]);
+    if (cachedTeams && cachedTeams.length > 0) {
+      // We have cached data, don't re-stream
+      return;
+    }
+
+    // Only stream if we don't have cached data
     setTotalRepos(0);
     setProcessedRepos(0);
     setIsStreaming(true);
 
+    const streamedTeams: ComplexTeamData[] = [];
+
     const closeStream = loadBasicTeamDataStream(
       exercise,
-      (total) => setTotalRepos(total),
-      (team) => {
-        setTeams((prev) => {
-          // Avoid duplicates if any
-          if (prev.some(t => t.id === team.id)) return prev;
-          return [...prev, team];
-        });
-        setProcessedRepos((prev) => prev + 1);
+      (total) => {
+        setTotalRepos(total);
       },
-      () => setIsStreaming(false),
+      (team) => {
+        streamedTeams.push(team);
+        setProcessedRepos(streamedTeams.length);
+        // Update React Query cache in real-time
+        queryClient.setQueryData(['teams', exercise], streamedTeams);
+      },
+      () => {
+        setIsStreaming(false);
+      },
       (error) => {
         console.error('Stream error:', error);
         setIsStreaming(false);
@@ -50,7 +74,7 @@ export default function Teams() {
     );
 
     return () => closeStream();
-  }, [course, exercise]);
+  }, [exercise, course, queryClient]); // Only depend on exercise and course
 
   // Calculate progress
   const progress = totalRepos > 0 ? Math.round((processedRepos / totalRepos) * 100) : 0;
@@ -62,7 +86,8 @@ export default function Teams() {
       await triggerReanalysis(course, exercise);
     },
     onSuccess: () => {
-      // Reload page or re-trigger stream
+      // Invalidate cached teams data to force re-fetch
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       window.location.reload();
     },
     onError: () => {
