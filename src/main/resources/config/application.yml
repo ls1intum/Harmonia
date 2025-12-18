@@ -22,19 +22,8 @@ spring:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
 
-  ai:
-    azure:
-      openai:
-        api-key: <openai_key>
-        # open-ai-api-key: <openai_key> # Fallback OpenAI key if needed, sets endpoint automatically
-        # endpoint: https://ase-se01.openai.azure.com/
-        # deployment-name should match the Azure OpenAI deployment
-        endpoint: https://api.openai.com/v1
-        chat:
-          options:
-            deployment-name: gpt-4o-mini
-            # Some Azure/OpenAI deployments (e.g., gpt-5-mini) only support the default temperature (1.0)
-            temperature: 1.0
+  profiles:
+    active: local
 
 logging:
   level:

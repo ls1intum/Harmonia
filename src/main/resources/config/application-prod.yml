@@ -1,0 +1,12 @@
+spring:
+  ai:
+    openai:
+      enabled: false
+    azure:
+      openai:
+        api-key: ${OPENAI_AZURE_KEY}
+        endpoint: https://api.openai.com/v1
+        chat:
+          options:
+            deployment-name: gpt-4o-mini
+            temperature: 1.0
