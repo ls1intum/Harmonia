@@ -32,6 +32,7 @@ wrapper {
 
 repositories {
     mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
 }
 
 spotless {
@@ -71,11 +72,17 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
+
     // JGit
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.5.0.202512021534-r'
 
+    // Uses patched netty version to resolve vulnerability in Spring AI
+    implementation 'io.netty:netty-codec-http:4.1.129.Final'
     // Spring AI for LLM interaction
-    implementation "org.springframework.ai:spring-ai-starter-model-azure-openai:1.1.0"
+    implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M1')
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+    implementation 'org.springframework.ai:spring-ai-starter-model-azure-openai'
+
     // use newest version of nimbus-jose-jwt to avoid security issues through outdated dependencies
     implementation "com.nimbusds:nimbus-jose-jwt:10.6"
 
