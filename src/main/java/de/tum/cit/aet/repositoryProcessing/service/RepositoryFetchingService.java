@@ -32,14 +32,15 @@ public class RepositoryFetchingService {
      * Fetches all team repositories from Artemis and clones/pulls them locally.
      *
      * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID to fetch participations for
      * @return List of TeamRepositoryDTO containing repository information
      */
-    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials) {
+    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials, Long exerciseId) {
         log.info("Starting repository fetching process");
 
         // Step 1: Fetch participations from Artemis
         List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
-                credentials.serverUrl(), credentials.jwtToken());
+                credentials.serverUrl(), credentials.jwtToken(), exerciseId);
 
         // Step 2: Filter participations with repositories and clone them
         List<TeamRepositoryDTO> teamRepositories = participations.stream()
@@ -52,7 +53,19 @@ public class RepositoryFetchingService {
     }
 
 
-    private TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
+    /**
+     * Fetches participations from Artemis.
+     *
+     * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID
+     * @return List of ParticipationDTO
+     */
+    public List<ParticipationDTO> fetchParticipations(ArtemisCredentials credentials, Long exerciseId) {
+        return artemisClientService.fetchParticipations(
+                credentials.serverUrl(), credentials.jwtToken(), exerciseId);
+    }
+
+    public TeamRepositoryDTO cloneTeamRepository(ParticipationDTO participation, ArtemisCredentials credentials) {
         String teamName = participation.team() != null
                 ? participation.team().name()
                 : "Unknown Team";

@@ -150,9 +150,9 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
 // API CALLS (Real Implementation)
 // ============================================================
 // TODO: Use course and exercise parameters when server supports them
-async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
+async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData[]> {
   try {
-    const response = await requestApi.fetchData();
+    const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
 
     // Transform DTOs to BasicTeamData
@@ -164,9 +164,9 @@ async function fetchBasicTeamsFromAPI(): Promise<BasicTeamData[]> {
 }
 
 // TODO: Use course and exercise parameters when server supports them
-async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
+async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeamData[]> {
   try {
-    const response = await requestApi.fetchData();
+    const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
 
     // Transform DTOs to ComplexTeamData with mocked analysis
@@ -177,9 +177,16 @@ async function fetchComplexTeamsFromAPI(): Promise<ComplexTeamData[]> {
   }
 }
 
-async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | null> {
+async function fetchTeamByIdFromAPI(teamId: string, exerciseId?: string): Promise<ComplexTeamData | null> {
   try {
-    const response = await requestApi.fetchData();
+    // If exerciseId is not provided, we can't fetch data from backend as it is required.
+    // However, for backward compatibility or if we assume it's cached, we might need a strategy.
+    // But since we changed backend to require it, we must provide it.
+    if (!exerciseId) {
+        console.error("Exercise ID is required to fetch team data");
+        return null;
+    }
+    const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
 
     // Find the team by ID
@@ -203,27 +210,81 @@ async function fetchTeamByIdFromAPI(teamId: string): Promise<ComplexTeamData | n
 /**
  * Fetch basic team data (quick, partial information)
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function loadBasicTeamData(_course: string, _exercise: string): Promise<BasicTeamData[]> {
+export async function loadBasicTeamData(_course: string, exercise: string): Promise<BasicTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(500); // Simulate network delay
     return getBasicDummyTeams();
   }
 
-  return fetchBasicTeamsFromAPI();
+  return fetchBasicTeamsFromAPI(exercise);
+}
+
+/**
+ * Fetch basic team data via SSE stream
+ */
+export function loadBasicTeamDataStream(
+  exerciseId: string,
+  onStart: (total: number) => void,
+  onUpdate: (team: BasicTeamData) => void,
+  onComplete: () => void,
+  onError: (error: unknown) => void,
+): () => void {
+  if (USE_DUMMY_DATA) {
+    // Simulate streaming for dummy data
+    const teams = getBasicDummyTeams();
+    onStart(teams.length);
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < teams.length) {
+        onUpdate(teams[i]);
+        i++;
+      } else {
+        clearInterval(interval);
+        onComplete();
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }
+
+  const eventSource = new EventSource(`/api/requestResource/stream?exerciseId=${exerciseId}`, {
+    withCredentials: true,
+  });
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'START') {
+        onStart(data.total);
+      } else if (data.type === 'UPDATE') {
+        onUpdate(transformToBasicTeamData(data.data));
+      } else if (data.type === 'DONE') {
+        eventSource.close();
+        onComplete();
+      }
+    } catch (e) {
+      console.error('Error parsing SSE event:', e);
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('SSE Error:', error);
+    eventSource.close();
+    onError(error);
+  };
+
+  return () => eventSource.close();
 }
 
 /**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function loadComplexTeamData(_course: string, _exercise: string): Promise<ComplexTeamData[]> {
+export async function loadComplexTeamData(_course: string, exercise: string): Promise<ComplexTeamData[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
     return getComplexDummyTeams();
   }
 
-  return fetchComplexTeamsFromAPI();
+  return fetchComplexTeamsFromAPI(exercise);
 }
 
 /**
@@ -258,13 +319,13 @@ export async function loadTeamDataProgressive(
 /**
  * Fetch a single team by ID
  */
-export async function loadTeamById(teamId: string): Promise<ComplexTeamData | null> {
+export async function loadTeamById(teamId: string, exerciseId?: string): Promise<ComplexTeamData | null> {
   if (USE_DUMMY_DATA) {
     await delay(300); // Simulate network delay
     return dummyTeams.find(t => t.id === teamId) || null;
   }
 
-  return fetchTeamByIdFromAPI(teamId);
+  return fetchTeamByIdFromAPI(teamId, exerciseId);
 }
 
 /**

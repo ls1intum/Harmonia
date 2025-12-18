@@ -121,13 +121,14 @@ public class ArtemisClientService {
      *
      * @param serverUrl The Artemis server URL
      * @param jwtToken  The JWT token for authentication
+     * @param exerciseId The exercise ID to fetch participations for
      * @return List of participation DTOs containing team and repository information
      */
-    public List<ParticipationDTO> fetchParticipations(String serverUrl, String jwtToken) {
-        log.info("Fetching participations for exercise ID: {} from {}", artemisConfig.getExerciseId(), serverUrl);
+    public List<ParticipationDTO> fetchParticipations(String serverUrl, String jwtToken, Long exerciseId) {
+        log.info("Fetching participations for exercise ID: {} from {}", exerciseId, serverUrl);
 
         String uri = String.format("/api/exercise/exercises/%d/participations?withLatestResults=false",
-                artemisConfig.getExerciseId());
+                exerciseId);
 
         try {
             RestClient dynamicClient = RestClient.builder()

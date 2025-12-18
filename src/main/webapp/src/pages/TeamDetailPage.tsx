@@ -20,7 +20,7 @@ export default function TeamDetailPage() {
       if (!teamId) {
         throw new Error('No team ID provided');
       }
-      const fetchedTeam = await loadTeamById(teamId);
+      const fetchedTeam = await loadTeamById(teamId, exercise);
       if (!fetchedTeam) {
         throw new Error('Team not found');
       }

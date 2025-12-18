@@ -40,6 +40,7 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
   return {
     /**
      *
+     * @param {number} exerciseId
      * @param {string} [jwt]
      * @param {string} [artemisServerUrl]
      * @param {string} [artemisUsername]
@@ -48,6 +49,7 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
      * @throws {RequiredError}
      */
     fetchData: async (
+      exerciseId: number,
       jwt?: string,
       artemisServerUrl?: string,
       artemisUsername?: string,
@@ -65,6 +67,10 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
       const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
+
+      if (exerciseId !== undefined) {
+        localVarQueryParameter['exerciseId'] = exerciseId;
+      }
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -86,6 +92,7 @@ export const RequestResourceApiFp = function (configuration?: Configuration) {
   return {
     /**
      *
+     * @param {number} exerciseId
      * @param {string} [jwt]
      * @param {string} [artemisServerUrl]
      * @param {string} [artemisUsername]
@@ -94,13 +101,21 @@ export const RequestResourceApiFp = function (configuration?: Configuration) {
      * @throws {RequiredError}
      */
     async fetchData(
+      exerciseId: number,
       jwt?: string,
       artemisServerUrl?: string,
       artemisUsername?: string,
       artemisPassword?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword, options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.fetchData(
+        exerciseId,
+        jwt,
+        artemisServerUrl,
+        artemisUsername,
+        artemisPassword,
+        options,
+      );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath = operationServerMap['RequestResourceApi.fetchData']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
@@ -117,6 +132,7 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
   return {
     /**
      *
+     * @param {number} exerciseId
      * @param {string} [jwt]
      * @param {string} [artemisServerUrl]
      * @param {string} [artemisUsername]
@@ -125,6 +141,7 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
      * @throws {RequiredError}
      */
     fetchData(
+      exerciseId: number,
       jwt?: string,
       artemisServerUrl?: string,
       artemisUsername?: string,
@@ -132,7 +149,7 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<Array<ClientResponseDTO>> {
       return localVarFp
-        .fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+        .fetchData(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
         .then(request => request(axios, basePath));
     },
   };
@@ -144,6 +161,7 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
 export class RequestResourceApi extends BaseAPI {
   /**
    *
+   * @param {number} exerciseId
    * @param {string} [jwt]
    * @param {string} [artemisServerUrl]
    * @param {string} [artemisUsername]
@@ -152,6 +170,7 @@ export class RequestResourceApi extends BaseAPI {
    * @throws {RequiredError}
    */
   public fetchData(
+    exerciseId: number,
     jwt?: string,
     artemisServerUrl?: string,
     artemisUsername?: string,
@@ -159,7 +178,7 @@ export class RequestResourceApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return RequestResourceApiFp(this.configuration)
-      .fetchData(jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+      .fetchData(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
       .then(request => request(this.axios, this.basePath));
   }
 }

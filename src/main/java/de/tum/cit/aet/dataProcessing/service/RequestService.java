@@ -41,10 +41,11 @@ public class RequestService {
      * Fetches, analyzes, and saves repository data using the provided Artemis credentials.
      *
      * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID to fetch participations for
      */
-    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
+    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId) {
         // Fetch and clone repositories
-        List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials);
+        List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials, exerciseId);
 
         // Analyze contributions
         Map<Long, AuthorContributionDTO> contributionData = getContributionData(repositories);
@@ -57,11 +58,12 @@ public class RequestService {
      * Fetches and clones all repositories from Artemis using dynamic credentials.
      *
      * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID to fetch participations for
      * @return List of TeamRepositoryDTO containing repository information
      */
-    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials) {
+    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials, Long exerciseId) {
         log.info("RequestService: Initiating repository fetch and clone process");
-        return repositoryFetchingService.fetchAndCloneRepositories(credentials);
+        return repositoryFetchingService.fetchAndCloneRepositories(credentials, exerciseId);
     }
 
     /**
@@ -83,56 +85,116 @@ public class RequestService {
     public void saveResults(List<TeamRepositoryDTO> repositories, Map<Long, AuthorContributionDTO> contributionData) {
         // TODO: Implement a better strategy for updating existing records instead of deleting all data
         // Clear existing data in database tables. We assume a full refresh of all data is intended, effectively treating the run as idempotent
+        clearDatabase();
+
+        for (TeamRepositoryDTO repo : repositories) {
+            saveSingleResult(repo, contributionData);
+        }
+    }
+
+    public void clearDatabase() {
         teamRepositoryRepository.deleteAll();
         studentRepository.deleteAll();
         teamParticipationRepository.deleteAll();
         tutorRepository.deleteAll();
+    }
 
-        for (TeamRepositoryDTO repo : repositories) {
-            // Save tutor
-            ParticipantDTO tut = repo.participation().team().owner();
-            Tutor tutor = null;
-            if (tut == null) {
-                log.warn("No tutor found for team: {}", repo.participation().team().name());
-            } else {
-                tutor = new Tutor(tut.id(), tut.login(), tut.name(), tut.email());
-                tutorRepository.save(tutor);
-            }
-
-            // Save team participation
-            ParticipationDTO participation = repo.participation();
-            TeamDTO team = participation.team();
-            TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(), team.shortName(), participation.repositoryUri(), participation.submissionCount());
-            teamParticipationRepository.save(teamParticipation);
-
-            // Save students with contributions
-            List<Student> students = new ArrayList<>();
-            for (ParticipantDTO student : repo.participation().team().students()) {
-                AuthorContributionDTO contributionDTO = contributionData.get(student.id());
-
-                // Handle the case where a student made no contributions (e.g., if they were registered but never committed)
-                if (contributionDTO == null) {
-                    contributionDTO = new AuthorContributionDTO(0, 0, 0);
-                }
-
-                students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation,
-                        contributionDTO.commitCount(), contributionDTO.linesAdded(), contributionDTO.linesDeleted(),
-                        contributionDTO.linesAdded() + contributionDTO.linesDeleted()));
-            }
-            studentRepository.saveAll(students);
-
-            // Save team repository
-            TeamRepository teamRepo = new TeamRepository(teamParticipation, null, repo.localPath(), repo.isCloned(), repo.error());
-
-            // Process VCS logs
-            List<VCSLog> vcsLogs = repo.vcsLogs().stream().map(log -> new VCSLog(teamRepo, log.commitHash(), log.email())).toList();
-
-            // Save the TeamRepository (through cascade, VCSLogs will also be saved)
-            teamRepo.setVcsLogs(vcsLogs);
-            teamRepositoryRepository.save(teamRepo);
-
-            log.info("Processed repository for team: {}", team.name());
+    public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo, Map<Long, AuthorContributionDTO> contributionData) {
+        // Save tutor
+        ParticipantDTO tut = repo.participation().team().owner();
+        Tutor tutor = null;
+        if (tut == null) {
+            log.warn("No tutor found for team: {}", repo.participation().team().name());
+        } else {
+            tutor = new Tutor(tut.id(), tut.login(), tut.name(), tut.email());
+            tutorRepository.save(tutor);
         }
+
+        // Save team participation
+        ParticipationDTO participation = repo.participation();
+        TeamDTO team = participation.team();
+        TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(), team.shortName(), participation.repositoryUri(), participation.submissionCount());
+        teamParticipationRepository.save(teamParticipation);
+
+        // Save students with contributions
+        List<Student> students = new ArrayList<>();
+        List<StudentAnalysisDTO> studentAnalysisDTOS = new ArrayList<>();
+
+        for (ParticipantDTO student : repo.participation().team().students()) {
+            AuthorContributionDTO contributionDTO = contributionData.get(student.id());
+
+            // Handle the case where a student made no contributions (e.g., if they were registered but never committed)
+            if (contributionDTO == null) {
+                contributionDTO = new AuthorContributionDTO(0, 0, 0);
+            }
+
+            students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation,
+                    contributionDTO.commitCount(), contributionDTO.linesAdded(), contributionDTO.linesDeleted(),
+                    contributionDTO.linesAdded() + contributionDTO.linesDeleted()));
+
+            studentAnalysisDTOS.add(new StudentAnalysisDTO(
+                    student.name(),
+                    contributionDTO.commitCount(),
+                    contributionDTO.linesAdded(),
+                    contributionDTO.linesDeleted(),
+                    contributionDTO.linesAdded() + contributionDTO.linesDeleted()));
+        }
+        studentRepository.saveAll(students);
+
+        // Save team repository
+        TeamRepository teamRepo = new TeamRepository(teamParticipation, null, repo.localPath(), repo.isCloned(), repo.error());
+
+        // Process VCS logs
+        List<VCSLog> vcsLogs = repo.vcsLogs().stream().map(log -> new VCSLog(teamRepo, log.commitHash(), log.email())).toList();
+
+        // Save the TeamRepository (through cascade, VCSLogs will also be saved)
+        teamRepo.setVcsLogs(vcsLogs);
+        teamRepositoryRepository.save(teamRepo);
+
+        log.info("Processed repository for team: {}", team.name());
+
+        return new ClientResponseDTO(
+                tutor != null ? tutor.getName() : "Unassigned",
+                participation.team().id(),
+                participation.team().name(),
+                participation.submissionCount(),
+                studentAnalysisDTOS
+        );
+    }
+
+    public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId, java.util.function.Consumer<Object> eventEmitter) {
+        clearDatabase();
+
+        List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials, exerciseId);
+        
+        // Emit total count
+        eventEmitter.accept(Map.of("type", "START", "total", participations.size()));
+
+        // Filter participations with repositories
+        List<ParticipationDTO> validParticipations = participations.stream()
+                .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
+                .toList();
+
+        for (ParticipationDTO participation : validParticipations) {
+            try {
+                // Clone
+                TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials);
+                
+                // Analyze
+                Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+                
+                // Save
+                ClientResponseDTO dto = saveSingleResult(repo, contributions);
+                
+                // Emit result
+                eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+            } catch (Exception e) {
+                log.error("Error processing participation {}", participation.id(), e);
+                // Optionally emit error event
+            }
+        }
+        
+        eventEmitter.accept(Map.of("type", "DONE"));
     }
 
     /**
