@@ -193,7 +193,7 @@ public class ArtemisClientService {
      * @return List of VCS log DTOs filtered for commits
      */
     public List<VCSLogDTO> fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
-        log.info("Fetching VCS access log for participation ID: {}", participationId);
+        log.info("Fetching VCS access log for participation ID: {} from {}", participationId, serverUrl + "/api/programming/programming-exercise-participations/" + participationId + "/vcs-access-log");
 
         String uri = String.format("/api/programming/programming-exercise-participations/%d/vcs-access-log", participationId);
         try {
@@ -209,16 +209,29 @@ public class ArtemisClientService {
                     .body(new ParameterizedTypeReference<>() {
                     });
 
+            log.info("Raw VCS logs received: {} entries", vcsLogs != null ? vcsLogs.size() : 0);
+            if (vcsLogs != null && !vcsLogs.isEmpty()) {
+                log.info("Sample VCS log entry: {}", vcsLogs.get(0));
+                // Log all unique action types
+                var actionTypes = vcsLogs.stream()
+                        .map(VCSLogDTO::repositoryActionType)
+                        .distinct()
+                        .toList();
+                log.info("Action types found: {}", actionTypes);
+            }
+
             // Filter the fetched logs to only include "WRITE" actions, indicating a commit
             if (vcsLogs != null) {
+                int beforeFilter = vcsLogs.size();
                 vcsLogs = vcsLogs.stream()
                         .filter(entry -> "WRITE".equals(entry.repositoryActionType()))
                         .toList();
+                log.info("After filtering for WRITE actions: {} entries (was {})", vcsLogs.size(), beforeFilter);
             }
 
             return vcsLogs;
         } catch (Exception e) {
-            log.error("Error fetching participations from Artemis", e);
+            log.error("Error fetching VCS access log from Artemis for participation {}", participationId, e);
             throw new ArtemisConnectionException("Failed to fetch VCS access logs from Artemis", e);
         }
     }
