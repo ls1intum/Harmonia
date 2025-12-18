@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -32,6 +33,7 @@ public class RequestResource {
      * GET endpoint to fetch, analyze, and save repository data.
      * Triggers the fetching of participations from Artemis, analyzes repositories, and saves the data.
      *
+     * @param exerciseId        The exercise ID to fetch participations for
      * @param jwtToken          The JWT token from the cookie
      * @param serverUrl         The Artemis server URL from the cookie
      * @param username          The Artemis username from the cookie
@@ -40,12 +42,13 @@ public class RequestResource {
      */
     @GetMapping("fetchData")
     public ResponseEntity<List<ClientResponseDTO>> fetchData(
+            @RequestParam(value = "exerciseId") Long exerciseId,
             @CookieValue(value = "jwt", required = false) String jwtToken,
             @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
             @CookieValue(value = "artemis_username", required = false) String username,
             @CookieValue(value = "artemis_password", required = false) String encryptedPassword
     ) {
-        log.info("GET request received: fetchData");
+        log.info("GET request received: fetchData for exerciseId: {}", exerciseId);
 
         String password = decryptPassword(encryptedPassword);
         ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
@@ -55,7 +58,7 @@ public class RequestResource {
             return ResponseEntity.status(401).build();
         }
 
-        requestService.fetchAnalyzeAndSaveRepositories(credentials);
+        requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
         List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
         return ResponseEntity.ok(clientResponseDTOS);
     }

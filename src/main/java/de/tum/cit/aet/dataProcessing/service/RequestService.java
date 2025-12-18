@@ -41,10 +41,11 @@ public class RequestService {
      * Fetches, analyzes, and saves repository data using the provided Artemis credentials.
      *
      * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID to fetch participations for
      */
-    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials) {
+    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId) {
         // Fetch and clone repositories
-        List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials);
+        List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials, exerciseId);
 
         // Analyze contributions
         Map<Long, AuthorContributionDTO> contributionData = getContributionData(repositories);
@@ -57,11 +58,12 @@ public class RequestService {
      * Fetches and clones all repositories from Artemis using dynamic credentials.
      *
      * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID to fetch participations for
      * @return List of TeamRepositoryDTO containing repository information
      */
-    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials) {
+    public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials, Long exerciseId) {
         log.info("RequestService: Initiating repository fetch and clone process");
-        return repositoryFetchingService.fetchAndCloneRepositories(credentials);
+        return repositoryFetchingService.fetchAndCloneRepositories(credentials, exerciseId);
     }
 
     /**
