@@ -4,8 +4,8 @@ spring:
       enabled: false
     azure:
       openai:
-        api-key: ${OPENAI_AZURE_KEY}
-        endpoint: https://api.openai.com/v1
+        api-key: ${SPRING_AI_AZURE_API_KEY}
+        endpoint: https://your-resource-name.openai.azure.com/
         chat:
           options:
             deployment-name: gpt-4o-mini
