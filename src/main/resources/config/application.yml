@@ -69,10 +69,10 @@ harmonia:
       enabled: false
 
 artemis:
-  baseUrl: 
+  baseUrl: https://artemis.cit.tum.de
   username: 
   password: 
   jwtToken: 
-  exerciseId: 424
+  exerciseId: 18806
   gitRepoPath: Projects/itp2526teamprojects
   numThreads: 8
