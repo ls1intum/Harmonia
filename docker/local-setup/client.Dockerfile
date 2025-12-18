@@ -19,7 +19,7 @@ FROM nginx:1.29-alpine AS runner
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/local-setup/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
