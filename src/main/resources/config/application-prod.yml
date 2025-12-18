@@ -1,9 +1,14 @@
 spring:
   ai:
+    model:
+      chat: azure-openai
     openai:
       enabled: false
+      api-key: "disabled"
+      base-url: "http://disabled"
     azure:
       openai:
+        enabled: true
         api-key: ${SPRING_AI_AZURE_API_KEY}
         endpoint: https://endpoint.openai.azure.com
         chat:
