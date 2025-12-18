@@ -7,13 +7,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   server:
-    image: ghcr.io/ls1intum/harmonia-server:${IMAGE_TAG}
+    image: 'ghcr.io/ls1intum/harmonia-server:${IMAGE_TAG}'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -26,7 +26,7 @@ services:
       retries: 5
 
   client:
-    image: ghcr.io/ls1intum/harmonia-client:${IMAGE_TAG}
+    image: 'ghcr.io/ls1intum/harmonia-client:${IMAGE_TAG}'
     restart: unless-stopped
     depends_on:
       server:
