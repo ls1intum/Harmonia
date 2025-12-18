@@ -103,7 +103,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
               <SelectValue placeholder="Select a project" />
             </SelectTrigger>
             <SelectContent>
-              {projects.map((project) => (
+              {projects.map(project => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.courseName} - {project.semester} (Exercise ID: {project.exerciseId})
                 </SelectItem>

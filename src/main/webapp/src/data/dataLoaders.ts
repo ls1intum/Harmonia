@@ -122,7 +122,7 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
   const isSuspicious = dto.isSuspicious ?? false;
 
-    // Sub-metrics not yet implemented on server
+  // Sub-metrics not yet implemented on server
   const subMetrics = [
     {
       name: 'Contribution Balance',
@@ -240,7 +240,7 @@ export function loadBasicTeamDataStream(
     withCredentials: true,
   });
 
-  eventSource.onmessage = (event) => {
+  eventSource.onmessage = event => {
     try {
       const data = JSON.parse(event.data);
       if (data.type === 'START') {
@@ -257,7 +257,7 @@ export function loadBasicTeamDataStream(
     }
   };
 
-  eventSource.onerror = (error) => {
+  eventSource.onerror = error => {
     console.error('SSE Error:', error);
     eventSource.close();
     onError(error);

@@ -17,9 +17,7 @@ export default function Teams() {
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Use React Query to cache teams data per exercise
-  const {
-    data: teams = [],
-  } = useQuery({
+  const { data: teams = [] } = useQuery({
     queryKey: ['teams', exercise],
     queryFn: async () => {
       // This function won't be called if data is already cached
@@ -43,10 +41,10 @@ export default function Teams() {
 
     // Only stream if we don't have cached data
     const streamedTeams: ComplexTeamData[] = [];
-    
+
     // Initialize state for streaming
     let mounted = true;
-    
+
     // Use Promise.resolve to defer setState to avoid the ESLint error
     Promise.resolve().then(() => {
       if (mounted) {
@@ -58,12 +56,12 @@ export default function Teams() {
 
     const closeStream = loadBasicTeamDataStream(
       exercise,
-      (total) => {
+      total => {
         if (mounted) {
           setTotalRepos(total);
         }
       },
-      (team) => {
+      team => {
         streamedTeams.push(team);
         if (mounted) {
           setProcessedRepos(streamedTeams.length);
@@ -76,7 +74,7 @@ export default function Teams() {
           setIsStreaming(false);
         }
       },
-      (error) => {
+      error => {
         console.error('Stream error:', error);
         if (mounted) {
           setIsStreaming(false);
@@ -86,7 +84,7 @@ export default function Teams() {
             description: 'Connection lost or failed.',
           });
         }
-      }
+      },
     );
 
     return () => {
