@@ -21,8 +21,8 @@ services:
 
   server:
     build:
-      context: ..
-      dockerfile: docker/server.Dockerfile
+      context: ../..
+      dockerfile: docker/local-setup/server.Dockerfile
     container_name: harmonia-server
     restart: unless-stopped
     depends_on:
@@ -43,8 +43,8 @@ services:
 
   client:
     build:
-      context: ..
-      dockerfile: docker/client.Dockerfile
+      context: ../..
+      dockerfile: docker/local-setup/client.Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     container_name: harmonia-client
