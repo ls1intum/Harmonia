@@ -60,6 +60,12 @@ services:
         condition: service_healthy
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - type: bind
+        source: '/var/lib/rbg-cert/live/fullchain.pem'
+        target: '/certs/fullchain.pem'
+      - type: bind
+        source: '/var/lib/rbg-cert/live/privkey.pem'
+        target: '/certs/privkey.pem'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 10s
