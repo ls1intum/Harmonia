@@ -54,6 +54,7 @@ services:
     image: nginx:1.29-alpine
     ports:
       - "80:80"
+      - '443:443'
     restart: unless-stopped
     depends_on:
       client:
