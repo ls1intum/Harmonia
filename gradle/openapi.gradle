@@ -24,13 +24,14 @@ openApi {
     "-Dspringdoc.paths-to-match=/api/**",
     "-Dspringdoc.api-docs.format=yaml",
     "-Dspring.docker.compose.enabled=false",
-    "-Dspring.docker.compose.lifecycle-management=none",
-    "-Dspring.datasource.url=jdbc:h2:mem:testdb",
-    "-Dspring.datasource.driver-class-name=org.h2.Driver",
-    "-Dspring.jpa.hibernate.ddl-auto=create-drop",
-    "-Dspring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "-Dspring.ai.azure.openai.enabled=false"
+    "-Dspring.docker.compose.lifecycle-management=none"
     ]
+    args.set([
+      "--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia",
+      "--spring.datasource.username=postgres",
+      "--spring.datasource.password=harmonia",
+      "--spring.datasource.driver-class-name=org.postgresql.Driver"
+    ])
   }
 }
 
@@ -217,8 +218,8 @@ private static sortSchemaProperties(schema) {
   def sortedSchema = new LinkedHashMap(schema)
   if (schema.properties instanceof Map) {
     def sortedProperties = new LinkedHashMap()
-    (schema.properties as Map).entrySet().sort { it.key }.each { 
-      sortedProperties[it.key] = it.value 
+    (schema.properties as Map).entrySet().sort { it.key }.each {
+      sortedProperties[it.key] = it.value
     }
     sortedSchema.properties = sortedProperties
   }

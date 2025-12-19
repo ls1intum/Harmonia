@@ -113,15 +113,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    runtimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
-    testLogging {
-        events "passed", "skipped", "failed"
-        showStandardStreams = true
-    }
 }
 
 // Available commands:
