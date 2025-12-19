@@ -1,12 +1,17 @@
 spring:
   ai:
+    model:
+      chat: azure-openai
     openai:
       enabled: false
+      api-key: "disabled"
+      base-url: "http://disabled"
     azure:
       openai:
-        api-key: ${OPENAI_AZURE_KEY}
-        endpoint: https://api.openai.com/v1
+        enabled: true
+        api-key: ${SPRING_AI_AZURE_API_KEY}
+        endpoint: https://endpoint.openai.azure.com
         chat:
           options:
-            deployment-name: gpt-4o-mini
+            deployment-name: gpt-5-mini
             temperature: 1.0
