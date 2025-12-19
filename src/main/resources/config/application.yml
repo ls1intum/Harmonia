@@ -59,16 +59,17 @@ harmonia:
     file-clustering:
       enabled: false
   projects:
-    - id: itp-2425
-      courseName: ITP
-      semester: WS 24/25
-      exerciseId: 424
-      gitRepoPath: Projects/itp2425teamprojects
     - id: itp-2526
       courseName: ITP
       semester: WS 25/26
       exerciseId: 18806
       gitRepoPath: Projects/itp2526teamprojects
+    - id: itp-2425
+      courseName: ITP
+      semester: WS 24/25
+      exerciseId: 15535
+      gitRepoPath: Projects/itp2425teamprojects
+    
 
 artemis:
   baseUrl: https://artemis.cit.tum.de

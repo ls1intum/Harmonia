@@ -205,7 +205,8 @@ public class RequestService {
                 .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                 .toList();
 
-        for (ParticipationDTO participation : validParticipations) {
+        // Process repositories in parallel
+        validParticipations.parallelStream().forEach(participation -> {
             try {
                 // Clone
                 TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials, exerciseId);
@@ -216,13 +217,15 @@ public class RequestService {
                 // Save
                 ClientResponseDTO dto = saveSingleResult(repo, contributions);
 
-                // Emit result
-                eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                // Emit result (synchronized to ensure thread safety)
+                synchronized (eventEmitter) {
+                    eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                }
             } catch (Exception e) {
                 log.error("Error processing participation {}", participation.id(), e);
                 // Optionally emit error event
             }
-        }
+        });
 
         eventEmitter.accept(Map.of("type", "DONE"));
     }

@@ -45,8 +45,8 @@ public class RepositoryFetchingService {
         List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
                 credentials.serverUrl(), credentials.jwtToken(), exerciseId);
 
-        // Step 2: Filter participations with repositories and clone them
-        List<TeamRepositoryDTO> teamRepositories = participations.stream()
+        // Step 2: Filter participations with repositories and clone them in parallel
+        List<TeamRepositoryDTO> teamRepositories = participations.parallelStream()
                 .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                 .map(p -> cloneTeamRepository(p, credentials, exerciseId))
                 .toList();
