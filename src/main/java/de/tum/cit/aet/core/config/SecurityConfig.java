@@ -48,7 +48,14 @@ public class SecurityConfig {
                 // after the basic authentication filter.
                 .addFilterAfter(new SpaWebFilter(), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api-docs", "/api-docs.yaml", "/actuator/health", "/api/auth/**")
+                        // Health check endpoint
+                        .requestMatchers("/actuator/**")
+                        .permitAll()
+                        // Public Endpoints
+                        .requestMatchers("/api/auth/**")
+                        .permitAll()
+                        // Openapi Endpoints
+                        .requestMatchers("/api-docs", "/api-docs.yaml")
                         .permitAll()
                         .anyRequest().authenticated()
                 )
