@@ -48,6 +48,8 @@ public class SecurityConfig {
                 // after the basic authentication filter.
                 .addFilterAfter(new SpaWebFilter(), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
+                        .permitAll()
                         // Health check endpoint
                         .requestMatchers("/actuator/**")
                         .permitAll()
