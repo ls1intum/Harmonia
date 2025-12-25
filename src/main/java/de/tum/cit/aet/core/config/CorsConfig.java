@@ -27,7 +27,8 @@ public class CorsConfig {
         config.setAllowedOrigins(List.of(
                 "https://harmonia.aet.cit.tum.de",
                 "https://harmonia-test.aet.cit.tum.de",
-                "http://localhost:8080"
+                "http://localhost:8080",
+                "http://localhost:4200"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
