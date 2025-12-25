@@ -17,7 +17,7 @@ services:
       - harmonia-network
 
   server:
-    image: 'ghcr.io/ls1intum/harmonia-server:${IMAGE_TAG}'
+    image: 'ghcr.io/ls1intum/harmonia-server:latest'
     env_file:
       - .env
     restart: unless-stopped
@@ -34,7 +34,7 @@ services:
       - harmonia-network
 
   client:
-    image: 'ghcr.io/ls1intum/harmonia-client:${IMAGE_TAG}'
+    image: 'ghcr.io/ls1intum/harmonia-client:latest'
     env_file:
       - .env
     restart: unless-stopped
