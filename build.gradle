@@ -77,7 +77,7 @@ dependencies {
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.5.0.202512021534-r'
 
     // Uses patched netty version to resolve vulnerability in Spring AI
-    implementation 'io.netty:netty-codec-http:4.1.129.Final'
+    implementation 'io.netty:netty-codec-http:4.2.9.Final'
     // Spring AI for LLM interaction
     implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M1')
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
