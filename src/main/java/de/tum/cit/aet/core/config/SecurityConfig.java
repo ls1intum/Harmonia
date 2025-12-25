@@ -64,7 +64,7 @@ public class SecurityConfig {
                         // Openapi Endpoints
                         .requestMatchers("/api-docs", "/api-docs.yaml")
                         .permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 );
         return http.build();
     }
