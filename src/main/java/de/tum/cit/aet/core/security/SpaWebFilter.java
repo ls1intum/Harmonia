@@ -20,6 +20,7 @@ public class SpaWebFilter extends OncePerRequestFilter {
         // @formatter:off
         if (
             !path.startsWith("/api") &&
+                        !path.startsWith("/actuator") &&
                         !path.startsWith("/management") &&
                         !path.startsWith("/time") &&
                         !path.startsWith("/public") &&
