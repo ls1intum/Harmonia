@@ -11,10 +11,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    private final HarmoniaProperties harmoniaProperties;
-
-    public CorsConfig(HarmoniaProperties harmoniaProperties) {
-        this.harmoniaProperties = harmoniaProperties;
+    public CorsConfig() {
     }
 
     /**
@@ -26,15 +23,18 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(harmoniaProperties.getCors().getAllowedOrigins());
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
+        config.setAllowedOrigins(List.of(
+                "https://harmonia.aet.cit.tum.de",
+                "https://harmonia-test.aet.cit.tum.de",
+                "http://localhost:8080"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Set-Cookie"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 }

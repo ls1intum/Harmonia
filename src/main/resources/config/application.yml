@@ -41,13 +41,6 @@ management:
 harmonia:
   user: admin
   password: admin1234
-  cors:
-    allowed-origins:
-      - "http://localhost:5173"
-      - "http://localhost:3000"
-      - "http://localhost:8080"
-      - "https://harmonia.aet.cit.tum.de"
-      - "https://harmonia-test.aet.cit.tum.de"
   ai:
     enabled: true
     commit-classifier:

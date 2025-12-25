@@ -90,23 +90,4 @@ public class SecurityConfig {
 
         return new InMemoryUserDetailsManager(user);
     }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of(
-                "https://harmonia.aet.cit.tum.de",
-                "https://harmonia-test.aet.cit.tum.de",
-                "http://localhost:8080"
-        ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Set-Cookie"));
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
 }
