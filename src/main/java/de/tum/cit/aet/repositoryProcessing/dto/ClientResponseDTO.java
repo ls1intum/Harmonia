@@ -19,6 +19,8 @@ public record ClientResponseDTO(
         Long teamId,
         String teamName,
         Integer submissionCount,
-        List<StudentAnalysisDTO> students
+        List<StudentAnalysisDTO> students,
+        Double cqi,
+        Boolean isSuspicious
 ) {
 }

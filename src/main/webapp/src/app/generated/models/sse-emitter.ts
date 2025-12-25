@@ -12,16 +12,6 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { StudentAnalysisDTO } from './student-analysis-dto';
-
-export interface ClientResponseDTO {
-  cqi?: number;
-  isSuspicious?: boolean;
-  students?: Array<StudentAnalysisDTO>;
-  submissionCount?: number;
-  teamId?: number;
-  teamName?: string;
-  tutor?: string;
+export interface SseEmitter {
+  timeout?: number;
 }

@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
-import { loadBasicTeamData, loadComplexTeamData, triggerReanalysis } from '@/data/dataLoaders';
+import { loadBasicTeamDataStream, triggerReanalysis, type ComplexTeamData } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
 
 export default function Teams() {
@@ -11,40 +12,89 @@ export default function Teams() {
   const queryClient = useQueryClient();
   const { course, exercise } = location.state || {};
 
-  // Query 1: Fetch basic data (fast)
-  const { data: basicTeams, isLoading: isLoadingBasic } = useQuery({
-    queryKey: ['teams', 'basic', course, exercise],
+  const [totalRepos, setTotalRepos] = useState(0);
+  const [processedRepos, setProcessedRepos] = useState(0);
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  // Use React Query to cache teams data per exercise
+  const { data: teams = [] } = useQuery({
+    queryKey: ['teams', exercise],
     queryFn: async () => {
-      return await loadBasicTeamData(course, exercise);
+      // This function won't be called if data is already cached
+      // We'll manually set the data via setQueryData instead
+      return [];
     },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
+    staleTime: Infinity, // Never auto-refetch - only manual invalidation
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    enabled: !!exercise,
   });
 
-  // Query 2: Fetch complex data (slow, LLM-based)
-  const { data: complexTeams, isLoading: isLoadingComplex } = useQuery({
-    queryKey: ['teams', 'complex', course, exercise],
-    queryFn: async () => {
-      return await loadComplexTeamData(course, exercise);
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
+  useEffect(() => {
+    if (!course || !exercise) return;
 
-  // Merge data: use complex if available, otherwise basic
-  const teams = complexTeams || basicTeams || [];
+    // Check if we already have cached teams for this exercise
+    const cachedTeams = queryClient.getQueryData<ComplexTeamData[]>(['teams', exercise]);
+    if (cachedTeams && cachedTeams.length > 0) {
+      // We have cached data, don't re-stream
+      return;
+    }
+
+    // Only stream if we don't have cached data
+    const streamedTeams: ComplexTeamData[] = [];
+
+    // Initialize state for streaming
+    let mounted = true;
+
+    // Use Promise.resolve to defer setState to avoid the ESLint error
+    Promise.resolve().then(() => {
+      if (mounted) {
+        setTotalRepos(0);
+        setProcessedRepos(0);
+        setIsStreaming(true);
+      }
+    });
+
+    const closeStream = loadBasicTeamDataStream(
+      exercise,
+      total => {
+        if (mounted) {
+          setTotalRepos(total);
+        }
+      },
+      team => {
+        streamedTeams.push(team);
+        if (mounted) {
+          setProcessedRepos(streamedTeams.length);
+          // Update React Query cache in real-time
+          queryClient.setQueryData(['teams', exercise], streamedTeams);
+        }
+      },
+      () => {
+        if (mounted) {
+          setIsStreaming(false);
+        }
+      },
+      error => {
+        console.error('Stream error:', error);
+        if (mounted) {
+          setIsStreaming(false);
+          toast({
+            variant: 'destructive',
+            title: 'Error loading teams',
+            description: 'Connection lost or failed.',
+          });
+        }
+      },
+    );
+
+    return () => {
+      mounted = false;
+      closeStream();
+    };
+  }, [exercise, course, queryClient]); // Only depend on exercise and course
 
   // Calculate progress
-  const basicLoaded = !!basicTeams;
-  const complexLoaded = !!complexTeams;
-  const isAnalyzing = isLoadingBasic || isLoadingComplex;
-
-  const progress = (() => {
-    if (complexLoaded) return 100;
-    if (basicLoaded) return 50;
-    if (isLoadingBasic) return 25;
-    return 0;
-  })();
+  const progress = totalRepos > 0 ? Math.round((processedRepos / totalRepos) * 100) : 0;
 
   // Mutation for recompute
   const reanalyzeMutation = useMutation({
@@ -53,9 +103,9 @@ export default function Teams() {
       await triggerReanalysis(course, exercise);
     },
     onSuccess: () => {
-      // Invalidate both queries to refetch
-      queryClient.invalidateQueries({ queryKey: ['teams', 'basic', course, exercise] });
-      queryClient.invalidateQueries({ queryKey: ['teams', 'complex', course, exercise] });
+      // Invalidate cached teams data to force re-fetch
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      window.location.reload();
     },
     onError: () => {
       toast({
@@ -87,7 +137,7 @@ export default function Teams() {
       onRecompute={handleRecompute}
       course={course}
       exercise={exercise}
-      isAnalyzing={isAnalyzing || reanalyzeMutation.isPending}
+      isAnalyzing={isStreaming || reanalyzeMutation.isPending}
       progress={progress}
     />
   );

@@ -37,5 +37,6 @@ out/
 .vscode/
 
 Projects/
+repos/
 test-credentials.properties
 /.DS_Store

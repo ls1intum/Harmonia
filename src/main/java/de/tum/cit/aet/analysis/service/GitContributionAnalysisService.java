@@ -25,8 +25,6 @@ import java.util.List;
 @Slf4j
 public class GitContributionAnalysisService {
 
-    public final Map<Long, AuthorContributionDTO> authorContributions = new HashMap<>();
-
     /**
      * Maps each commit hash to the corresponding author ID based on the VCS logs and team participation data.
      *
@@ -45,14 +43,16 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Analyzes the Git repository at the given local path and updates the author contributions map.
+     * Analyzes the Git repository at the given local path and returns the author contributions map.
      *
      * @param localPath      The local file system path to the Git repository.
      * @param commitToAuthor A map from commit hash to author ID.
+     * @return A map from author ID to their contribution statistics for this repository.
      * @throws IOException If an error occurs while accessing the repository.
      */
-    public void analyzeRepositoryContributions(String localPath, Map<String, Long> commitToAuthor) throws IOException {
+    public Map<Long, AuthorContributionDTO> analyzeRepositoryContributions(String localPath, Map<String, Long> commitToAuthor) throws IOException {
         log.info("Running git analysis on local path: {}", localPath);
+        Map<Long, AuthorContributionDTO> repoContributions = new HashMap<>();
 
         // Initialize the JGit Repository object using the .git directory.
         File gitDir = new File(localPath, ".git");
@@ -103,9 +103,8 @@ public class GitContributionAnalysisService {
                     }
 
                     // Update the total contributions for the author.
-                    // Assumes authorContributions is a Map<Long, int[]> with format [linesAdded, linesRemoved, commitCount].
-                    AuthorContributionDTO currentContributions = authorContributions.getOrDefault(authorId, new AuthorContributionDTO(0, 0, 0));
-                    authorContributions.put(authorId, new AuthorContributionDTO(
+                    AuthorContributionDTO currentContributions = repoContributions.getOrDefault(authorId, new AuthorContributionDTO(0, 0, 0));
+                    repoContributions.put(authorId, new AuthorContributionDTO(
                             currentContributions.linesAdded() + linesAdded,
                             currentContributions.linesDeleted() + linesDeleted,
                             currentContributions.commitCount() + 1));
@@ -116,6 +115,24 @@ public class GitContributionAnalysisService {
         } catch (Exception e) {
             throw new IOException("Error processing repository at " + localPath, e);
         }
+        return repoContributions;
+    }
+
+    /**
+     * Processes a single team repository to analyze contributions.
+     *
+     * @param repo The TeamRepositoryDTO to process.
+     * @return A map from author ID to their contribution statistics for this repository.
+     */
+    public Map<Long, AuthorContributionDTO> analyzeRepository(TeamRepositoryDTO repo) {
+        Map<String, Long> commitToAuthor = mapCommitToAuthor(repo);
+        String localPath = repo.localPath();
+        try {
+            return analyzeRepositoryContributions(localPath, commitToAuthor);
+        } catch (IOException e) {
+            log.error("Error processing repository {}: {}", repo.participation().repositoryUri(), e.getMessage());
+            return new HashMap<>();
+        }
     }
 
     /**
@@ -125,7 +142,7 @@ public class GitContributionAnalysisService {
      * @return A map from author ID to their contribution statistics.
      */
     public Map<Long, AuthorContributionDTO> processAllRepositories(List<TeamRepositoryDTO> teamRepositories) {
-        authorContributions.clear();
+        Map<Long, AuthorContributionDTO> allContributions = new HashMap<>();
 
         for (TeamRepositoryDTO repo : teamRepositories) {
             // Map commits to student emails (based on logs)
@@ -134,11 +151,20 @@ public class GitContributionAnalysisService {
             // Iterate and analyze each repository
             String localPath = repo.localPath();
             try {
-                analyzeRepositoryContributions(localPath, commitToAuthor);
+                Map<Long, AuthorContributionDTO> repoContributions = analyzeRepositoryContributions(localPath, commitToAuthor);
+                // Merge results
+                repoContributions.forEach((authorId, dto) -> {
+                    AuthorContributionDTO existing = allContributions.getOrDefault(authorId, new AuthorContributionDTO(0, 0, 0));
+                    allContributions.put(authorId, new AuthorContributionDTO(
+                            existing.linesAdded() + dto.linesAdded(),
+                            existing.linesDeleted() + dto.linesDeleted(),
+                            existing.commitCount() + dto.commitCount()
+                    ));
+                });
             } catch (IOException e) {
                 log.error("Error processing repository {}: {}", repo.participation().repositoryUri(), e.getMessage());
             }
         }
-        return authorContributions;
+        return allContributions;
     }
 }
