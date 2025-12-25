@@ -1,11 +1,13 @@
 package de.tum.cit.aet.core.config;
 
 import de.tum.cit.aet.core.security.SpaWebFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -47,6 +49,9 @@ public class SecurityConfig {
                 // Adds a custom filter for Single Page Applications (SPA), i.e. the client,
                 // after the basic authentication filter.
                 .addFilterAfter(new SpaWebFilter(), BasicAuthenticationFilter.class)
+                // Configures sessions to be stateless; appropriate for REST APIs where no
+                // session is required.
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
                         .permitAll()
@@ -60,8 +65,7 @@ public class SecurityConfig {
                         .requestMatchers("/api-docs", "/api-docs.yaml")
                         .permitAll()
                         .anyRequest().authenticated()
-                )
-                .httpBasic(basic -> {});
+                );
         return http.build();
     }
 
