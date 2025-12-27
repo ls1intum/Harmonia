@@ -64,6 +64,7 @@ public class SecurityConfig {
                         // Openapi Endpoints
                         .requestMatchers("/api-docs", "/api-docs.yaml")
                         .permitAll()
+                        // TODO: After we have real user management, restrict access to authenticated users only
                         .anyRequest().permitAll()
                 );
         return http.build();
