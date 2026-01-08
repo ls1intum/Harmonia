@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
 
@@ -192,6 +193,7 @@ public class RequestService {
         // Calculate CQI using effort-based fairness analysis
         Double cqi = null;
         boolean isSuspicious = false;
+        List<AnalyzedChunkDTO> analysisHistory = null;
 
         try {
             // Try effort-based fairness analysis first
@@ -199,8 +201,9 @@ public class RequestService {
             if (fairnessReport.balanceScore() > 0 || !fairnessReport.authorDetails().isEmpty()) {
                 cqi = fairnessReport.balanceScore();
                 isSuspicious = fairnessReport.requiresManualReview();
-                log.debug("Fairness analysis complete for team {}: score={}, suspicious={}",
-                        team.name(), cqi, isSuspicious);
+                analysisHistory = fairnessReport.analyzedChunks();
+                log.debug("Fairness analysis complete for team {}: score={}, suspicious={}, chunks={}",
+                        team.name(), cqi, isSuspicious, analysisHistory != null ? analysisHistory.size() : 0);
             }
         } catch (Exception e) {
             log.warn("Fairness analysis failed for team {}, falling back to balance calculator: {}",
@@ -224,7 +227,8 @@ public class RequestService {
                 participation.submissionCount(),
                 studentAnalysisDTOS,
                 cqi,
-                isSuspicious);
+                isSuspicious,
+                analysisHistory);
     }
 
     /**
@@ -317,7 +321,8 @@ public class RequestService {
                             participation.getSubmissionCount(),
                             studentAnalysisDTOS,
                             cqi,
-                            false);
+                            false,
+                            null); // No analysis history for cached data
                 })
                 .toList();
 

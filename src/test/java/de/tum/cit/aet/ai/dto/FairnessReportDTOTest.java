@@ -28,7 +28,8 @@ class FairnessReportDTOTest {
                         new FairnessReportDTO.AuthorDetailDTO(
                                 2L, "bob@test.com", 95.0, 0.49, 9, 11, 8.6,
                                 Map.of(CommitLabel.FEATURE, 4, CommitLabel.TEST, 4))),
-                new FairnessReportDTO.AnalysisMetadataDTO(19, 23, 2, 0.92, 1, 1500));
+                new FairnessReportDTO.AnalysisMetadataDTO(19, 23, 2, 0.92, 1, 1500),
+                List.of());
 
         assertEquals("team-123", report.teamId());
         assertEquals(85.0, report.balanceScore());
@@ -47,7 +48,8 @@ class FairnessReportDTOTest {
                 List.of(FairnessFlag.UNEVEN_DISTRIBUTION, FairnessFlag.SOLO_CONTRIBUTOR),
                 true,
                 List.of(),
-                new FairnessReportDTO.AnalysisMetadataDTO(15, 18, 0, 0.85, 2, 2000));
+                new FairnessReportDTO.AnalysisMetadataDTO(15, 18, 0, 0.85, 2, 2000),
+                List.of());
 
         assertEquals(35.0, report.balanceScore());
         assertTrue(report.requiresManualReview());
@@ -120,7 +122,8 @@ class FairnessReportDTOTest {
             FairnessReportDTO report = new FairnessReportDTO(
                     "test", 50.0, Map.of(), Map.of(),
                     List.of(flag), true, List.of(),
-                    new FairnessReportDTO.AnalysisMetadataDTO(0, 0, 0, 0, 0, 0));
+                    new FairnessReportDTO.AnalysisMetadataDTO(0, 0, 0, 0, 0, 0),
+                    List.of());
             assertTrue(report.flags().contains(flag));
         }
     }

@@ -19,6 +19,22 @@ export interface BasicMetrics {
   totalLines: number;
 }
 
+export interface AnalyzedChunk {
+  id: string;
+  authorEmail: string;
+  authorName: string;
+  classification: string;
+  effortScore: number;
+  reasoning: string;
+  commitShas: string[];
+  commitMessages: string[];
+  timestamp: string;
+  linesChanged: number;
+  isBundled: boolean;
+  chunkIndex: number;
+  totalChunks: number;
+}
+
 export interface Team {
   id: string;
   teamName: string;
@@ -28,4 +44,6 @@ export interface Team {
   isSuspicious?: boolean;
   subMetrics?: SubMetric[];
   basicMetrics?: BasicMetrics;
+  analysisHistory?: AnalyzedChunk[];
 }
+

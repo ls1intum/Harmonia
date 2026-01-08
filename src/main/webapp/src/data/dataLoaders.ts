@@ -147,11 +147,30 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
     },
   ];
 
+  // Map analysis history from server
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const analysisHistory = (dto as any).analysisHistory?.map((chunk: any) => ({
+    id: chunk.id,
+    authorEmail: chunk.authorEmail,
+    authorName: chunk.authorName,
+    classification: chunk.classification,
+    effortScore: chunk.effortScore,
+    reasoning: chunk.reasoning,
+    commitShas: chunk.commitShas || [],
+    commitMessages: chunk.commitMessages || [],
+    timestamp: chunk.timestamp,
+    linesChanged: chunk.linesChanged,
+    isBundled: chunk.isBundled,
+    chunkIndex: chunk.chunkIndex,
+    totalChunks: chunk.totalChunks,
+  }));
+
   const team: ComplexTeamData = {
     ...basicData,
     cqi,
     isSuspicious,
     subMetrics,
+    analysisHistory,
   };
 
   // Cache the transformed team

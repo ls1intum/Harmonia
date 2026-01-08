@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
+import AnalysisFeed from './AnalysisFeed';
 
 interface TeamDetailProps {
   team: Team;
@@ -112,6 +113,15 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {team.subMetrics && team.subMetrics.map((metric, index) => <MetricCard key={index} metric={metric} />)}
         </div>
+      </div>
+
+      {/* AI Analysis Feed */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-2xl font-bold mb-2">AI Analysis Feed</h3>
+          <p className="text-muted-foreground">See exactly how the AI analyzed each commit or group of commits</p>
+        </div>
+        <AnalysisFeed chunks={team.analysisHistory || []} />
       </div>
     </div>
   );

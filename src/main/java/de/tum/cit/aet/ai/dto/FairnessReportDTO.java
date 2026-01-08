@@ -23,54 +23,56 @@ import java.util.Map;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FairnessReportDTO(
-        String teamId,
-        double balanceScore,
-        Map<Long, Double> effortByAuthor,
-        Map<Long, Double> effortShareByAuthor,
-        List<FairnessFlag> flags,
-        boolean requiresManualReview,
-        List<AuthorDetailDTO> authorDetails,
-        AnalysisMetadataDTO analysisMetadata) {
-    /**
-     * Detailed contribution breakdown for a single author.
-     */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record AuthorDetailDTO(
-            Long authorId,
-            String authorEmail,
-            double totalEffort,
-            double effortShare,
-            int commitCount,
-            int chunkCount,
-            double averageEffortPerChunk,
-            Map<CommitLabel, Integer> commitsByType) {
-    }
+                String teamId,
+                double balanceScore,
+                Map<Long, Double> effortByAuthor,
+                Map<Long, Double> effortShareByAuthor,
+                List<FairnessFlag> flags,
+                boolean requiresManualReview,
+                List<AuthorDetailDTO> authorDetails,
+                AnalysisMetadataDTO analysisMetadata,
+                List<AnalyzedChunkDTO> analyzedChunks) {
+        /**
+         * Detailed contribution breakdown for a single author.
+         */
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public record AuthorDetailDTO(
+                        Long authorId,
+                        String authorEmail,
+                        double totalEffort,
+                        double effortShare,
+                        int commitCount,
+                        int chunkCount,
+                        double averageEffortPerChunk,
+                        Map<CommitLabel, Integer> commitsByType) {
+        }
 
-    /**
-     * Metadata about the analysis process.
-     */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record AnalysisMetadataDTO(
-            int totalCommits,
-            int totalChunks,
-            int bundledCommitGroups,
-            double averageConfidence,
-            int lowConfidenceRatings,
-            long analysisTimeMs) {
-    }
+        /**
+         * Metadata about the analysis process.
+         */
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public record AnalysisMetadataDTO(
+                        int totalCommits,
+                        int totalChunks,
+                        int bundledCommitGroups,
+                        double averageConfidence,
+                        int lowConfidenceRatings,
+                        long analysisTimeMs) {
+        }
 
-    /**
-     * Creates an error report when analysis fails.
-     */
-    public static FairnessReportDTO error(String teamId, String errorMessage) {
-        return new FairnessReportDTO(
-                teamId,
-                0.0,
-                Map.of(),
-                Map.of(),
-                List.of(FairnessFlag.ANALYSIS_ERROR),
-                true,
-                List.of(),
-                new AnalysisMetadataDTO(0, 0, 0, 0.0, 0, 0));
-    }
+        /**
+         * Creates an error report when analysis fails.
+         */
+        public static FairnessReportDTO error(String teamId, String errorMessage) {
+                return new FairnessReportDTO(
+                                teamId,
+                                0.0,
+                                Map.of(),
+                                Map.of(),
+                                List.of(FairnessFlag.ANALYSIS_ERROR),
+                                true,
+                                List.of(),
+                                new AnalysisMetadataDTO(0, 0, 0, 0.0, 0, 0),
+                                List.of());
+        }
 }

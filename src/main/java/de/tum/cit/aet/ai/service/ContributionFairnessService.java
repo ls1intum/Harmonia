@@ -232,6 +232,24 @@ public class ContributionFairnessService {
                 lowConf,
                 duration);
 
+        // Convert RatedChunks to AnalyzedChunkDTOs for frontend
+        List<AnalyzedChunkDTO> analyzedChunks = ratedChunks.stream()
+                .map(rc -> new AnalyzedChunkDTO(
+                        rc.chunk.commitSha(),
+                        rc.chunk.authorEmail(),
+                        rc.chunk.authorEmail(), // Use email as name placeholder
+                        rc.rating.type().name(),
+                        rc.rating.weightedEffort(),
+                        rc.rating.reasoning(),
+                        List.of(rc.chunk.commitSha()),
+                        List.of(rc.chunk.commitMessage()),
+                        rc.chunk.timestamp(),
+                        rc.chunk.linesAdded() + rc.chunk.linesDeleted(),
+                        rc.chunk.isBundled(),
+                        rc.chunk.chunkIndex(),
+                        rc.chunk.totalChunks()))
+                .collect(Collectors.toList());
+
         return new FairnessReportDTO(
                 teamId,
                 score,
@@ -240,7 +258,8 @@ public class ContributionFairnessService {
                 flags,
                 !flags.isEmpty(),
                 details,
-                metadata);
+                metadata,
+                analyzedChunks);
     }
 
     // --- Helper Classes ---
