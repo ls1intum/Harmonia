@@ -40,3 +40,4 @@ Projects/
 repos/
 test-credentials.properties
 /.DS_Store
+local/
