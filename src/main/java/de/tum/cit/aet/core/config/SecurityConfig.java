@@ -1,10 +1,12 @@
 package de.tum.cit.aet.core.config;
 
+import de.tum.cit.aet.core.security.SpaWebFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -12,7 +14,9 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
+
 
 @Configuration
 @EnableWebSecurity
@@ -36,14 +40,33 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
+                // Adds a CORS (Cross-Origin Resource Sharing) filter before the
+                // username/password authentication to handle cross-origin requests.
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(AbstractHttpConfigurer::disable)
+                // Disables CSRF (Cross-Site Request Forgery) protection; useful in stateless
+                // APIs where the token management is unnecessary.
+                .csrf(CsrfConfigurer::disable)
+                // Adds a custom filter for Single Page Applications (SPA), i.e. the client,
+                // after the basic authentication filter.
+                .addFilterAfter(new SpaWebFilter(), BasicAuthenticationFilter.class)
+                // Configures sessions to be stateless; appropriate for REST APIs where no
+                // session is required.
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api-docs", "/api-docs.yaml", "/actuator/health", "/api/auth/**")
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
                         .permitAll()
-                        .anyRequest().authenticated()
-                )
-                .httpBasic(basic -> {});
+                        // Health check endpoint
+                        .requestMatchers("/actuator/**")
+                        .permitAll()
+                        // Public Endpoints
+                        .requestMatchers("/api/auth/**")
+                        .permitAll()
+                        // Openapi Endpoints
+                        .requestMatchers("/api-docs", "/api-docs.yaml")
+                        .permitAll()
+                        // TODO: After we have real user management, restrict access to authenticated users only
+                        .anyRequest().permitAll()
+                );
         return http.build();
     }
 

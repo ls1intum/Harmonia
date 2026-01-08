@@ -11,7 +11,7 @@ const USE_DUMMY_DATA = config.USE_DUMMY_DATA;
 
 // Initialize API client
 const apiConfig = new Configuration({
-  basePath: 'http://localhost:8080', // TODO: Make this configurable or relative
+  basePath: window.location.origin,
   username: 'admin',
   password: 'admin1234',
   baseOptions: {
