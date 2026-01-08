@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 /**
  * Service for chunking commits for LLM-based effort analysis.
- * 
+ *
  * Responsibilities:
  * - Split large commits (>500 LoC) into smaller chunks
  * - Bundle small commits (≤30 LoC) from the same author within 60 minutes
