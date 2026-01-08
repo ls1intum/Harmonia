@@ -4,6 +4,7 @@
 
 | Name                | Type                                                         | Description | Notes                             |
 | ------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
+| **analysisHistory** | [**Array&lt;AnalyzedChunkDTO&gt;**](AnalyzedChunkDTO.md)     |             | [optional] [default to undefined] |
 | **cqi**             | **number**                                                   |             | [optional] [default to undefined] |
 | **isSuspicious**    | **boolean**                                                  |             | [optional] [default to undefined] |
 | **students**        | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
@@ -18,6 +19,7 @@
 import { ClientResponseDTO } from './api';
 
 const instance: ClientResponseDTO = {
+  analysisHistory,
   cqi,
   isSuspicious,
   students,
