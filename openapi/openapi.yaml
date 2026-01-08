@@ -1,363 +1,164 @@
-{
-  "openapi": "3.1.0",
-  "info": {
-    "title": "OpenAPI definition",
-    "version": "v0"
-  },
-  "servers": [
-    {
-      "url": "http://localhost:8080",
-      "description": "Generated server url"
-    }
-  ],
-  "paths": {
-    "/api/auth/login": {
-      "post": {
-        "tags": [
-          "auth-resource"
-        ],
-        "operationId": "login",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequestDTO"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/analysis/{course}/{exercise}/recompute": {
-      "post": {
-        "tags": [
-          "analysis-resource"
-        ],
-        "operationId": "recompute",
-        "parameters": [
-          {
-            "name": "course",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "exercise",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/requestResource/stream": {
-      "get": {
-        "tags": [
-          "stream-resource"
-        ],
-        "operationId": "streamData",
-        "parameters": [
-          {
-            "name": "exerciseId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "jwt",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "artemis_server_url",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "artemis_username",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "artemis_password",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/SseEmitter"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/requestResource/getData": {
-      "get": {
-        "tags": [
-          "request-resource"
-        ],
-        "operationId": "getData",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ClientResponseDTO"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/requestResource/fetchData": {
-      "get": {
-        "tags": [
-          "request-resource"
-        ],
-        "operationId": "fetchData",
-        "parameters": [
-          {
-            "name": "exerciseId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "jwt",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "artemis_server_url",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "artemis_username",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "artemis_password",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ClientResponseDTO"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/config/projects": {
-      "get": {
-        "tags": [
-          "config-resource"
-        ],
-        "operationId": "getProjects",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Project"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "LoginRequestDTO": {
-        "type": "object",
-        "properties": {
-          "username": {
-            "type": "string",
-            "minLength": 1
-          },
-          "password": {
-            "type": "string",
-            "minLength": 1
-          },
-          "serverUrl": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "password",
-          "serverUrl",
-          "username"
-        ]
-      },
-      "SseEmitter": {
-        "type": "object",
-        "properties": {
-          "timeout": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "ClientResponseDTO": {
-        "type": "object",
-        "properties": {
-          "tutor": {
-            "type": "string"
-          },
-          "teamId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "teamName": {
-            "type": "string"
-          },
-          "submissionCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "students": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StudentAnalysisDTO"
-            }
-          },
-          "cqi": {
-            "type": "number",
-            "format": "double"
-          },
-          "isSuspicious": {
-            "type": "boolean"
-          }
-        }
-      },
-      "StudentAnalysisDTO": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "commitCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "linesAdded": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "linesDeleted": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "linesChanged": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "Project": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "courseName": {
-            "type": "string"
-          },
-          "semester": {
-            "type": "string"
-          },
-          "exerciseId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "gitRepoPath": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-}
+openapi: 3.1.0
+info: {title: OpenAPI definition, version: v0}
+servers:
+- {url: 'http://localhost:8080', description: Generated server url}
+paths:
+  /api/analysis/{course}/{exercise}/recompute:
+    post:
+      tags: [analysis-resource]
+      operationId: recompute
+      parameters:
+      - name: course
+        in: path
+        required: true
+        schema: {type: string}
+      - name: exercise
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: string}
+  /api/auth/login:
+    post:
+      tags: [auth-resource]
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequestDTO'}
+        required: true
+      responses:
+        '200': {description: OK}
+  /api/config/projects:
+    get:
+      tags: [config-resource]
+      operationId: getProjects
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Project'}
+  /api/requestResource/fetchData:
+    get:
+      tags: [request-resource]
+      operationId: fetchData
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      - name: jwt
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_server_url
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_username
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_password
+        in: cookie
+        required: false
+        schema: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/getData:
+    get:
+      tags: [request-resource]
+      operationId: getData
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/stream:
+    get:
+      tags: [stream-resource]
+      operationId: streamData
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      - name: jwt
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_server_url
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_username
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_password
+        in: cookie
+        required: false
+        schema: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            text/event-stream:
+              schema: {$ref: '#/components/schemas/SseEmitter'}
+components:
+  schemas:
+    ClientResponseDTO:
+      type: object
+      properties:
+        cqi: {type: number, format: double}
+        isSuspicious: {type: boolean}
+        students:
+          type: array
+          items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
+        submissionCount: {type: integer, format: int32}
+        teamId: {type: integer, format: int64}
+        teamName: {type: string}
+        tutor: {type: string}
+    LoginRequestDTO:
+      type: object
+      properties:
+        password: {type: string, minLength: 1}
+        serverUrl: {type: string, minLength: 1}
+        username: {type: string, minLength: 1}
+      required: [password, serverUrl, username]
+    Project:
+      type: object
+      properties:
+        courseName: {type: string}
+        exerciseId: {type: integer, format: int64}
+        gitRepoPath: {type: string}
+        id: {type: string}
+        semester: {type: string}
+    SseEmitter:
+      type: object
+      properties:
+        timeout: {type: integer, format: int64}
+    StudentAnalysisDTO:
+      type: object
+      properties:
+        commitCount: {type: integer, format: int32}
+        linesAdded: {type: integer, format: int32}
+        linesChanged: {type: integer, format: int32}
+        linesDeleted: {type: integer, format: int32}
+        name: {type: string}
