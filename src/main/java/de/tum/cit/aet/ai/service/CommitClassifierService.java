@@ -61,7 +61,7 @@ public class CommitClassifierService {
     /**
      * Constructor for CommitClassifierService.
      *
-     * @param chatClient the chat client for AI interactions
+     * @param chatClient   the chat client for AI interactions
      * @param aiProperties the AI configuration properties
      */
     public CommitClassifierService(ChatClient chatClient, AiProperties aiProperties) {
@@ -121,6 +121,7 @@ public class CommitClassifierService {
     private CommitClassificationDTO parseResponse(String response) {
         try {
             String cleaned = response.trim();
+            // Remove markdown code blocks if present
             if (cleaned.startsWith("```json")) {
                 cleaned = cleaned.substring(7);
             }
@@ -132,20 +133,29 @@ public class CommitClassifierService {
             }
             cleaned = cleaned.trim();
 
-            int labelStart = cleaned.indexOf("\"label\": \"") + 10;
-            int labelEnd = cleaned.indexOf("\"", labelStart);
-            String label = cleaned.substring(labelStart, labelEnd);
+            // Use regex patterns that handle optional whitespace
+            java.util.regex.Pattern labelPattern = java.util.regex.Pattern.compile("\"label\"\\s*:\\s*\"([^\"]+)\"");
+            java.util.regex.Pattern confPattern = java.util.regex.Pattern.compile("\"confidence\"\\s*:\\s*([0-9.]+)");
+            java.util.regex.Pattern reasonPattern = java.util.regex.Pattern
+                    .compile("\"reasoning\"\\s*:\\s*\"([^\"]+)\"");
 
-            int confStart = cleaned.indexOf("\"confidence\": ") + 15;
-            int confEnd = cleaned.indexOf(",", confStart);
-            if (confEnd == -1) {
-                confEnd = cleaned.indexOf("}", confStart);
+            java.util.regex.Matcher labelMatcher = labelPattern.matcher(cleaned);
+            java.util.regex.Matcher confMatcher = confPattern.matcher(cleaned);
+            java.util.regex.Matcher reasonMatcher = reasonPattern.matcher(cleaned);
+
+            String label = "TRIVIAL";
+            double confidence = 0.0;
+            String reasoning = "Could not parse response";
+
+            if (labelMatcher.find()) {
+                label = labelMatcher.group(1);
             }
-            double confidence = Double.parseDouble(cleaned.substring(confStart, confEnd).trim());
-
-            int reasonStart = cleaned.indexOf("\"reasoning\": \"") + 14;
-            int reasonEnd = cleaned.lastIndexOf("\"");
-            String reasoning = cleaned.substring(reasonStart, reasonEnd);
+            if (confMatcher.find()) {
+                confidence = Double.parseDouble(confMatcher.group(1));
+            }
+            if (reasonMatcher.find()) {
+                reasoning = reasonMatcher.group(1);
+            }
 
             CommitLabel commitLabel = CommitLabel.valueOf(label);
             return new CommitClassificationDTO(commitLabel, confidence, reasoning);
