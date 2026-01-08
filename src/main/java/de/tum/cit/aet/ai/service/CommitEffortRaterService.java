@@ -112,8 +112,9 @@ public class CommitEffortRaterService {
      * The ChunkerService should already handle this, but double safety is good.
      */
     private String truncateDiff(String diff) {
-        if (diff == null)
+        if (diff == null) {
             return "";
+        }
         int maxLength = 10000; // conservative character limit
         if (diff.length() > maxLength) {
             return diff.substring(0, maxLength) + "\n... (truncated)";
