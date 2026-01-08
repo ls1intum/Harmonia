@@ -77,34 +77,31 @@ public class ContributionFairnessService {
     }
 
     private Map<String, Long> mapCommitsToAuthors(List<VCSLogDTO> logs) {
-        // This logic mimics what GitContributionAnalysisService does internally
-        // In a real scenario, we might want to reuse a shared mapping service
-        // For now, we assume we can map via email if available, or just map all logs we
-        // have
         Map<String, Long> mapping = new HashMap<>();
 
-        // Basic mapping logic - this obviously needs the
-        // GitContributionAnalysisService's
-        // sophisticated logic to match emails to student IDs.
-        // For this MVP, we rely on what we can get or assume the DTO passed valid
-        // mapping data if extended.
-        // HACK: We assume VCSLogDTO might eventually carry author ID or we do a lookup.
-        // Since we don't have direct access to user DB here easily without injection
-        // circularity,
-        // we might need to rely on the passed DTO structure updates in future.
-        // FOR NOW: We just use a dummy mapping based on 'email' hash or similar if ID
-        // missing,
-        // but practically we need real IDs.
+        // Build synthetic author IDs from email addresses
+        // In a real implementation, this would look up actual user IDs from the
+        // database
+        Map<String, Long> emailToSyntheticId = new HashMap<>();
+        long idCounter = 1;
 
-        // Let's assume we can't fully map without DB access.
-        // We will try to rely on what GitContributionAnalysisService provides or just
-        // map available logs.
         for (VCSLogDTO log : logs) {
-            // Placeholder: In real app, resolved Author ID is needed.
-            // mapping.put(log.commitHash(), resolvedAuthorId);
-            // Simulating basic mapping for now if we don't have IDs in DTO
-            // Real implementation requires user service or map passed in
+            if (log.commitHash() == null || log.email() == null) {
+                continue;
+            }
+
+            // Get or create a synthetic ID for this email
+            Long authorId = emailToSyntheticId.get(log.email());
+            if (authorId == null) {
+                authorId = idCounter++;
+                emailToSyntheticId.put(log.email(), authorId);
+            }
+
+            // Map commit hash to author ID
+            mapping.put(log.commitHash(), authorId);
         }
+
+        log.debug("Mapped {} commits to {} unique authors", mapping.size(), emailToSyntheticId.size());
         return mapping;
     }
 
