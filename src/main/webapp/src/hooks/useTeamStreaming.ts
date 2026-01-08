@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { loadBasicTeamDataStream, type ComplexTeamData } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
-import type { LogEntry } from '@/components/ActivityLog';
 
 interface UseTeamStreamingProps {
   course: string;
@@ -15,7 +14,6 @@ interface UseTeamStreamingReturn {
   processedRepos: number;
   isStreaming: boolean;
   progress: number;
-  logs: LogEntry[];
 }
 
 /**
@@ -27,7 +25,6 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
   const [totalRepos, setTotalRepos] = useState(0);
   const [processedRepos, setProcessedRepos] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     if (!enabled || !course || !exercise) return;
@@ -51,7 +48,6 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
         setTotalRepos(0);
         setProcessedRepos(0);
         setIsStreaming(true);
-        setLogs([]);
       }
     });
 
@@ -85,12 +81,6 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
           });
         }
       },
-      // Handle log events
-      (team, message) => {
-        if (mounted) {
-          setLogs(prev => [...prev, { team, message, timestamp: new Date() }]);
-        }
-      },
     );
 
     return () => {
@@ -107,6 +97,5 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
     processedRepos,
     isStreaming,
     progress,
-    logs,
   };
 }

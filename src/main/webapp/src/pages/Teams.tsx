@@ -26,7 +26,7 @@ export default function Teams() {
   });
 
   // Use custom hook for SSE streaming (encapsulates useEffect logic)
-  const { isStreaming, progress, logs } = useTeamStreaming({
+  const { isStreaming, progress } = useTeamStreaming({
     course,
     exercise,
     enabled: !!course && !!exercise,
@@ -75,7 +75,6 @@ export default function Teams() {
       exercise={exercise}
       isAnalyzing={isStreaming || reanalyzeMutation.isPending}
       progress={progress}
-      logs={logs}
     />
   );
 }

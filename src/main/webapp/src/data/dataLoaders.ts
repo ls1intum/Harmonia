@@ -218,7 +218,6 @@ export function loadBasicTeamDataStream(
   onUpdate: (team: ComplexTeamData) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
-  onLog?: (team: string, message: string) => void,
 ): () => void {
   if (USE_DUMMY_DATA) {
     // Simulate streaming for dummy data
@@ -227,7 +226,6 @@ export function loadBasicTeamDataStream(
     let i = 0;
     const interval = setInterval(() => {
       if (i < teams.length) {
-        onLog?.(teams[i].teamName, 'Processing...');
         onUpdate(teams[i]);
         i++;
       } else {
@@ -250,9 +248,6 @@ export function loadBasicTeamDataStream(
       } else if (data.type === 'UPDATE') {
         // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to ComplexTeamData
         onUpdate(transformToComplexTeamData(data.data));
-      } else if (data.type === 'LOG') {
-        // Handle log events
-        onLog?.(data.team, data.message);
       } else if (data.type === 'DONE') {
         eventSource.close();
         onComplete();

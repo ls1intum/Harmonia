@@ -246,38 +246,26 @@ public class RequestService {
                 .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                 .toList();
 
-        // Helper to emit log messages thread-safely
-        java.util.function.BiConsumer<String, String> emitLog = (teamName, message) -> {
-            synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "LOG", "team", teamName, "message", message));
-            }
-        };
-
         // Process repositories in parallel
         validParticipations.parallelStream().forEach(participation -> {
-            String teamName = participation.team() != null ? participation.team().name() : "Unknown";
             try {
                 // Clone
-                emitLog.accept(teamName, "Cloning repository...");
                 TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials,
                         exerciseId);
 
                 // Analyze
-                emitLog.accept(teamName, "Analyzing git history...");
                 Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
 
-                // AI Fairness Analysis (inside saveSingleResult)
-                emitLog.accept(teamName, "Running AI fairness analysis...");
+                // Save
                 ClientResponseDTO dto = saveSingleResult(repo, contributions);
 
                 // Emit result (synchronized to ensure thread safety)
-                emitLog.accept(teamName, "✓ Analysis complete");
                 synchronized (eventEmitter) {
                     eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
                 }
             } catch (Exception e) {
                 log.error("Error processing participation {}", participation.id(), e);
-                emitLog.accept(teamName, "✗ Error: " + e.getMessage());
+                // Optionally emit error event
             }
         });
 

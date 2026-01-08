@@ -8,7 +8,6 @@ import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SortableHeader } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton } from '@/components/StatusFilterButton.tsx';
-import { ActivityLog, type LogEntry } from '@/components/ActivityLog';
 
 interface TeamsListProps {
   teams: Team[];
@@ -19,10 +18,9 @@ interface TeamsListProps {
   exercise: string;
   isAnalyzing: boolean;
   progress: number;
-  logs: LogEntry[];
 }
 
-const TeamsList = ({ teams, onTeamSelect, onBackToHome, onRecompute, course, exercise, isAnalyzing, progress, logs }: TeamsListProps) => {
+const TeamsList = ({ teams, onTeamSelect, onBackToHome, onRecompute, course, exercise, isAnalyzing, progress }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<'name' | 'commits' | 'cqi' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
@@ -128,7 +126,6 @@ const TeamsList = ({ teams, onTeamSelect, onBackToHome, onRecompute, course, exe
           </div>
           <Progress value={progress} className="h-2" />
           <p className="text-center text-sm text-muted-foreground">{progress}% complete</p>
-          <ActivityLog logs={logs} maxHeight={150} />
         </div>
       )}
 
