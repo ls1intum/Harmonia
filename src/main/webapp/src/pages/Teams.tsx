@@ -1,20 +1,16 @@
-import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
-import { loadBasicTeamDataStream, triggerReanalysis, type ComplexTeamData } from '@/data/dataLoaders';
+import { triggerReanalysis } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
+import { useTeamStreaming } from '@/hooks/useTeamStreaming';
 
 export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { course, exercise } = location.state || {};
-
-  const [totalRepos, setTotalRepos] = useState(0);
-  const [processedRepos, setProcessedRepos] = useState(0);
-  const [isStreaming, setIsStreaming] = useState(false);
 
   // Use React Query to cache teams data per exercise
   const { data: teams = [] } = useQuery({
@@ -29,72 +25,12 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
-  useEffect(() => {
-    if (!course || !exercise) return;
-
-    // Check if we already have cached teams for this exercise
-    const cachedTeams = queryClient.getQueryData<ComplexTeamData[]>(['teams', exercise]);
-    if (cachedTeams && cachedTeams.length > 0) {
-      // We have cached data, don't re-stream
-      return;
-    }
-
-    // Only stream if we don't have cached data
-    const streamedTeams: ComplexTeamData[] = [];
-
-    // Initialize state for streaming
-    let mounted = true;
-
-    // Use Promise.resolve to defer setState to avoid the ESLint error
-    Promise.resolve().then(() => {
-      if (mounted) {
-        setTotalRepos(0);
-        setProcessedRepos(0);
-        setIsStreaming(true);
-      }
-    });
-
-    const closeStream = loadBasicTeamDataStream(
-      exercise,
-      total => {
-        if (mounted) {
-          setTotalRepos(total);
-        }
-      },
-      team => {
-        streamedTeams.push(team);
-        if (mounted) {
-          setProcessedRepos(streamedTeams.length);
-          // Update React Query cache in real-time
-          queryClient.setQueryData(['teams', exercise], streamedTeams);
-        }
-      },
-      () => {
-        if (mounted) {
-          setIsStreaming(false);
-        }
-      },
-      error => {
-        console.error('Stream error:', error);
-        if (mounted) {
-          setIsStreaming(false);
-          toast({
-            variant: 'destructive',
-            title: 'Error loading teams',
-            description: 'Connection lost or failed.',
-          });
-        }
-      },
-    );
-
-    return () => {
-      mounted = false;
-      closeStream();
-    };
-  }, [exercise, course, queryClient]); // Only depend on exercise and course
-
-  // Calculate progress
-  const progress = totalRepos > 0 ? Math.round((processedRepos / totalRepos) * 100) : 0;
+  // Use custom hook for SSE streaming (encapsulates useEffect logic)
+  const { isStreaming, progress } = useTeamStreaming({
+    course,
+    exercise,
+    enabled: !!course && !!exercise,
+  });
 
   // Mutation for recompute
   const reanalyzeMutation = useMutation({

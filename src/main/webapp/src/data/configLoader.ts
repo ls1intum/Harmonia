@@ -9,11 +9,6 @@ export interface ProjectProfile {
 }
 
 export async function fetchProjectProfiles(): Promise<ProjectProfile[]> {
-  try {
-    const response = await axios.get('/api/config/projects');
-    return response.data;
-  } catch (error) {
-    console.error('Failed to fetch project profiles:', error);
-    return [];
-  }
+  const response = await axios.get('/api/config/projects');
+  return response.data;
 }

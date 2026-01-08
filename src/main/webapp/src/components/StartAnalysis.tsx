@@ -5,30 +5,40 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlayCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { fetchProjectProfiles, type ProjectProfile } from '@/data/configLoader';
+import { fetchProjectProfiles } from '@/data/configLoader';
+import { useQuery } from '@tanstack/react-query';
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username: string, password: string) => void;
 }
 
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
-  const [projects, setProjects] = useState<ProjectProfile[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState('https://artemis.tum.de');
   const [isLoading, setIsLoading] = useState(false);
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: fetchProjectProfiles,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    meta: {
+      onError: () => {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load projects',
+          description: 'Could not fetch project profiles from server.',
+        });
+      },
+    },
+  });
+
   useEffect(() => {
-    const loadProjects = async () => {
-      const loadedProjects = await fetchProjectProfiles();
-      setProjects(loadedProjects);
-      if (loadedProjects.length > 0) {
-        setSelectedProjectId(loadedProjects[0].id);
-      }
-    };
-    loadProjects();
-  }, []);
+    if (projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
 
   const handleStart = async () => {
     const selectedProject = projects.find(p => p.id === selectedProjectId);
