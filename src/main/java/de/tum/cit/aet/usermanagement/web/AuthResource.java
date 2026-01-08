@@ -4,6 +4,7 @@ import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import de.tum.cit.aet.usermanagement.dto.LoginRequestDTO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +23,15 @@ public class AuthResource {
 
     private final ArtemisClientService artemisClientService;
     private final CryptoService cryptoService;
+    private final boolean isSecureCookies;
 
-    public AuthResource(ArtemisClientService artemisClientService, CryptoService cryptoService) {
+    public AuthResource(ArtemisClientService artemisClientService, 
+                       CryptoService cryptoService,
+                       @Value("${spring.profiles.active:prod}") String activeProfile) {
         this.artemisClientService = artemisClientService;
         this.cryptoService = cryptoService;
+        // Only use secure cookies in production (not in local development)
+        this.isSecureCookies = !"local".equals(activeProfile);
     }
 
     /**
@@ -45,7 +51,7 @@ public class AuthResource {
 
         ResponseCookie jwtCookie = ResponseCookie.from("jwt", jwtToken)
                 .httpOnly(true)
-                .secure(true) // Set to true for production
+                .secure(isSecureCookies)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")
@@ -53,7 +59,7 @@ public class AuthResource {
 
         ResponseCookie serverUrlCookie = ResponseCookie.from("artemis_server_url", loginRequest.serverUrl())
                 .httpOnly(true)
-                .secure(true)
+                .secure(isSecureCookies)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")
@@ -61,7 +67,7 @@ public class AuthResource {
 
         ResponseCookie usernameCookie = ResponseCookie.from("artemis_username", loginRequest.username())
                 .httpOnly(true)
-                .secure(true)
+                .secure(isSecureCookies)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")
@@ -71,7 +77,7 @@ public class AuthResource {
         String encryptedPassword = cryptoService.encrypt(loginRequest.password());
         ResponseCookie passwordCookie = ResponseCookie.from("artemis_password", encryptedPassword)
                 .httpOnly(true)
-                .secure(true)
+                .secure(isSecureCookies)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .sameSite("Strict")

@@ -28,7 +28,11 @@ public class CorsConfig {
                 "https://harmonia.aet.cit.tum.de",
                 "https://harmonia-test.aet.cit.tum.de",
                 "http://localhost:8080",
-                "http://localhost:4200"
+                "http://localhost:4200",
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://localhost:5175",
+                "http://localhost:3000"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
