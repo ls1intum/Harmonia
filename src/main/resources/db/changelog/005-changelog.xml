@@ -5,10 +5,11 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
                    objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
 
-    <include file="db/changelog/001-changelog.xml"/>
-    <include file="db/changelog/002-changelog.xml"/>
-    <include file="db/changelog/003-changelog.xml"/>
-    <include file="db/changelog/004-changelog.xml"/>
-    <include file="db/changelog/005-changelog.xml"/>
+    <changeSet id="1736466000-1" author="antigravity">
+        <addColumn tableName="participations">
+            <column name="cqi" type="DOUBLE"/>
+            <column name="is_suspicious" type="BOOLEAN"/>
+        </addColumn>
+    </changeSet>
 
 </databaseChangeLog>

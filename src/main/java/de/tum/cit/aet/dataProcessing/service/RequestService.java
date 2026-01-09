@@ -163,11 +163,13 @@ public class RequestService {
             tutorRepository.save(tutor);
         }
 
-        // Save team participation
+        // Save team participation (CQI and isSuspicious will be updated after
+        // calculation)
         ParticipationDTO participation = repo.participation();
         TeamDTO team = participation.team();
         TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
                 team.shortName(), participation.repositoryUri(), participation.submissionCount());
+        // Initial save - CQI will be updated after calculation
         teamParticipationRepository.save(teamParticipation);
 
         // Save students with contributions
@@ -257,6 +259,11 @@ public class RequestService {
                 cqi = balanceCalculator.calculate(commitCounts);
             }
         }
+
+        // Save CQI and isSuspicious to TeamParticipation
+        teamParticipation.setCqi(cqi);
+        teamParticipation.setIsSuspicious(isSuspicious);
+        teamParticipationRepository.save(teamParticipation);
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
@@ -394,14 +401,18 @@ public class RequestService {
                                     student.getLinesChanged())))
                             .toList();
 
-                    // Calculate CQI (Balance score only for now)
-                    Double cqi = null;
-                    Map<String, Integer> commitCounts = new HashMap<>();
-                    students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                    // Use persisted CQI and isSuspicious values
+                    Double cqi = participation.getCqi();
+                    Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious()
+                            : false;
 
-                    if (!commitCounts.isEmpty()) {
-                        double balanceScore = balanceCalculator.calculate(commitCounts);
-                        cqi = balanceScore; // 100% balance for now
+                    // Fallback: recalculate if CQI is null (legacy data)
+                    if (cqi == null) {
+                        Map<String, Integer> commitCounts = new HashMap<>();
+                        students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                        if (!commitCounts.isEmpty()) {
+                            cqi = balanceCalculator.calculate(commitCounts);
+                        }
                     }
 
                     return new ClientResponseDTO(
@@ -411,7 +422,7 @@ public class RequestService {
                             participation.getSubmissionCount(),
                             studentAnalysisDTOS,
                             cqi,
-                            false,
+                            isSuspicious,
                             loadAnalyzedChunks(participation),
                             null); // Orphan commits are not persisted, only shown during live analysis
                 })
