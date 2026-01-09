@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 @Slf4j
 public class GitOperationsService {
 
+    @SuppressWarnings("unused")
     private final ArtemisConfig artemisConfig;
 
     @Autowired
@@ -71,6 +72,7 @@ public class GitOperationsService {
      * @param localPath           The local path where the repository should be cloned
      * @param credentialsProvider The credentials provider
      */
+    @SuppressWarnings("unused")
     private void cloneRepository(String repositoryUri, Path localPath, UsernamePasswordCredentialsProvider credentialsProvider) {
         try (Git git = Git.cloneRepository()
                 .setURI(repositoryUri)

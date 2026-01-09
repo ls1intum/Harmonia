@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class CommitChunkerServiceTest {
 
+    @SuppressWarnings("unused")
     private CommitChunkerService chunkerService;
 
     @BeforeEach

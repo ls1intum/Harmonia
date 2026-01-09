@@ -25,6 +25,7 @@ import java.util.Set;
 @Slf4j
 public class ArtemisClientService {
 
+    @SuppressWarnings("unused")
     private final ArtemisConfig artemisConfig;
 
     @Autowired

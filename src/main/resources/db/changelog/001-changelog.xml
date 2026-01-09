@@ -113,5 +113,22 @@
                                  constraintName="FK_VCSLOGS_ON_TEAM_REPOSITORY"
                                  referencedColumnNames="team_repository_id" referencedTableName="teamrepository"/>
     </changeSet>
+    <changeSet id="1766099808772-13" author="Cathy">
+        <createTable tableName="analysis_status">
+            <column name="exercise_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_analysis_status"/>
+            </column>
+            <column name="state" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_teams" type="INT"/>
+            <column name="processed_teams" type="INT"/>
+            <column name="current_team_name" type="VARCHAR(255)"/>
+            <column name="current_stage" type="VARCHAR(255)"/>
+            <column name="started_at" type="TIMESTAMP"/>
+            <column name="last_updated_at" type="TIMESTAMP"/>
+            <column name="error_message" type="TEXT"/>
+        </createTable>
+    </changeSet>
 
 </databaseChangeLog>

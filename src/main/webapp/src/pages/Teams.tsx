@@ -2,9 +2,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
-import { triggerReanalysis } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
-import { useTeamStreaming } from '@/hooks/useTeamStreaming';
+import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
+import { loadBasicTeamDataStream } from '@/data/dataLoaders';
+import type { ClientResponseDTO } from '@/app/generated';
 
 export default function Teams() {
   const location = useLocation();
@@ -12,41 +13,114 @@ export default function Teams() {
   const queryClient = useQueryClient();
   const { course, exercise } = location.state || {};
 
-  // Use React Query to cache teams data per exercise
-  const { data: teams = [] } = useQuery({
-    queryKey: ['teams', exercise],
-    queryFn: async () => {
-      // This function won't be called if data is already cached
-      // We'll manually set the data via setQueryData instead
-      return [];
-    },
-    staleTime: Infinity, // Never auto-refetch - only manual invalidation
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  // Use new server-synced status hook
+  const { status, refetch: refetchStatus } = useAnalysisStatus({
+    exerciseId: exercise,
     enabled: !!exercise,
   });
 
-  // Use custom hook for SSE streaming (encapsulates useEffect logic)
-  const { isStreaming, progress } = useTeamStreaming({
-    course,
-    exercise,
-    enabled: !!course && !!exercise,
+  // Fetch teams from database on load
+  const { data: teams = [] } = useQuery({
+    queryKey: ['teams', exercise],
+    queryFn: async () => {
+      // Fetch already-analyzed teams from database
+      const response = await fetch('/api/requestResource/getData');
+      if (!response.ok) return [];
+      const data = await response.json();
+      // Transform to Team type
+      return data.map((item: ClientResponseDTO) => ({
+        id: item.teamId?.toString() || 'unknown',
+        teamName: item.teamName || 'Unknown Team',
+        tutor: item.tutor || 'Unassigned',
+        students: (item.students || []).map(s => ({
+          name: s.name || 'Unknown',
+          commits: s.commitCount || 0,
+          linesAdded: s.linesAdded || 0,
+          linesDeleted: s.linesDeleted || 0,
+          linesChanged: s.linesChanged || 0,
+        })),
+        basicMetrics: {
+          totalCommits: item.submissionCount || 0,
+          totalLines: (item.students || []).reduce((sum, s) => sum + (s.linesChanged || 0), 0),
+        },
+        cqi: item.cqi ? Math.round(item.cqi) : undefined,
+        isSuspicious: item.isSuspicious,
+      })) as Team[];
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 10 * 60 * 1000,
+    enabled: !!exercise,
   });
 
-  // Mutation for recompute
-  const reanalyzeMutation = useMutation({
+  // Mutation for starting analysis
+  const startMutation = useMutation({
     mutationFn: async () => {
-      toast({ title: 'Triggering reanalysis...' });
-      await triggerReanalysis(course, exercise);
+      toast({ title: 'Starting analysis...' });
+      // Start streaming
+      return new Promise<void>((resolve, reject) => {
+        loadBasicTeamDataStream(
+          exercise,
+          () => {}, // onTotal
+          team => {
+            // Update cache with new team
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => [...old, team as unknown as Team]);
+          },
+          () => {
+            refetchStatus();
+            resolve();
+          },
+          error => {
+            reject(error);
+          },
+        );
+      });
     },
     onSuccess: () => {
-      // Invalidate cached teams data to force re-fetch
+      toast({ title: 'Analysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      window.location.reload();
+      refetchStatus();
     },
     onError: () => {
       toast({
         variant: 'destructive',
-        title: 'Failed to trigger reanalysis',
+        title: 'Failed to start analysis',
+      });
+      refetchStatus();
+    },
+  });
+
+  // Mutation for cancelling
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelAnalysis(exercise),
+    onSuccess: () => {
+      toast({ title: 'Analysis cancelled' });
+      refetchStatus();
+    },
+  });
+
+  // Mutation for recompute (force)
+  const recomputeMutation = useMutation({
+    mutationFn: async () => {
+      toast({ title: 'Forcing reanalysis...' });
+      // Clear DB first, then start fresh
+      await clearData(exercise, 'db');
+      // Trigger start
+      startMutation.mutate();
+    },
+  });
+
+  // Mutation for clear
+  const clearMutation = useMutation({
+    mutationFn: (type: 'db' | 'files' | 'both') => clearData(exercise, type),
+    onSuccess: () => {
+      toast({ title: 'Data cleared successfully' });
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      refetchStatus();
+    },
+    onError: () => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to clear data',
       });
     },
   });
@@ -61,20 +135,18 @@ export default function Teams() {
     navigate(`/teams/${team.id}`, { state: { team, course, exercise } });
   };
 
-  const handleRecompute = () => {
-    reanalyzeMutation.mutate();
-  };
-
   return (
     <TeamsList
       teams={teams}
       onTeamSelect={handleTeamSelect}
       onBackToHome={() => navigate('/')}
-      onRecompute={handleRecompute}
+      onStart={() => startMutation.mutate()}
+      onCancel={() => cancelMutation.mutate()}
+      onRecompute={() => recomputeMutation.mutate()}
+      onClear={type => clearMutation.mutate(type)}
       course={course}
       exercise={exercise}
-      isAnalyzing={isStreaming || reanalyzeMutation.isPending}
-      progress={progress}
+      analysisStatus={status}
     />
   );
 }

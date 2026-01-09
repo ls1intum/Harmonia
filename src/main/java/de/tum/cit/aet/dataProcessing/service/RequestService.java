@@ -19,6 +19,7 @@ import java.util.Map;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
+import de.tum.cit.aet.analysis.service.AnalysisStateService;
 
 @Service
 @Slf4j
@@ -28,6 +29,7 @@ public class RequestService {
     private final AnalysisService analysisService;
     private final de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator;
     private final ContributionFairnessService fairnessService;
+    private final AnalysisStateService analysisStateService;
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
@@ -40,6 +42,7 @@ public class RequestService {
             AnalysisService analysisService,
             de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator,
             ContributionFairnessService fairnessService,
+            AnalysisStateService analysisStateService,
             TeamRepositoryRepository teamRepositoryRepository,
             TeamParticipationRepository teamParticipationRepository,
             TutorRepository tutorRepository,
@@ -48,6 +51,7 @@ public class RequestService {
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
         this.fairnessService = fairnessService;
+        this.analysisStateService = analysisStateService;
         this.teamRepositoryRepository = teamRepositoryRepository;
         this.teamParticipationRepository = teamParticipationRepository;
         this.tutorRepository = tutorRepository;
@@ -233,6 +237,7 @@ public class RequestService {
 
     /**
      * Fetches, analyzes, and saves repositories with streaming updates.
+     * Tracks progress via AnalysisStateService and skips already-analyzed teams.
      *
      * @param credentials  Artemis credentials
      * @param exerciseId   Exercise ID to fetch repositories for
@@ -240,40 +245,90 @@ public class RequestService {
      */
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId,
             java.util.function.Consumer<Object> eventEmitter) {
-        List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials, exerciseId);
+        try {
+            List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials,
+                    exerciseId);
 
-        // Emit total count
-        eventEmitter.accept(Map.of("type", "START", "total", participations.size()));
+            // Filter participations with repositories
+            List<ParticipationDTO> validParticipations = participations.stream()
+                    .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
+                    .toList();
 
-        // Filter participations with repositories
-        List<ParticipationDTO> validParticipations = participations.stream()
-                .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
-                .toList();
+            // Filter out already-analyzed teams
+            List<ParticipationDTO> teamsToAnalyze = validParticipations.stream()
+                    .filter(p -> !isTeamAlreadyAnalyzed(p.id()))
+                    .toList();
 
-        // Process repositories in parallel
-        validParticipations.parallelStream().forEach(participation -> {
-            try {
-                // Clone
-                TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials,
-                        exerciseId);
+            int totalToProcess = teamsToAnalyze.size();
+            log.info("Found {} teams total, {} need analysis", validParticipations.size(), totalToProcess);
 
-                // Analyze
-                Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+            // Start tracking in state service
+            analysisStateService.startAnalysis(exerciseId, totalToProcess);
 
-                // Save
-                ClientResponseDTO dto = saveSingleResult(repo, contributions);
+            // Emit total count
+            eventEmitter.accept(Map.of("type", "START", "total", totalToProcess));
 
-                // Emit result (synchronized to ensure thread safety)
-                synchronized (eventEmitter) {
-                    eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+            // Thread-safe counter for progress
+            java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+            // Process repositories in parallel
+            teamsToAnalyze.parallelStream().forEach(participation -> {
+                // Check if analysis was cancelled
+                if (!analysisStateService.isRunning(exerciseId)) {
+                    return;
                 }
-            } catch (Exception e) {
-                log.error("Error processing participation {}", participation.id(), e);
-                // Optionally emit error event
-            }
-        });
 
-        eventEmitter.accept(Map.of("type", "DONE"));
+                String teamName = participation.team() != null ? participation.team().name() : "Unknown";
+
+                try {
+                    // Update state: downloading
+                    analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", processedCount.get());
+
+                    // Clone
+                    TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials,
+                            exerciseId);
+
+                    // Update state: analyzing
+                    analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING", processedCount.get());
+
+                    // Analyze
+                    Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+
+                    // Save
+                    ClientResponseDTO dto = saveSingleResult(repo, contributions);
+
+                    int currentProcessed = processedCount.incrementAndGet();
+
+                    // Update state with new progress count
+                    analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
+
+                    // Emit result (synchronized to ensure thread safety)
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                    }
+                } catch (Exception e) {
+                    log.error("Error processing participation {} (team: {})", participation.id(), teamName, e);
+                    processedCount.incrementAndGet();
+                    // Continue with other teams, don't fail entire analysis
+                }
+            });
+
+            // Complete the analysis
+            analysisStateService.completeAnalysis(exerciseId);
+            eventEmitter.accept(Map.of("type", "DONE"));
+
+        } catch (Exception e) {
+            log.error("Analysis failed for exercise {}", exerciseId, e);
+            analysisStateService.failAnalysis(exerciseId, e.getMessage());
+            eventEmitter.accept(Map.of("type", "ERROR", "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Check if a team has already been analyzed (has data in the database).
+     */
+    private boolean isTeamAlreadyAnalyzed(Long participationId) {
+        return teamParticipationRepository.existsByParticipation(participationId);
     }
 
     /**
