@@ -6,6 +6,7 @@ import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
+import OrphanCommitsPanel from './OrphanCommitsPanel';
 
 interface TeamDetailProps {
   team: Team;
@@ -136,6 +137,8 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               })) || []
           }
         />
+
+        <OrphanCommitsPanel commits={team.orphanCommits || []} />
 
         <AnalysisFeed chunks={team.analysisHistory || []} />
       </div>

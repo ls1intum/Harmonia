@@ -19,6 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
+import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
@@ -33,6 +36,7 @@ public class RequestService {
     private final de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator;
     private final ContributionFairnessService fairnessService;
     private final AnalysisStateService analysisStateService;
+    private final GitContributionAnalysisService gitContributionAnalysisService;
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
@@ -53,7 +57,8 @@ public class RequestService {
             TeamParticipationRepository teamParticipationRepository,
             TutorRepository tutorRepository,
             StudentRepository studentRepository,
-            AnalyzedChunkRepository analyzedChunkRepository) {
+            AnalyzedChunkRepository analyzedChunkRepository,
+            GitContributionAnalysisService gitContributionAnalysisService) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
@@ -64,6 +69,7 @@ public class RequestService {
         this.tutorRepository = tutorRepository;
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
+        this.gitContributionAnalysisService = gitContributionAnalysisService;
     }
 
     /**
@@ -208,6 +214,19 @@ public class RequestService {
         Double cqi = null;
         boolean isSuspicious = false;
         List<AnalyzedChunkDTO> analysisHistory = null;
+        List<OrphanCommitDTO> orphanCommits = null;
+
+        // Detect orphan commits first
+        try {
+            RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
+                    .analyzeRepositoryWithOrphans(repo);
+            orphanCommits = analysisResult.orphanCommits();
+            if (orphanCommits != null && !orphanCommits.isEmpty()) {
+                log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
+        }
 
         try {
             // Try effort-based fairness analysis first
@@ -247,7 +266,8 @@ public class RequestService {
                 studentAnalysisDTOS,
                 cqi,
                 isSuspicious,
-                analysisHistory);
+                analysisHistory,
+                orphanCommits);
     }
 
     /**
@@ -392,7 +412,8 @@ public class RequestService {
                             studentAnalysisDTOS,
                             cqi,
                             false,
-                            loadAnalyzedChunks(participation));
+                            loadAnalyzedChunks(participation),
+                            null); // Orphan commits are not persisted, only shown during live analysis
                 })
                 .toList();
 

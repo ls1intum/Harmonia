@@ -45,15 +45,26 @@ export interface AnalysisError {
   commitShas: string[];
 }
 
+export interface OrphanCommit {
+  commitHash: string;
+  authorEmail: string;
+  authorName: string;
+  message: string;
+  timestamp: string;
+  linesAdded: number;
+  linesDeleted: number;
+}
+
 export interface Team {
   id: string;
   teamName: string;
   tutor: string;
+  submissionCount?: number;
   students: Student[];
   cqi?: number;
   isSuspicious?: boolean;
   subMetrics?: SubMetric[];
   basicMetrics?: BasicMetrics;
   analysisHistory?: AnalyzedChunk[];
+  orphanCommits?: OrphanCommit[];
 }
-

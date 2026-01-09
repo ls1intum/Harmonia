@@ -167,12 +167,24 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
     errorMessage: chunk.errorMessage,
   }));
 
+  // Map orphan commits
+  const orphanCommits = dto.orphanCommits?.map(commit => ({
+    commitHash: commit.commitHash || '',
+    authorEmail: commit.authorEmail || '',
+    authorName: commit.authorName || '',
+    message: commit.message || '',
+    timestamp: commit.timestamp || new Date().toISOString(),
+    linesAdded: commit.linesAdded || 0,
+    linesDeleted: commit.linesDeleted || 0,
+  }));
+
   const team: ComplexTeamData = {
     ...basicData,
     cqi,
     isSuspicious,
     subMetrics,
     analysisHistory,
+    orphanCommits,
   };
 
   // Cache the transformed team
