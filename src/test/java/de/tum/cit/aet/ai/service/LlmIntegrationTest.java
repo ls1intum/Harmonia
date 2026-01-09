@@ -17,10 +17,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Integration test for CommitEffortRaterService that actually calls the LLM.
  * These tests are disabled by default and only run when
  * LLM_INTEGRATION_TESTS=true.
- * 
+ *
  * To run: LLM_INTEGRATION_TESTS=true ./gradlew test --tests
  * "*LlmIntegrationTest*"
- * 
+ *
  * Prerequisites:
  * - LM Studio running on localhost:1234
  * - application-local.yml configured with spring.ai.openai.base-url:

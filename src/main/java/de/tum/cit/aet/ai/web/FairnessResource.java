@@ -22,7 +22,7 @@ public class FairnessResource {
 
     /**
      * Analyzes contribution fairness for a given repository.
-     * 
+     *
      * @param repository The repository DTO containing local path and commit logs
      * @return The fairness report
      */

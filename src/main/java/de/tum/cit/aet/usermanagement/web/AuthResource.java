@@ -25,7 +25,7 @@ public class AuthResource {
     private final CryptoService cryptoService;
     private final boolean isSecureCookies;
 
-    public AuthResource(ArtemisClientService artemisClientService, 
+    public AuthResource(ArtemisClientService artemisClientService,
                        CryptoService cryptoService,
                        @Value("${spring.profiles.active:prod}") String activeProfile) {
         this.artemisClientService = artemisClientService;

@@ -34,6 +34,9 @@ public class ContributionFairnessService {
 
     /**
      * Analyzes a repository for contribution fairness.
+     *
+     * @param repositoryDTO the repository data transfer object to analyze
+     * @return a FairnessReportDTO containing the analysis results
      */
     public FairnessReportDTO analyzeFairness(TeamRepositoryDTO repositoryDTO) {
         String repoPath = repositoryDTO.localPath();
@@ -133,18 +136,21 @@ public class ContributionFairnessService {
 
     private Map<Long, Double> calculateShares(Map<Long, AuthorStats> stats, double totalEffort) {
         Map<Long, Double> shares = new HashMap<>();
-        if (totalEffort == 0)
+        if (totalEffort == 0) {
             return shares;
+        }
 
         stats.forEach((id, stat) -> shares.put(id, stat.totalEffort / totalEffort));
         return shares;
     }
 
     private double calculateBalanceScore(Map<Long, Double> shares) {
-        if (shares.isEmpty())
+        if (shares.isEmpty()) {
             return 0.0;
-        if (shares.size() == 1)
+        }
+        if (shares.size() == 1) {
             return 0.0; // Solo dev = 0 balance
+        }
 
         // Simple Gini-like metric for 2 people: 100 * (1 - |diff|)
         // Ideally works for n people using standard deviation
@@ -153,8 +159,9 @@ public class ContributionFairnessService {
         double maxStdev = Math.sqrt(shares.size() - 1.0) / shares.size(); // Rough approx
 
         // If maxStdev is 0 (shouldn't happen with size > 1) prevent NaN
-        if (maxStdev == 0)
+        if (maxStdev == 0) {
             return 100.0;
+        }
 
         // Normalized score
         double score = 100.0 * (1.0 - (stdev / 0.5)); // 0.5 is max possible stdev for 2 people (0.0, 1.0)
@@ -164,8 +171,9 @@ public class ContributionFairnessService {
     private double calculateStDev(double[] values) {
         double mean = 1.0 / values.length; // Shares sum to 1
         double sumSq = 0.0;
-        for (double v : values)
+        for (double v : values) {
             sumSq += Math.pow(v - mean, 2);
+        }
         return Math.sqrt(sumSq / values.length);
     }
 
