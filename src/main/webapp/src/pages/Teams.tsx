@@ -43,7 +43,7 @@ export default function Teams() {
           totalCommits: item.submissionCount || 0,
           totalLines: (item.students || []).reduce((sum, s) => sum + (s.linesChanged || 0), 0),
         },
-        cqi: item.cqi ? Math.round(item.cqi) : undefined,
+        cqi: item.cqi !== null && item.cqi !== undefined ? Math.round(item.cqi) : undefined,
         isSuspicious: item.isSuspicious,
       })) as Team[];
     },

@@ -3,11 +3,13 @@ package de.tum.cit.aet.analysis.service;
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.repository.AnalysisStatusRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Service for managing analysis state lifecycle.
@@ -22,6 +24,24 @@ public class AnalysisStateService {
 
     public AnalysisStateService(AnalysisStatusRepository statusRepository) {
         this.statusRepository = statusRepository;
+    }
+
+    /**
+     * On startup, reset any RUNNING states to IDLE.
+     * This handles the case where the server was restarted during an analysis.
+     */
+    @PostConstruct
+    @Transactional
+    public void cleanupOrphanedAnalyses() {
+        List<AnalysisStatus> runningAnalyses = statusRepository.findByState(AnalysisState.RUNNING);
+        if (!runningAnalyses.isEmpty()) {
+            log.info("Found {} orphaned RUNNING analyses, resetting to IDLE", runningAnalyses.size());
+            for (AnalysisStatus status : runningAnalyses) {
+                status.reset();
+                statusRepository.save(status);
+                log.info("Reset orphaned analysis for exercise {}", status.getExerciseId());
+            }
+        }
     }
 
     /**

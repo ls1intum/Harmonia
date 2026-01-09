@@ -87,10 +87,21 @@ public class AnalysisResource {
     }
 
     private void clearRepositoryFiles() throws IOException {
+        // Clear ~/.harmonia/repos
         Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");
-        if (Files.exists(reposDir)) {
-            try (Stream<Path> walk = Files.walk(reposDir)) {
+        deleteDirectoryContents(reposDir, "~/.harmonia/repos");
+
+        // Clear Projects folder (relative to working directory)
+        Path projectsDir = Paths.get("Projects");
+        deleteDirectoryContents(projectsDir, "Projects");
+    }
+
+    private void deleteDirectoryContents(Path dir, String dirName) throws IOException {
+        if (Files.exists(dir)) {
+            log.info("Clearing directory: {}", dir.toAbsolutePath());
+            try (Stream<Path> walk = Files.walk(dir)) {
                 walk.sorted(Comparator.reverseOrder())
+                        .filter(path -> !path.equals(dir)) // Keep the root directory itself
                         .forEach(path -> {
                             try {
                                 Files.delete(path);
@@ -99,6 +110,9 @@ public class AnalysisResource {
                             }
                         });
             }
+            log.info("Cleared {} successfully", dirName);
+        } else {
+            log.info("Directory {} does not exist, nothing to clear", dirName);
         }
     }
 
