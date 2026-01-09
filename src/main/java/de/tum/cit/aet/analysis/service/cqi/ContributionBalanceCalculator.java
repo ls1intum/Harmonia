@@ -28,6 +28,16 @@ public class ContributionBalanceCalculator {
             return 0.0; // No collaboration possible with one person
         }
 
+        // Check if total commits is zero
+        int totalCommits = commitCounts.values().stream()
+                .mapToInt(Integer::intValue)
+                .sum();
+        
+        if (totalCommits == 0) {
+            log.info("No commits detected, returning score of 0");
+            return 0.0;
+        }
+
         double[] frequencies = commitCounts.values().stream()
                 .mapToDouble(Integer::doubleValue)
                 .toArray();
