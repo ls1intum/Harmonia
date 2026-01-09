@@ -86,6 +86,9 @@ public class CommitClassifierService {
         String prompt = buildPrompt(request);
         String response = chatClient.prompt()
                 .user(prompt)
+                .options(org.springframework.ai.openai.OpenAiChatOptions.builder()
+                        .model(aiProperties.getCommitClassifier().getModelName())
+                        .build())
                 .call()
                 .content();
 
