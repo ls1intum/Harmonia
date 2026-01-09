@@ -1,12 +1,15 @@
 package de.tum.cit.aet.dataProcessing.service;
 
+import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
+import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.*;
 import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,9 @@ public class RequestService {
     private final TeamParticipationRepository teamParticipationRepository;
     private final TutorRepository tutorRepository;
     private final StudentRepository studentRepository;
+    private final AnalyzedChunkRepository analyzedChunkRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public RequestService(
@@ -46,7 +52,8 @@ public class RequestService {
             TeamRepositoryRepository teamRepositoryRepository,
             TeamParticipationRepository teamParticipationRepository,
             TutorRepository tutorRepository,
-            StudentRepository studentRepository) {
+            StudentRepository studentRepository,
+            AnalyzedChunkRepository analyzedChunkRepository) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
@@ -56,6 +63,7 @@ public class RequestService {
         this.teamParticipationRepository = teamParticipationRepository;
         this.tutorRepository = tutorRepository;
         this.studentRepository = studentRepository;
+        this.analyzedChunkRepository = analyzedChunkRepository;
     }
 
     /**
@@ -208,6 +216,11 @@ public class RequestService {
                 analysisHistory = fairnessReport.analyzedChunks();
                 log.debug("Fairness analysis complete for team {}: score={}, suspicious={}, chunks={}",
                         team.name(), cqi, isSuspicious, analysisHistory != null ? analysisHistory.size() : 0);
+
+                // Persist analyzed chunks to database
+                if (analysisHistory != null && !analysisHistory.isEmpty()) {
+                    saveAnalyzedChunks(teamParticipation, analysisHistory);
+                }
             }
         } catch (Exception e) {
             log.warn("Fairness analysis failed for team {}, falling back to balance calculator: {}",
@@ -377,11 +390,91 @@ public class RequestService {
                             studentAnalysisDTOS,
                             cqi,
                             false,
-                            null); // No analysis history for cached data
+                            loadAnalyzedChunks(participation));
                 })
                 .toList();
 
         log.info("RequestService: Extracted {} team participation records from the database.", responseDTOs.size());
         return responseDTOs;
+    }
+
+    /**
+     * Saves analyzed chunks to the database for a given participation.
+     */
+    private void saveAnalyzedChunks(TeamParticipation participation, List<AnalyzedChunkDTO> chunks) {
+        try {
+            List<AnalyzedChunk> entities = chunks.stream()
+                    .map(dto -> new AnalyzedChunk(
+                            participation,
+                            dto.id(),
+                            dto.authorEmail(),
+                            dto.authorName(),
+                            dto.classification(),
+                            dto.effortScore(),
+                            dto.reasoning(),
+                            String.join(",", dto.commitShas()),
+                            serializeCommitMessages(dto.commitMessages()),
+                            dto.timestamp(),
+                            dto.linesChanged(),
+                            dto.isBundled(),
+                            dto.chunkIndex(),
+                            dto.totalChunks()))
+                    .toList();
+            analyzedChunkRepository.saveAll(entities);
+            log.debug("Saved {} analyzed chunks for team {}", entities.size(), participation.getName());
+        } catch (Exception e) {
+            log.warn("Failed to save analyzed chunks for team {}: {}", participation.getName(), e.getMessage());
+        }
+    }
+
+    /**
+     * Loads analyzed chunks from the database for a given participation.
+     */
+    private List<AnalyzedChunkDTO> loadAnalyzedChunks(TeamParticipation participation) {
+        try {
+            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+            if (chunks.isEmpty()) {
+                return null;
+            }
+            return chunks.stream()
+                    .map(chunk -> new AnalyzedChunkDTO(
+                            chunk.getChunkIdentifier(),
+                            chunk.getAuthorEmail(),
+                            chunk.getAuthorName(),
+                            chunk.getClassification(),
+                            chunk.getEffortScore() != null ? chunk.getEffortScore() : 0.0,
+                            chunk.getReasoning(),
+                            List.of(chunk.getCommitShas().split(",")),
+                            parseCommitMessages(chunk.getCommitMessages()),
+                            chunk.getTimestamp(),
+                            chunk.getLinesChanged() != null ? chunk.getLinesChanged() : 0,
+                            Boolean.TRUE.equals(chunk.getIsBundled()),
+                            chunk.getChunkIndex() != null ? chunk.getChunkIndex() : 0,
+                            chunk.getTotalChunks() != null ? chunk.getTotalChunks() : 1))
+                    .toList();
+        } catch (Exception e) {
+            log.warn("Failed to load analyzed chunks for team {}: {}", participation.getName(), e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> parseCommitMessages(String json) {
+        try {
+            if (json == null || json.isEmpty()) {
+                return List.of();
+            }
+            return objectMapper.readValue(json, List.class);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private String serializeCommitMessages(List<String> messages) {
+        try {
+            return objectMapper.writeValueAsString(messages);
+        } catch (Exception e) {
+            return "[]";
+        }
     }
 }
