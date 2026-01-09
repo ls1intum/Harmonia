@@ -22,6 +22,55 @@ paths:
           content:
             application/json:
               schema: {type: string}
+  /api/analysis/{exerciseId}/cancel:
+    post:
+      tags: [analysis-resource]
+      operationId: cancelAnalysis
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
+  /api/analysis/{exerciseId}/clear:
+    delete:
+      tags: [analysis-resource]
+      operationId: clearData
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      - name: type
+        in: query
+        required: false
+        schema: {type: string, default: both}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: string}
+  /api/analysis/{exerciseId}/status:
+    get:
+      tags: [analysis-resource]
+      operationId: getStatus
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
   /api/auth/login:
     post:
       tags: [auth-resource]
@@ -123,6 +172,18 @@ paths:
               schema: {$ref: '#/components/schemas/SseEmitter'}
 components:
   schemas:
+    AnalysisStatusDTO:
+      type: object
+      properties:
+        currentStage: {type: string}
+        currentTeamName: {type: string}
+        errorMessage: {type: string}
+        exerciseId: {type: integer, format: int64}
+        lastUpdatedAt: {type: string, format: date-time}
+        processedTeams: {type: integer, format: int32}
+        startedAt: {type: string, format: date-time}
+        state: {type: string}
+        totalTeams: {type: integer, format: int32}
     AnalyzedChunkDTO:
       type: object
       properties:

@@ -10,6 +10,7 @@ base.ts
 common.ts
 configuration.ts
 docs/AnalysisResourceApi.md
+docs/AnalysisStatusDTO.md
 docs/AnalyzedChunkDTO.md
 docs/AuthResourceApi.md
 docs/ClientResponseDTO.md
@@ -22,6 +23,7 @@ docs/StreamResourceApi.md
 docs/StudentAnalysisDTO.md
 git_push.sh
 index.ts
+models/analysis-status-dto.ts
 models/analyzed-chunk-dto.ts
 models/client-response-dto.ts
 models/index.ts

@@ -1,3 +1,4 @@
+export * from './analysis-status-dto';
 export * from './analyzed-chunk-dto';
 export * from './client-response-dto';
 export * from './login-request-dto';

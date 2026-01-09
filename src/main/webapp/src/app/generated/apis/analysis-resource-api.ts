@@ -31,11 +31,108 @@ import {
 } from '../common';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
+// @ts-ignore
+import type { AnalysisStatusDTO } from '../models';
 /**
  * AnalysisResourceApi - axios parameter creator
  */
 export const AnalysisResourceApiAxiosParamCreator = function (configuration?: Configuration) {
   return {
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    cancelAnalysis: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('cancelAnalysis', 'exerciseId', exerciseId);
+      const localVarPath = `/api/analysis/{exerciseId}/cancel`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {string} [type]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    clearData: async (exerciseId: number, type?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('clearData', 'exerciseId', exerciseId);
+      const localVarPath = `/api/analysis/{exerciseId}/clear`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      if (type !== undefined) {
+        localVarQueryParameter['type'] = type;
+      }
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getStatus: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('getStatus', 'exerciseId', exerciseId);
+      const localVarPath = `/api/analysis/{exerciseId}/status`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
     /**
      *
      * @param {string} course
@@ -82,6 +179,56 @@ export const AnalysisResourceApiFp = function (configuration?: Configuration) {
   return {
     /**
      *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async cancelAnalysis(
+      exerciseId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AnalysisStatusDTO>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.cancelAnalysis(exerciseId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath = operationServerMap['AnalysisResourceApi.cancelAnalysis']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {string} [type]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async clearData(
+      exerciseId: number,
+      type?: string,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.clearData(exerciseId, type, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath = operationServerMap['AnalysisResourceApi.clearData']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async getStatus(
+      exerciseId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AnalysisStatusDTO>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getStatus(exerciseId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath = operationServerMap['AnalysisResourceApi.getStatus']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
      * @param {string} course
      * @param {string} exercise
      * @param {*} [options] Override http request option.
@@ -109,6 +256,34 @@ export const AnalysisResourceApiFactory = function (configuration?: Configuratio
   return {
     /**
      *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    cancelAnalysis(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<AnalysisStatusDTO> {
+      return localVarFp.cancelAnalysis(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {string} [type]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    clearData(exerciseId: number, type?: string, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+      return localVarFp.clearData(exerciseId, type, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getStatus(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<AnalysisStatusDTO> {
+      return localVarFp.getStatus(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
      * @param {string} course
      * @param {string} exercise
      * @param {*} [options] Override http request option.
@@ -124,6 +299,43 @@ export const AnalysisResourceApiFactory = function (configuration?: Configuratio
  * AnalysisResourceApi - object-oriented interface
  */
 export class AnalysisResourceApi extends BaseAPI {
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public cancelAnalysis(exerciseId: number, options?: RawAxiosRequestConfig) {
+    return AnalysisResourceApiFp(this.configuration)
+      .cancelAnalysis(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {string} [type]
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public clearData(exerciseId: number, type?: string, options?: RawAxiosRequestConfig) {
+    return AnalysisResourceApiFp(this.configuration)
+      .clearData(exerciseId, type, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public getStatus(exerciseId: number, options?: RawAxiosRequestConfig) {
+    return AnalysisResourceApiFp(this.configuration)
+      .getStatus(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
   /**
    *
    * @param {string} course
