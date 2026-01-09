@@ -12,6 +12,16 @@ if [ ! -z "$PID" ]; then
     sleep 1
 fi
 
+# Check if database is available
+echo "Checking database availability..."
+if ! nc -z localhost 5432 2>/dev/null; then
+    echo "❌ Error: Database is not available on localhost:5432"
+    echo "Please start the database first:"
+    echo "  ./scripts/start-database.sh"
+    exit 1
+fi
+echo "✓ Database is available"
+
 echo "Starting Harmonia server..."
 ./gradlew bootRun
 
