@@ -123,9 +123,32 @@ paths:
               schema: {$ref: '#/components/schemas/SseEmitter'}
 components:
   schemas:
+    AnalyzedChunkDTO:
+      type: object
+      properties:
+        authorEmail: {type: string}
+        authorName: {type: string}
+        chunkIndex: {type: integer, format: int32}
+        classification: {type: string}
+        commitMessages:
+          type: array
+          items: {type: string}
+        commitShas:
+          type: array
+          items: {type: string}
+        effortScore: {type: number, format: double}
+        id: {type: string}
+        isBundled: {type: boolean}
+        linesChanged: {type: integer, format: int32}
+        reasoning: {type: string}
+        timestamp: {type: string, format: date-time}
+        totalChunks: {type: integer, format: int32}
     ClientResponseDTO:
       type: object
       properties:
+        analysisHistory:
+          type: array
+          items: {$ref: '#/components/schemas/AnalyzedChunkDTO'}
         cqi: {type: number, format: double}
         isSuspicious: {type: boolean}
         students:
