@@ -40,7 +40,7 @@ export default function Teams() {
           linesChanged: s.linesChanged || 0,
         })),
         basicMetrics: {
-          totalCommits: item.submissionCount || 0,
+          totalCommits: (item.students || []).reduce((sum, s) => sum + (s.commitCount || 0), 0),
           totalLines: (item.students || []).reduce((sum, s) => sum + (s.linesChanged || 0), 0),
         },
         cqi: item.cqi !== null && item.cqi !== undefined ? Math.round(item.cqi) : undefined,
