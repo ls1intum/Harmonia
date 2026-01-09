@@ -163,6 +163,8 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
     isBundled: chunk.isBundled,
     chunkIndex: chunk.chunkIndex,
     totalChunks: chunk.totalChunks,
+    isError: chunk.isError,
+    errorMessage: chunk.errorMessage,
   }));
 
   const team: ComplexTeamData = {

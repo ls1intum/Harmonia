@@ -58,8 +58,8 @@ class ContributionFairnessServiceTest {
                 "hash2", 2L, "student2@tum.de", "fix", LocalDateTime.now(),
                 List.of(), "diff", 10, 0, 0, 1, false, List.of());
 
-        ratingHigh = new EffortRatingDTO(8.0, 5.0, 5.0, CommitLabel.FEATURE, 0.9, "Good work");
-        ratingLow = new EffortRatingDTO(2.0, 2.0, 2.0, CommitLabel.TRIVIAL, 0.9, "Trivial");
+        ratingHigh = new EffortRatingDTO(8.0, 5.0, 5.0, CommitLabel.FEATURE, 0.9, "Good work", false, null);
+        ratingLow = new EffortRatingDTO(2.0, 2.0, 2.0, CommitLabel.TRIVIAL, 0.9, "Trivial", false, null);
     }
 
     @Test

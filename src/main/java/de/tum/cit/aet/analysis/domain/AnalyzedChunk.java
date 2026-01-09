@@ -68,12 +68,19 @@ public class AnalyzedChunk {
     @Column(name = "total_chunks")
     private Integer totalChunks;
 
+    @Column(name = "is_error")
+    private Boolean isError;
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
+
     public AnalyzedChunk(TeamParticipation participation, String chunkIdentifier,
             String authorEmail, String authorName, String classification,
             Double effortScore, String reasoning, String commitShas,
             String commitMessages, LocalDateTime timestamp,
             Integer linesChanged, Boolean isBundled,
-            Integer chunkIndex, Integer totalChunks) {
+            Integer chunkIndex, Integer totalChunks,
+            Boolean isError, String errorMessage) {
         this.participation = participation;
         this.chunkIdentifier = chunkIdentifier;
         this.authorEmail = authorEmail;
@@ -88,5 +95,7 @@ public class AnalyzedChunk {
         this.isBundled = isBundled;
         this.chunkIndex = chunkIndex;
         this.totalChunks = totalChunks;
+        this.isError = isError;
+        this.errorMessage = errorMessage;
     }
 }

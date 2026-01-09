@@ -33,6 +33,16 @@ export interface AnalyzedChunk {
   isBundled: boolean;
   chunkIndex: number;
   totalChunks: number;
+  isError?: boolean;
+  errorMessage?: string;
+}
+
+export interface AnalysisError {
+  id: string; // Reuse chunk ID
+  authorEmail: string;
+  timestamp: string;
+  errorMessage: string;
+  commitShas: string[];
 }
 
 export interface Team {

@@ -130,6 +130,8 @@ public class RequestService {
      * Clears all data from the database tables.
      */
     public void clearDatabase() {
+        // Must delete child entities first due to foreign key constraints
+        analyzedChunkRepository.deleteAll();
         teamRepositoryRepository.deleteAll();
         studentRepository.deleteAll();
         teamParticipationRepository.deleteAll();
@@ -418,7 +420,9 @@ public class RequestService {
                             dto.linesChanged(),
                             dto.isBundled(),
                             dto.chunkIndex(),
-                            dto.totalChunks()))
+                            dto.totalChunks(),
+                            dto.isError(),
+                            dto.errorMessage()))
                     .toList();
             analyzedChunkRepository.saveAll(entities);
             log.debug("Saved {} analyzed chunks for team {}", entities.size(), participation.getName());
@@ -450,7 +454,9 @@ public class RequestService {
                             chunk.getLinesChanged() != null ? chunk.getLinesChanged() : 0,
                             Boolean.TRUE.equals(chunk.getIsBundled()),
                             chunk.getChunkIndex() != null ? chunk.getChunkIndex() : 0,
-                            chunk.getTotalChunks() != null ? chunk.getTotalChunks() : 1))
+                            chunk.getTotalChunks() != null ? chunk.getTotalChunks() : 1,
+                            Boolean.TRUE.equals(chunk.getIsError()),
+                            chunk.getErrorMessage()))
                     .toList();
         } catch (Exception e) {
             log.warn("Failed to load analyzed chunks for team {}: {}", participation.getName(), e.getMessage());

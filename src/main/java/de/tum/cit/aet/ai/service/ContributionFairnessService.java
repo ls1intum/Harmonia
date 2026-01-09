@@ -255,7 +255,9 @@ public class ContributionFairnessService {
                         rc.chunk.linesAdded() + rc.chunk.linesDeleted(),
                         rc.chunk.isBundled(),
                         rc.chunk.chunkIndex(),
-                        rc.chunk.totalChunks()))
+                        rc.chunk.totalChunks(),
+                        rc.rating.isError(),
+                        rc.rating.errorMessage()))
                 .collect(Collectors.toList());
 
         return new FairnessReportDTO(

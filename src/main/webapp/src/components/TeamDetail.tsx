@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
+import ErrorListPanel from './ErrorListPanel';
 
 interface TeamDetailProps {
   team: Team;
@@ -121,6 +122,21 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
           <h3 className="text-2xl font-bold mb-2">AI Analysis Feed</h3>
           <p className="text-muted-foreground">See exactly how the AI analyzed each commit or group of commits</p>
         </div>
+
+        <ErrorListPanel
+          errors={
+            team.analysisHistory
+              ?.filter(chunk => chunk.isError && chunk.errorMessage)
+              .map(chunk => ({
+                id: chunk.id,
+                authorEmail: chunk.authorEmail,
+                timestamp: chunk.timestamp,
+                errorMessage: chunk.errorMessage!,
+                commitShas: chunk.commitShas,
+              })) || []
+          }
+        />
+
         <AnalysisFeed chunks={team.analysisHistory || []} />
       </div>
     </div>
