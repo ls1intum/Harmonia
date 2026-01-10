@@ -18,12 +18,14 @@ public class AiProperties {
     public static class CommitClassifier {
         private boolean enabled = true;
         private double confidenceThreshold = 0.7;
+        private String modelName; // Will be auto-detected if null
     }
 
     @Data
     public static class AnomalyDetector {
         private boolean enabled = true;
         private double confidenceThreshold = 0.7;
+        private String modelName; // Will be auto-detected if null
     }
 
     @Data

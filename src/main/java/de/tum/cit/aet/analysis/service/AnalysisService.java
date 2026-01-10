@@ -32,4 +32,8 @@ public class AnalysisService {
         log.info("Contribution analysis completed");
         return result;
     }
+
+    public Map<Long, AuthorContributionDTO> analyzeRepository(TeamRepositoryDTO repo) {
+        return gitContributionAnalysisService.analyzeRepository(repo);
+    }
 }

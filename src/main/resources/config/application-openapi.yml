@@ -1,9 +1,17 @@
 spring:
   ai:
-    enabled: false
+    azure:
+      openai:
+        enabled: false
+        endpoint: http://disabled
+        api-key: disabled
+    openai:
+      enabled: false
+      api-key: "disabled"
+      base-url: "http://disabled"
 
   liquibase:
-    enabled: false
+    enabled: true
 
   security:
     user:

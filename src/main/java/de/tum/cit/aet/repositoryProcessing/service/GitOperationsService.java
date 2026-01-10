@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 @Slf4j
 public class GitOperationsService {
 
+    @SuppressWarnings("unused")
     private final ArtemisConfig artemisConfig;
 
     @Autowired
@@ -38,18 +39,19 @@ public class GitOperationsService {
      * @param teamName      The name of the team
      * @param username      The username for authentication
      * @param password      The password (or token) for authentication
+     * @param gitRepoPath   The base path where repositories should be stored
      * @return The local path where the repository is stored
      */
-    public String cloneOrPullRepository(String repositoryUri, String teamName, String username, String password) {
-        return cloneOrPullRepository(repositoryUri, teamName, new UsernamePasswordCredentialsProvider(username, password));
+    public String cloneOrPullRepository(String repositoryUri, String teamName, String username, String password, String gitRepoPath) {
+        return cloneOrPullRepository(repositoryUri, teamName, new UsernamePasswordCredentialsProvider(username, password), gitRepoPath);
     }
 
-    private String cloneOrPullRepository(String repositoryUri, String teamName, UsernamePasswordCredentialsProvider credentialsProvider) {
+    private String cloneOrPullRepository(String repositoryUri, String teamName, UsernamePasswordCredentialsProvider credentialsProvider, String gitRepoPath) {
         // Extracts the repository name from the URI
         String[] parts = repositoryUri.split("/");
         String repoName = parts[parts.length - 1].replace(".git", "");
 
-        Path localPath = Paths.get(artemisConfig.getGitRepoPath(), repoName);
+        Path localPath = Paths.get(gitRepoPath, repoName);
         File repoDir = localPath.toFile();
 
         if (repoDir.exists() && new File(repoDir, ".git").exists()) {
@@ -70,6 +72,7 @@ public class GitOperationsService {
      * @param localPath           The local path where the repository should be cloned
      * @param credentialsProvider The credentials provider
      */
+    @SuppressWarnings("unused")
     private void cloneRepository(String repositoryUri, Path localPath, UsernamePasswordCredentialsProvider credentialsProvider) {
         try (Git git = Git.cloneRepository()
                 .setURI(repositoryUri)
