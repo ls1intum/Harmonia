@@ -138,6 +138,12 @@ tasks.register('integrationTest', Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     
+    // Show standard output logs in the console
+    testLogging {
+        showStandardStreams = true
+        events "passed", "skipped", "failed"
+    }
+    
     shouldRunAfter tasks.named('test')
     
     // Load credentials from properties file if it exists
