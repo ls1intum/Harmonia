@@ -116,7 +116,53 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // Exclude integration and e2e tests from regular test runs
+        // These require external services (LM Studio, Artemis, etc.)
+        excludeTags 'integration', 'e2e'
+    }
+}
+
+// Integration test task - requires external services
+// Run with: ./gradlew integrationTest
+// Automatically loads credentials from src/test/resources/test-credentials.properties
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests that require external services (LM Studio, Artemis, DB)'
+    group = 'verification'
+    
+    useJUnitPlatform {
+        includeTags 'integration', 'e2e'
+    }
+    
+    // Explicitly set the test classes and classpath
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    
+    shouldRunAfter tasks.named('test')
+    
+    // Load credentials from properties file if it exists
+    def credentialsFile = file('src/test/resources/test-credentials.properties')
+    if (credentialsFile.exists()) {
+        def props = new Properties()
+        credentialsFile.withInputStream { stream ->
+            props.load(stream)
+        }
+        // Set all properties as environment variables
+        props.forEach { key, value ->
+            environment key.toString(), value.toString()
+        }
+    }
+    
+    // Pass through system environment variables (override file if set)
+    if (System.getenv('ARTEMIS_TEST_URL')) environment 'ARTEMIS_TEST_URL', System.getenv('ARTEMIS_TEST_URL')
+    if (System.getenv('ARTEMIS_TEST_USERNAME')) environment 'ARTEMIS_TEST_USERNAME', System.getenv('ARTEMIS_TEST_USERNAME')
+    if (System.getenv('ARTEMIS_TEST_PASSWORD')) environment 'ARTEMIS_TEST_PASSWORD', System.getenv('ARTEMIS_TEST_PASSWORD')
+    if (System.getenv('ARTEMIS_TEST_COURSE')) environment 'ARTEMIS_TEST_COURSE', System.getenv('ARTEMIS_TEST_COURSE')
+    if (System.getenv('ARTEMIS_TEST_EXERCISE_ID')) environment 'ARTEMIS_TEST_EXERCISE_ID', System.getenv('ARTEMIS_TEST_EXERCISE_ID')
+    if (System.getenv('ARTEMIS_TEST_MAX_TEAMS')) environment 'ARTEMIS_TEST_MAX_TEAMS', System.getenv('ARTEMIS_TEST_MAX_TEAMS')
+    
+    // Always enable LLM tests for this task
+    environment 'LLM_INTEGRATION_TESTS', 'true'
 }
 
 // Available commands:

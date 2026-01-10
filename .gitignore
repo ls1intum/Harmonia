@@ -39,5 +39,6 @@ out/
 Projects/
 repos/
 test-credentials.properties
+.env.integration-test
 /.DS_Store
 local/

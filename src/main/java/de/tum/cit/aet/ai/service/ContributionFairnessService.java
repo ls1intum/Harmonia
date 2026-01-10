@@ -40,43 +40,65 @@ public class ContributionFairnessService {
      */
     public FairnessReportDTO analyzeFairness(TeamRepositoryDTO repositoryDTO) {
         String repoPath = repositoryDTO.localPath();
+        String teamName = repositoryDTO.participation().team().name();
+
         if (repoPath == null) {
-            return FairnessReportDTO.error("unknown", "Repository not cloned locally");
+            log.warn("Repository not cloned locally for team {}", teamName);
+            return FairnessReportDTO.error(teamName, "Repository not cloned locally");
         }
 
         long startTime = System.currentTimeMillis();
 
-        // 1. Map commits to authors
-        Map<String, Long> commitToAuthor = mapCommitsToAuthors(repositoryDTO.vcsLogs());
+        try {
+            // 1. Map commits to authors
+            Map<String, Long> commitToAuthor = mapCommitsToAuthors(repositoryDTO.vcsLogs());
 
-        // 2. Chunk and bundle commits
-        List<CommitChunkDTO> chunks = commitChunkerService.processRepository(repoPath, commitToAuthor);
+            if (commitToAuthor.isEmpty()) {
+                log.warn("No commits found for team {} - VCS logs may be empty", teamName);
+                return FairnessReportDTO.error(teamName, "No commits found in VCS logs");
+            }
 
-        // 3. Rate effort for each chunk
-        List<RatedChunk> ratedChunks = rateChunks(chunks);
+            // 2. Chunk and bundle commits
+            List<CommitChunkDTO> chunks = commitChunkerService.processRepository(repoPath, commitToAuthor);
 
-        // 4. Aggregate results per author
-        Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);
+            if (chunks.isEmpty()) {
+                log.warn("No valid chunks created for team {} - all commits may have been filtered", teamName);
+                return FairnessReportDTO.error(teamName, "No analyzable code changes found");
+            }
 
-        // 5. Calculate global metrics
-        double totalEffort = authorStats.values().stream().mapToDouble(s -> s.totalEffort).sum();
-        Map<Long, Double> effortShare = calculateShares(authorStats, totalEffort);
-        double balanceScore = calculateBalanceScore(effortShare);
+            // 3. Rate effort for each chunk (individual errors are handled in rateChunks)
+            List<RatedChunk> ratedChunks = rateChunks(chunks);
 
-        // 6. Generate flags
-        List<FairnessFlag> flags = generateFlags(effortShare, authorStats, totalEffort);
+            // 4. Aggregate results per author
+            Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);
 
-        // 7. Build report
-        long duration = System.currentTimeMillis() - startTime;
-        return buildReport(
-                repositoryDTO.participation().team().name(), // simplistic team ID
-                balanceScore,
-                authorStats,
-                effortShare,
-                flags,
-                chunks.size(),
-                ratedChunks,
-                duration);
+            // 5. Calculate global metrics
+            double totalEffort = authorStats.values().stream().mapToDouble(s -> s.totalEffort).sum();
+            Map<Long, Double> effortShare = calculateShares(authorStats, totalEffort);
+            double balanceScore = calculateBalanceScore(effortShare);
+
+            // 6. Generate flags
+            List<FairnessFlag> flags = generateFlags(effortShare, authorStats, totalEffort);
+
+            // 7. Build report
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("Fairness analysis completed for team {}: score={}, chunks={}, duration={}ms",
+                    teamName, balanceScore, chunks.size(), duration);
+
+            return buildReport(
+                    teamName,
+                    balanceScore,
+                    authorStats,
+                    effortShare,
+                    flags,
+                    chunks.size(),
+                    ratedChunks,
+                    duration);
+
+        } catch (Exception e) {
+            log.error("Fairness analysis failed for team {}: {}", teamName, e.getMessage(), e);
+            return FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage());
+        }
     }
 
     private Map<String, Long> mapCommitsToAuthors(List<VCSLogDTO> logs) {

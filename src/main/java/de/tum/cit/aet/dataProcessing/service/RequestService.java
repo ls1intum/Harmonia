@@ -80,14 +80,47 @@ public class RequestService {
      * @param exerciseId  The exercise ID to fetch participations for
      */
     public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId) {
+        fetchAnalyzeAndSaveRepositories(credentials, exerciseId, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Fetches, analyzes, and saves repository data with a limit on the number of
+     * teams.
+     *
+     * @param credentials The Artemis credentials
+     * @param exerciseId  The exercise ID to fetch participations for
+     * @param maxTeams    Maximum number of teams to analyze (use Integer.MAX_VALUE
+     *                    for all)
+     * @return List of ClientResponseDTO with analysis results
+     */
+    public List<ClientResponseDTO> fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId,
+            int maxTeams) {
+        log.info("=== Starting Analysis Pipeline ===");
+        log.info("Exercise ID: {}", exerciseId);
+        log.info("Max teams to analyze: {}", maxTeams == Integer.MAX_VALUE ? "ALL" : maxTeams);
+
         // Fetch and clone repositories
         List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials, exerciseId);
+        log.info("Fetched {} repositories from Artemis", repositories.size());
+
+        // Limit to maxTeams
+        if (repositories.size() > maxTeams) {
+            log.info("Limiting analysis to first {} teams (out of {})", maxTeams, repositories.size());
+            repositories = repositories.subList(0, maxTeams);
+        }
 
         // Analyze contributions
+        log.info("Analyzing contributions for {} teams...", repositories.size());
         Map<Long, AuthorContributionDTO> contributionData = getContributionData(repositories);
 
         // Save results to the database
-        saveResults(repositories, contributionData);
+        log.info("Saving results to database...");
+        List<ClientResponseDTO> results = saveResults(repositories, contributionData);
+
+        log.info("=== Analysis Pipeline Complete ===");
+        log.info("Total teams analyzed: {}", results.size());
+
+        return results;
     }
 
     /**
@@ -119,17 +152,24 @@ public class RequestService {
      * @param repositories     List of TeamRepositoryDTO to be saved
      * @param contributionData Map of Participant ID to an array of contribution
      *                         metrics (e.g., lines added, lines deleted)
+     * @return List of ClientResponseDTO with saved results
      */
-    public void saveResults(List<TeamRepositoryDTO> repositories, Map<Long, AuthorContributionDTO> contributionData) {
+    public List<ClientResponseDTO> saveResults(List<TeamRepositoryDTO> repositories,
+            Map<Long, AuthorContributionDTO> contributionData) {
         // TODO: Implement a better strategy for updating existing records instead of
         // deleting all data
         // Clear existing data in database tables. We assume a full refresh of all data
         // is intended, effectively treating the run as idempotent
         clearDatabase();
 
+        List<ClientResponseDTO> results = new ArrayList<>();
         for (TeamRepositoryDTO repo : repositories) {
-            saveSingleResult(repo, contributionData);
+            ClientResponseDTO result = saveSingleResult(repo, contributionData);
+            if (result != null) {
+                results.add(result);
+            }
         }
+        return results;
     }
 
     /**
