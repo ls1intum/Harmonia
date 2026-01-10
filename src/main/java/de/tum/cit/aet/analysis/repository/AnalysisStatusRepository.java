@@ -15,6 +15,9 @@ public interface AnalysisStatusRepository extends JpaRepository<AnalysisStatus, 
 
     /**
      * Find all analyses with a given state.
+     *
+     * @param state the state to filter by
+     * @return a list of analysis statuses with the given state
      */
     List<AnalysisStatus> findByState(AnalysisState state);
 }

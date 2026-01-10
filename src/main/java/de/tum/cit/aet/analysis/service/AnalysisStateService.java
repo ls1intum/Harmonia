@@ -46,6 +46,9 @@ public class AnalysisStateService {
 
     /**
      * Get the current status for an exercise. Returns IDLE status if none exists.
+     *
+     * @param exerciseId The ID of the exercise
+     * @return The analysis status
      */
     @Transactional(readOnly = true)
     public AnalysisStatus getStatus(Long exerciseId) {
@@ -58,7 +61,10 @@ public class AnalysisStateService {
 
     /**
      * Start an analysis for the given exercise.
-     * 
+     *
+     * @param exerciseId The ID of the exercise
+     * @param totalTeams The total number of teams to process
+     * @return The updated analysis status
      * @throws IllegalStateException if analysis is already running
      */
     @Transactional
@@ -85,7 +91,12 @@ public class AnalysisStateService {
 
     /**
      * Update progress for a running analysis.
-     * 
+     *
+     * @param exerciseId The ID of the exercise
+     * @param teamName   The name of the team currently being processed
+     * @param stage      The current stage of processing
+     * @param processed  The number of teams processed so far
+     * @return The updated analysis status
      * @throws IllegalStateException if analysis is not running
      */
     @Transactional
@@ -107,6 +118,9 @@ public class AnalysisStateService {
 
     /**
      * Mark analysis as successfully completed.
+     *
+     * @param exerciseId The ID of the exercise
+     * @return The updated analysis status
      */
     @Transactional
     public AnalysisStatus completeAnalysis(Long exerciseId) {
@@ -124,6 +138,10 @@ public class AnalysisStateService {
 
     /**
      * Mark analysis as failed with an error message.
+     *
+     * @param exerciseId   The ID of the exercise
+     * @param errorMessage The error message
+     * @return The updated analysis status
      */
     @Transactional
     public AnalysisStatus failAnalysis(Long exerciseId, String errorMessage) {
@@ -142,6 +160,9 @@ public class AnalysisStateService {
 
     /**
      * Cancel a running analysis. Safe to call even if not running.
+     *
+     * @param exerciseId The ID of the exercise
+     * @return The updated analysis status
      */
     @Transactional
     public AnalysisStatus cancelAnalysis(Long exerciseId) {
@@ -162,6 +183,9 @@ public class AnalysisStateService {
 
     /**
      * Reset the status to IDLE, clearing all progress data.
+     *
+     * @param exerciseId The ID of the exercise
+     * @return The updated analysis status
      */
     @Transactional
     public AnalysisStatus resetStatus(Long exerciseId) {
@@ -175,6 +199,9 @@ public class AnalysisStateService {
 
     /**
      * Check if an analysis is currently running for the given exercise.
+     *
+     * @param exerciseId The ID of the exercise
+     * @return true if analysis is running, false otherwise
      */
     @Transactional(readOnly = true)
     public boolean isRunning(Long exerciseId) {

@@ -30,6 +30,9 @@ public class AnalysisResource {
 
     /**
      * Get the current analysis status for an exercise.
+     *
+     * @param exerciseId the id of the exercise
+     * @return the status DTO
      */
     @GetMapping("/{exerciseId}/status")
     public ResponseEntity<AnalysisStatusDTO> getStatus(@PathVariable Long exerciseId) {
@@ -39,6 +42,9 @@ public class AnalysisResource {
 
     /**
      * Cancel a running analysis.
+     *
+     * @param exerciseId the id of the exercise
+     * @return the updated status DTO
      */
     @PostMapping("/{exerciseId}/cancel")
     public ResponseEntity<AnalysisStatusDTO> cancelAnalysis(@PathVariable Long exerciseId) {
@@ -49,8 +55,10 @@ public class AnalysisResource {
 
     /**
      * Clear data for an exercise.
-     * 
-     * @param type One of: "db", "files", "both"
+     *
+     * @param exerciseId the id of the exercise
+     * @param type       One of: "db", "files", "both"
+     * @return a response entity
      */
     @DeleteMapping("/{exerciseId}/clear")
     public ResponseEntity<String> clearData(
@@ -79,6 +87,10 @@ public class AnalysisResource {
 
     /**
      * Legacy recompute endpoint for backwards compatibility.
+     *
+     * @param course   the course identifier
+     * @param exercise the exercise identifier
+     * @return a response entity
      */
     @PostMapping("/{course}/{exercise}/recompute")
     public ResponseEntity<String> recompute(@PathVariable String course, @PathVariable String exercise) {

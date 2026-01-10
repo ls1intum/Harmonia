@@ -24,19 +24,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * End-to-End Integration Test for the complete analysis pipeline.
- * 
+ *
  * This test:
  * 1. Clears existing data from the database
  * 2. Authenticates with Artemis and fetches real team data
  * 3. Triggers analysis for each team (limited by MAX_TEAMS)
  * 4. Verifies that data is correctly persisted to the database
  * 5. Verifies data survives reload (simulating server restart)
- * 
+ *
  * Prerequisites:
  * - Database running (local PostgreSQL via Docker)
  * - LM Studio running on localhost:1234
  * - Valid Artemis credentials in src/test/resources/test-credentials.properties
- * 
+ *
  * Run with:
  * ./gradlew integrationTest
  */

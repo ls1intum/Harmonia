@@ -13,11 +13,11 @@
  */
 
 export interface OrphanCommitDTO {
-    authorEmail?: string;
-    authorName?: string;
-    commitHash?: string;
-    linesAdded?: number;
-    linesDeleted?: number;
-    message?: string;
-    timestamp?: string;
+  authorEmail?: string;
+  authorName?: string;
+  commitHash?: string;
+  linesAdded?: number;
+  linesDeleted?: number;
+  message?: string;
+  timestamp?: string;
 }

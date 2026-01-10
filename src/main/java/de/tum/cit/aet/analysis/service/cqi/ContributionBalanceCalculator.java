@@ -32,7 +32,7 @@ public class ContributionBalanceCalculator {
         int totalCommits = commitCounts.values().stream()
                 .mapToInt(Integer::intValue)
                 .sum();
-        
+
         if (totalCommits == 0) {
             log.info("No commits detected, returning score of 0");
             return 0.0;

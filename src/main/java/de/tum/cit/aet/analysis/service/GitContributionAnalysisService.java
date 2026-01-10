@@ -217,6 +217,11 @@ public class GitContributionAnalysisService {
 
     /**
      * Analyzes the Git repository (legacy - no orphan tracking).
+     *
+     * @param localPath      The local path to the repository
+     * @param commitToAuthor Map of commit hashes to author IDs
+     * @return Map of author IDs to contribution stats
+     * @throws IOException If the repository cannot be accessed
      */
     public Map<Long, AuthorContributionDTO> analyzeRepositoryContributions(String localPath,
             Map<String, Long> commitToAuthor) throws IOException {
@@ -282,6 +287,9 @@ public class GitContributionAnalysisService {
 
     /**
      * Processes a single team repository (legacy).
+     *
+     * @param repo The repository to analyze
+     * @return Map of author IDs to contribution stats
      */
     public Map<Long, AuthorContributionDTO> analyzeRepository(TeamRepositoryDTO repo) {
         Map<String, Long> commitToAuthor = mapCommitToAuthorLegacy(repo);
@@ -296,6 +304,9 @@ public class GitContributionAnalysisService {
 
     /**
      * Processes all team repositories (legacy).
+     *
+     * @param teamRepositories List of repositories to analyze
+     * @return Map of author IDs to contribution stats
      */
     public Map<Long, AuthorContributionDTO> processAllRepositories(List<TeamRepositoryDTO> teamRepositories) {
         Map<Long, AuthorContributionDTO> allContributions = new HashMap<>();

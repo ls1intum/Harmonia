@@ -11,6 +11,9 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
 
     /**
      * Check if a participation exists by its Artemis participation ID.
+     *
+     * @param participation the Artemis participation ID
+     * @return true if it exists, false otherwise
      */
     boolean existsByParticipation(Long participation);
 }

@@ -163,14 +163,15 @@ public class CommitEffortRaterService {
             if (c == '"') {
                 inString = !inString;
             } else if (!inString) {
-                if (c == '{')
+                if (c == '{') {
                     openBraces++;
-                else if (c == '}')
+                } else if (c == '}') {
                     openBraces--;
-                else if (c == '[')
+                } else if (c == '[') {
                     openBrackets++;
-                else if (c == ']')
+                } else if (c == ']') {
                     openBrackets--;
+                }
             }
         }
 
