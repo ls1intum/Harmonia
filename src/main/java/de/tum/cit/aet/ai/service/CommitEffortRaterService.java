@@ -6,7 +6,6 @@ import de.tum.cit.aet.core.config.AiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 
 /**
@@ -56,10 +55,10 @@ public class CommitEffortRaterService {
                     3. novelty: Is this original work? (1=Copy-paste/Generated, 10=Highly original)
 
                     Also classify the type of change (FEATURE, BUG_FIX, TEST, REFACTOR, TRIVIAL).
-                    Provide a short reasoning (max 1 sentence).
+                    Provide a VERY SHORT reasoning (max 10 words).
 
                     Return ONLY a valid JSON object matching this structure (no markdown, no explanation):
-                    {"effortScore": 5.0, "complexity": 5.0, "novelty": 5.0, "type": "FEATURE", "confidence": 0.9, "reasoning": "Standard controller implementation."}
+                    {"effortScore": 5.0, "complexity": 5.0, "novelty": 5.0, "type": "FEATURE", "confidence": 0.9, "reasoning": "Short reason."}
                     """
                     .formatted(
                             chunk.commitMessage(),
@@ -70,19 +69,22 @@ public class CommitEffortRaterService {
 
             log.debug("Sending rating request for chunk {} of commit {}", chunk.chunkIndex(), chunk.commitSha());
 
-            EffortRatingDTO rating = chatClient.prompt()
+            // Get raw response instead of using entity() to handle truncated JSON
+            String rawResponse = chatClient.prompt()
                     .user(promptText)
                     .options(org.springframework.ai.openai.OpenAiChatOptions.builder()
                             .model(aiProperties.getCommitClassifier().getModelName())
                             .build())
                     .call()
-                    .entity(new ParameterizedTypeReference<EffortRatingDTO>() {
-                    });
+                    .content();
 
-            if (rating == null) {
-                log.warn("Received null rating from LLM for commit {}", chunk.commitSha());
-                return EffortRatingDTO.trivial("Failed to parse AI response");
+            if (rawResponse == null || rawResponse.isBlank()) {
+                log.warn("Received empty response from LLM for commit {}", chunk.commitSha());
+                return EffortRatingDTO.trivial("Empty AI response");
             }
+
+            // Try to parse, with repair if needed
+            EffortRatingDTO rating = parseJsonWithRepair(rawResponse, chunk.commitSha());
 
             // Treat low confidence as trivial or flagged (here we just log)
             if (rating.confidence() < DEFAULT_CONFIDENCE_THRESHOLD) {
@@ -96,6 +98,104 @@ public class CommitEffortRaterService {
             log.error("Error rating commit chunk {}: {}", chunk.commitSha(), e.getMessage());
             return EffortRatingDTO.trivial("Error during AI analysis: " + e.getMessage());
         }
+    }
+
+    /**
+     * Parses JSON response from LLM with repair logic for truncated strings.
+     * If the JSON is truncated (missing closing quotes/braces), attempts to repair
+     * it.
+     */
+    private EffortRatingDTO parseJsonWithRepair(String json, String commitSha) {
+        // Clean up markdown code fences if present
+        json = json.trim();
+        if (json.startsWith("```json")) {
+            json = json.substring(7);
+        } else if (json.startsWith("```")) {
+            json = json.substring(3);
+        }
+        if (json.endsWith("```")) {
+            json = json.substring(0, json.length() - 3);
+        }
+        json = json.trim();
+
+        // Try parsing as-is first
+        try {
+            return parseJson(json);
+        } catch (Exception e) {
+            log.debug("Initial parse failed for commit {}, attempting repair: {}", commitSha, e.getMessage());
+        }
+
+        // Attempt repair for truncated JSON
+        String repairedJson = repairTruncatedJson(json);
+        try {
+            EffortRatingDTO rating = parseJson(repairedJson);
+            log.info("Successfully repaired truncated JSON for commit {}", commitSha);
+            return rating;
+        } catch (Exception e) {
+            log.warn("JSON repair failed for commit {}, using default rating. Original: {}",
+                    commitSha, json.substring(0, Math.min(100, json.length())));
+            return EffortRatingDTO.trivial("Truncated AI response");
+        }
+    }
+
+    /**
+     * Attempts to repair a truncated JSON string by closing open quotes and braces.
+     */
+    private String repairTruncatedJson(String json) {
+        StringBuilder repaired = new StringBuilder(json);
+
+        // Count open/close braces and quotes
+        int openBraces = 0;
+        int openBrackets = 0;
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+            } else if (!inString) {
+                if (c == '{')
+                    openBraces++;
+                else if (c == '}')
+                    openBraces--;
+                else if (c == '[')
+                    openBrackets++;
+                else if (c == ']')
+                    openBrackets--;
+            }
+        }
+
+        // Close open string if needed
+        if (inString) {
+            repaired.append("\"");
+        }
+
+        // Close open brackets and braces
+        while (openBrackets > 0) {
+            repaired.append("]");
+            openBrackets--;
+        }
+        while (openBraces > 0) {
+            repaired.append("}");
+            openBraces--;
+        }
+
+        return repaired.toString();
+    }
+
+    private EffortRatingDTO parseJson(String json) throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return mapper.readValue(json, EffortRatingDTO.class);
     }
 
     /**
