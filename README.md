@@ -151,6 +151,16 @@ Harmonia enforces strict code quality standards for both the server (Java) and c
    ./gradlew spotlessApply
    ```
 
+### 🤖 Local AI Setup (LM Studio)
+
+For local development or running integration tests that require an LLM, we recommend using [LM Studio](https://lmstudio.ai/).
+
+1. **Download & Install:** Install LM Studio.
+2. **Download Model:** Search for and download `google/gemma-3-1b`.
+3. **Load Model:** In the AI Chat or Local Server tab, load the `google/gemma-3-1b` model.
+4. **Configure Context Length:** In the "Configuration" sidebar, set the **Context Length** to `16384` (16k).
+5. **Start Server:** Ensure the Local Server is running (usually on `http://localhost:1234`).
+
 ### Client (TypeScript)
 
 Navigate to the webapp directory first: `cd src/main/webapp`
