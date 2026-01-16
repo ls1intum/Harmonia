@@ -41,7 +41,14 @@ public class TeamParticipation {
     @Column(name = "submission_count")
     private Integer submissionCount;
 
-    public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName, String repositoryUrl, Integer submissionCount) {
+    @Column(name = "cqi")
+    private Double cqi;
+
+    @Column(name = "is_suspicious")
+    private Boolean isSuspicious;
+
+    public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
+            String repositoryUrl, Integer submissionCount) {
         this.participation = participation;
         this.team = team;
         this.tutor = tutor;
@@ -49,5 +56,18 @@ public class TeamParticipation {
         this.shortName = shortName;
         this.repositoryUrl = repositoryUrl;
         this.submissionCount = submissionCount;
+    }
+
+    public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
+            String repositoryUrl, Integer submissionCount, Double cqi, Boolean isSuspicious) {
+        this.participation = participation;
+        this.team = team;
+        this.tutor = tutor;
+        this.name = name;
+        this.shortName = shortName;
+        this.repositoryUrl = repositoryUrl;
+        this.submissionCount = submissionCount;
+        this.cqi = cqi;
+        this.isSuspicious = isSuspicious;
     }
 }

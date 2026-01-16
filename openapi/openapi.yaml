@@ -3,6 +3,74 @@ info: {title: OpenAPI definition, version: v0}
 servers:
 - {url: 'http://localhost:8080', description: Generated server url}
 paths:
+  /api/analysis/{course}/{exercise}/recompute:
+    post:
+      tags: [analysis-resource]
+      operationId: recompute
+      parameters:
+      - name: course
+        in: path
+        required: true
+        schema: {type: string}
+      - name: exercise
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: string}
+  /api/analysis/{exerciseId}/cancel:
+    post:
+      tags: [analysis-resource]
+      operationId: cancelAnalysis
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
+  /api/analysis/{exerciseId}/clear:
+    delete:
+      tags: [analysis-resource]
+      operationId: clearData
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      - name: type
+        in: query
+        required: false
+        schema: {type: string, default: both}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: string}
+  /api/analysis/{exerciseId}/status:
+    get:
+      tags: [analysis-resource]
+      operationId: getStatus
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
   /api/auth/login:
     post:
       tags: [auth-resource]
@@ -14,11 +82,27 @@ paths:
         required: true
       responses:
         '200': {description: OK}
+  /api/config/projects:
+    get:
+      tags: [config-resource]
+      operationId: getProjects
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Project'}
   /api/requestResource/fetchData:
     get:
       tags: [request-resource]
       operationId: fetchData
       parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
       - name: jwt
         in: cookie
         required: false
@@ -43,11 +127,96 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/getData:
+    get:
+      tags: [request-resource]
+      operationId: getData
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/stream:
+    get:
+      tags: [stream-resource]
+      operationId: streamData
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      - name: jwt
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_server_url
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_username
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_password
+        in: cookie
+        required: false
+        schema: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            text/event-stream:
+              schema: {$ref: '#/components/schemas/SseEmitter'}
 components:
   schemas:
+    AnalysisStatusDTO:
+      type: object
+      properties:
+        currentStage: {type: string}
+        currentTeamName: {type: string}
+        errorMessage: {type: string}
+        exerciseId: {type: integer, format: int64}
+        lastUpdatedAt: {type: string, format: date-time}
+        processedTeams: {type: integer, format: int32}
+        startedAt: {type: string, format: date-time}
+        state: {type: string}
+        totalTeams: {type: integer, format: int32}
+    AnalyzedChunkDTO:
+      type: object
+      properties:
+        authorEmail: {type: string}
+        authorName: {type: string}
+        chunkIndex: {type: integer, format: int32}
+        classification: {type: string}
+        commitMessages:
+          type: array
+          items: {type: string}
+        commitShas:
+          type: array
+          items: {type: string}
+        effortScore: {type: number, format: double}
+        errorMessage: {type: string}
+        id: {type: string}
+        isBundled: {type: boolean}
+        isError: {type: boolean}
+        linesChanged: {type: integer, format: int32}
+        reasoning: {type: string}
+        timestamp: {type: string, format: date-time}
+        totalChunks: {type: integer, format: int32}
     ClientResponseDTO:
       type: object
       properties:
+        analysisHistory:
+          type: array
+          items: {$ref: '#/components/schemas/AnalyzedChunkDTO'}
+        cqi: {type: number, format: double}
+        isSuspicious: {type: boolean}
+        orphanCommits:
+          type: array
+          items: {$ref: '#/components/schemas/OrphanCommitDTO'}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
@@ -62,6 +231,28 @@ components:
         serverUrl: {type: string, minLength: 1}
         username: {type: string, minLength: 1}
       required: [password, serverUrl, username]
+    OrphanCommitDTO:
+      type: object
+      properties:
+        authorEmail: {type: string}
+        authorName: {type: string}
+        commitHash: {type: string}
+        linesAdded: {type: integer, format: int32}
+        linesDeleted: {type: integer, format: int32}
+        message: {type: string}
+        timestamp: {type: string, format: date-time}
+    Project:
+      type: object
+      properties:
+        courseName: {type: string}
+        exerciseId: {type: integer, format: int64}
+        gitRepoPath: {type: string}
+        id: {type: string}
+        semester: {type: string}
+    SseEmitter:
+      type: object
+      properties:
+        timeout: {type: integer, format: int64}
     StudentAnalysisDTO:
       type: object
       properties:

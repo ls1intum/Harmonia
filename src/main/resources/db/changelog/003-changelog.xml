@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+                   objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="1710000000000-2" author="antigravity">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="analyzed_chunks"/>
+            </not>
+        </preConditions>
+        <createTable tableName="analyzed_chunks">
+            <column name="chunk_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="participation_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="chunk_identifier" type="VARCHAR(255)"/>
+            <column name="author_email" type="VARCHAR(255)"/>
+            <column name="author_name" type="VARCHAR(255)"/>
+            <column name="classification" type="VARCHAR(255)"/>
+            <column name="effort_score" type="DOUBLE"/>
+            <column name="reasoning" type="TEXT"/>
+            <column name="commit_shas" type="TEXT"/>
+            <column name="commit_messages" type="TEXT"/>
+            <column name="timestamp" type="TIMESTAMP"/>
+            <column name="lines_changed" type="INT"/>
+            <column name="is_bundled" type="BOOLEAN"/>
+            <column name="chunk_index" type="INT"/>
+            <column name="total_chunks" type="INT"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="analyzed_chunks"
+            baseColumnNames="participation_id"
+            constraintName="fk_analyzed_chunks_participation"
+            referencedTableName="participations"
+            referencedColumnNames="team_participation_id"/>
+        <createIndex tableName="analyzed_chunks" indexName="idx_analyzed_chunks_participation">
+            <column name="participation_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

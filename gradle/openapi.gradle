@@ -26,12 +26,6 @@ openApi {
     "-Dspring.docker.compose.enabled=false",
     "-Dspring.docker.compose.lifecycle-management=none"
     ]
-    args.set([
-      "--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia",
-      "--spring.datasource.username=postgres",
-      "--spring.datasource.password=harmonia",
-      "--spring.datasource.driver-class-name=org.postgresql.Driver"
-    ])
   }
 }
 
@@ -71,14 +65,11 @@ tasks.register('pruneOpenApiSpec') {
     def outputFile = file("${projectRoot}/openapi/openapi.yaml")
     def yamlParser = new Yaml()
 
-    Map<String, Object> specificationMap =
-      yamlParser.load(inputFile.text) as Map<String, Object>
+    def specificationMap = yamlParser.load(inputFile.text)
 
-    Map<String, Map<String, Object>> componentsMap =
-      (specificationMap.components ?: [:]) as Map<String, Map<String, Object>>
+    def componentsMap = specificationMap.components ?: [:]
 
-    Map<String, Object> prunedSpecificationMap =
-      pruneInvalidReferences(specificationMap, componentsMap)
+    def prunedSpecificationMap = pruneInvalidReferences(specificationMap, componentsMap)
 
     removeOperationsWithNullSchemas(prunedSpecificationMap)
     sortComponentsAndPaths(prunedSpecificationMap)
@@ -121,42 +112,33 @@ task webapp(type: NpmTask) {
  * @param componentsMap a map of component category → (component name → definition)
  * @return a new map containing only entries whose values did not prune to null
  */
-private Map<String, Object> pruneInvalidReferences(
-  Map<String, Object> originalMap,
-  Map<String, Map<String, Object>> componentsMap
-) {
-  originalMap.collectEntries { String entryKey, Object entryValue ->
-    Object prunedValue = pruneNode(entryValue, componentsMap)
+private pruneInvalidReferences(originalMap, componentsMap) {
+  originalMap.collectEntries { entryKey, entryValue ->
+    def prunedValue = pruneNode(entryValue, componentsMap)
     prunedValue != null ? [(entryKey): prunedValue] : [:]
   }
 }
 
-private Object pruneNode(
-  Object node,
-  Map<String, Map<String, Object>> componentsMap
-) {
+private pruneNode(node, componentsMap) {
   if (node instanceof Map) {
-    return pruneMapEntries(node as Map<String, Object>, componentsMap)
+    return pruneMapEntries(node, componentsMap)
   } else if (node instanceof List) {
-    return pruneListEntries(node as List<?>, componentsMap)
+    return pruneListEntries(node, componentsMap)
   } else {
     return node
   }
 }
 
-private Map<String, Object> pruneMapEntries(
-  Map<String, Object> mapValue,
-  Map<String, Map<String, Object>> componentsMap
-) {
+private pruneMapEntries(mapValue, componentsMap) {
   if (mapValue.size() == 1 && mapValue.containsKey('$ref')) {
-    String referenceString = mapValue['$ref'] as String
+    def referenceString = mapValue['$ref']
     // Matches strings like "#/components/{componentType}/{componentName}",
     def componentMatcher = (referenceString =~ /^#\/components\/([^\/]+)\/(.+)$/)
     if (componentMatcher.matches()) {
       def componentTypeIndex = 1
       def componentNameIndex = 2
-      String componentCategory = componentMatcher[0][componentTypeIndex]
-      String componentIdentifier = componentMatcher[0][componentNameIndex]
+      def componentCategory = componentMatcher[0][componentTypeIndex]
+      def componentIdentifier = componentMatcher[0][componentNameIndex]
       if (!componentsMap[componentCategory]?.containsKey(componentIdentifier)) {
         return null
       }
@@ -164,55 +146,51 @@ private Map<String, Object> pruneMapEntries(
     return mapValue
   }
 
-  mapValue.collectEntries { String nestedKey, Object nestedValue ->
-    Object prunedNestedValue = pruneNode(nestedValue, componentsMap)
+  mapValue.collectEntries { nestedKey, nestedValue ->
+    def prunedNestedValue = pruneNode(nestedValue, componentsMap)
     prunedNestedValue != null ? [(nestedKey): prunedNestedValue] : [:]
   }
 }
 
-private List<?> pruneListEntries(
-  List<?> listValue,
-  Map<String, Map<String, Object>> componentsMap
-) {
+private pruneListEntries(listValue, componentsMap) {
   listValue
     .collect { pruneNode(it, componentsMap) }
     .findAll { it != null }
 }
 
-private static void removeOperationsWithNullSchemas(Map<String, Object> specificationMap) {
-  Map<String, Map<String, Object>> pathsMap =
-    specificationMap.paths as Map<String, Map<String, Object>>
+private static removeOperationsWithNullSchemas(specificationMap) {
+  def pathsMap = specificationMap.paths
   if (pathsMap == null) {
     return
   }
 
-  pathsMap.each { String pathName, Map<String, Object> operationsMap ->
-    List<String> operationsToRemove = operationsMap.findAll { String operationName, Object operationValue ->
-      operationContainsNullSchema(operationValue as Map<String, Object>)
+  pathsMap.each { pathName, operationsMap ->
+    def operationsToRemove = operationsMap.findAll { operationName, operationValue ->
+      operationContainsNullSchema(operationValue)
     }.keySet().toList()
 
     operationsToRemove.each { operationsMap.remove(it) }
   }
 
-  List<String> emptyPathNames = pathsMap.findAll { String pathName, Map<String, Object> operationsMap ->
+  def emptyPathNames = pathsMap.findAll { pathName, operationsMap ->
     operationsMap.isEmpty()
   }.keySet().toList()
 
   emptyPathNames.each { pathsMap.remove(it) }
 }
 
-private static void sortComponentsAndPaths(Map<String, Object> specificationMap) {
+private static sortComponentsAndPaths(specificationMap) {
   // Sort components
-  Map<String, Map<String, Object>> componentsMap = specificationMap.components as Map<String, Map<String, Object>>
+  def componentsMap = specificationMap.components
   if (componentsMap != null) {
-    componentsMap.each { String category, Map<String, Object> categoryMap ->
+    componentsMap.each { category, categoryMap ->
       if (categoryMap != null) {
         def sorted = new LinkedHashMap()
         categoryMap.entrySet().sort { it.key }.each { entry ->
           def sortedValue = entry.value
           // If this is a schema object, sort its properties
           if (sortedValue instanceof Map && sortedValue.containsKey('properties')) {
-            sortedValue = sortSchemaProperties(sortedValue as Map<String, Object>)
+            sortedValue = sortSchemaProperties(sortedValue)
           }
           sorted[entry.key] = sortedValue
         }
@@ -222,7 +200,7 @@ private static void sortComponentsAndPaths(Map<String, Object> specificationMap)
   }
 
   // Sort paths
-  Map<String, Map<String, Object>> pathsMap = specificationMap.paths as Map<String, Map<String, Object>>
+  def pathsMap = specificationMap.paths
   if (pathsMap != null) {
     def sortedPaths = new LinkedHashMap()
     pathsMap.entrySet().sort { it.key }.each { sortedPaths[it.key] = it.value }
@@ -230,25 +208,25 @@ private static void sortComponentsAndPaths(Map<String, Object> specificationMap)
   }
 }
 
-private static Map<String, Object> sortSchemaProperties(Map<String, Object> schema) {
+private static sortSchemaProperties(schema) {
   def sortedSchema = new LinkedHashMap(schema)
   if (schema.properties instanceof Map) {
     def sortedProperties = new LinkedHashMap()
-    (schema.properties as Map).entrySet().sort { it.key }.each { 
-      sortedProperties[it.key] = it.value 
+    (schema.properties as Map).entrySet().sort { it.key }.each {
+      sortedProperties[it.key] = it.value
     }
     sortedSchema.properties = sortedProperties
   }
   return sortedSchema
 }
 
-private static boolean operationContainsNullSchema(Map<String, Object> operationDefinition) {
-  boolean requestHasNullSchema = operationDefinition.requestBody
+private static operationContainsNullSchema(operationDefinition) {
+  def requestHasNullSchema = operationDefinition.requestBody
     ?.content
     ?.values()
     ?.any { mediaType -> mediaType.schema == null }
 
-  boolean responseHasNullSchema = operationDefinition.responses
+  def responseHasNullSchema = operationDefinition.responses
     ?.values()
     ?.any { responseObject ->
       responseObject.content

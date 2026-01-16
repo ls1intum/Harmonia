@@ -14,9 +14,19 @@
 
 // May contain unused imports in some cases
 // @ts-ignore
+import type { AnalyzedChunkDTO } from './analyzed-chunk-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { OrphanCommitDTO } from './orphan-commit-dto';
+// May contain unused imports in some cases
+// @ts-ignore
 import type { StudentAnalysisDTO } from './student-analysis-dto';
 
 export interface ClientResponseDTO {
+  analysisHistory?: Array<AnalyzedChunkDTO>;
+  cqi?: number;
+  isSuspicious?: boolean;
+  orphanCommits?: Array<OrphanCommitDTO>;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
   teamId?: number;

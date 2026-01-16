@@ -10,9 +10,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class HarmoniaApplicationTests {
 
+    @SuppressWarnings("unused")
     @Autowired
     private ArtemisClientService artemisClientService;
 
+    @SuppressWarnings("unused")
     @Autowired
     private RepositoryFetchingService repositoryFetchingService;
 

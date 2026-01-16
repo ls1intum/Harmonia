@@ -2,28 +2,44 @@ import type { Team } from '@/types/team';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SortableHeader } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton } from '@/components/StatusFilterButton.tsx';
+import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
+import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 
 interface TeamsListProps {
   teams: Team[];
   onTeamSelect: (team: Team) => void;
   onBackToHome: () => void;
+  onStart: () => void;
+  onCancel: () => void;
   onRecompute: () => void;
+  onClear: (type: 'db' | 'files' | 'both') => void;
   course: string;
   exercise: string;
-  isAnalyzing: boolean;
-  progress: number;
+  analysisStatus: AnalysisStatus;
 }
 
-const TeamsList = ({ teams, onTeamSelect, onBackToHome, onRecompute, course, exercise, isAnalyzing, progress }: TeamsListProps) => {
+const TeamsList = ({
+  teams,
+  onTeamSelect,
+  onBackToHome,
+  onStart,
+  onCancel,
+  onRecompute,
+  onClear,
+  course,
+  exercise,
+  analysisStatus,
+}: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<'name' | 'commits' | 'cqi' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -97,6 +113,38 @@ const TeamsList = ({ teams, onTeamSelect, onBackToHome, onRecompute, course, exe
     };
   }, [teams]);
 
+  const renderActionButton = () => {
+    switch (analysisStatus.state) {
+      case 'IDLE':
+        return (
+          <Button onClick={onStart}>
+            <Play className="h-4 w-4" />
+            Start Analysis
+          </Button>
+        );
+      case 'RUNNING':
+        return (
+          <Button variant="destructive" onClick={onCancel}>
+            <Square className="h-4 w-4" />
+            Cancel
+          </Button>
+        );
+      case 'DONE':
+      case 'ERROR':
+        return (
+          <Button variant="secondary" onClick={onRecompute}>
+            <RefreshCw className="h-4 w-4" />
+            Force Recompute
+          </Button>
+        );
+    }
+  };
+
+  const handleClearClick = (type: 'db' | 'files' | 'both') => {
+    setClearType(type);
+    setClearDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
       <Button variant="ghost" onClick={onBackToHome} className="mb-4 hover:bg-muted">
@@ -112,22 +160,26 @@ const TeamsList = ({ teams, onTeamSelect, onBackToHome, onRecompute, course, exe
           </p>
           <p className="text-muted-foreground text-sm">Click on any team to view detailed collaboration metrics</p>
         </div>
-        <Button onClick={onRecompute}>
-          <RefreshCw className="h-4 w-4" />
-          Recompute
-        </Button>
+        <div className="flex gap-2">
+          {renderActionButton()}
+          <Button variant="outline" onClick={() => handleClearClick('both')} disabled={analysisStatus.state === 'RUNNING'}>
+            <Trash2 className="h-4 w-4" />
+            Clear Data
+          </Button>
+        </div>
       </div>
 
-      {isAnalyzing && (
-        <div className="w-full space-y-3">
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground mb-2">Analyzing teams...</p>
-            <p className="text-xs text-muted-foreground">Computing collaboration metrics and quality indices</p>
-          </div>
-          <Progress value={progress} className="h-2" />
-          <p className="text-center text-sm text-muted-foreground">{progress}% complete</p>
-        </div>
-      )}
+      <ActivityLog status={analysisStatus} />
+
+      <ConfirmationDialog
+        open={clearDialogOpen}
+        onOpenChange={setClearDialogOpen}
+        title="Clear Data"
+        description={`This will permanently delete ${clearType === 'both' ? 'database records and repository files' : clearType === 'db' ? 'database records' : 'repository files'}. This action cannot be undone.`}
+        confirmLabel="Clear"
+        variant="destructive"
+        onConfirm={() => onClear(clearType)}
+      />
 
       {courseAverages && (
         <Card className="p-6 shadow-card">
