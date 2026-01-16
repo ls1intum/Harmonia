@@ -1,13 +1,12 @@
 # LoginRequestDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**password** | **string** |  | [default to undefined]
-**serverUrl** | **string** |  | [default to undefined]
-**username** | **string** |  | [default to undefined]
+| Name          | Type       | Description | Notes                  |
+| ------------- | ---------- | ----------- | ---------------------- |
+| **password**  | **string** |             | [default to undefined] |
+| **serverUrl** | **string** |             | [default to undefined] |
+| **username**  | **string** |             | [default to undefined] |
 
 ## Example
 
@@ -15,9 +14,9 @@ Name | Type | Description | Notes
 import { LoginRequestDTO } from './api';
 
 const instance: LoginRequestDTO = {
-    password,
-    serverUrl,
-    username,
+  password,
+  serverUrl,
+  username,
 };
 ```
 
