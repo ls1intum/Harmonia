@@ -16,6 +16,7 @@ docs/AuthResourceApi.md
 docs/ClientResponseDTO.md
 docs/ConfigResourceApi.md
 docs/LoginRequestDTO.md
+docs/OrphanCommitDTO.md
 docs/Project.md
 docs/RequestResourceApi.md
 docs/SseEmitter.md
@@ -28,6 +29,7 @@ models/analyzed-chunk-dto.ts
 models/client-response-dto.ts
 models/index.ts
 models/login-request-dto.ts
+models/orphan-commit-dto.ts
 models/project.ts
 models/sse-emitter.ts
 models/student-analysis-dto.ts

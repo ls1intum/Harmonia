@@ -198,8 +198,10 @@ components:
           type: array
           items: {type: string}
         effortScore: {type: number, format: double}
+        errorMessage: {type: string}
         id: {type: string}
         isBundled: {type: boolean}
+        isError: {type: boolean}
         linesChanged: {type: integer, format: int32}
         reasoning: {type: string}
         timestamp: {type: string, format: date-time}
@@ -212,6 +214,9 @@ components:
           items: {$ref: '#/components/schemas/AnalyzedChunkDTO'}
         cqi: {type: number, format: double}
         isSuspicious: {type: boolean}
+        orphanCommits:
+          type: array
+          items: {$ref: '#/components/schemas/OrphanCommitDTO'}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
@@ -226,6 +231,16 @@ components:
         serverUrl: {type: string, minLength: 1}
         username: {type: string, minLength: 1}
       required: [password, serverUrl, username]
+    OrphanCommitDTO:
+      type: object
+      properties:
+        authorEmail: {type: string}
+        authorName: {type: string}
+        commitHash: {type: string}
+        linesAdded: {type: integer, format: int32}
+        linesDeleted: {type: integer, format: int32}
+        message: {type: string}
+        timestamp: {type: string, format: date-time}
     Project:
       type: object
       properties:

@@ -101,6 +101,8 @@ dependencies {
             // needed to reduce the number of vulnerabilities, also see https://mvnrepository.com/artifact/org.yaml/snakeyaml
         }
     }
+    // H2 in-memory database for OpenAPI generation and testing
+    runtimeOnly 'com.h2database:h2'
 
     annotationProcessor 'org.projectlombok:lombok'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
