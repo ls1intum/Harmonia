@@ -9,6 +9,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Service
 @Slf4j
 @Profile("!openapi")
@@ -137,14 +140,13 @@ public class CommitClassifierService {
             cleaned = cleaned.trim();
 
             // Use regex patterns that handle optional whitespace
-            java.util.regex.Pattern labelPattern = java.util.regex.Pattern.compile("\"label\"\\s*:\\s*\"([^\"]+)\"");
-            java.util.regex.Pattern confPattern = java.util.regex.Pattern.compile("\"confidence\"\\s*:\\s*([0-9.]+)");
-            java.util.regex.Pattern reasonPattern = java.util.regex.Pattern
-                    .compile("\"reasoning\"\\s*:\\s*\"([^\"]+)\"");
+            Pattern labelPattern = Pattern.compile("\"label\"\\s*:\\s*\"([^\"]+)\"");
+            Pattern confPattern = Pattern.compile("\"confidence\"\\s*:\\s*([0-9.]+)");
+            Pattern reasonPattern = Pattern.compile("\"reasoning\"\\s*:\\s*\"([^\"]+)\"");
 
-            java.util.regex.Matcher labelMatcher = labelPattern.matcher(cleaned);
-            java.util.regex.Matcher confMatcher = confPattern.matcher(cleaned);
-            java.util.regex.Matcher reasonMatcher = reasonPattern.matcher(cleaned);
+            Matcher labelMatcher = labelPattern.matcher(cleaned);
+            Matcher confMatcher = confPattern.matcher(cleaned);
+            Matcher reasonMatcher = reasonPattern.matcher(cleaned);
 
             String label = "TRIVIAL";
             double confidence = 0.0;
