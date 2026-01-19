@@ -7,6 +7,8 @@ import de.tum.cit.aet.ai.dto.CommitClassificationRequestDTO;
 import de.tum.cit.aet.ai.service.AnomalyDetectorService;
 import de.tum.cit.aet.ai.service.CommitClassifierService;
 import de.tum.cit.aet.core.config.AiProperties;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -130,9 +132,9 @@ public class AiResource {
                     .block();
 
             if (response != null) {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response);
-                com.fasterxml.jackson.databind.JsonNode data = root.get("data");
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode root = mapper.readTree(response);
+                JsonNode data = root.get("data");
                 if (data != null && data.isArray() && data.size() > 0) {
                     String firstModelId = data.get(0).get("id").asText();
                     log.info("Auto-discovered model: {}", firstModelId);
