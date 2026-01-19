@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTO representing a single analyzed chunk sent to the frontend.
+ * DTO representing a single analyzed chunk sent to the client.
  * Contains the AI's classification, reasoning, and the commits that were
  * analyzed together.
  */

@@ -3,7 +3,7 @@ package de.tum.cit.aet.analysis.dto;
 import java.time.Instant;
 
 /**
- * DTO for exposing analysis status to the frontend.
+ * DTO for exposing analysis status to the client.
  */
 public record AnalysisStatusDTO(
         Long exerciseId,

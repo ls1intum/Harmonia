@@ -263,7 +263,7 @@ public class ContributionFairnessService {
                 lowConf,
                 duration);
 
-        // Convert RatedChunks to AnalyzedChunkDTOs for frontend
+        // Convert RatedChunks to AnalyzedChunkDTOs for client
         List<AnalyzedChunkDTO> analyzedChunks = ratedChunks.stream()
                 .map(rc -> new AnalyzedChunkDTO(
                         rc.chunk.commitSha(),

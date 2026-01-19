@@ -74,7 +74,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
     }
   }, [projects, selectedProjectId]);
 
-  // Set initial model from backend
+  // Set initial model from server
   useEffect(() => {
     if (currentModelData?.model && !selectedModel) {
       setSelectedModel(currentModelData.model);
