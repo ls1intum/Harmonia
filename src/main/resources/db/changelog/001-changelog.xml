@@ -130,5 +130,50 @@
             <column name="error_message" type="TEXT"/>
         </createTable>
     </changeSet>
+    <changeSet id="1710000000000-2" author="harmonia">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="analyzed_chunks"/>
+            </not>
+        </preConditions>
+        <createTable tableName="analyzed_chunks">
+            <column name="chunk_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="participation_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="chunk_identifier" type="VARCHAR(255)"/>
+            <column name="author_email" type="VARCHAR(255)"/>
+            <column name="author_name" type="VARCHAR(255)"/>
+            <column name="classification" type="VARCHAR(255)"/>
+            <column name="effort_score" type="DOUBLE"/>
+            <column name="reasoning" type="TEXT"/>
+            <column name="commit_shas" type="TEXT"/>
+            <column name="commit_messages" type="TEXT"/>
+            <column name="timestamp" type="TIMESTAMP"/>
+            <column name="lines_changed" type="INT"/>
+            <column name="is_bundled" type="BOOLEAN"/>
+            <column name="chunk_index" type="INT"/>
+            <column name="total_chunks" type="INT"/>
+            <column name="is_error" type="BOOLEAN"/>
+            <column name="error_message" type="TEXT"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="analyzed_chunks"
+            baseColumnNames="participation_id"
+            constraintName="fk_analyzed_chunks_participation"
+            referencedTableName="participations"
+            referencedColumnNames="team_participation_id"/>
+        <createIndex tableName="analyzed_chunks" indexName="idx_analyzed_chunks_participation">
+            <column name="participation_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1736466000-1" author="harmonia">
+        <addColumn tableName="participations">
+            <column name="cqi" type="DOUBLE"/>
+            <column name="is_suspicious" type="BOOLEAN"/>
+        </addColumn>
+    </changeSet>
 
 </databaseChangeLog>
