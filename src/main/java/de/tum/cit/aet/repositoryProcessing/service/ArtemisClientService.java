@@ -215,7 +215,7 @@ public class ArtemisClientService {
             if (vcsLogs != null && !vcsLogs.isEmpty()) {
                 log.info("Sample VCS log entry: {}", vcsLogs.get(0));
                 // Log all unique action types
-                var actionTypes = vcsLogs.stream()
+                List<String> actionTypes = vcsLogs.stream()
                         .map(VCSLogDTO::repositoryActionType)
                         .distinct()
                         .toList();
