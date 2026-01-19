@@ -1,7 +1,7 @@
 import type { Team } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import { RequestResourceApi, type ClientResponseDTO } from '@/app/generated';
+import { RequestResourceApi, type ClientResponseDTO, type AnalyzedChunkDTO } from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
@@ -148,21 +148,20 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   ];
 
   // Map analysis history from server
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const analysisHistory = (dto as any).analysisHistory?.map((chunk: any) => ({
-    id: chunk.id,
-    authorEmail: chunk.authorEmail,
-    authorName: chunk.authorName,
-    classification: chunk.classification,
-    effortScore: chunk.effortScore,
-    reasoning: chunk.reasoning,
-    commitShas: chunk.commitShas || [],
-    commitMessages: chunk.commitMessages || [],
-    timestamp: chunk.timestamp,
-    linesChanged: chunk.linesChanged,
-    isBundled: chunk.isBundled,
-    chunkIndex: chunk.chunkIndex,
-    totalChunks: chunk.totalChunks,
+  const analysisHistory = dto.analysisHistory?.map((chunk: AnalyzedChunkDTO) => ({
+    id: chunk.id ?? '',
+    authorEmail: chunk.authorEmail ?? '',
+    authorName: chunk.authorName ?? '',
+    classification: chunk.classification ?? '',
+    effortScore: chunk.effortScore ?? 0,
+    reasoning: chunk.reasoning ?? '',
+    commitShas: chunk.commitShas ?? [],
+    commitMessages: chunk.commitMessages ?? [],
+    timestamp: chunk.timestamp ?? new Date().toISOString(),
+    linesChanged: chunk.linesChanged ?? 0,
+    isBundled: chunk.isBundled ?? false,
+    chunkIndex: chunk.chunkIndex ?? 0,
+    totalChunks: chunk.totalChunks ?? 0,
     isError: chunk.isError,
     errorMessage: chunk.errorMessage,
   }));
