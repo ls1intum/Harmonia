@@ -3,6 +3,7 @@ package de.tum.cit.aet.dataProcessing.web;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -53,7 +54,7 @@ public class StreamResource {
 
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
 
-        String password = decryptPassword(encryptedPassword);
+        String password = CredentialUtils.decryptPassword(cryptoService, encryptedPassword);
         ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
 
         if (!credentials.isValid()) {
@@ -80,17 +81,5 @@ public class StreamResource {
         });
 
         return emitter;
-    }
-
-    private String decryptPassword(String encryptedPassword) {
-        if (encryptedPassword == null) {
-            return null;
-        }
-        try {
-            return cryptoService.decrypt(encryptedPassword);
-        } catch (Exception e) {
-            log.error("Failed to decrypt password from cookie", e);
-            return null;
-        }
     }
 }
