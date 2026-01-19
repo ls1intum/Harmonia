@@ -1,7 +1,7 @@
 package de.tum.cit.aet.analysis.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import de.tum.cit.aet.analysis.util.DtoUtils;
+import de.tum.cit.aet.util.DtoUtils;
 import java.time.LocalDateTime;
 
 /**

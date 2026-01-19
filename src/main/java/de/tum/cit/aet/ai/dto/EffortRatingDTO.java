@@ -1,7 +1,7 @@
 package de.tum.cit.aet.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import de.tum.cit.aet.analysis.util.DtoUtils;
+import de.tum.cit.aet.util.DtoUtils;
 
 /**
  * Result of LLM-based effort rating for a commit chunk.

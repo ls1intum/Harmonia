@@ -1,4 +1,4 @@
-package de.tum.cit.aet.analysis.util;
+package de.tum.cit.aet.util;
 
 /**
  * Utility methods for DTOs in the analysis package.
