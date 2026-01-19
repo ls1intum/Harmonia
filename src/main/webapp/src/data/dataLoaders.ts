@@ -286,6 +286,7 @@ export function loadBasicTeamDataStream(
       }
     } catch (e) {
       console.error('Error parsing SSE event:', e);
+      onError(e);
     }
   };
 
