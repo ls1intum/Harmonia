@@ -1,6 +1,7 @@
 package de.tum.cit.aet.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import de.tum.cit.aet.analysis.util.DtoUtils;
 
 /**
  * Result of LLM-based effort rating for a commit chunk.
@@ -32,8 +33,7 @@ public record EffortRatingDTO(
      * Normalizes to roughly match raw effort score but considers quality.
      */
     public double weightedEffort() {
-        double qualityMultiplier = 0.5 + (0.3 * complexity / 10.0) + (0.2 * novelty / 10.0);
-        return effortScore * qualityMultiplier;
+        return DtoUtils.calculateWeightedEffort(effortScore, complexity, novelty);
     }
 
     /**
