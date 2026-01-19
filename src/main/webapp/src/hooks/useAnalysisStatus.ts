@@ -1,17 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
+import { AnalysisResourceApi, Configuration } from '@/app/generated';
+import type { AnalysisStatusDTO } from '@/app/generated';
 import type { AnalysisStatus } from '@/components/ActivityLog';
 
+// Initialize API client
+const apiConfig = new Configuration({
+  basePath: window.location.origin,
+  baseOptions: {
+    withCredentials: true,
+  },
+});
+const analysisApi = new AnalysisResourceApi(apiConfig);
+
 /**
- * Fetches analysis status from the server.
+ * Fetches analysis status from the server using generated API.
  */
 async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> {
-  const response = await fetch(`/api/analysis/${exerciseId}/status`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch analysis status');
-  }
-  const data = await response.json();
+  const response = await analysisApi.getStatus(parseInt(exerciseId));
+  const data = response.data;
+  
+  // Validate and cast state to the expected type
+  const state = data.state as AnalysisStatus['state'];
+  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'DONE', 'ERROR'];
+  const finalState = validStates.includes(state) ? state : 'IDLE';
+  
   return {
-    state: data.state || 'IDLE',
+    state: finalState,
     totalTeams: data.totalTeams || 0,
     processedTeams: data.processedTeams || 0,
     currentTeamName: data.currentTeamName,
@@ -21,40 +35,18 @@ async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> 
 }
 
 /**
- * Starts a new analysis for the given exercise.
+ * Cancels a running analysis using generated API.
  */
-export async function startAnalysis(exerciseId: string): Promise<void> {
-  const response = await fetch(`/api/analysis/${exerciseId}/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) {
-    throw new Error('Failed to start analysis');
-  }
+export async function cancelAnalysis(exerciseId: string): Promise<AnalysisStatusDTO> {
+  const response = await analysisApi.cancelAnalysis(parseInt(exerciseId));
+  return response.data;
 }
 
 /**
- * Cancels a running analysis.
- */
-export async function cancelAnalysis(exerciseId: string): Promise<void> {
-  const response = await fetch(`/api/analysis/${exerciseId}/cancel`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to cancel analysis');
-  }
-}
-
-/**
- * Clears data for an exercise.
+ * Clears data for an exercise using generated API.
  */
 export async function clearData(exerciseId: string, type: 'db' | 'files' | 'both'): Promise<void> {
-  const response = await fetch(`/api/analysis/${exerciseId}/clear?type=${type}`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to clear data');
-  }
+  await analysisApi.clearData(parseInt(exerciseId), type);
 }
 
 interface UseAnalysisStatusOptions {
