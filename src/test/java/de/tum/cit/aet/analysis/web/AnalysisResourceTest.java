@@ -2,6 +2,7 @@ package de.tum.cit.aet.analysis.web;
 
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
+import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -38,7 +40,7 @@ class AnalysisResourceTest {
         status.setProcessedTeams(5);
         when(stateService.getStatus(123L)).thenReturn(status);
 
-        var response = resource.getStatus(123L);
+        ResponseEntity<AnalysisStatusDTO> response = resource.getStatus(123L);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -52,7 +54,7 @@ class AnalysisResourceTest {
         AnalysisStatus cancelled = new AnalysisStatus(123L);
         when(stateService.cancelAnalysis(123L)).thenReturn(cancelled);
 
-        var response = resource.cancelAnalysis(123L);
+        ResponseEntity<AnalysisStatusDTO> response = resource.cancelAnalysis(123L);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(stateService).cancelAnalysis(123L);
@@ -60,7 +62,7 @@ class AnalysisResourceTest {
 
     @Test
     void clearData_dbOnly_clearsOnlyDatabase() {
-        var response = resource.clearData(123L, "db");
+        ResponseEntity<String> response = resource.clearData(123L, "db");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).clearDatabase();
@@ -69,7 +71,7 @@ class AnalysisResourceTest {
 
     @Test
     void clearData_filesOnly_clearsOnlyFiles() {
-        var response = resource.clearData(123L, "files");
+        ResponseEntity<String> response = resource.clearData(123L, "files");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService, never()).clearDatabase();
@@ -78,7 +80,7 @@ class AnalysisResourceTest {
 
     @Test
     void clearData_both_clearsDatabaseAndFiles() {
-        var response = resource.clearData(123L, "both");
+        ResponseEntity<String> response = resource.clearData(123L, "both");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).clearDatabase();
@@ -87,7 +89,7 @@ class AnalysisResourceTest {
 
     @Test
     void recompute_legacyEndpoint_returns200() {
-        var response = resource.recompute("TestCourse", "123");
+        ResponseEntity<String> response = resource.recompute("TestCourse", "123");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("Recompute triggered", response.getBody());
