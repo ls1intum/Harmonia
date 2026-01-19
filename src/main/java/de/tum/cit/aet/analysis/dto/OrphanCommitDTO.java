@@ -1,6 +1,7 @@
 package de.tum.cit.aet.analysis.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import de.tum.cit.aet.analysis.util.DtoUtils;
 import java.time.LocalDateTime;
 
 /**
@@ -17,6 +18,6 @@ public record OrphanCommitDTO(
         int linesAdded,
         int linesDeleted) {
     public int linesChanged() {
-        return linesAdded + linesDeleted;
+        return DtoUtils.calculateLinesChanged(linesAdded, linesDeleted);
     }
 }
