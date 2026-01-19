@@ -1,5 +1,6 @@
 package de.tum.cit.aet.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,6 +9,7 @@ import java.util.List;
  * Contains the AI's classification, reasoning, and the commits that were
  * analyzed together.
  */
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record AnalyzedChunkDTO(
                 String id,
                 String authorEmail,

@@ -1,5 +1,6 @@
 package de.tum.cit.aet.ai.dto;
 
+import de.tum.cit.aet.ai.domain.FairnessFlag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

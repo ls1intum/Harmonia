@@ -1,6 +1,7 @@
 package de.tum.cit.aet.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import de.tum.cit.aet.ai.domain.FairnessFlag;
 import java.util.List;
 import java.util.Map;
 

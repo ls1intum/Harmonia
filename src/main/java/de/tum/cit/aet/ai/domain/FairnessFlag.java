@@ -1,4 +1,4 @@
-package de.tum.cit.aet.ai.dto;
+package de.tum.cit.aet.ai.domain;
 
 /**
  * Flags indicating potential fairness issues that require manual review.

@@ -1,5 +1,6 @@
 package de.tum.cit.aet.ai.service;
 
+import de.tum.cit.aet.ai.domain.FairnessFlag;
 import de.tum.cit.aet.ai.dto.*;
 
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
