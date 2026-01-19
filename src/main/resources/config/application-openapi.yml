@@ -10,8 +10,16 @@ spring:
       api-key: "disabled"
       base-url: "http://disabled"
 
+  datasource:
+    url: jdbc:h2:mem:openapi;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
   liquibase:
-    enabled: true
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
 
   security:
     user:

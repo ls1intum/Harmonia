@@ -11,8 +11,10 @@
 | **commitMessages** | **Array&lt;string&gt;** |             | [optional] [default to undefined] |
 | **commitShas**     | **Array&lt;string&gt;** |             | [optional] [default to undefined] |
 | **effortScore**    | **number**              |             | [optional] [default to undefined] |
+| **errorMessage**   | **string**              |             | [optional] [default to undefined] |
 | **id**             | **string**              |             | [optional] [default to undefined] |
 | **isBundled**      | **boolean**             |             | [optional] [default to undefined] |
+| **isError**        | **boolean**             |             | [optional] [default to undefined] |
 | **linesChanged**   | **number**              |             | [optional] [default to undefined] |
 | **reasoning**      | **string**              |             | [optional] [default to undefined] |
 | **timestamp**      | **string**              |             | [optional] [default to undefined] |
@@ -31,8 +33,10 @@ const instance: AnalyzedChunkDTO = {
   commitMessages,
   commitShas,
   effortScore,
+  errorMessage,
   id,
   isBundled,
+  isError,
   linesChanged,
   reasoning,
   timestamp,

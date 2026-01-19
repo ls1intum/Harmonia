@@ -87,7 +87,7 @@ dependencies {
     implementation "com.nimbusds:nimbus-jose-jwt:10.6"
 
     // Main database to persist entities
-    implementation 'org.postgresql:postgresql:42.7.8'
+    implementation 'org.postgresql:postgresql:42.7.9'
 
     // Lombok for boilerplate code reduction
     compileOnly 'org.projectlombok:lombok'
@@ -101,6 +101,8 @@ dependencies {
             // needed to reduce the number of vulnerabilities, also see https://mvnrepository.com/artifact/org.yaml/snakeyaml
         }
     }
+    // H2 in-memory database for OpenAPI generation and testing
+    runtimeOnly 'com.h2database:h2'
 
     annotationProcessor 'org.projectlombok:lombok'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

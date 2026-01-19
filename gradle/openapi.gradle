@@ -26,12 +26,6 @@ openApi {
     "-Dspring.docker.compose.enabled=false",
     "-Dspring.docker.compose.lifecycle-management=none"
     ]
-    args.set([
-      "--spring.datasource.url=jdbc:postgresql://localhost:5432/harmonia",
-      "--spring.datasource.username=postgres",
-      "--spring.datasource.password=harmonia",
-      "--spring.datasource.driver-class-name=org.postgresql.Driver"
-    ])
   }
 }
 

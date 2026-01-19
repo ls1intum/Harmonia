@@ -20,8 +20,10 @@ export interface AnalyzedChunkDTO {
   commitMessages?: Array<string>;
   commitShas?: Array<string>;
   effortScore?: number;
+  errorMessage?: string;
   id?: string;
   isBundled?: boolean;
+  isError?: boolean;
   linesChanged?: number;
   reasoning?: string;
   timestamp?: string;
