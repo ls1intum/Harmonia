@@ -9,6 +9,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Service
 @Slf4j
 @Profile("!openapi")
@@ -61,7 +64,7 @@ public class CommitClassifierService {
     /**
      * Constructor for CommitClassifierService.
      *
-     * @param chatClient the chat client for AI interactions
+     * @param chatClient   the chat client for AI interactions
      * @param aiProperties the AI configuration properties
      */
     public CommitClassifierService(ChatClient chatClient, AiProperties aiProperties) {
@@ -86,6 +89,9 @@ public class CommitClassifierService {
         String prompt = buildPrompt(request);
         String response = chatClient.prompt()
                 .user(prompt)
+                .options(org.springframework.ai.openai.OpenAiChatOptions.builder()
+                        .model(aiProperties.getCommitClassifier().getModelName())
+                        .build())
                 .call()
                 .content();
 
@@ -121,6 +127,7 @@ public class CommitClassifierService {
     private CommitClassificationDTO parseResponse(String response) {
         try {
             String cleaned = response.trim();
+            // Remove markdown code blocks if present
             if (cleaned.startsWith("```json")) {
                 cleaned = cleaned.substring(7);
             }
@@ -132,20 +139,28 @@ public class CommitClassifierService {
             }
             cleaned = cleaned.trim();
 
-            int labelStart = cleaned.indexOf("\"label\": \"") + 10;
-            int labelEnd = cleaned.indexOf("\"", labelStart);
-            String label = cleaned.substring(labelStart, labelEnd);
+            // Use regex patterns that handle optional whitespace
+            Pattern labelPattern = Pattern.compile("\"label\"\\s*:\\s*\"([^\"]+)\"");
+            Pattern confPattern = Pattern.compile("\"confidence\"\\s*:\\s*([0-9.]+)");
+            Pattern reasonPattern = Pattern.compile("\"reasoning\"\\s*:\\s*\"([^\"]+)\"");
 
-            int confStart = cleaned.indexOf("\"confidence\": ") + 15;
-            int confEnd = cleaned.indexOf(",", confStart);
-            if (confEnd == -1) {
-                confEnd = cleaned.indexOf("}", confStart);
+            Matcher labelMatcher = labelPattern.matcher(cleaned);
+            Matcher confMatcher = confPattern.matcher(cleaned);
+            Matcher reasonMatcher = reasonPattern.matcher(cleaned);
+
+            String label = "TRIVIAL";
+            double confidence = 0.0;
+            String reasoning = "Could not parse response";
+
+            if (labelMatcher.find()) {
+                label = labelMatcher.group(1);
             }
-            double confidence = Double.parseDouble(cleaned.substring(confStart, confEnd).trim());
-
-            int reasonStart = cleaned.indexOf("\"reasoning\": \"") + 14;
-            int reasonEnd = cleaned.lastIndexOf("\"");
-            String reasoning = cleaned.substring(reasonStart, reasonEnd);
+            if (confMatcher.find()) {
+                confidence = Double.parseDouble(confMatcher.group(1));
+            }
+            if (reasonMatcher.find()) {
+                reasoning = reasonMatcher.group(1);
+            }
 
             CommitLabel commitLabel = CommitLabel.valueOf(label);
             return new CommitClassificationDTO(commitLabel, confidence, reasoning);

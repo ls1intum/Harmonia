@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
-                   https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd"
-                   objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
-    <changeSet id="1765235437246-1" author="Cathy">
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1766099808772-1" author="Cathy">
         <createTable tableName="participations">
             <column name="team_participation_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_participations"/>
@@ -22,7 +23,7 @@
             <column name="submission_count" type="INT"/>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-2" author="Cathy">
+    <changeSet id="1766099808772-2" author="Cathy">
         <createTable tableName="students">
             <column name="student_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_students"/>
@@ -38,14 +39,14 @@
             <column name="team_participation_id" type="UUID"/>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-3" author="Cathy">
+    <changeSet id="1766099808772-3" author="Cathy">
         <createTable tableName="teamanalysis">
             <column name="team_analysis_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_teamanalysis"/>
             </column>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-4" author="Cathy">
+    <changeSet id="1766099808772-4" author="Cathy">
         <createTable tableName="teamrepository">
             <column name="team_repository_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_teamrepository"/>
@@ -58,7 +59,7 @@
             <column name="error" type="VARCHAR(255)"/>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-5" author="Cathy">
+    <changeSet id="1766099808772-5" author="Cathy">
         <createTable tableName="tutors">
             <column name="tutor_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_tutors"/>
@@ -69,14 +70,14 @@
             <column name="email" type="VARCHAR(255)"/>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-6" author="Cathy">
+    <changeSet id="1766099808772-6" author="Cathy">
         <createTable tableName="user">
             <column name="user_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_user"/>
             </column>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-7" author="Cathy">
+    <changeSet id="1766099808772-7" author="Cathy">
         <createTable tableName="vcslogs">
             <column name="vcs_log_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_vcslogs"/>
@@ -88,29 +89,91 @@
             <column name="email" type="VARCHAR(255)"/>
         </createTable>
     </changeSet>
-    <changeSet id="1765235437246-8" author="Cathy">
+    <changeSet id="1766099808772-8" author="Cathy">
         <addUniqueConstraint columnNames="participation_id" constraintName="uc_teamrepository_participation"
                              tableName="teamrepository"/>
     </changeSet>
-    <changeSet id="1765235437246-9" author="Cathy">
+    <changeSet id="1766099808772-9" author="Cathy">
         <addForeignKeyConstraint baseColumnNames="tutor_id" baseTableName="participations"
                                  constraintName="FK_PARTICIPATIONS_ON_TUTOR" referencedColumnNames="tutor_id"
                                  referencedTableName="tutors"/>
     </changeSet>
-    <changeSet id="1765235437246-10" author="Cathy">
+    <changeSet id="1766099808772-10" author="Cathy">
         <addForeignKeyConstraint baseColumnNames="team_participation_id" baseTableName="students"
                                  constraintName="FK_STUDENTS_ON_TEAMPARTICIPATION"
                                  referencedColumnNames="team_participation_id" referencedTableName="participations"/>
     </changeSet>
-    <changeSet id="1765235437246-11" author="Cathy">
+    <changeSet id="1766099808772-11" author="Cathy">
         <addForeignKeyConstraint baseColumnNames="participation_id" baseTableName="teamrepository"
                                  constraintName="FK_TEAMREPOSITORY_ON_PARTICIPATION"
                                  referencedColumnNames="team_participation_id" referencedTableName="participations"/>
     </changeSet>
-    <changeSet id="1765235437246-12" author="Cathy">
+    <changeSet id="1766099808772-12" author="Cathy">
         <addForeignKeyConstraint baseColumnNames="team_repository_id" baseTableName="vcslogs"
                                  constraintName="FK_VCSLOGS_ON_TEAM_REPOSITORY"
                                  referencedColumnNames="team_repository_id" referencedTableName="teamrepository"/>
+    </changeSet>
+    <changeSet id="1766099808772-13" author="Cathy">
+        <createTable tableName="analysis_status">
+            <column name="exercise_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_analysis_status"/>
+            </column>
+            <column name="state" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_teams" type="INT"/>
+            <column name="processed_teams" type="INT"/>
+            <column name="current_team_name" type="VARCHAR(255)"/>
+            <column name="current_stage" type="VARCHAR(255)"/>
+            <column name="started_at" type="TIMESTAMP"/>
+            <column name="last_updated_at" type="TIMESTAMP"/>
+            <column name="error_message" type="TEXT"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1710000000000-2" author="harmonia">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="analyzed_chunks"/>
+            </not>
+        </preConditions>
+        <createTable tableName="analyzed_chunks">
+            <column name="chunk_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="participation_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="chunk_identifier" type="VARCHAR(255)"/>
+            <column name="author_email" type="VARCHAR(255)"/>
+            <column name="author_name" type="VARCHAR(255)"/>
+            <column name="classification" type="VARCHAR(255)"/>
+            <column name="effort_score" type="DOUBLE"/>
+            <column name="reasoning" type="TEXT"/>
+            <column name="commit_shas" type="TEXT"/>
+            <column name="commit_messages" type="TEXT"/>
+            <column name="timestamp" type="TIMESTAMP"/>
+            <column name="lines_changed" type="INT"/>
+            <column name="is_bundled" type="BOOLEAN"/>
+            <column name="chunk_index" type="INT"/>
+            <column name="total_chunks" type="INT"/>
+            <column name="is_error" type="BOOLEAN"/>
+            <column name="error_message" type="TEXT"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="analyzed_chunks"
+            baseColumnNames="participation_id"
+            constraintName="fk_analyzed_chunks_participation"
+            referencedTableName="participations"
+            referencedColumnNames="team_participation_id"/>
+        <createIndex tableName="analyzed_chunks" indexName="idx_analyzed_chunks_participation">
+            <column name="participation_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1736466000-1" author="harmonia">
+        <addColumn tableName="participations">
+            <column name="cqi" type="DOUBLE"/>
+            <column name="is_suspicious" type="BOOLEAN"/>
+        </addColumn>
     </changeSet>
 
 </databaseChangeLog>

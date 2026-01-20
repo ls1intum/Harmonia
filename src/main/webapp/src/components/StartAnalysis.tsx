@@ -1,30 +1,120 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlayCircle, Loader2 } from 'lucide-react';
+import { PlayCircle, Loader2, RefreshCw, Cpu } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { fetchProjectProfiles } from '@/data/configLoader';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username: string, password: string) => void;
 }
 
+interface LLMModel {
+  id: string;
+  object: string;
+  owned_by: string;
+}
+
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
-  const [course, setCourse] = useState('ITP');
-  const [exercise, setExercise] = useState('Final Project');
+  const queryClient = useQueryClient();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState('https://artemis.tum.de');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleCourseChange = (value: string) => {
-    setCourse(value);
-    setExercise(''); // Reset exercise when course changes
+  // Fetch available models from LLM server
+  const {
+    data: modelsData,
+    isLoading: isLoadingModels,
+    refetch: refetchModels,
+  } = useQuery({
+    queryKey: ['llm-models'],
+    queryFn: async () => {
+      const response = await fetch('/api/ai/models');
+      if (!response.ok) throw new Error('Failed to fetch models');
+      const data = await response.json();
+      return data.data as LLMModel[];
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
+
+  // Fetch current model selection
+  const { data: currentModelData } = useQuery({
+    queryKey: ['current-model'],
+    queryFn: async () => {
+      const response = await fetch('/api/ai/model');
+      if (!response.ok) throw new Error('Failed to fetch current model');
+      return response.json();
+    },
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: fetchProjectProfiles,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    meta: {
+      onError: () => {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load projects',
+          description: 'Could not fetch project profiles from server.',
+        });
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
+
+  // Set initial model from server
+  useEffect(() => {
+    if (currentModelData?.model && !selectedModel) {
+      setSelectedModel(currentModelData.model);
+    }
+  }, [currentModelData, selectedModel]);
+
+  // Auto-select first model if none selected
+  useEffect(() => {
+    if (modelsData && modelsData.length > 0 && !selectedModel) {
+      setSelectedModel(modelsData[0].id);
+    }
+  }, [modelsData, selectedModel]);
+
+  const handleModelChange = async (modelId: string) => {
+    setSelectedModel(modelId);
+    try {
+      const response = await fetch('/api/ai/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId }),
+      });
+      if (response.ok) {
+        toast({
+          title: 'Model updated',
+          description: `Now using ${modelId} for analysis.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['current-model'] });
+      }
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to update model',
+        description: 'Could not change the AI model.',
+      });
+    }
   };
 
   const handleStart = async () => {
-    if (course && exercise && username && password && serverUrl) {
+    const selectedProject = projects.find(p => p.id === selectedProjectId);
+    if (selectedProject && username && password && serverUrl) {
       setIsLoading(true);
       try {
         const response = await fetch('/api/auth/login', {
@@ -36,7 +126,8 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         });
 
         if (response.ok) {
-          onStart(course, exercise, username, password);
+          // Pass course name and exercise ID (as string)
+          onStart(selectedProject.courseName, selectedProject.exerciseId.toString(), username, password);
         } else {
           toast({
             variant: 'destructive',
@@ -87,27 +178,48 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
         <div className="my-6 border-t border-border" />
 
+        {/* AI Model Selector */}
         <div className="space-y-2">
-          <Label htmlFor="course">Course</Label>
-          <Select value={course} onValueChange={handleCourseChange}>
-            <SelectTrigger id="course">
-              <SelectValue placeholder="Select a course" />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="model" className="flex items-center gap-2">
+              <Cpu className="h-4 w-4" />
+              AI Model
+            </Label>
+            <Button variant="ghost" size="sm" onClick={() => refetchModels()} disabled={isLoadingModels} className="h-8 px-2">
+              <RefreshCw className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+          <Select value={selectedModel} onValueChange={handleModelChange} disabled={isLoadingModels}>
+            <SelectTrigger id="model">
+              <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ITP">ITP</SelectItem>
-              <SelectItem value="DevOps">DevOps</SelectItem>
+              {modelsData?.map(model => (
+                <SelectItem key={model.id} value={model.id}>
+                  {model.id}
+                </SelectItem>
+              ))}
+              {(!modelsData || modelsData.length === 0) && !isLoadingModels && (
+                <SelectItem value="none" disabled>
+                  No models available
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="exercise">Exercise</Label>
-          <Select value={exercise} onValueChange={setExercise} disabled={!course}>
-            <SelectTrigger id="exercise">
-              <SelectValue placeholder="Select an exercise" />
+          <Label htmlFor="project">Project</Label>
+          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+            <SelectTrigger id="project">
+              <SelectValue placeholder="Select a project" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Final Project">Final Project</SelectItem>
+              {projects.map(project => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.courseName} - {project.semester} (Exercise ID: {project.exerciseId})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -115,7 +227,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         <Button
           size="lg"
           onClick={handleStart}
-          disabled={!course || !exercise || !username || !password || !serverUrl || isLoading}
+          disabled={!selectedProjectId || !username || !password || !serverUrl || isLoading}
           className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}

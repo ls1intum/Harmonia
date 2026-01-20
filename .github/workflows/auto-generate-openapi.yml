@@ -56,13 +56,6 @@ jobs:
       - name: Generate OpenAPI Spec
         env:
           SPRING_PROFILES_ACTIVE: openapi
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/harmonia
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: harmonia
-          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-          SPRING_JPA_HIBERNATE_DDL_AUTO: none
-          SPRING_LIQUIBASE_ENABLED: false
-          SPRING_DOCKER_COMPOSE_ENABLED: false
         run: ./gradlew generateApiDocs -x webapp
 
       - name: Generate Client Code

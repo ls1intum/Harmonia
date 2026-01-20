@@ -1,0 +1,26 @@
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+
+> Task :integrationTest
+
+LlmIntegrationTest > testRateTrivialCommit() FAILED
+    org.opentest4j.AssertionFailedError at LlmIntegrationTest.java:117
+
+2026-01-10T01:31:29.464+01:00  INFO 65492 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-01-10T01:31:29.465+01:00  INFO 65492 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-01-10T01:31:29.466+01:00  INFO 65492 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+> Task :integrationTest FAILED
+
+[Incubating] Problems report is available at: file:///Users/liamberger/Documents/private/Harmonia/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+5 actionable tasks: 1 executed, 4 up-to-date

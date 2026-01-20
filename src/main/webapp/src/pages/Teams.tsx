@@ -1,9 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
-import { loadBasicTeamData, loadComplexTeamData, triggerReanalysis } from '@/data/dataLoaders';
 import { toast } from '@/hooks/use-toast';
+import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
+import { loadBasicTeamDataStream } from '@/data/dataLoaders';
+import type { ClientResponseDTO } from '@/app/generated';
 
 export default function Teams() {
   const location = useLocation();
@@ -11,56 +13,114 @@ export default function Teams() {
   const queryClient = useQueryClient();
   const { course, exercise } = location.state || {};
 
-  // Query 1: Fetch basic data (fast)
-  const { data: basicTeams, isLoading: isLoadingBasic } = useQuery({
-    queryKey: ['teams', 'basic', course, exercise],
-    queryFn: async () => {
-      return await loadBasicTeamData(course, exercise);
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
+  // Use new server-synced status hook
+  const { status, refetch: refetchStatus } = useAnalysisStatus({
+    exerciseId: exercise,
+    enabled: !!exercise,
   });
 
-  // Query 2: Fetch complex data (slow, LLM-based)
-  const { data: complexTeams, isLoading: isLoadingComplex } = useQuery({
-    queryKey: ['teams', 'complex', course, exercise],
+  // Fetch teams from database on load
+  const { data: teams = [] } = useQuery({
+    queryKey: ['teams', exercise],
     queryFn: async () => {
-      return await loadComplexTeamData(course, exercise);
+      // Fetch already-analyzed teams from database
+      const response = await fetch('/api/requestResource/getData');
+      if (!response.ok) return [];
+      const data = await response.json();
+      // Transform to Team type
+      return data.map((item: ClientResponseDTO) => ({
+        id: item.teamId?.toString() || 'unknown',
+        teamName: item.teamName || 'Unknown Team',
+        tutor: item.tutor || 'Unassigned',
+        students: (item.students || []).map(s => ({
+          name: s.name || 'Unknown',
+          commits: s.commitCount || 0,
+          linesAdded: s.linesAdded || 0,
+          linesDeleted: s.linesDeleted || 0,
+          linesChanged: s.linesChanged || 0,
+        })),
+        basicMetrics: {
+          totalCommits: (item.students || []).reduce((sum, s) => sum + (s.commitCount || 0), 0),
+          totalLines: (item.students || []).reduce((sum, s) => sum + (s.linesChanged || 0), 0),
+        },
+        cqi: item.cqi !== null && item.cqi !== undefined ? Math.round(item.cqi) : undefined,
+        isSuspicious: item.isSuspicious,
+      })) as Team[];
     },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 10 * 60 * 1000,
+    enabled: !!exercise,
   });
 
-  // Merge data: use complex if available, otherwise basic
-  const teams = complexTeams || basicTeams || [];
-
-  // Calculate progress
-  const basicLoaded = !!basicTeams;
-  const complexLoaded = !!complexTeams;
-  const isAnalyzing = isLoadingBasic || isLoadingComplex;
-
-  const progress = (() => {
-    if (complexLoaded) return 100;
-    if (basicLoaded) return 50;
-    if (isLoadingBasic) return 25;
-    return 0;
-  })();
-
-  // Mutation for recompute
-  const reanalyzeMutation = useMutation({
+  // Mutation for starting analysis
+  const startMutation = useMutation({
     mutationFn: async () => {
-      toast({ title: 'Triggering reanalysis...' });
-      await triggerReanalysis(course, exercise);
+      toast({ title: 'Starting analysis...' });
+      // Start streaming
+      return new Promise<void>((resolve, reject) => {
+        loadBasicTeamDataStream(
+          exercise,
+          () => {}, // onTotal
+          team => {
+            // Update cache with new team
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => [...old, team as unknown as Team]);
+          },
+          () => {
+            refetchStatus();
+            resolve();
+          },
+          error => {
+            reject(error);
+          },
+        );
+      });
     },
     onSuccess: () => {
-      // Invalidate both queries to refetch
-      queryClient.invalidateQueries({ queryKey: ['teams', 'basic', course, exercise] });
-      queryClient.invalidateQueries({ queryKey: ['teams', 'complex', course, exercise] });
+      toast({ title: 'Analysis completed!' });
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      refetchStatus();
     },
     onError: () => {
       toast({
         variant: 'destructive',
-        title: 'Failed to trigger reanalysis',
+        title: 'Failed to start analysis',
+      });
+      refetchStatus();
+    },
+  });
+
+  // Mutation for cancelling
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelAnalysis(exercise),
+    onSuccess: () => {
+      toast({ title: 'Analysis cancelled' });
+      refetchStatus();
+    },
+  });
+
+  // Mutation for recompute (force)
+  const recomputeMutation = useMutation({
+    mutationFn: async () => {
+      toast({ title: 'Forcing reanalysis...' });
+      // Clear DB first, then start fresh
+      await clearData(exercise, 'db');
+      // Trigger start
+      startMutation.mutate();
+    },
+  });
+
+  // Mutation for clear
+  const clearMutation = useMutation({
+    mutationFn: (type: 'db' | 'files' | 'both') => clearData(exercise, type),
+    onSuccess: () => {
+      toast({ title: 'Data cleared successfully' });
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      refetchStatus();
+    },
+    onError: () => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to clear data',
       });
     },
   });
@@ -75,20 +135,18 @@ export default function Teams() {
     navigate(`/teams/${team.id}`, { state: { team, course, exercise } });
   };
 
-  const handleRecompute = () => {
-    reanalyzeMutation.mutate();
-  };
-
   return (
     <TeamsList
       teams={teams}
       onTeamSelect={handleTeamSelect}
       onBackToHome={() => navigate('/')}
-      onRecompute={handleRecompute}
+      onStart={() => startMutation.mutate()}
+      onCancel={() => cancelMutation.mutate()}
+      onRecompute={() => recomputeMutation.mutate()}
+      onClear={type => clearMutation.mutate(type)}
       course={course}
       exercise={exercise}
-      isAnalyzing={isAnalyzing || reanalyzeMutation.isPending}
-      progress={progress}
+      analysisStatus={status}
     />
   );
 }

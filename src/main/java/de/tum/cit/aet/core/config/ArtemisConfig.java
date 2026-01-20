@@ -11,6 +11,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 public class ArtemisConfig {
 
+    private String baseUrl;
+    private String username;
+    private String password;
+    private String jwtToken;
     private Long exerciseId;
     private String gitRepoPath;
     private Integer numThreads;

@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Service responsible for communicating with the Artemis API.
@@ -24,6 +25,7 @@ import java.util.Map;
 @Slf4j
 public class ArtemisClientService {
 
+    @SuppressWarnings("unused")
     private final ArtemisConfig artemisConfig;
 
     @Autowired
@@ -121,13 +123,14 @@ public class ArtemisClientService {
      *
      * @param serverUrl The Artemis server URL
      * @param jwtToken  The JWT token for authentication
+     * @param exerciseId The exercise ID to fetch participations for
      * @return List of participation DTOs containing team and repository information
      */
-    public List<ParticipationDTO> fetchParticipations(String serverUrl, String jwtToken) {
-        log.info("Fetching participations for exercise ID: {} from {}", artemisConfig.getExerciseId(), serverUrl);
+    public List<ParticipationDTO> fetchParticipations(String serverUrl, String jwtToken, Long exerciseId) {
+        log.info("Fetching participations for exercise ID: {} from {}", exerciseId, serverUrl);
 
         String uri = String.format("/api/exercise/exercises/%d/participations?withLatestResults=false",
-                artemisConfig.getExerciseId());
+                exerciseId);
 
         try {
             RestClient dynamicClient = RestClient.builder()
@@ -192,7 +195,7 @@ public class ArtemisClientService {
      * @return List of VCS log DTOs filtered for commits
      */
     public List<VCSLogDTO> fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
-        log.info("Fetching VCS access log for participation ID: {}", participationId);
+        log.info("Fetching VCS access log for participation ID: {} from {}", participationId, serverUrl + "/api/programming/programming-exercise-participations/" + participationId + "/vcs-access-log");
 
         String uri = String.format("/api/programming/programming-exercise-participations/%d/vcs-access-log", participationId);
         try {
@@ -208,16 +211,30 @@ public class ArtemisClientService {
                     .body(new ParameterizedTypeReference<>() {
                     });
 
-            // Filter the fetched logs to only include "WRITE" actions, indicating a commit
-            if (vcsLogs != null) {
-                vcsLogs = vcsLogs.stream()
-                        .filter(entry -> "WRITE".equals(entry.repositoryActionType()))
+            log.info("Raw VCS logs received: {} entries", vcsLogs != null ? vcsLogs.size() : 0);
+            if (vcsLogs != null && !vcsLogs.isEmpty()) {
+                log.info("Sample VCS log entry: {}", vcsLogs.get(0));
+                // Log all unique action types
+                List<String> actionTypes = vcsLogs.stream()
+                        .map(VCSLogDTO::repositoryActionType)
+                        .distinct()
                         .toList();
+                log.info("Action types found: {}", actionTypes);
+            }
+
+            // Filter the fetched logs
+            if (vcsLogs != null) {
+                Set<String> validActions = Set.of("WRITE", "PUSH");
+                int beforeFilter = vcsLogs.size();
+                vcsLogs = vcsLogs.stream()
+                        .filter(entry -> validActions.contains(entry.repositoryActionType()))
+                        .toList();
+                log.info("After filtering for WRITE actions: {} entries (was {})", vcsLogs.size(), beforeFilter);
             }
 
             return vcsLogs;
         } catch (Exception e) {
-            log.error("Error fetching participations from Artemis", e);
+            log.error("Error fetching VCS access log from Artemis for participation {}", participationId, e);
             throw new ArtemisConnectionException("Failed to fetch VCS access logs from Artemis", e);
         }
     }

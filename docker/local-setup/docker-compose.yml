@@ -32,6 +32,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/harmonia
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: harmonia
+      # Override AI base URL to point to host machine
+      SPRING_AI_OPENAI_BASE_URL: http://host.docker.internal:1234
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
     healthcheck:
