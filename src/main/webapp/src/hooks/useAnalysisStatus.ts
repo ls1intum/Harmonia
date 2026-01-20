@@ -18,12 +18,12 @@ const analysisApi = new AnalysisResourceApi(apiConfig);
 async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> {
   const response = await analysisApi.getStatus(parseInt(exerciseId));
   const data = response.data;
-  
+
   // Validate and cast state to the expected type
   const state = data.state as AnalysisStatus['state'];
   const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'DONE', 'ERROR'];
   const finalState = validStates.includes(state) ? state : 'IDLE';
-  
+
   return {
     state: finalState,
     totalTeams: data.totalTeams || 0,
