@@ -107,8 +107,9 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 
 /**
  * Transform ClientResponseDTO to ComplexTeamData using server-calculated CQI
+ * Exported for use in components that need to transform DTOs
  */
-function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
+export function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
   const teamId = dto.teamId?.toString() || 'unknown';
 
@@ -130,14 +131,14 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
       value: Math.round(balanceScore),
       weight: 50,
       description: 'Are teammates contributing at similar levels?',
-      details: 'Calculated from commit distribution.',
+      details: `Score: ${Math.round(balanceScore)}/100. Calculated from commit distribution.`,
     },
     {
-      name: 'Pairing Signals',
+      name: 'Pair Programming Signals',
       value: Math.round(pairingScore),
       weight: 50,
       description: 'Did teammates actually work together?',
-      details: 'Calculated from alternation and co-editing patterns.',
+      details: `Score: ${Math.round(pairingScore)}/100. Calculated from alternation and co-editing patterns.`,
     },
   ];
 

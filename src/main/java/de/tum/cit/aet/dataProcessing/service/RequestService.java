@@ -261,7 +261,7 @@ public class RequestService {
         double balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
 
         List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
-        double pairingScore = pairingCalculator.calculate(commitInfos);
+        double pairingScore = pairingCalculator.calculate(commitInfos, team.name());
 
         Double cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
 
@@ -446,11 +446,11 @@ public class RequestService {
 
                     double balanceScore = 0.0;
                     double pairingScore = 0.0;
-                    Double cqi = null;
+                    Double cqi = participation.getCqi();  // Use saved CQI from database
                     Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious()
                             : false;
 
-                    // Calculate balance score from student data
+                    // Always calculate balance score from student data
                     Map<String, Integer> commitCounts = new HashMap<>();
                     students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
                     balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
@@ -467,7 +467,7 @@ public class RequestService {
                                 log.warn("Team {}: no commit info extracted from repository, pairing score = 0", participation.getName());
                                 pairingScore = 0.0;
                             } else {
-                                pairingScore = pairingCalculator.calculate(commitInfos);
+                                pairingScore = pairingCalculator.calculate(commitInfos, participation.getName());
                                 log.debug("Team {}: calculated pairing score = {} from {} commits", 
                                         participation.getName(), pairingScore, commitInfos.size());
                             }
@@ -480,8 +480,10 @@ public class RequestService {
                         pairingScore = 0.0;
                     }
 
+                    // Always recalculate CQI from current scores to ensure accuracy
+                    // This ensures we use the latest calculation logic and team name for pairing
                     cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
-                    log.info("Team {}: balance={}, pairing={}, CQI={}", 
+                    log.info("Team {}: balance={}, pairing={}, CQI={} (recalculated)", 
                             participation.getName(), balanceScore, pairingScore, cqi);
 
                     return new ClientResponseDTO(
@@ -538,7 +540,7 @@ public class RequestService {
                 double balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
 
                 List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
-                double pairingScore = pairingCalculator.calculate(commitInfos);
+                double pairingScore = pairingCalculator.calculate(commitInfos, participation.getName());
 
                 double cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
 
@@ -830,7 +832,7 @@ public class RequestService {
                         report.append("WARNING: No commits extracted from repository.\n");
                         report.append("Pairing Score: 0.0 (no commits)\n");
                     } else {
-                        double pairingScore = pairingCalculator.calculate(commitInfos);
+                        double pairingScore = pairingCalculator.calculate(commitInfos, participation.getName());
                         report.append("Pairing Score: ").append(pairingScore).append("\n");
 
                         // Show commit distribution

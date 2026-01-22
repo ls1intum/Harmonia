@@ -23,6 +23,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
           </div>
           <div className="flex flex-col items-end gap-1 ml-4">
             <span className="text-3xl font-bold">{metric.value}</span>
+            <span className="text-xs text-muted-foreground">out of 100</span>
             <span className="text-xs text-muted-foreground">{metric.weight}% weight</span>
           </div>
         </div>

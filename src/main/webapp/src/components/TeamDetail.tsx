@@ -108,7 +108,7 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
         <div>
           <h3 className="text-2xl font-bold mb-2">Detailed Metrics</h3>
           <p className="text-muted-foreground">
-            The CQI is composed of four weighted sub-indices that measure different aspects of team collaboration
+            The CQI is composed of two weighted sub-indices that measure different aspects of team collaboration
           </p>
         </div>
 
