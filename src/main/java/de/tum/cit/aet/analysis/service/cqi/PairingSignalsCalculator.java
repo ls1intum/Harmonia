@@ -46,6 +46,13 @@ public class PairingSignalsCalculator {
             return 0.0;
         }
 
+        // Log unique authors for debugging
+        java.util.Set<String> uniqueAuthors = commits.stream()
+                .map(CommitInfo::getAuthor)
+                .collect(java.util.stream.Collectors.toSet());
+        log.info("Pairing calculation for team '{}': {} commits, {} unique authors: {}", 
+                teamName, commits.size(), uniqueAuthors.size(), uniqueAuthors);
+        
         double alternationRate = calculateAlternationRate(commits);
         double coEditingRate = calculateCoEditingRate(commits, teamName);
 
@@ -119,10 +126,10 @@ public class PairingSignalsCalculator {
     }
 
     /**
-     * Calculates co-editing rate: fraction of commits where different authors are collaborating on class dates
-     * Instead of a time window, this checks if commits happen on the team's scheduled class day
-     * When schedule data is available, commits on the same class day indicate pair programming
-     * Falls back to checking same-day commits if schedule is not available
+     * Calculates co-editing rate: fraction of commits where different authors are collaborating
+     * Uses a 24-hour time window to detect collaboration (commits within 24 hours from different authors)
+     * When schedule data is available, commits on the same class day are prioritized
+     * Falls back to a 24-hour window if no schedule is available
      *
      * @param commits List of commits to analyze
      * @param teamName Team name to look up class schedule
@@ -143,36 +150,47 @@ public class PairingSignalsCalculator {
 
         log.debug("Team {} has {} scheduled class dates", teamName, classDateSet.size());
 
+        // Use 24-hour window for collaboration detection (more lenient than same-day only)
+        java.time.Duration collaborationWindow = java.time.Duration.ofHours(24);
+
         for (int i = 0; i < commits.size(); i++) {
             CommitInfo current = commits.get(i);
             boolean foundCollaborator = false;
 
-            // Look for commits from different authors on the same class day or same calendar day
+            // Look for commits from different authors within the collaboration window
             for (int j = i + 1; j < commits.size(); j++) {
                 CommitInfo other = commits.get(j);
 
                 if (!current.getAuthor().equals(other.getAuthor())) {
-                    // Check if on same class date (if available)
                     LocalDate currentDate = current.getTimestamp().toLocalDate();
                     LocalDate otherDate = other.getTimestamp().toLocalDate();
+                    java.time.Duration timeDiff = java.time.Duration.between(
+                            current.getTimestamp(), other.getTimestamp()).abs();
+
+                    boolean isCollaboration = false;
 
                     if (!classDateSet.isEmpty()) {
-                        // Use class schedule if available
+                        // Use class schedule if available - commits on same class day
                         boolean isCollaborationDay = classDateSet.contains(currentDate) && 
                                            classDateSet.contains(otherDate) &&
                                            currentDate.equals(otherDate);
                         if (isCollaborationDay) {
-                            log.debug("Checking class date: {} in schedule: true", currentDate);
-                            foundCollaborator = true;
-                            break;
+                            log.debug("Found collaboration on class day: {}", currentDate);
+                            isCollaboration = true;
                         }
-                    } else {
-                        // Fallback: same calendar day if no schedule
-                        if (currentDate.equals(otherDate)) {
-                            log.debug("No class schedule available, using same-day collaboration check: true");
-                            foundCollaborator = true;
-                            break;
-                        }
+                    }
+                    
+                    // Fallback: commits within 24 hours from different authors
+                    // This is more lenient and catches pair programming even if not on exact same day
+                    if (!isCollaboration && timeDiff.compareTo(collaborationWindow) <= 0) {
+                        log.debug("Found collaboration within 24h window: {} hours between commits", 
+                                timeDiff.toHours());
+                        isCollaboration = true;
+                    }
+
+                    if (isCollaboration) {
+                        foundCollaborator = true;
+                        break;
                     }
                 }
             }
@@ -183,8 +201,8 @@ public class PairingSignalsCalculator {
         }
 
         double coEditingRate = (double) coEditingCommits / totalCommits;
-        log.info("Co-editing rate calculated: {}/{} = {} (team: {})", 
-                coEditingCommits, totalCommits, coEditingRate, teamName);
+        log.info("Co-editing rate calculated: {}/{} = {} (team: {}, schedule dates: {})", 
+                coEditingCommits, totalCommits, coEditingRate, teamName, classDateSet.size());
         return coEditingRate;
     }
 

@@ -261,6 +261,16 @@ public class RequestService {
         double balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
 
         List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
+        
+        // Log commit info for debugging
+        if (!commitInfos.isEmpty()) {
+            java.util.Set<String> uniqueAuthors = commitInfos.stream()
+                    .map(de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo::getAuthor)
+                    .collect(java.util.stream.Collectors.toSet());
+            log.info("Team {}: extracted {} commits from {} unique authors: {}", 
+                    team.name(), commitInfos.size(), uniqueAuthors.size(), uniqueAuthors);
+        }
+        
         double pairingScore = pairingCalculator.calculate(commitInfos, team.name());
 
         Double cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
@@ -467,8 +477,15 @@ public class RequestService {
                                 log.warn("Team {}: no commit info extracted from repository, pairing score = 0", participation.getName());
                                 pairingScore = 0.0;
                             } else {
+                                // Log commit info for debugging
+                                java.util.Set<String> uniqueAuthors = commitInfos.stream()
+                                        .map(de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo::getAuthor)
+                                        .collect(java.util.stream.Collectors.toSet());
+                                log.info("Team {}: extracted {} commits from {} unique authors: {}", 
+                                        participation.getName(), commitInfos.size(), uniqueAuthors.size(), uniqueAuthors);
+                                
                                 pairingScore = pairingCalculator.calculate(commitInfos, participation.getName());
-                                log.debug("Team {}: calculated pairing score = {} from {} commits", 
+                                log.info("Team {}: calculated pairing score = {} from {} commits", 
                                         participation.getName(), pairingScore, commitInfos.size());
                             }
                         } catch (Exception e) {
@@ -711,7 +728,15 @@ public class RequestService {
                 revWalk.markStart(revWalk.parseCommit(headId));
                 for (org.eclipse.jgit.revwalk.RevCommit commit : revWalk) {
                     String commitHash = commit.getName();
-                    String email = commitToEmail.getOrDefault(commitHash, commit.getAuthorIdent().getEmailAddress());
+                    // Try to get email from VCS logs first, then fall back to commit author
+                    String email = commitToEmail.get(commitHash);
+                    if (email == null || email.isEmpty()) {
+                        email = commit.getAuthorIdent().getEmailAddress();
+                    }
+                    // Normalize email to lowercase for consistent matching
+                    if (email != null) {
+                        email = email.toLowerCase().trim();
+                    }
                     java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
                             java.time.Instant.ofEpochSecond(commit.getCommitTime()),
                             java.time.ZoneId.systemDefault());
