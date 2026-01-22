@@ -54,10 +54,12 @@ class ContributionFairnessServiceTest {
 
         chunkA = new CommitChunkDTO(
                 "hash1", 1L, "student1@tum.de", "feat", LocalDateTime.now(),
-                List.of(), "diff", 100, 0, 0, 1, false, List.of());
+                List.of(), "diff", 100, 0, 0, 1, false, List.of(),
+                null, null, null);
         chunkB = new CommitChunkDTO(
                 "hash2", 2L, "student2@tum.de", "fix", LocalDateTime.now(),
-                List.of(), "diff", 10, 0, 0, 1, false, List.of());
+                List.of(), "diff", 10, 0, 0, 1, false, List.of(),
+                null, null, null);
 
         ratingHigh = new EffortRatingDTO(8.0, 5.0, 5.0, CommitLabel.FEATURE, 0.9, "Good work", false, null);
         ratingLow = new EffortRatingDTO(2.0, 2.0, 2.0, CommitLabel.TRIVIAL, 0.9, "Trivial", false, null);
