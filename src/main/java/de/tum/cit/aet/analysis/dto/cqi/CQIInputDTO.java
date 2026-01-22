@@ -3,20 +3,22 @@ package de.tum.cit.aet.analysis.dto.cqi;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 
 /**
  * Input data for CQI calculation.
+ * <p>
+ * This DTO is used when calling CQI calculation with pre-aggregated data.
+ * For most use cases, use {@link de.tum.cit.aet.analysis.service.cqi.CQICalculatorService#calculate}
+ * directly with RatedChunks.
  *
  * @param teamSize              Number of team members
  * @param effortByAuthor        Map of author ID to their total weighted effort
  * @param locByAuthor           Map of author ID to their total lines changed
  * @param commitsByType         Aggregated commit types across all authors
- * @param chunks                List of rated commit chunks (after filtering)
  * @param projectStart          Project start date (first commit or assignment start)
  * @param projectEnd            Project end date (last commit or deadline)
- * @param averageConfidence     Average LLM confidence across all ratings
+ * @param totalCommits          Total number of commits analyzed
  * @param lowConfidenceCount    Number of ratings with confidence < 0.6
  */
 public record CQIInputDTO(
@@ -24,10 +26,9 @@ public record CQIInputDTO(
         Map<Long, Double> effortByAuthor,
         Map<Long, Integer> locByAuthor,
         Map<CommitLabel, Integer> commitsByType,
-        List<FilteredChunkDTO> chunks,
         LocalDateTime projectStart,
         LocalDateTime projectEnd,
-        double averageConfidence,
+        int totalCommits,
         int lowConfidenceCount
 ) {
     /**
@@ -64,10 +65,9 @@ public record CQIInputDTO(
      * Get the ratio of low confidence ratings.
      */
     public double getLowConfidenceRatio() {
-        int totalChunks = chunks != null ? chunks.size() : 0;
-        if (totalChunks == 0) {
+        if (totalCommits == 0) {
             return 0.0;
         }
-        return (double) lowConfidenceCount / totalChunks;
+        return (double) lowConfidenceCount / totalCommits;
     }
 }
