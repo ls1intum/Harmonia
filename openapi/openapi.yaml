@@ -197,12 +197,15 @@ components:
         commitShas:
           type: array
           items: {type: string}
+        complexity: {type: number, format: double}
+        confidence: {type: number, format: double}
         effortScore: {type: number, format: double}
         errorMessage: {type: string}
         id: {type: string}
         isBundled: {type: boolean}
         isError: {type: boolean}
         linesChanged: {type: integer, format: int32}
+        novelty: {type: number, format: double}
         reasoning: {type: string}
         timestamp: {type: string, format: date-time}
         totalChunks: {type: integer, format: int32}
