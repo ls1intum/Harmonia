@@ -90,6 +90,32 @@ public class RequestResource {
     }
 
     /**
+     * POST endpoint to recalculate CQI for all teams in database using current formula.
+     *
+     * @return ResponseEntity with count of updated teams
+     */
+    @GetMapping("recalculateCQI")
+    public ResponseEntity<String> recalculateCQI() {
+        log.info("GET request received: recalculateCQI");
+        int updated = requestService.recalculateCQIForAllTeams();
+        return ResponseEntity.ok("Recalculated CQI for " + updated + " teams");
+    }
+
+    /**
+     * GET endpoint to diagnose CQI calculation for a specific team.
+     * Useful for debugging teams with unexpected CQI scores.
+     *
+     * @param teamId The Artemis Team ID to diagnose
+     * @return ResponseEntity with diagnostic information
+     */
+    @GetMapping("diagnoseCQI")
+    public ResponseEntity<String> diagnoseCQI(@RequestParam(value = "teamId") Long teamId) {
+        log.info("GET request received: diagnoseCQI for teamId: {}", teamId);
+        String diagnosis = requestService.diagnoseCQIForTeam(teamId);
+        return ResponseEntity.ok(diagnosis);
+    }
+
+    /**
      * Decrypts the encrypted password using the CryptoService.
      *
      * @param encryptedPassword The encrypted password

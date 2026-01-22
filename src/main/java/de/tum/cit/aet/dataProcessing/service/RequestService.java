@@ -34,6 +34,7 @@ public class RequestService {
     private final RepositoryFetchingService repositoryFetchingService;
     private final AnalysisService analysisService;
     private final de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator;
+    private final de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator pairingCalculator;
     private final ContributionFairnessService fairnessService;
     private final AnalysisStateService analysisStateService;
     private final GitContributionAnalysisService gitContributionAnalysisService;
@@ -51,6 +52,7 @@ public class RequestService {
             RepositoryFetchingService repositoryFetchingService,
             AnalysisService analysisService,
             de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator,
+            de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator pairingCalculator,
             ContributionFairnessService fairnessService,
             AnalysisStateService analysisStateService,
             TeamRepositoryRepository teamRepositoryRepository,
@@ -62,6 +64,7 @@ public class RequestService {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
+        this.pairingCalculator = pairingCalculator;
         this.fairnessService = fairnessService;
         this.analysisStateService = analysisStateService;
         this.teamRepositoryRepository = teamRepositoryRepository;
@@ -252,13 +255,24 @@ public class RequestService {
 
         log.info("Processed repository for team: {}", team.name());
 
-        // Calculate CQI using effort-based fairness analysis
-        Double cqi = null;
+        // Calculate deterministic CQI (balance + pairing)
+        Map<String, Integer> commitCounts = new HashMap<>();
+        students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+        double balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
+
+        List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
+        double pairingScore = pairingCalculator.calculate(commitInfos);
+
+        Double cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
+
+        log.info("CQI calculation for team {}: balance={}, pairing={}, total={}",
+                team.name(), balanceScore, pairingScore, cqi);
+
         boolean isSuspicious = false;
         List<AnalyzedChunkDTO> analysisHistory = null;
         List<OrphanCommitDTO> orphanCommits = null;
 
-        // Detect orphan commits first
+        // Detect orphan commits
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
                     .analyzeRepositoryWithOrphans(repo);
@@ -270,34 +284,21 @@ public class RequestService {
             log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
         }
 
+        // Run AI fairness analysis for additional insights (optional)
         try {
-            // Try effort-based fairness analysis first
             FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
-            if (fairnessReport.balanceScore() > 0 || !fairnessReport.authorDetails().isEmpty()) {
-                cqi = fairnessReport.balanceScore();
+            if (fairnessReport != null) {
                 isSuspicious = fairnessReport.requiresManualReview();
                 analysisHistory = fairnessReport.analyzedChunks();
-                log.debug("Fairness analysis complete for team {}: score={}, suspicious={}, chunks={}",
-                        team.name(), cqi, isSuspicious, analysisHistory != null ? analysisHistory.size() : 0);
+                log.debug("AI analysis complete for team {}: suspicious={}, chunks={}",
+                        team.name(), isSuspicious, analysisHistory != null ? analysisHistory.size() : 0);
 
-                // Persist analyzed chunks to database
                 if (analysisHistory != null && !analysisHistory.isEmpty()) {
                     saveAnalyzedChunks(teamParticipation, analysisHistory);
                 }
             }
         } catch (Exception e) {
-            log.warn("Fairness analysis failed for team {}, falling back to balance calculator: {}",
-                    team.name(), e.getMessage());
-        }
-
-        // Fallback to simple balance calculator if fairness analysis failed or returned
-        // 0
-        if (cqi == null || cqi == 0.0) {
-            Map<String, Integer> commitCounts = new HashMap<>();
-            students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-            if (!commitCounts.isEmpty()) {
-                cqi = balanceCalculator.calculate(commitCounts);
-            }
+            log.warn("AI analysis failed for team {}: {}", team.name(), e.getMessage());
         }
 
         // Save CQI and isSuspicious to TeamParticipation
@@ -311,6 +312,8 @@ public class RequestService {
                 participation.team().name(),
                 participation.submissionCount(),
                 studentAnalysisDTOS,
+                balanceScore,
+                pairingScore,
                 cqi,
                 isSuspicious,
                 analysisHistory,
@@ -441,19 +444,45 @@ public class RequestService {
                                     student.getLinesChanged())))
                             .toList();
 
-                    // Use persisted CQI and isSuspicious values
-                    Double cqi = participation.getCqi();
+                    double balanceScore = 0.0;
+                    double pairingScore = 0.0;
+                    Double cqi = null;
                     Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious()
                             : false;
 
-                    // Fallback: recalculate if CQI is null (legacy data)
-                    if (cqi == null) {
-                        Map<String, Integer> commitCounts = new HashMap<>();
-                        students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-                        if (!commitCounts.isEmpty()) {
-                            cqi = balanceCalculator.calculate(commitCounts);
+                    // Calculate balance score from student data
+                    Map<String, Integer> commitCounts = new HashMap<>();
+                    students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                    balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
+                    log.debug("Team {}: calculated balance score = {}", participation.getName(), balanceScore);
+
+                    // Calculate pairing score from repository commit history
+                    TeamRepository teamRepo = teamRepositoryRepository.findByTeamParticipation(participation);
+                    if (teamRepo != null) {
+                        try {
+                            TeamRepositoryDTO repo = buildTeamRepositoryDTO(participation, teamRepo, students);
+                            List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
+                            
+                            if (commitInfos.isEmpty()) {
+                                log.warn("Team {}: no commit info extracted from repository, pairing score = 0", participation.getName());
+                                pairingScore = 0.0;
+                            } else {
+                                pairingScore = pairingCalculator.calculate(commitInfos);
+                                log.debug("Team {}: calculated pairing score = {} from {} commits", 
+                                        participation.getName(), pairingScore, commitInfos.size());
+                            }
+                        } catch (Exception e) {
+                            log.error("Team {}: error calculating pairing score: {}", participation.getName(), e.getMessage());
+                            pairingScore = 0.0;
                         }
+                    } else {
+                        log.warn("Team {}: no repository found, pairing score = 0", participation.getName());
+                        pairingScore = 0.0;
                     }
+
+                    cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
+                    log.info("Team {}: balance={}, pairing={}, CQI={}", 
+                            participation.getName(), balanceScore, pairingScore, cqi);
 
                     return new ClientResponseDTO(
                             tutor != null ? tutor.getName() : "Unassigned",
@@ -461,6 +490,8 @@ public class RequestService {
                             participation.getName(),
                             participation.getSubmissionCount(),
                             studentAnalysisDTOS,
+                            balanceScore,
+                            pairingScore,
                             cqi,
                             isSuspicious,
                             loadAnalyzedChunks(participation),
@@ -470,6 +501,60 @@ public class RequestService {
 
         log.info("RequestService: Extracted {} team participation records from the database.", responseDTOs.size());
         return responseDTOs;
+    }
+
+    /**
+     * Recalculates CQI for all teams in database using current formula.
+     * Useful for testing formula changes without re-fetching repositories.
+     *
+     * @return Number of teams updated
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public int recalculateCQIForAllTeams() {
+        log.info("Recalculating CQI for all teams in database");
+        List<TeamParticipation> participations = teamParticipationRepository.findAll();
+        int updated = 0;
+
+        for (TeamParticipation participation : participations) {
+            try {
+                TeamRepository teamRepo = teamRepositoryRepository.findByTeamParticipation(participation);
+                if (teamRepo == null || teamRepo.getLocalPath() == null) {
+                    log.warn("No repository found for team {}, skipping", participation.getName());
+                    continue;
+                }
+
+                // Eagerly load VCS logs
+                List<VCSLog> vcsLogs = teamRepo.getVcsLogs();
+                if (vcsLogs == null || vcsLogs.isEmpty()) {
+                    log.warn("No VCS logs for team {}, skipping", participation.getName());
+                    continue;
+                }
+
+                List<Student> students = studentRepository.findAllByTeam(participation);
+                TeamRepositoryDTO repo = buildTeamRepositoryDTO(participation, teamRepo, students);
+
+                Map<String, Integer> commitCounts = new HashMap<>();
+                students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                double balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
+
+                List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
+                double pairingScore = pairingCalculator.calculate(commitInfos);
+
+                double cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
+
+                log.info("Team {}: balance={}, pairing={}, CQI={}",
+                        participation.getName(), balanceScore, pairingScore, cqi);
+
+                participation.setCqi(cqi);
+                teamParticipationRepository.save(participation);
+                updated++;
+            } catch (Exception e) {
+                log.error("Failed to recalculate CQI for team {}: {}", participation.getName(), e.getMessage());
+            }
+        }
+
+        log.info("Recalculated CQI for {} teams", updated);
+        return updated;
     }
 
     /**
@@ -554,5 +639,225 @@ public class RequestService {
         } catch (Exception e) {
             return "[]";
         }
+    }
+
+    private TeamRepositoryDTO buildTeamRepositoryDTO(TeamParticipation participation, TeamRepository teamRepo,
+            List<Student> students) {
+        List<VCSLog> vcsLogs = teamRepo.getVcsLogs();
+        List<VCSLogDTO> vcsLogDTOs = vcsLogs == null ? List.of()
+                : vcsLogs.stream()
+                        .map(log -> new VCSLogDTO(log.getEmail(), "WRITE", log.getCommitHash()))
+                        .toList();
+
+        List<ParticipantDTO> studentDTOs = students.stream()
+                .map(s -> new ParticipantDTO(s.getId(), s.getLogin(), s.getName(), s.getEmail()))
+                .toList();
+
+        TeamDTO teamDTO = new TeamDTO(
+                participation.getTeam(),
+                participation.getName(),
+                participation.getShortName(),
+                studentDTOs,
+                null // owner
+        );
+
+        ParticipationDTO participationDTO = new ParticipationDTO(
+                teamDTO,
+                participation.getParticipation(),
+                participation.getRepositoryUrl(),
+                participation.getSubmissionCount()
+        );
+
+        return new TeamRepositoryDTO(
+                participationDTO,
+                vcsLogDTOs,
+                teamRepo.getLocalPath(),
+                teamRepo.getIsCloned(),
+                teamRepo.getError()
+        );
+    }
+
+    /**
+     * Extracts commit information from git repository for pairing analysis.
+     */
+    private List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> extractCommitInfo(TeamRepositoryDTO repo) {
+        List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = new ArrayList<>();
+        String localPath = repo.localPath();
+
+        if (localPath == null || !repo.isCloned()) {
+            log.warn("Repository not cloned, cannot extract commit info");
+            return commitInfos;
+        }
+
+        // Map commit hash to email from VCS logs
+        Map<String, String> commitToEmail = new HashMap<>();
+        repo.vcsLogs().forEach(log -> commitToEmail.put(log.commitHash(), log.email()));
+
+        try {
+            java.io.File gitDir = new java.io.File(localPath, ".git");
+            try (org.eclipse.jgit.lib.Repository repository = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+                    .setGitDir(gitDir)
+                    .readEnvironment()
+                    .build();
+                 org.eclipse.jgit.revwalk.RevWalk revWalk = new org.eclipse.jgit.revwalk.RevWalk(repository)) {
+
+                org.eclipse.jgit.lib.ObjectId headId = repository.resolve("HEAD");
+                if (headId == null) {
+                    return commitInfos;
+                }
+
+                revWalk.markStart(revWalk.parseCommit(headId));
+                for (org.eclipse.jgit.revwalk.RevCommit commit : revWalk) {
+                    String commitHash = commit.getName();
+                    String email = commitToEmail.getOrDefault(commitHash, commit.getAuthorIdent().getEmailAddress());
+                    java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
+                            java.time.Instant.ofEpochSecond(commit.getCommitTime()),
+                            java.time.ZoneId.systemDefault());
+
+                    // Get modified files
+                    java.util.Set<String> modifiedFiles = new java.util.HashSet<>();
+                    try (org.eclipse.jgit.diff.DiffFormatter df = new org.eclipse.jgit.diff.DiffFormatter(org.eclipse.jgit.util.io.DisabledOutputStream.INSTANCE)) {
+                        df.setRepository(repository);
+                        df.setDetectRenames(true);
+
+                        List<org.eclipse.jgit.diff.DiffEntry> diffs;
+                        if (commit.getParentCount() > 0) {
+                            // Compare with parent for regular commits
+                            org.eclipse.jgit.revwalk.RevCommit parent = revWalk.parseCommit(commit.getParent(0).getId());
+                            diffs = df.scan(parent, commit);
+                        } else {
+                            // For root commits, compare with empty tree
+                            org.eclipse.jgit.lib.ObjectId emptyTree = org.eclipse.jgit.lib.ObjectId.zeroId();
+                            diffs = df.scan(emptyTree, commit.getTree().getId());
+                        }
+
+                        for (org.eclipse.jgit.diff.DiffEntry diff : diffs) {
+                            modifiedFiles.add(diff.getNewPath());
+                        }
+                    }
+
+                    commitInfos.add(new de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo(
+                            email, timestamp, modifiedFiles));
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error extracting commit info from {}: {}", localPath, e.getMessage());
+        }
+
+        // Sort by timestamp (oldest first) for proper alternation analysis
+        commitInfos.sort(java.util.Comparator.comparing(de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo::getTimestamp));
+        return commitInfos;
+    }
+
+    /**
+     * Diagnoses CQI calculation for a specific team to help debug zero scores.
+     *
+     * @param teamId The Artemis Team ID to diagnose
+     * @return Diagnostic report including student data, commit counts, and score calculations
+     */
+    public String diagnoseCQIForTeam(Long teamId) {
+        StringBuilder report = new StringBuilder();
+        report.append("=== CQI Diagnostic Report for Team ID: ").append(teamId).append(" ===\n\n");
+
+        try {
+            // Find team by Artemis team ID
+            java.util.List<TeamParticipation> participations = teamParticipationRepository.findAll()
+                    .stream()
+                    .filter(p -> teamId.equals(p.getTeam()))
+                    .toList();
+
+            if (participations.isEmpty()) {
+                report.append("ERROR: Team with Artemis ID ").append(teamId).append(" not found in database.\n");
+                return report.toString();
+            }
+
+            TeamParticipation participation = participations.get(0);
+            report.append("Team Name: ").append(participation.getName()).append("\n");
+            report.append("Artemis Team ID: ").append(participation.getTeam()).append("\n");
+            report.append("Current CQI: ").append(participation.getCqi()).append("\n");
+            report.append("Stored as Suspicious: ").append(participation.getIsSuspicious()).append("\n\n");
+
+            // Get students and commit counts
+            List<Student> students = studentRepository.findAllByTeam(participation);
+            report.append("Students Found: ").append(students.size()).append("\n");
+
+            Map<String, Integer> commitCounts = new HashMap<>();
+            for (Student student : students) {
+                report.append("  - ").append(student.getName())
+                        .append(" (").append(student.getLogin()).append("): ")
+                        .append(student.getCommitCount()).append(" commits")
+                        .append(", Lines: +").append(student.getLinesAdded())
+                        .append(" -").append(student.getLinesDeleted()).append("\n");
+
+                commitCounts.put(student.getName(), student.getCommitCount());
+            }
+
+            // Calculate balance score
+            report.append("\n--- Balance Score Calculation ---\n");
+            if (commitCounts.isEmpty()) {
+                report.append("ERROR: No commit counts found for any students!\n");
+                report.append("Balance Score: 0.0 (no data)\n");
+            } else {
+                double balanceScore = balanceCalculator.calculate(commitCounts);
+                report.append("Commits Map: ").append(commitCounts).append("\n");
+                report.append("Balance Score: ").append(balanceScore).append("\n");
+            }
+
+            // Calculate pairing score
+            report.append("\n--- Pairing Score Calculation ---\n");
+            TeamRepository teamRepo = teamRepositoryRepository.findByTeamParticipation(participation);
+
+            if (teamRepo == null) {
+                report.append("ERROR: No repository record found for this team.\n");
+                report.append("Pairing Score: 0.0 (no repo data)\n");
+            } else {
+                report.append("Repository Local Path: ").append(teamRepo.getLocalPath()).append("\n");
+                report.append("Is Cloned: ").append(teamRepo.getIsCloned()).append("\n");
+
+                if (teamRepo.getLocalPath() != null) {
+                    java.io.File gitDir = new java.io.File(teamRepo.getLocalPath(), ".git");
+                    report.append(".git Directory Exists: ").append(gitDir.exists()).append("\n");
+                }
+
+                // Try to extract commits
+                try {
+                    TeamRepositoryDTO repo = buildTeamRepositoryDTO(participation, teamRepo, students);
+                    List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
+
+                    report.append("Commits Extracted: ").append(commitInfos.size()).append("\n");
+
+                    if (commitInfos.isEmpty()) {
+                        report.append("WARNING: No commits extracted from repository.\n");
+                        report.append("Pairing Score: 0.0 (no commits)\n");
+                    } else {
+                        double pairingScore = pairingCalculator.calculate(commitInfos);
+                        report.append("Pairing Score: ").append(pairingScore).append("\n");
+
+                        // Show commit distribution
+                        java.util.Set<String> uniqueAuthors = commitInfos.stream()
+                                .map(de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo::getAuthor)
+                                .collect(java.util.stream.Collectors.toSet());
+                        report.append("Unique Authors in Commits: ").append(uniqueAuthors.size()).append("\n");
+                        for (String author : uniqueAuthors) {
+                            long count = commitInfos.stream()
+                                    .filter(c -> c.getAuthor().equals(author))
+                                    .count();
+                            report.append("  - ").append(author).append(": ").append(count).append(" commits\n");
+                        }
+                    }
+                } catch (Exception e) {
+                    report.append("ERROR extracting commits: ").append(e.getMessage()).append("\n");
+                    report.append("Pairing Score: 0.0 (extraction failed)\n");
+                }
+            }
+
+            report.append("\n=== End Report ===\n");
+
+        } catch (Exception e) {
+            report.append("FATAL ERROR: ").append(e.getMessage()).append("\n");
+            e.printStackTrace();
+        }
+
+        return report.toString();
     }
 }

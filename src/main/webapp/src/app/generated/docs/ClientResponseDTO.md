@@ -5,9 +5,11 @@
 | Name                | Type                                                         | Description | Notes                             |
 | ------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
 | **analysisHistory** | [**Array&lt;AnalyzedChunkDTO&gt;**](AnalyzedChunkDTO.md)     |             | [optional] [default to undefined] |
+| **balanceScore**    | **number**                                                   |             | [optional] [default to undefined] |
 | **cqi**             | **number**                                                   |             | [optional] [default to undefined] |
 | **isSuspicious**    | **boolean**                                                  |             | [optional] [default to undefined] |
 | **orphanCommits**   | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
+| **pairingScore**    | **number**                                                   |             | [optional] [default to undefined] |
 | **students**        | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
 | **submissionCount** | **number**                                                   |             | [optional] [default to undefined] |
 | **teamId**          | **number**                                                   |             | [optional] [default to undefined] |
@@ -21,9 +23,11 @@ import { ClientResponseDTO } from './api';
 
 const instance: ClientResponseDTO = {
   analysisHistory,
+  balanceScore,
   cqi,
   isSuspicious,
   orphanCommits,
+  pairingScore,
   students,
   submissionCount,
   teamId,

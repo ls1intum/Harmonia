@@ -39,7 +39,7 @@ public class ContributionBalanceCalculator {
         }
 
         double[] frequencies = commitCounts.values().stream()
-                .mapToDouble(Integer::doubleValue)
+                .mapToDouble(count -> count / (double) totalCommits)
                 .toArray();
 
         double stdev = calculateStandardDeviation(frequencies);
@@ -85,10 +85,8 @@ public class ContributionBalanceCalculator {
     }
 
     private double calculateMaxStandardDeviation(int teamSize) {
-        // Maximum standard deviation occurs when one person has all commits, others have 0
-        // For n people: one has n commits, (n-1) have 0 commits
-        // Mean = 1, stdev = sqrt((n-1)^2 + (n-1)*1^2) / n) = sqrt(n-1)
-        return Math.sqrt(teamSize - 1);
+        // Using normalized frequencies (sum = 1), max stdev is sqrt(n - 1) / n
+        return teamSize > 0 ? Math.sqrt(teamSize - 1) / teamSize : 0.0;
     }
 
     private boolean hasOverContributor(Map<String, Integer> commitCounts) {

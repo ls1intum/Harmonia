@@ -15,6 +15,8 @@ import java.util.List;
  * @param submissionCount The number of submissions made by the team.
  * @param students        A list of StudentAnalysisDTO representing individual
  *                        student analyses within the team.
+ * @param balanceScore    Contribution balance sub-score (0-100).
+ * @param pairingScore    Pairing signals sub-score (0-100).
  * @param cqi             The Collaboration Quality Index score.
  * @param isSuspicious    Whether the team's collaboration pattern is flagged as
  *                        suspicious.
@@ -30,6 +32,8 @@ public record ClientResponseDTO(
         String teamName,
         Integer submissionCount,
         List<StudentAnalysisDTO> students,
+        Double balanceScore,
+        Double pairingScore,
         Double cqi,
         Boolean isSuspicious,
         List<AnalyzedChunkDTO> analysisHistory,

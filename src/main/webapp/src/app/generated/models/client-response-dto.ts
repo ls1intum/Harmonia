@@ -24,9 +24,11 @@ import type { StudentAnalysisDTO } from './student-analysis-dto';
 
 export interface ClientResponseDTO {
   analysisHistory?: Array<AnalyzedChunkDTO>;
+  balanceScore?: number;
   cqi?: number;
   isSuspicious?: boolean;
   orphanCommits?: Array<OrphanCommitDTO>;
+  pairingScore?: number;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
   teamId?: number;

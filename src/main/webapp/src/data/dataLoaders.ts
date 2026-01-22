@@ -118,32 +118,26 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
     return cached;
   }
 
-  // Use CQI from server (calculated server-side)
-  const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
+  const balanceScore = dto.balanceScore !== undefined && dto.balanceScore !== null ? dto.balanceScore : 0;
+  const pairingScore = dto.pairingScore !== undefined && dto.pairingScore !== null ? dto.pairingScore : 0;
+  const computedCqi = (balanceScore * 0.5) + (pairingScore * 0.5);
+  const cqi = dto.cqi !== undefined && dto.cqi !== null ? dto.cqi : computedCqi;
   const isSuspicious = dto.isSuspicious ?? false;
 
-  // Sub-metrics not yet implemented on server
   const subMetrics = [
     {
       name: 'Contribution Balance',
-      value: cqi,
-      weight: 40,
+      value: Math.round(balanceScore),
+      weight: 50,
       description: 'Are teammates contributing at similar levels?',
       details: 'Calculated from commit distribution.',
     },
     {
-      name: 'Ownership Distribution',
-      value: 0,
-      weight: 30,
-      description: 'Are key files shared rather than monopolized?',
-      details: 'Calculated from git blame analysis.',
-    },
-    {
       name: 'Pairing Signals',
-      value: 0,
-      weight: 30,
+      value: Math.round(pairingScore),
+      weight: 50,
       description: 'Did teammates actually work together?',
-      details: 'Not yet implemented.',
+      details: 'Calculated from alternation and co-editing patterns.',
     },
   ];
 
@@ -180,7 +174,7 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
 
   const team: ComplexTeamData = {
     ...basicData,
-    cqi,
+    cqi: Math.round(cqi),
     isSuspicious,
     subMetrics,
     analysisHistory,
