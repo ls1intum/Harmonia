@@ -115,6 +115,8 @@ public class CQIConfig {
 
         /**
          * Validate that weights sum to 1.0.
+         *
+         * @return true if the sum of all weights equals 1.0 (within 0.001 tolerance)
          */
         public boolean isValid() {
             double sum = effort + loc + temporal + ownership;

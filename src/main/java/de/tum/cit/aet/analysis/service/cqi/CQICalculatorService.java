@@ -233,7 +233,9 @@ public class CQICalculatorService {
         double[] weeklyEffort = new double[numWeeks];
 
         for (RatedChunk rc : chunks) {
-            if (rc.chunk().timestamp() == null) continue;
+            if (rc.chunk().timestamp() == null) {
+                continue;
+            }
 
             long daysSinceStart = ChronoUnit.DAYS.between(projectStart, rc.chunk().timestamp());
             int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
