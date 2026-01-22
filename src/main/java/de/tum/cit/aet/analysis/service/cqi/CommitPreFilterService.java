@@ -258,7 +258,7 @@ public class CommitPreFilterService {
                 massReformatCount
         );
 
-        log.info("Pre-filter complete: {} of {} commits will be analyzed. {}", 
+        log.info("Pre-filter complete: {} of {} commits will be analyzed. {}",
                 toAnalyze.size(), chunks.size(), summary.toSummary());
 
         return new PreFilterResult(toAnalyze, filtered, summary);
@@ -361,7 +361,7 @@ public class CommitPreFilterService {
             // If marked as rename and very few actual code changes
             return chunk.totalLinesChanged() <= 2;
         }
-        
+
         // Heuristic: If message contains "rename" and few line changes
         String message = chunk.commitMessage();
         if (message != null) {
@@ -370,7 +370,7 @@ public class CommitPreFilterService {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -386,7 +386,7 @@ public class CommitPreFilterService {
         if (chunk.formatOnly() != null && chunk.formatOnly()) {
             return true;
         }
-        
+
         // Heuristic: format message pattern + small average lines per file
         String message = chunk.commitMessage();
         if (message != null && matchesFormatPattern(message)) {
@@ -396,7 +396,7 @@ public class CommitPreFilterService {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -413,17 +413,17 @@ public class CommitPreFilterService {
         if (chunk.massReformatFlag() != null && chunk.massReformatFlag()) {
             return true;
         }
-        
+
         int fileCount = chunk.files() != null ? chunk.files().size() : 0;
         if (fileCount < MASS_REFORMAT_FILE_THRESHOLD) {
             return false;
         }
-        
+
         double avgLines = getAvgLinesPerFile(chunk);
         if (avgLines > MASS_REFORMAT_AVG_LINES_THRESHOLD) {
             return false;
         }
-        
+
         // Must also have a format-related message
         String message = chunk.commitMessage();
         return message != null && matchesFormatPattern(message);

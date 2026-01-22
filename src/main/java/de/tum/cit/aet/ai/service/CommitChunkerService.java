@@ -58,7 +58,7 @@ public class CommitChunkerService {
                     .mapToInt(f -> f.linesAdded + f.linesDeleted)
                     .sum();
         }
-        
+
         /**
          * Constructor without flags (for backwards compatibility).
          */
@@ -81,7 +81,7 @@ public class CommitChunkerService {
         public int totalLines() {
             return linesAdded + linesDeleted;
         }
-        
+
         /**
          * Constructor without detection flags (for backwards compatibility).
          */
@@ -145,7 +145,7 @@ public class CommitChunkerService {
 
             df.setRepository(repository);
             df.setDetectRenames(true);
-            
+
             // Whitespace-ignoring formatter for format-only detection
             dfWhitespace.setRepository(repository);
             dfWhitespace.setDetectRenames(true);
@@ -173,7 +173,7 @@ public class CommitChunkerService {
                         commit.getCommitTime(), 0, ZoneOffset.UTC);
 
                 String authorEmail = commit.getAuthorIdent().getEmailAddress();
-                
+
                 // Detect commit-level flags
                 boolean renameDetected = fileChanges.stream().anyMatch(FileChange::isRename);
                 boolean formatOnly = isFormatOnlyCommit(fileChanges);
@@ -205,12 +205,12 @@ public class CommitChunkerService {
      * @param commit         The commit to analyze
      * @return List of file changes with detection flags
      */
-    private List<FileChange> extractFileChanges(Repository repository, DiffFormatter df, 
+    private List<FileChange> extractFileChanges(Repository repository, DiffFormatter df,
             DiffFormatter dfWhitespace, RevCommit parent, RevCommit commit)
             throws IOException {
         List<FileChange> changes = new ArrayList<>();
         List<DiffEntry> diffs = df.scan(parent, commit);
-        
+
         // Get whitespace-ignoring diffs for comparison
         List<DiffEntry> wsIgnoredDiffs = dfWhitespace.scan(parent, commit);
         Map<String, Integer> wsIgnoredLines = new HashMap<>();
@@ -256,7 +256,7 @@ public class CommitChunkerService {
             // Detect rename (RENAME or COPY change type)
             boolean isRename = diff.getChangeType() == DiffEntry.ChangeType.RENAME
                     || diff.getChangeType() == DiffEntry.ChangeType.COPY;
-            
+
             // Calculate whitespace-only lines
             // If ws-ignored diff has fewer changes, the difference is whitespace-only
             int totalLines = linesAdded + linesDeleted;
@@ -274,7 +274,7 @@ public class CommitChunkerService {
 
         return changes;
     }
-    
+
     /**
      * Checks if a commit only contains formatting/whitespace changes.
      * True if >80% of all changes are whitespace-only.
@@ -283,18 +283,18 @@ public class CommitChunkerService {
         if (changes.isEmpty()) {
             return false;
         }
-        
+
         int totalLines = changes.stream().mapToInt(FileChange::totalLines).sum();
         int whitespaceLines = changes.stream().mapToInt(FileChange::whitespaceOnlyLines).sum();
-        
+
         if (totalLines == 0) {
             return false;
         }
-        
+
         // If >80% of changes are whitespace-only, it's a format commit
         return (double) whitespaceLines / totalLines > 0.8;
     }
-    
+
     /**
      * Checks if a commit is a mass reformat (many files with small uniform changes).
      * True if ≥10 files and average lines per file <5.
@@ -303,10 +303,10 @@ public class CommitChunkerService {
         if (changes.size() < 10) {
             return false;
         }
-        
+
         int totalLines = changes.stream().mapToInt(FileChange::totalLines).sum();
         double avgLinesPerFile = (double) totalLines / changes.size();
-        
+
         return avgLinesPerFile < 5.0;
     }
 

@@ -44,7 +44,7 @@ public record CommitChunkDTO(
         Boolean renameDetected,
         Boolean formatOnly,
         Boolean massReformatFlag) {
-    
+
     /**
      * Creates a simple chunk from a single commit (not bundled, not split).
      */

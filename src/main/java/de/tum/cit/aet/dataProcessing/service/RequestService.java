@@ -30,7 +30,6 @@ import de.tum.cit.aet.ai.dto.FairnessReportDTO;
 import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 
 @Service
@@ -312,27 +311,27 @@ public class RequestService {
                 if (repo.localPath() != null) {
                     Map<String, Long> commitToAuthor = buildCommitToAuthorMap(repo);
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
-                    
+
                     // Apply pre-filter to remove trivial commits
                     CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
-                    
-                    log.info("Pre-filter for team {}: {} of {} commits will be analyzed", 
+
+                    log.info("Pre-filter for team {}: {} of {} commits will be analyzed",
                             team.name(), filterResult.chunksToAnalyze().size(), allChunks.size());
-                    
+
                     // Calculate CQI using fallback (LoC-based, no LLM)
                     CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(),
                             students.size(),
                             filterResult.summary()
                     );
-                    
+
                     cqi = cqiResult.cqi();
                     log.debug("Fallback CQI for team {}: {}", team.name(), cqi);
                 }
             } catch (Exception e) {
                 log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
             }
-            
+
             // Last resort: simple commit-count based balance
             if (cqi == null || cqi == 0.0) {
                 Map<String, Integer> commitCounts = new HashMap<>();

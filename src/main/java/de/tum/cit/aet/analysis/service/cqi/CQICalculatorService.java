@@ -125,9 +125,9 @@ public class CQICalculatorService {
         // Final CQI
         double cqi = Math.max(0, Math.min(100, baseScore * penaltyMultiplier));
 
-        log.info("CQI calculated: {} (base={}, penalty={})", 
-                String.format("%.1f", cqi), 
-                String.format("%.1f", baseScore), 
+        log.info("CQI calculated: {} (base={}, penalty={})",
+                String.format("%.1f", cqi),
+                String.format("%.1f", baseScore),
                 String.format("%.2f", penaltyMultiplier));
 
         return new CQIResultDTO(cqi, components, penalties, baseScore, penaltyMultiplier, filterSummary);

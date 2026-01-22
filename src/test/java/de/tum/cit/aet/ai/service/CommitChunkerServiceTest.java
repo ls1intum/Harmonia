@@ -200,11 +200,11 @@ class CommitChunkerServiceTest {
     void testRenameDetectionFlag() {
         List<FileChange> files = List.of(
                 new FileChange("NewFile.java", "diff", 5, 5, true, 0)); // isRename=true
-        
+
         RawCommitData commit = new RawCommitData(
                 "sha1", 1L, "test@test.com", "refactor: rename file",
                 LocalDateTime.now(), files, true, false, false);
-        
+
         assertTrue(commit.renameDetected());
     }
 
@@ -214,11 +214,11 @@ class CommitChunkerServiceTest {
         // 80% whitespace-only changes
         List<FileChange> files = List.of(
                 new FileChange("File.java", "diff", 10, 10, false, 16)); // 16 of 20 lines are ws-only
-        
+
         RawCommitData commit = new RawCommitData(
                 "sha1", 1L, "test@test.com", "style: format code",
                 LocalDateTime.now(), files, false, true, false);
-        
+
         assertTrue(commit.formatOnly());
     }
 
@@ -230,11 +230,11 @@ class CommitChunkerServiceTest {
         for (int i = 0; i < 12; i++) {
             files.add(new FileChange("File" + i + ".java", "diff", 1, 1, false, 0));
         }
-        
+
         RawCommitData commit = new RawCommitData(
                 "sha1", 1L, "test@test.com", "run formatter on all files",
                 LocalDateTime.now(), files, false, false, true);
-        
+
         assertTrue(commit.massReformatFlag());
     }
 
@@ -242,7 +242,7 @@ class CommitChunkerServiceTest {
     @DisplayName("FileChange whitespaceOnlyLines should track whitespace differences")
     void testWhitespaceOnlyLinesTracking() {
         FileChange change = new FileChange("File.java", "diff", 50, 30, false, 60);
-        
+
         assertEquals(80, change.totalLines());
         assertEquals(60, change.whitespaceOnlyLines());
     }

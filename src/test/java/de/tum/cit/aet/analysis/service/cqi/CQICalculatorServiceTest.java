@@ -43,9 +43,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
                 createRatedChunk(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertTrue(result.cqi() >= 80, "Perfect balance should score >= 80, got: " + result.cqi());
         assertTrue(result.penalties().isEmpty(), "Should have no penalties");
     }
@@ -55,13 +55,13 @@ class CQICalculatorServiceTest {
         List<RatedChunk> chunks = new ArrayList<>();
         for (long authorId = 1; authorId <= 3; authorId++) {
             for (int i = 0; i < 5; i++) {
-                chunks.add(createRatedChunk(authorId, 40, 7.0, CommitLabel.FEATURE, 
+                chunks.add(createRatedChunk(authorId, 40, 7.0, CommitLabel.FEATURE,
                         projectStart.plusDays(i * 6)));
             }
         }
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 3, projectStart, projectEnd, null);
-        
+
         assertTrue(result.cqi() >= 75, "Perfect balance should score >= 75, got: " + result.cqi());
     }
 
@@ -77,9 +77,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(20)),
                 createRatedChunk(2L, 20, 5.0, CommitLabel.TRIVIAL, projectStart.plusDays(25))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertTrue(result.cqi() < 50, "Severe imbalance should score < 50, got: " + result.cqi());
         assertTrue(result.penalties().stream()
                 .anyMatch(p -> p.type().contains("IMBALANCE") || p.type().contains("SOLO")),
@@ -95,9 +95,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
                 createRatedChunk(2L, 10, 2.0, CommitLabel.TRIVIAL, projectStart.plusDays(20))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertTrue(result.cqi() < 40, "Solo development should score < 40, got: " + result.cqi());
         assertTrue(result.penalties().stream()
                 .anyMatch(p -> p.type().contains("SOLO")),
@@ -111,9 +111,9 @@ class CQICalculatorServiceTest {
         List<RatedChunk> chunks = List.of(
                 createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 1, projectStart, projectEnd, null);
-        
+
         assertEquals(0.0, result.cqi(), "Single team member should get CQI = 0");
     }
 
@@ -124,9 +124,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
                 createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertEquals(0.0, result.cqi(), "Only one contributor should get CQI = 0");
     }
 
@@ -145,9 +145,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(2L, 10, 2.0, CommitLabel.TRIVIAL, projectStart.plusDays(24)),
                 createRatedChunk(2L, 10, 2.0, CommitLabel.TRIVIAL, projectStart.plusDays(26))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertTrue(result.penalties().stream()
                 .anyMatch(p -> p.type().contains("TRIVIAL")),
                 "Should have high trivial ratio penalty");
@@ -159,7 +159,7 @@ class CQICalculatorServiceTest {
     void testLateWorkPenalty() {
         // Most work done in last 20% of project
         LocalDateTime lateStart = projectEnd.minusDays(5);
-        
+
         List<RatedChunk> chunks = List.of(
                 createRatedChunk(1L, 10, 3.0, CommitLabel.TRIVIAL, projectStart.plusDays(5)),
                 createRatedChunk(2L, 10, 3.0, CommitLabel.TRIVIAL, projectStart.plusDays(10)),
@@ -169,9 +169,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(2L, 200, 10.0, CommitLabel.FEATURE, lateStart.plusDays(3)),
                 createRatedChunk(2L, 200, 10.0, CommitLabel.FEATURE, lateStart.plusDays(4))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertTrue(result.penalties().stream()
                 .anyMatch(p -> p.type().contains("LATE")),
                 "Should have late work penalty");
@@ -188,9 +188,9 @@ class CQICalculatorServiceTest {
                 createRatedChunkWithConfidence(2L, 50, 5.0, CommitLabel.BUG_FIX, 0.3, projectStart.plusDays(15)),
                 createRatedChunkWithConfidence(2L, 50, 5.0, CommitLabel.BUG_FIX, 0.4, projectStart.plusDays(20))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertTrue(result.penalties().stream()
                 .anyMatch(p -> p.type().contains("CONFIDENCE")),
                 "Should have low confidence penalty");
@@ -204,9 +204,9 @@ class CQICalculatorServiceTest {
                 createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
                 createRatedChunk(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
+
         assertNotNull(result.components());
         assertTrue(result.components().effortBalance() >= 0 && result.components().effortBalance() <= 100);
         assertTrue(result.components().locBalance() >= 0 && result.components().locBalance() <= 100);
@@ -224,10 +224,10 @@ class CQICalculatorServiceTest {
                 createChunk(2L, 100),
                 createChunk(2L, 100)
         );
-        
+
         FilterSummaryDTO summary = FilterSummaryDTO.empty();
         CQIResultDTO result = cqiService.calculateFallback(chunks, 2, summary);
-        
+
         assertTrue(result.cqi() >= 80, "Equal LoC should score well, got: " + result.cqi());
     }
 
@@ -238,9 +238,9 @@ class CQICalculatorServiceTest {
                 createChunk(1L, 300),
                 createChunk(2L, 50)
         );
-        
+
         CQIResultDTO result = cqiService.calculateFallback(chunks, 2, null);
-        
+
         assertTrue(result.cqi() < 60, "Imbalanced LoC should score low, got: " + result.cqi());
     }
 
@@ -249,14 +249,14 @@ class CQICalculatorServiceTest {
     @Test
     void testEmptyChunks() {
         CQIResultDTO result = cqiService.calculate(List.of(), 2, projectStart, projectEnd, null);
-        
+
         assertEquals(0.0, result.cqi());
     }
 
     @Test
     void testNullChunks() {
         CQIResultDTO result = cqiService.calculate(null, 2, projectStart, projectEnd, null);
-        
+
         assertEquals(0.0, result.cqi());
     }
 
@@ -267,22 +267,22 @@ class CQICalculatorServiceTest {
                 createRatedChunk(1L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
                 createRatedChunk(2L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
-        
+
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null);
-        
-        assertTrue(result.cqi() >= 0 && result.cqi() <= 100, 
+
+        assertTrue(result.cqi() >= 0 && result.cqi() <= 100,
                 "CQI should be 0-100, got: " + result.cqi());
     }
 
     // ==================== Helper Methods ====================
 
-    private RatedChunk createRatedChunk(Long authorId, int loc, double effort, 
+    private RatedChunk createRatedChunk(Long authorId, int loc, double effort,
                                          CommitLabel type, LocalDateTime timestamp) {
         return createRatedChunkWithConfidence(authorId, loc, effort, type, 0.9, timestamp);
     }
 
     private RatedChunk createRatedChunkWithConfidence(Long authorId, int loc, double effort,
-                                                       CommitLabel type, double confidence, 
+                                                       CommitLabel type, double confidence,
                                                        LocalDateTime timestamp) {
         CommitChunkDTO chunk = new CommitChunkDTO(
                 "sha-" + System.nanoTime(), authorId, "author" + authorId + "@test.com",
@@ -291,11 +291,11 @@ class CQICalculatorServiceTest {
                 loc / 2, loc / 2, 0, 1, false, List.of(),
                 null, null, null
         );
-        
+
         EffortRatingDTO rating = new EffortRatingDTO(
                 effort, 7.0, 7.0, type, confidence, "Test reasoning", false, null
         );
-        
+
         return new RatedChunk(chunk, rating);
     }
 

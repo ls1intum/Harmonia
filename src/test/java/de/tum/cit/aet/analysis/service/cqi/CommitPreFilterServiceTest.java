@@ -31,9 +31,9 @@ class CommitPreFilterServiceTest {
     @Test
     void testFilterEmptyCommit() {
         CommitChunkDTO emptyCommit = createChunk("abc123", "feat: add feature", 0, 0);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(emptyCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(1, result.filteredChunks().size());
         assertEquals(FilterReason.EMPTY, result.filteredChunks().get(0).reason());
@@ -52,9 +52,9 @@ class CommitPreFilterServiceTest {
     })
     void testFilterMergeCommits(String message) {
         CommitChunkDTO mergeCommit = createChunk("abc123", message, 10, 5);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(mergeCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(1, result.filteredChunks().size());
         assertEquals(FilterReason.MERGE_COMMIT, result.filteredChunks().get(0).reason());
@@ -71,9 +71,9 @@ class CommitPreFilterServiceTest {
     })
     void testFilterRevertCommits(String message) {
         CommitChunkDTO revertCommit = createChunk("abc123", message, 20, 20);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(revertCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.REVERT_COMMIT, result.filteredChunks().get(0).reason());
         assertEquals(1, result.summary().revertCount());
@@ -130,12 +130,12 @@ class CommitPreFilterServiceTest {
     })
     void testFilterTrivialMessages(String message) {
         CommitChunkDTO trivialCommit = createChunk("abc123", message, 3, 2);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(trivialCommit));
-        
-        assertEquals(0, result.chunksToAnalyze().size(), 
+
+        assertEquals(0, result.chunksToAnalyze().size(),
                 "Message should be filtered: " + message);
-        assertTrue(result.filteredChunks().get(0).reason() == FilterReason.TRIVIAL_MESSAGE 
+        assertTrue(result.filteredChunks().get(0).reason() == FilterReason.TRIVIAL_MESSAGE
                 || result.filteredChunks().get(0).reason() == FilterReason.SMALL_TRIVIAL_COMMIT,
                 "Expected TRIVIAL_MESSAGE or SMALL_TRIVIAL_COMMIT for: " + message);
     }
@@ -148,9 +148,9 @@ class CommitPreFilterServiceTest {
                 "abc123", "update deps", 100, 50,
                 List.of("package-lock.json")
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(lockFileCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.GENERATED_FILES_ONLY, result.filteredChunks().get(0).reason());
     }
@@ -161,9 +161,9 @@ class CommitPreFilterServiceTest {
                 "abc123", "update all deps", 500, 300,
                 List.of("package-lock.json", "yarn.lock", "Cargo.lock")
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(multiLockCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.GENERATED_FILES_ONLY, result.filteredChunks().get(0).reason());
     }
@@ -175,9 +175,9 @@ class CommitPreFilterServiceTest {
                 "abc123", "feat: add feature with deps", 100, 50,
                 List.of("package-lock.json", "src/main/App.java")
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(mixedCommit));
-        
+
         assertEquals(1, result.chunksToAnalyze().size());
         assertEquals(0, result.filteredChunks().size());
     }
@@ -190,9 +190,9 @@ class CommitPreFilterServiceTest {
                 "abc123", "refactor: rename file", 1, 1,
                 true, false, false  // renameDetected=true
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(renameCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.RENAME_ONLY, result.filteredChunks().get(0).reason());
         assertEquals(1, result.summary().renameOnlyCount());
@@ -201,9 +201,9 @@ class CommitPreFilterServiceTest {
     @Test
     void testFilterRenameByMessage() {
         CommitChunkDTO renameCommit = createChunk("abc123", "rename UserService to UserManager", 3, 2);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(renameCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.RENAME_ONLY, result.filteredChunks().get(0).reason());
     }
@@ -216,9 +216,9 @@ class CommitPreFilterServiceTest {
                 "abc123", "apply prettier", 50, 50,
                 false, true, false  // formatOnly=true
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(formatCommit));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.FORMAT_ONLY, result.filteredChunks().get(0).reason());
         assertEquals(1, result.summary().formatOnlyCount());
@@ -232,9 +232,9 @@ class CommitPreFilterServiceTest {
                 "abc123", "run black formatter", 30, 20,
                 false, false, true  // massReformatFlag=true
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(massReformat));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(FilterReason.MASS_REFORMAT, result.filteredChunks().get(0).reason());
         assertEquals(1, result.summary().massReformatCount());
@@ -250,9 +250,9 @@ class CommitPreFilterServiceTest {
                         "f.java", "g.java", "h.java", "i.java", "j.java",
                         "k.java", "l.java", "m.java", "n.java", "o.java")
         );
-        
+
         PreFilterResult result = filterService.preFilter(List.of(massReformat));
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         // Either FORMAT_ONLY or MASS_REFORMAT is acceptable for this pattern
         FilterReason reason = result.filteredChunks().get(0).reason();
@@ -265,9 +265,9 @@ class CommitPreFilterServiceTest {
     @Test
     void testKeepValidFeatureCommit() {
         CommitChunkDTO featureCommit = createChunk("abc123", "feat: implement user authentication", 150, 20);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(featureCommit));
-        
+
         assertEquals(1, result.chunksToAnalyze().size());
         assertEquals(0, result.filteredChunks().size());
         assertEquals(1, result.summary().productiveCommits());
@@ -276,9 +276,9 @@ class CommitPreFilterServiceTest {
     @Test
     void testKeepValidBugfixCommit() {
         CommitChunkDTO bugfixCommit = createChunk("abc123", "fix: resolve null pointer in UserService", 30, 10);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(bugfixCommit));
-        
+
         assertEquals(1, result.chunksToAnalyze().size());
         assertEquals(0, result.filteredChunks().size());
     }
@@ -286,9 +286,9 @@ class CommitPreFilterServiceTest {
     @Test
     void testKeepRefactoringCommit() {
         CommitChunkDTO refactorCommit = createChunk("abc123", "refactor: extract payment logic to separate service", 200, 150);
-        
+
         PreFilterResult result = filterService.preFilter(List.of(refactorCommit));
-        
+
         assertEquals(1, result.chunksToAnalyze().size());
         assertEquals(0, result.filteredChunks().size());
     }
@@ -306,12 +306,12 @@ class CommitPreFilterServiceTest {
                 createChunk("6", "wip", 5, 5),                            // TRIVIAL
                 createChunk("7", "Revert \"bad commit\"", 30, 30)         // REVERT
         );
-        
+
         PreFilterResult result = filterService.preFilter(commits);
-        
+
         assertEquals(2, result.chunksToAnalyze().size());
         assertEquals(5, result.filteredChunks().size());
-        
+
         // Verify kept commits
         assertTrue(result.chunksToAnalyze().stream()
                 .anyMatch(c -> c.commitSha().equals("2")));
@@ -324,7 +324,7 @@ class CommitPreFilterServiceTest {
     @Test
     void testEmptyList() {
         PreFilterResult result = filterService.preFilter(List.of());
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(0, result.filteredChunks().size());
         assertEquals(0, result.summary().totalCommits());
@@ -333,7 +333,7 @@ class CommitPreFilterServiceTest {
     @Test
     void testNullList() {
         PreFilterResult result = filterService.preFilter(null);
-        
+
         assertEquals(0, result.chunksToAnalyze().size());
         assertEquals(0, result.filteredChunks().size());
     }
@@ -346,9 +346,9 @@ class CommitPreFilterServiceTest {
                 createChunk("3", "fix lint", 3, 2),
                 createChunk("4", "fix: bug", 50, 10)
         );
-        
+
         PreFilterResult result = filterService.preFilter(commits);
-        
+
         assertEquals(4, result.summary().totalCommits());
         assertEquals(2, result.summary().productiveCommits());
         assertEquals(50.0, result.summary().getFilteredPercentage(), 0.1);
