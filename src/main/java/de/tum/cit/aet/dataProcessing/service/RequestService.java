@@ -4,6 +4,8 @@ import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisService;
+import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
+import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
@@ -23,8 +25,12 @@ import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
+import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
+import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
+import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 
 @Service
@@ -37,6 +43,9 @@ public class RequestService {
     private final ContributionFairnessService fairnessService;
     private final AnalysisStateService analysisStateService;
     private final GitContributionAnalysisService gitContributionAnalysisService;
+    private final CommitPreFilterService commitPreFilterService;
+    private final CQICalculatorService cqiCalculatorService;
+    private final CommitChunkerService commitChunkerService;
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
@@ -58,7 +67,10 @@ public class RequestService {
             TutorRepository tutorRepository,
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
-            GitContributionAnalysisService gitContributionAnalysisService) {
+            GitContributionAnalysisService gitContributionAnalysisService,
+            CommitPreFilterService commitPreFilterService,
+            CQICalculatorService cqiCalculatorService,
+            CommitChunkerService commitChunkerService) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
@@ -70,6 +82,9 @@ public class RequestService {
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
         this.gitContributionAnalysisService = gitContributionAnalysisService;
+        this.commitPreFilterService = commitPreFilterService;
+        this.cqiCalculatorService = cqiCalculatorService;
+        this.commitChunkerService = commitChunkerService;
     }
 
     /**
@@ -290,13 +305,41 @@ public class RequestService {
                     team.name(), e.getMessage());
         }
 
-        // Fallback to simple balance calculator if fairness analysis failed or returned
-        // 0
+        // Fallback to CQI calculator with pre-filtered commits if fairness analysis failed or returned 0
         if (cqi == null || cqi == 0.0) {
-            Map<String, Integer> commitCounts = new HashMap<>();
-            students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-            if (!commitCounts.isEmpty()) {
-                cqi = balanceCalculator.calculate(commitCounts);
+            try {
+                // Try pre-filtered LoC-based CQI calculation
+                if (repo.localPath() != null) {
+                    Map<String, Long> commitToAuthor = buildCommitToAuthorMap(repo);
+                    List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
+                    
+                    // Apply pre-filter to remove trivial commits
+                    CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+                    
+                    log.info("Pre-filter for team {}: {} of {} commits will be analyzed", 
+                            team.name(), filterResult.chunksToAnalyze().size(), allChunks.size());
+                    
+                    // Calculate CQI using fallback (LoC-based, no LLM)
+                    CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
+                            filterResult.chunksToAnalyze(),
+                            students.size(),
+                            filterResult.summary()
+                    );
+                    
+                    cqi = cqiResult.cqi();
+                    log.debug("Fallback CQI for team {}: {}", team.name(), cqi);
+                }
+            } catch (Exception e) {
+                log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
+            }
+            
+            // Last resort: simple commit-count based balance
+            if (cqi == null || cqi == 0.0) {
+                Map<String, Integer> commitCounts = new HashMap<>();
+                students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                if (!commitCounts.isEmpty()) {
+                    cqi = balanceCalculator.calculate(commitCounts);
+                }
             }
         }
 
@@ -554,5 +597,33 @@ public class RequestService {
         } catch (Exception e) {
             return "[]";
         }
+    }
+
+    /**
+     * Builds a mapping from commit SHA to author ID from VCS logs.
+     */
+    private Map<String, Long> buildCommitToAuthorMap(TeamRepositoryDTO repo) {
+        Map<String, Long> mapping = new HashMap<>();
+        Map<String, Long> emailToId = new HashMap<>();
+        long idCounter = 1;
+
+        if (repo.vcsLogs() == null) {
+            return mapping;
+        }
+
+        for (var log : repo.vcsLogs()) {
+            if (log.commitHash() == null || log.email() == null) {
+                continue;
+            }
+
+            Long authorId = emailToId.get(log.email());
+            if (authorId == null) {
+                authorId = idCounter++;
+                emailToId.put(log.email(), authorId);
+            }
+            mapping.put(log.commitHash(), authorId);
+        }
+
+        return mapping;
     }
 }
