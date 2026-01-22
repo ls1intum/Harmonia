@@ -349,7 +349,8 @@ public class CommitChunkerService {
                 .map(c -> new CommitChunkDTO(
                         c.commitSha(), c.authorId(), c.authorEmail(), c.commitMessage(),
                         c.timestamp(), c.files(), c.diffContent(), c.linesAdded(), c.linesDeleted(),
-                        c.chunkIndex(), totalChunks, c.isBundled(), c.bundledCommits()))
+                        c.chunkIndex(), totalChunks, c.isBundled(), c.bundledCommits(),
+                        c.renameDetected(), c.formatOnly(), c.massReformatFlag()))
                 .collect(Collectors.toList());
     }
 
@@ -386,6 +387,9 @@ public class CommitChunkerService {
                 chunkIndex,
                 totalChunks,
                 isBundled,
-                List.of());
+                List.of(),
+                null,  // renameDetected - to be set by git analysis
+                null,  // formatOnly - to be set by git analysis
+                null); // massReformatFlag - to be set by git analysis
     }
 }

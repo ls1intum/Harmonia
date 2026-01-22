@@ -96,6 +96,10 @@ Raw Commits → [Pre-Filter] → Productive Commits → [LLM Analysis] → [CQI 
 |----------|-----------|--------|
 | **EMPTY** | 0 lines changed | Skip LLM, exclude |
 | **MERGE** | Message pattern (`^Merge...`) | Skip LLM, exclude |
+| **REVERT** | Message pattern (`^Revert...`) | Skip LLM, exclude |
+| **RENAME_ONLY** | git -M/-C flag + ≤2 LoC | Skip LLM, exclude |
+| **FORMAT_ONLY** | git diff -w shows no changes | Skip LLM, exclude |
+| **MASS_REFORMAT** | ≥10 files, <5 avg LoC, format message | Skip LLM, exclude |
 | **GENERATED_FILES** | Only lock files or build outputs | Skip LLM, exclude |
 | **TRIVIAL_MESSAGE** | Linting/formatting patterns | Skip LLM, exclude |
 
@@ -442,6 +446,10 @@ See: [CommitPreFilterService.java](src/main/java/de/tum/cit/aet/analysis/service
 Pre-filters commits **BEFORE** LLM analysis:
 - Empty commits (0 LoC)
 - Merge commits
+- Revert commits
+- Rename-only commits (git -M/-C)
+- Format-only commits (git diff -w)
+- Mass reformat commits (many files, uniform changes)
 - Lock files & build outputs only
 - Trivial message patterns (lint, format, typo, wip, etc.)
 

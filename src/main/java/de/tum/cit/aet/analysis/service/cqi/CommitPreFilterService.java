@@ -17,6 +17,15 @@ import java.util.regex.Pattern;
  * to save LLM API calls and improve CQI accuracy.
  * <p>
  * Filtered commits are NOT sent to the LLM and NOT counted in CQI.
+ * <p>
+ * Detection methods:
+ * - Empty commits (0 LoC)
+ * - Merge/Revert commits (message pattern)
+ * - Rename-only commits (git -M/-C detection)
+ * - Format-only commits (whitespace changes, linter runs)
+ * - Mass reformat commits (many files, uniform patterns)
+ * - Generated files only (lock files, build outputs)
+ * - Trivial message patterns (lint, typo, wip)
  */
 @Service
 @Slf4j
@@ -116,12 +125,45 @@ public class CommitPreFilterService {
             Pattern.compile("^init\\s*$", Pattern.CASE_INSENSITIVE)
     );
 
+    /**
+     * Revert commit patterns.
+     */
+    private static final List<Pattern> REVERT_PATTERNS = List.of(
+            Pattern.compile("^Revert \".*\".*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^Revert .*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^This reverts commit.*", Pattern.CASE_INSENSITIVE)
+    );
+
+    /**
+     * Format/style-only commit message patterns (for mass reformat detection).
+     */
+    private static final List<Pattern> FORMAT_COMMIT_PATTERNS = List.of(
+            Pattern.compile("^(apply|run)\\s+(code\\s*)?(format|formatter|formatting).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^reformat(ted)?\\s+(all\\s*)?(code|files)?.*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^(run|apply)\\s+(black|autopep8|gofmt|rustfmt|clang-format).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^(code|style)\\s*cleanup.*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^normalize\\s+(line\\s*endings|whitespace|imports).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^organize\\s+imports.*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^sort\\s+imports.*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^fix\\s+(all\\s*)?lint(er)?\\s*(errors|warnings|issues)?\\s*$", Pattern.CASE_INSENSITIVE)
+    );
+
     // ==================== Thresholds ====================
 
     /**
      * Commits with fewer lines are suspicious if they have trivial messages.
      */
     private static final int SMALL_COMMIT_THRESHOLD = 5;
+
+    /**
+     * Threshold for mass reformat detection: many files with few semantic changes.
+     */
+    private static final int MASS_REFORMAT_FILE_THRESHOLD = 10;
+
+    /**
+     * If average lines per file is below this in a multi-file commit, suspicious for reformat.
+     */
+    private static final double MASS_REFORMAT_AVG_LINES_THRESHOLD = 5.0;
 
     /**
      * Result of the pre-filtering process.
@@ -149,6 +191,10 @@ public class CommitPreFilterService {
     public enum FilterReason {
         EMPTY,
         MERGE_COMMIT,
+        REVERT_COMMIT,
+        RENAME_ONLY,
+        FORMAT_ONLY,
+        MASS_REFORMAT,
         GENERATED_FILES_ONLY,
         TRIVIAL_MESSAGE,
         SMALL_TRIVIAL_COMMIT
@@ -171,6 +217,10 @@ public class CommitPreFilterService {
 
         int emptyCount = 0;
         int mergeCount = 0;
+        int revertCount = 0;
+        int renameCount = 0;
+        int formatCount = 0;
+        int massReformatCount = 0;
         int generatedCount = 0;
         int trivialCount = 0;
 
@@ -183,6 +233,10 @@ public class CommitPreFilterService {
                 switch (decision.reason()) {
                     case EMPTY -> emptyCount++;
                     case MERGE_COMMIT -> mergeCount++;
+                    case REVERT_COMMIT -> revertCount++;
+                    case RENAME_ONLY -> renameCount++;
+                    case FORMAT_ONLY -> formatCount++;
+                    case MASS_REFORMAT -> massReformatCount++;
                     case GENERATED_FILES_ONLY -> generatedCount++;
                     case TRIVIAL_MESSAGE, SMALL_TRIVIAL_COMMIT -> trivialCount++;
                 }
@@ -196,13 +250,16 @@ public class CommitPreFilterService {
                 toAnalyze.size(),
                 trivialCount,
                 generatedCount,
-                0,  // copyPasteCount - detected by LLM, not pre-filter
                 emptyCount,
-                mergeCount
+                mergeCount,
+                revertCount,
+                renameCount,
+                formatCount,
+                massReformatCount
         );
 
-        log.info("Pre-filter complete: {} of {} commits will be analyzed. Filtered: {} empty, {} merge, {} generated, {} trivial",
-                toAnalyze.size(), chunks.size(), emptyCount, mergeCount, generatedCount, trivialCount);
+        log.info("Pre-filter complete: {} of {} commits will be analyzed. {}", 
+                toAnalyze.size(), chunks.size(), summary.toSummary());
 
         return new PreFilterResult(toAnalyze, filtered, summary);
     }
@@ -221,13 +278,37 @@ public class CommitPreFilterService {
             return FilterDecision.filter(FilterReason.MERGE_COMMIT, "Merge commit");
         }
 
-        // 3. Only generated/lock files modified
+        // 3. Revert commit
+        if (isRevertCommit(chunk.commitMessage())) {
+            return FilterDecision.filter(FilterReason.REVERT_COMMIT, "Revert commit");
+        }
+
+        // 4. Rename-only commit (all files are renames with no content change)
+        if (isRenameOnly(chunk)) {
+            return FilterDecision.filter(FilterReason.RENAME_ONLY,
+                    "Rename-only: " + chunk.files().size() + " files renamed");
+        }
+
+        // 5. Format/whitespace-only commit
+        if (isFormatOnly(chunk)) {
+            return FilterDecision.filter(FilterReason.FORMAT_ONLY,
+                    "Format/whitespace-only changes");
+        }
+
+        // 6. Mass reformat commit (many files, uniform small changes, format message)
+        if (isMassReformat(chunk)) {
+            return FilterDecision.filter(FilterReason.MASS_REFORMAT,
+                    "Mass reformat: " + chunk.files().size() + " files with avg " +
+                            String.format("%.1f", getAvgLinesPerFile(chunk)) + " lines each");
+        }
+
+        // 7. Only generated/lock files modified
         if (hasOnlyGeneratedFiles(chunk.files())) {
             return FilterDecision.filter(FilterReason.GENERATED_FILES_ONLY,
                     "Only generated files: " + String.join(", ", chunk.files()));
         }
 
-        // 4. Trivial commit message pattern
+        // 8. Trivial commit message pattern
         String trivialMatch = matchesTrivialPattern(chunk.commitMessage());
         if (trivialMatch != null) {
             // For small commits with trivial messages, always filter
@@ -244,6 +325,8 @@ public class CommitPreFilterService {
         return FilterDecision.keep();
     }
 
+    // ==================== Detection Methods ====================
+
     /**
      * Check if commit message matches merge patterns.
      */
@@ -253,6 +336,119 @@ public class CommitPreFilterService {
         }
         return MERGE_PATTERNS.stream()
                 .anyMatch(pattern -> pattern.matcher(message.trim()).matches());
+    }
+
+    /**
+     * Check if commit message matches revert patterns.
+     */
+    private boolean isRevertCommit(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        return REVERT_PATTERNS.stream()
+                .anyMatch(pattern -> pattern.matcher(message.trim()).matches());
+    }
+
+    /**
+     * Check if commit is rename-only (files renamed but content unchanged).
+     * <p>
+     * Detection: If CommitChunkDTO has rename metadata from git -M/-C,
+     * and the content changes are minimal (only path changes).
+     */
+    private boolean isRenameOnly(CommitChunkDTO chunk) {
+        // Check if chunk has rename flag (requires CommitChunkDTO to have this field)
+        if (chunk.renameDetected() != null && chunk.renameDetected()) {
+            // If marked as rename and very few actual code changes
+            return chunk.totalLinesChanged() <= 2;
+        }
+        
+        // Heuristic: If message contains "rename" and few line changes
+        String message = chunk.commitMessage();
+        if (message != null) {
+            String lower = message.toLowerCase();
+            if ((lower.contains("rename") || lower.contains("move")) && chunk.totalLinesChanged() <= 5) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if commit is format/whitespace-only.
+     * <p>
+     * Detection methods:
+     * - CommitChunkDTO has formatOnly flag from git diff -w comparison
+     * - Message matches format patterns and changes are small per file
+     */
+    private boolean isFormatOnly(CommitChunkDTO chunk) {
+        // Check if chunk has format-only flag (requires CommitChunkDTO to have this field)
+        if (chunk.formatOnly() != null && chunk.formatOnly()) {
+            return true;
+        }
+        
+        // Heuristic: format message pattern + small average lines per file
+        String message = chunk.commitMessage();
+        if (message != null && matchesFormatPattern(message)) {
+            // If it's a format commit and average lines per file is low, likely format-only
+            double avgLines = getAvgLinesPerFile(chunk);
+            if (avgLines < 10.0 && chunk.files().size() > 1) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if commit is a mass reformat (many files, uniform changes).
+     * <p>
+     * Detection:
+     * - Many files (>10)
+     * - Low average lines per file (<5)
+     * - Message matches format/reformat patterns
+     */
+    private boolean isMassReformat(CommitChunkDTO chunk) {
+        // Check if chunk has mass reformat flag
+        if (chunk.massReformatFlag() != null && chunk.massReformatFlag()) {
+            return true;
+        }
+        
+        int fileCount = chunk.files() != null ? chunk.files().size() : 0;
+        if (fileCount < MASS_REFORMAT_FILE_THRESHOLD) {
+            return false;
+        }
+        
+        double avgLines = getAvgLinesPerFile(chunk);
+        if (avgLines > MASS_REFORMAT_AVG_LINES_THRESHOLD) {
+            return false;
+        }
+        
+        // Must also have a format-related message
+        String message = chunk.commitMessage();
+        return message != null && matchesFormatPattern(message);
+    }
+
+    /**
+     * Check if message matches format/reformat patterns.
+     */
+    private boolean matchesFormatPattern(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        return FORMAT_COMMIT_PATTERNS.stream()
+                .anyMatch(pattern -> pattern.matcher(message.trim()).matches());
+    }
+
+    /**
+     * Calculate average lines changed per file.
+     */
+    private double getAvgLinesPerFile(CommitChunkDTO chunk) {
+        int fileCount = chunk.files() != null ? chunk.files().size() : 0;
+        if (fileCount == 0) {
+            return 0.0;
+        }
+        return (double) chunk.totalLinesChanged() / fileCount;
     }
 
     /**
