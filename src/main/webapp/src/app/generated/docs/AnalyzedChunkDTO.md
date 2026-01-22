@@ -10,12 +10,15 @@
 | **classification** | **string**              |             | [optional] [default to undefined] |
 | **commitMessages** | **Array&lt;string&gt;** |             | [optional] [default to undefined] |
 | **commitShas**     | **Array&lt;string&gt;** |             | [optional] [default to undefined] |
+| **complexity**     | **number**              |             | [optional] [default to undefined] |
+| **confidence**     | **number**              |             | [optional] [default to undefined] |
 | **effortScore**    | **number**              |             | [optional] [default to undefined] |
 | **errorMessage**   | **string**              |             | [optional] [default to undefined] |
 | **id**             | **string**              |             | [optional] [default to undefined] |
 | **isBundled**      | **boolean**             |             | [optional] [default to undefined] |
 | **isError**        | **boolean**             |             | [optional] [default to undefined] |
 | **linesChanged**   | **number**              |             | [optional] [default to undefined] |
+| **novelty**        | **number**              |             | [optional] [default to undefined] |
 | **reasoning**      | **string**              |             | [optional] [default to undefined] |
 | **timestamp**      | **string**              |             | [optional] [default to undefined] |
 | **totalChunks**    | **number**              |             | [optional] [default to undefined] |
@@ -32,12 +35,15 @@ const instance: AnalyzedChunkDTO = {
   classification,
   commitMessages,
   commitShas,
+  complexity,
+  confidence,
   effortScore,
   errorMessage,
   id,
   isBundled,
   isError,
   linesChanged,
+  novelty,
   reasoning,
   timestamp,
   totalChunks,
