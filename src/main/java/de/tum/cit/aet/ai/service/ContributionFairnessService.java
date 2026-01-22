@@ -280,6 +280,9 @@ public class ContributionFairnessService {
                         rc.chunk.authorEmail(), // Use email as name placeholder
                         rc.rating.type().name(),
                         rc.rating.weightedEffort(),
+                        rc.rating.complexity(),
+                        rc.rating.novelty(),
+                        rc.rating.confidence(),
                         rc.rating.reasoning(),
                         List.of(rc.chunk.commitSha()),
                         List.of(rc.chunk.commitMessage()),

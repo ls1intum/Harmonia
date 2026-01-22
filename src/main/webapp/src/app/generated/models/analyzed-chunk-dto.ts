@@ -19,12 +19,15 @@ export interface AnalyzedChunkDTO {
   classification?: string;
   commitMessages?: Array<string>;
   commitShas?: Array<string>;
+  complexity?: number;
+  confidence?: number;
   effortScore?: number;
   errorMessage?: string;
   id?: string;
   isBundled?: boolean;
   isError?: boolean;
   linesChanged?: number;
+  novelty?: number;
   reasoning?: string;
   timestamp?: string;
   totalChunks?: number;

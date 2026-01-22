@@ -126,7 +126,10 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
 
                 <div className="flex items-center gap-4">
                   {!isError && (
-                    <span className="text-sm font-semibold text-primary hidden sm:inline-block">{chunk.effortScore.toFixed(1)} effort</span>
+                    <div className="hidden sm:flex items-center gap-2">
+                      <span className="text-sm font-semibold text-primary">{chunk.effortScore.toFixed(1)}</span>
+                      <span className="text-xs text-muted-foreground">effort</span>
+                    </div>
                   )}
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -146,10 +149,33 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>
-                      <p className="text-sm">{chunk.reasoning || 'No reasoning provided.'}</p>
-                    </div>
+                    <>
+                      {/* Effort breakdown */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-background rounded-lg border">
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Effort Score</p>
+                          <p className="text-lg font-bold text-primary">{chunk.effortScore.toFixed(1)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Complexity</p>
+                          <p className="text-lg font-bold">{chunk.complexity.toFixed(1)}/10</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Novelty</p>
+                          <p className="text-lg font-bold">{chunk.novelty.toFixed(1)}/10</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                          <p className="text-lg font-bold">{Math.round(chunk.confidence * 100)}%</p>
+                        </div>
+                      </div>
+
+                      {/* AI Reasoning */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>
+                        <p className="text-sm">{chunk.reasoning || 'No reasoning provided.'}</p>
+                      </div>
+                    </>
                   )}
 
                   {/* Commit details */}

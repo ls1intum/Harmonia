@@ -64,6 +64,9 @@ export interface AnalyzedChunk {
   authorName: string;
   classification: string;
   effortScore: number;
+  complexity: number;
+  novelty: number;
+  confidence: number;
   reasoning: string;
   commitShas: string[];
   commitMessages: string[];
