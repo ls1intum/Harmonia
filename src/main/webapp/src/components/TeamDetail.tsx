@@ -131,11 +131,9 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground mb-3">
-                  Base Score: <span className="font-bold">{Math.round(team.cqiDetails.baseScore)}</span> →{' '}
-                  Final: <span className="font-bold">{Math.round(team.cqiDetails.cqi)}</span>{' '}
-                  <span className="text-xs">
-                    (×{team.cqiDetails.penaltyMultiplier.toFixed(2)})
-                  </span>
+                  Base Score: <span className="font-bold">{Math.round(team.cqiDetails.baseScore)}</span> → Final:{' '}
+                  <span className="font-bold">{Math.round(team.cqiDetails.cqi)}</span>{' '}
+                  <span className="text-xs">(×{team.cqiDetails.penaltyMultiplier.toFixed(2)})</span>
                 </p>
                 {team.cqiDetails.penalties.map((penalty, index) => (
                   <div key={index} className="flex items-start gap-2 p-2 bg-destructive/10 rounded-lg">
@@ -166,7 +164,8 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                   <span className="font-bold">{team.cqiDetails.filterSummary.totalCommits}</span> commits analyzed
                   {team.cqiDetails.filterSummary.totalCommits > 0 && (
                     <span className="text-xs ml-1">
-                      ({Math.round((team.cqiDetails.filterSummary.productiveCommits / team.cqiDetails.filterSummary.totalCommits) * 100)}% kept)
+                      ({Math.round((team.cqiDetails.filterSummary.productiveCommits / team.cqiDetails.filterSummary.totalCommits) * 100)}%
+                      kept)
                     </span>
                   )}
                 </p>
