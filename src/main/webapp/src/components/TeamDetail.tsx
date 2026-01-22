@@ -1,8 +1,8 @@
 import type { Team } from '@/types/team';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, TrendingDown } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
@@ -116,6 +116,103 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
           {team.subMetrics && team.subMetrics.map((metric, index) => <MetricCard key={index} metric={metric} />)}
         </div>
       </div>
+
+      {/* Penalties and Filter Summary */}
+      {team.cqiDetails && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Penalties */}
+          {team.cqiDetails.penalties && team.cqiDetails.penalties.length > 0 && (
+            <Card className="shadow-card">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5 text-destructive" />
+                  <CardTitle className="text-lg">Applied Penalties</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Base Score: <span className="font-bold">{Math.round(team.cqiDetails.baseScore)}</span> →{' '}
+                  Final: <span className="font-bold">{Math.round(team.cqiDetails.cqi)}</span>{' '}
+                  <span className="text-xs">
+                    (×{team.cqiDetails.penaltyMultiplier.toFixed(2)})
+                  </span>
+                </p>
+                {team.cqiDetails.penalties.map((penalty, index) => (
+                  <div key={index} className="flex items-start gap-2 p-2 bg-destructive/10 rounded-lg">
+                    <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">{penalty.type.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-muted-foreground">{penalty.reason}</p>
+                      <p className="text-xs text-destructive">-{((1 - penalty.factor) * 100).toFixed(0)}% reduction</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Filter Summary */}
+          {team.cqiDetails.filterSummary && (
+            <Card className="shadow-card">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Pre-Filter Summary</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  <span className="font-bold">{team.cqiDetails.filterSummary.productiveCommits}</span> of{' '}
+                  <span className="font-bold">{team.cqiDetails.filterSummary.totalCommits}</span> commits analyzed
+                  {team.cqiDetails.filterSummary.totalCommits > 0 && (
+                    <span className="text-xs ml-1">
+                      ({Math.round((team.cqiDetails.filterSummary.productiveCommits / team.cqiDetails.filterSummary.totalCommits) * 100)}% kept)
+                    </span>
+                  )}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {team.cqiDetails.filterSummary.mergeCount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Merge commits:</span>
+                      <span>{team.cqiDetails.filterSummary.mergeCount}</span>
+                    </div>
+                  )}
+                  {team.cqiDetails.filterSummary.revertCount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Revert commits:</span>
+                      <span>{team.cqiDetails.filterSummary.revertCount}</span>
+                    </div>
+                  )}
+                  {team.cqiDetails.filterSummary.trivialCount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Trivial commits:</span>
+                      <span>{team.cqiDetails.filterSummary.trivialCount}</span>
+                    </div>
+                  )}
+                  {team.cqiDetails.filterSummary.formatOnlyCount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Format-only:</span>
+                      <span>{team.cqiDetails.filterSummary.formatOnlyCount}</span>
+                    </div>
+                  )}
+                  {team.cqiDetails.filterSummary.autoGeneratedCount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Auto-generated:</span>
+                      <span>{team.cqiDetails.filterSummary.autoGeneratedCount}</span>
+                    </div>
+                  )}
+                  {team.cqiDetails.filterSummary.emptyCount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Empty commits:</span>
+                      <span>{team.cqiDetails.filterSummary.emptyCount}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* AI Analysis Feed */}
       <div className="space-y-4">

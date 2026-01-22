@@ -2,11 +2,17 @@ package de.tum.cit.aet.ai.service;
 
 import de.tum.cit.aet.ai.domain.FairnessFlag;
 import de.tum.cit.aet.ai.dto.*;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
+import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
+import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
+import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
+import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamDTO;
+import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +26,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,7 +39,10 @@ class ContributionFairnessServiceTest {
     private CommitEffortRaterService commitEffortRaterService;
 
     @Mock
-    private GitContributionAnalysisService gitContributionAnalysisService;
+    private CommitPreFilterService commitPreFilterService;
+
+    @Mock
+    private CQICalculatorService cqiCalculatorService;
 
     @InjectMocks
     private ContributionFairnessService fairnessService;
@@ -43,7 +53,13 @@ class ContributionFairnessServiceTest {
 
     @BeforeEach
     void setUp() {
-        TeamDTO teamDTO = new TeamDTO(null, "Team 1", "T1", null, null);
+        // Create students for the team
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(1L, "student1", "Student One", "student1@tum.de"),
+                new ParticipantDTO(2L, "student2", "Student Two", "student2@tum.de")
+        );
+
+        TeamDTO teamDTO = new TeamDTO(1L, "Team 1", "T1", students, null);
         ParticipationDTO participationDTO = new ParticipationDTO(teamDTO, null, null, null);
 
         List<VCSLogDTO> logs = List.of(
@@ -65,47 +81,89 @@ class ContributionFairnessServiceTest {
         ratingLow = new EffortRatingDTO(2.0, 2.0, 2.0, CommitLabel.TRIVIAL, 0.9, "Trivial", false, null);
     }
 
+    private void setupDefaultMocks(List<CommitChunkDTO> chunks) {
+        // Mock pre-filter to return all chunks
+        FilterSummaryDTO filterSummary = new FilterSummaryDTO(
+                chunks.size(), chunks.size(), 0, 0, 0, 0, 0, 0, 0, 0);
+        CommitPreFilterService.PreFilterResult preFilterResult =
+                new CommitPreFilterService.PreFilterResult(chunks, List.of(), filterSummary);
+        when(commitPreFilterService.preFilter(any())).thenReturn(preFilterResult);
+    }
+
     @Test
     void testAnalyzeFairness_unevenDistribution() {
-        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(List.of(chunkA, chunkB));
-        when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh); // Weighted ~8.0
-        when(commitEffortRaterService.rateChunk(chunkB)).thenReturn(ratingLow); // Weighted ~2.0
+        List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
+        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
+        when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
+        when(commitEffortRaterService.rateChunk(chunkB)).thenReturn(ratingLow);
+        setupDefaultMocks(chunks);
+
+        // Mock CQI result with uneven distribution penalty
+        CQIResultDTO cqiResult = new CQIResultDTO(
+                35.0,
+                new ComponentScoresDTO(35.0, 40.0, 80.0, 50.0),
+                List.of(new CQIPenaltyDTO("SEVERE_IMBALANCE", 0.7, "Severe imbalance detected")),
+                50.0,
+                0.7,
+                null
+        );
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
         assertNotNull(report);
         assertEquals("Team 1", report.teamId());
-
-        // High effort share for student 1 (~80%), Low for student 2 (~20%)
-        // Should trigger UNEVEN_DISTRIBUTION flag
         assertTrue(report.flags().contains(FairnessFlag.UNEVEN_DISTRIBUTION));
         assertTrue(report.requiresManualReview());
-
         assertEquals(2, report.authorDetails().size());
     }
 
     @Test
     void testAnalyzeFairness_balanced() {
-        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(List.of(chunkA, chunkB));
+        List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
+        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
         when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
-        when(commitEffortRaterService.rateChunk(chunkB)).thenReturn(ratingHigh); // Both high effort
+        when(commitEffortRaterService.rateChunk(chunkB)).thenReturn(ratingHigh);
+        setupDefaultMocks(chunks);
+
+        // Mock CQI result with balanced scores
+        CQIResultDTO cqiResult = new CQIResultDTO(
+                95.0,
+                new ComponentScoresDTO(95.0, 90.0, 85.0, 80.0),
+                List.of(), // No penalties
+                95.0,
+                1.0,
+                null
+        );
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
-        // Balanced (~50/50)
         assertTrue(report.flags().isEmpty());
         assertFalse(report.requiresManualReview());
-        assertEquals(100.0, report.balanceScore(), 1.0);
+        assertEquals(95.0, report.balanceScore(), 1.0);
     }
 
     @Test
     void testAnalyzeFairness_soloContributor() {
-        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(List.of(chunkA));
+        List<CommitChunkDTO> chunks = List.of(chunkA);
+        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
         when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
+        setupDefaultMocks(chunks);
+
+        // Mock CQI result with solo contributor penalty
+        CQIResultDTO cqiResult = new CQIResultDTO(
+                0.0,
+                new ComponentScoresDTO(0.0, 0.0, 50.0, 0.0),
+                List.of(new CQIPenaltyDTO("SOLO_DEVELOPMENT", 0.0, "Solo development detected")),
+                50.0,
+                0.0,
+                null
+        );
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
-        // 100% share for student 1
         assertTrue(report.flags().contains(FairnessFlag.SOLO_CONTRIBUTOR));
         assertEquals(0.0, report.balanceScore());
     }

@@ -284,6 +284,8 @@ public class RequestService {
             log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
         }
 
+        CQIResultDTO cqiDetails = null;
+
         try {
             // Try effort-based fairness analysis first
             FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
@@ -291,6 +293,7 @@ public class RequestService {
                 cqi = fairnessReport.balanceScore();
                 isSuspicious = fairnessReport.requiresManualReview();
                 analysisHistory = fairnessReport.analyzedChunks();
+                cqiDetails = fairnessReport.cqiResult();
                 log.debug("Fairness analysis complete for team {}: score={}, suspicious={}, chunks={}",
                         team.name(), cqi, isSuspicious, analysisHistory != null ? analysisHistory.size() : 0);
 
@@ -326,6 +329,7 @@ public class RequestService {
                     );
 
                     cqi = cqiResult.cqi();
+                    cqiDetails = cqiResult;
                     log.debug("Fallback CQI for team {}: {}", team.name(), cqi);
                 }
             } catch (Exception e) {
@@ -355,6 +359,7 @@ public class RequestService {
                 studentAnalysisDTOS,
                 cqi,
                 isSuspicious,
+                cqiDetails,
                 analysisHistory,
                 orphanCommits);
     }
@@ -505,6 +510,7 @@ public class RequestService {
                             studentAnalysisDTOS,
                             cqi,
                             isSuspicious,
+                            null, // CQI details not persisted - only available during live analysis
                             loadAnalyzedChunks(participation),
                             null); // Orphan commits are not persisted, only shown during live analysis
                 })

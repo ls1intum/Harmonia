@@ -1,4 +1,4 @@
-import type { Team } from '@/types/team';
+import type { Team, CQIDetails, SubMetric } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
 import { RequestResourceApi, type ClientResponseDTO, type AnalyzedChunkDTO } from '@/app/generated';
@@ -122,30 +122,65 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
   const isSuspicious = dto.isSuspicious ?? false;
 
-  // Sub-metrics not yet implemented on server
-  const subMetrics = [
-    {
-      name: 'Contribution Balance',
-      value: cqi,
-      weight: 40,
-      description: 'Are teammates contributing at similar levels?',
-      details: 'Calculated from commit distribution.',
-    },
-    {
-      name: 'Ownership Distribution',
-      value: 0,
-      weight: 30,
-      description: 'Are key files shared rather than monopolized?',
-      details: 'Calculated from git blame analysis.',
-    },
-    {
-      name: 'Pairing Signals',
-      value: 0,
-      weight: 30,
-      description: 'Did teammates actually work together?',
-      details: 'Not yet implemented.',
-    },
-  ];
+  // Extract CQI details from server response
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const serverCqiDetails = (dto as any).cqiDetails as CQIDetails | undefined;
+
+  // Generate sub-metrics from CQI details if available
+  const subMetrics: SubMetric[] = serverCqiDetails?.components
+    ? [
+        {
+          name: 'Effort Balance',
+          value: Math.round(serverCqiDetails.components.effortBalance),
+          weight: 40,
+          description: 'Is effort distributed fairly among team members?',
+          details: 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
+        },
+        {
+          name: 'Lines of Code Balance',
+          value: Math.round(serverCqiDetails.components.locBalance),
+          weight: 25,
+          description: 'Are code contributions balanced?',
+          details: 'Measures the distribution of lines added/deleted across team members.',
+        },
+        {
+          name: 'Temporal Spread',
+          value: Math.round(serverCqiDetails.components.temporalSpread),
+          weight: 20,
+          description: 'Is work spread over time or crammed at deadline?',
+          details: 'Higher scores mean work was spread consistently throughout the project period.',
+        },
+        {
+          name: 'File Ownership Spread',
+          value: Math.round(serverCqiDetails.components.ownershipSpread),
+          weight: 15,
+          description: 'Are files owned by multiple team members?',
+          details: 'Measures how well files are shared among team members (based on git blame analysis).',
+        },
+      ]
+    : [
+        {
+          name: 'Contribution Balance',
+          value: cqi,
+          weight: 40,
+          description: 'Are teammates contributing at similar levels?',
+          details: 'Calculated from commit distribution.',
+        },
+        {
+          name: 'Ownership Distribution',
+          value: 0,
+          weight: 30,
+          description: 'Are key files shared rather than monopolized?',
+          details: 'Calculated from git blame analysis.',
+        },
+        {
+          name: 'Pairing Signals',
+          value: 0,
+          weight: 30,
+          description: 'Did teammates actually work together?',
+          details: 'Not yet implemented.',
+        },
+      ];
 
   // Map analysis history from server
   const analysisHistory = dto.analysisHistory?.map((chunk: AnalyzedChunkDTO) => ({
@@ -181,6 +216,7 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
     ...basicData,
     cqi,
     isSuspicious,
+    cqiDetails: serverCqiDetails,
     subMetrics,
     analysisHistory,
     orphanCommits,

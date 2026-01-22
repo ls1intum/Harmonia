@@ -17,6 +17,11 @@ public enum FairnessFlag {
     LATE_WORK_CONCENTRATION,
 
     /**
+     * Alias for LATE_WORK_CONCENTRATION (used by CQI calculator).
+     */
+    LATE_WORK,
+
+    /**
      * One team member did almost all the work.
      * Triggered when one person has >85% of total effort.
      */
@@ -33,6 +38,11 @@ public enum FairnessFlag {
      * Triggered when >30% of ratings have confidence <0.7.
      */
     LOW_CONFIDENCE_RATINGS,
+
+    /**
+     * Alias for LOW_CONFIDENCE_RATINGS (used by CQI calculator).
+     */
+    LOW_CONFIDENCE,
 
     /**
      * Unable to analyze due to technical issues.

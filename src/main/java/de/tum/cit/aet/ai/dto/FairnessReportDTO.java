@@ -2,6 +2,7 @@ package de.tum.cit.aet.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import de.tum.cit.aet.ai.domain.FairnessFlag;
+import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +22,7 @@ import java.util.Map;
  * @param authorDetails        Detailed breakdown per author
  * @param analysisMetadata     Metadata about the analysis (commit count, chunk
  *                             count, etc.)
+ * @param cqiResult            Detailed CQI calculation result with components
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FairnessReportDTO(
@@ -32,7 +34,8 @@ public record FairnessReportDTO(
                 boolean requiresManualReview,
                 List<AuthorDetailDTO> authorDetails,
                 AnalysisMetadataDTO analysisMetadata,
-                List<AnalyzedChunkDTO> analyzedChunks) {
+                List<AnalyzedChunkDTO> analyzedChunks,
+                CQIResultDTO cqiResult) {
         /**
          * Detailed contribution breakdown for a single author.
          */
@@ -74,6 +77,7 @@ public record FairnessReportDTO(
                                 true,
                                 List.of(),
                                 new AnalysisMetadataDTO(0, 0, 0, 0.0, 0, 0),
-                                List.of());
+                                List.of(),
+                                null);
         }
 }
