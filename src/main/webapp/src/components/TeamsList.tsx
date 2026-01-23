@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
-import { StatusFilterButton } from '@/components/StatusFilterButton.tsx';
+import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 
@@ -37,7 +37,7 @@ const TeamsList = ({
 }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious' | 'failed'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
 
@@ -76,8 +76,10 @@ const TeamsList = ({
     if (statusFilter !== 'all') {
       if (statusFilter === 'failed') {
         filtered = filtered.filter(team => isTeamFailed(team));
-      } else {
-        filtered = filtered.filter(team => (statusFilter === 'suspicious' ? team.isSuspicious : !team.isSuspicious));
+      } else if (statusFilter === 'suspicious') {
+        filtered = filtered.filter(team => team.isSuspicious);
+      } else if (statusFilter === 'normal') {
+        filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
       }
     }
 
