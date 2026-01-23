@@ -13,6 +13,7 @@
  */
 
 export interface LoginRequestDTO {
+  courseId: string;
   password: string;
   serverUrl: string;
   username: string;
