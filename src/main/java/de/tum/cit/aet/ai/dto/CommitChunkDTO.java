@@ -9,21 +9,22 @@ import java.util.List;
  * Large commits are split into multiple chunks (max 500 LoC each).
  * Small commits from the same author within 60 minutes are bundled.
  *
- * @param commitSha      The original commit SHA (or first SHA if bundled)
- * @param authorId       The author's student ID
- * @param authorEmail    The author's email
- * @param commitMessage  The commit message (concatenated if bundled)
- * @param timestamp      The commit timestamp (earliest if bundled)
- * @param files          List of file paths modified in this chunk
- * @param diffContent    The actual diff content for this chunk
- * @param linesAdded     Number of lines added in this chunk
- * @param linesDeleted   Number of lines deleted in this chunk
- * @param chunkIndex     Index of this chunk (0 if not chunked)
- * @param totalChunks    Total number of chunks for this commit (1 if not
- *                       chunked)
- * @param isBundled      True if this represents multiple small commits bundled
- *                       together
- * @param bundledCommits List of commit SHAs if bundled, empty otherwise
+ * @param commitSha        The original commit SHA (or first SHA if bundled)
+ * @param authorId         The author's student ID
+ * @param authorEmail      The author's email
+ * @param commitMessage    The commit message (concatenated if bundled)
+ * @param timestamp        The commit timestamp (earliest if bundled)
+ * @param files            List of file paths modified in this chunk
+ * @param diffContent      The actual diff content for this chunk
+ * @param linesAdded       Number of lines added in this chunk
+ * @param linesDeleted     Number of lines deleted in this chunk
+ * @param chunkIndex       Index of this chunk (0 if not chunked)
+ * @param totalChunks      Total number of chunks for this commit (1 if not chunked)
+ * @param isBundled        True if this represents multiple small commits bundled together
+ * @param bundledCommits   List of commit SHAs if bundled, empty otherwise
+ * @param renameDetected   True if git detected file renames (-M/-C flag)
+ * @param formatOnly       True if only whitespace/formatting changes (git diff -w comparison)
+ * @param massReformatFlag True if detected as mass reformat (many files, uniform patterns)
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CommitChunkDTO(
@@ -39,7 +40,11 @@ public record CommitChunkDTO(
         int chunkIndex,
         int totalChunks,
         boolean isBundled,
-        List<String> bundledCommits) {
+        List<String> bundledCommits,
+        Boolean renameDetected,
+        Boolean formatOnly,
+        Boolean massReformatFlag) {
+
     /**
      * Creates a simple chunk from a single commit (not bundled, not split).
      */
@@ -56,7 +61,29 @@ public record CommitChunkDTO(
         return new CommitChunkDTO(
                 commitSha, authorId, authorEmail, commitMessage, timestamp,
                 files, diffContent, linesAdded, linesDeleted,
-                0, 1, false, List.of());
+                0, 1, false, List.of(), null, null, null);
+    }
+
+    /**
+     * Creates a chunk with filter detection flags.
+     */
+    public static CommitChunkDTO withFlags(
+            String commitSha,
+            Long authorId,
+            String authorEmail,
+            String commitMessage,
+            LocalDateTime timestamp,
+            List<String> files,
+            String diffContent,
+            int linesAdded,
+            int linesDeleted,
+            Boolean renameDetected,
+            Boolean formatOnly,
+            Boolean massReformatFlag) {
+        return new CommitChunkDTO(
+                commitSha, authorId, authorEmail, commitMessage, timestamp,
+                files, diffContent, linesAdded, linesDeleted,
+                0, 1, false, List.of(), renameDetected, formatOnly, massReformatFlag);
     }
 
     /**

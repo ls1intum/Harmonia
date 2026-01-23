@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle } from 'lucide-react';
-import type { AnalyzedChunk } from '@/types/team';
+import type { AnalyzedChunkDTO } from '@/app/generated';
 
 interface AnalysisFeedProps {
-  chunks: AnalyzedChunk[];
+  chunks: AnalyzedChunkDTO[];
 }
 
 const classificationColors: Record<string, string> = {
@@ -49,11 +49,11 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
     .filter(chunk => !chunk.isError)
     .reduce(
       (acc, chunk) => {
-        const email = chunk.authorEmail;
+        const email = chunk.authorEmail ?? 'unknown';
         if (!acc[email]) {
           acc[email] = { effort: 0, count: 0 };
         }
-        acc[email].effort += chunk.effortScore;
+        acc[email].effort += chunk.effortScore ?? 0;
         acc[email].count += 1;
         return acc;
       },
@@ -91,18 +91,16 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
       <div className="space-y-3">
         <h3 className="text-lg font-semibold">Analysis History ({chunks.length} chunks)</h3>
         {chunks.map(chunk => {
-          const isExpanded = expandedChunks.has(chunk.id);
+          const chunkId = chunk.id ?? '';
+          const isExpanded = expandedChunks.has(chunkId);
           const isError = chunk.isError;
           const colorClass = isError
             ? 'border-red-200 bg-red-50/30 dark:border-red-900/50 dark:bg-red-900/10'
-            : classificationColors[chunk.classification] || classificationColors.TRIVIAL;
+            : classificationColors[chunk.classification ?? 'TRIVIAL'] || classificationColors.TRIVIAL;
 
           return (
-            <Card key={chunk.id} className={`overflow-hidden transition-colors ${colorClass}`}>
-              <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
-                onClick={() => toggleExpand(chunk.id)}
-              >
+            <Card key={chunkId} className={`overflow-hidden transition-colors ${colorClass}`}>
+              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(chunkId)}>
                 <div className="flex items-center gap-3 overflow-hidden">
                   {isError ? (
                     <Badge variant="destructive" className="shrink-0 flex items-center gap-1">
@@ -111,22 +109,25 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                   ) : (
                     <Badge className={`shrink-0 ${colorClass}`}>{chunk.classification}</Badge>
                   )}
-                  <span className="font-medium truncate">{chunk.authorEmail.split('@')[0]}</span>
+                  <span className="font-medium truncate">{(chunk.authorEmail ?? 'unknown').split('@')[0]}</span>
                   {chunk.isBundled && (
                     <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
                       Bundled
                     </Badge>
                   )}
-                  {chunk.totalChunks > 1 && (
+                  {(chunk.totalChunks ?? 0) > 1 && (
                     <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
-                      Part {chunk.chunkIndex + 1}/{chunk.totalChunks}
+                      Part {(chunk.chunkIndex ?? 0) + 1}/{chunk.totalChunks}
                     </Badge>
                   )}
                 </div>
 
                 <div className="flex items-center gap-4">
                   {!isError && (
-                    <span className="text-sm font-semibold text-primary hidden sm:inline-block">{chunk.effortScore.toFixed(1)} effort</span>
+                    <div className="hidden sm:flex items-center gap-2">
+                      <span className="text-sm font-semibold text-primary">{(chunk.effortScore ?? 0).toFixed(1)}</span>
+                      <span className="text-xs text-muted-foreground">effort</span>
+                    </div>
                   )}
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -146,21 +147,44 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>
-                      <p className="text-sm">{chunk.reasoning || 'No reasoning provided.'}</p>
-                    </div>
+                    <>
+                      {/* Effort breakdown */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-background rounded-lg border">
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Effort Score</p>
+                          <p className="text-lg font-bold text-primary">{(chunk.effortScore ?? 0).toFixed(1)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Complexity</p>
+                          <p className="text-lg font-bold">{(chunk.complexity ?? 0).toFixed(1)}/10</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Novelty</p>
+                          <p className="text-lg font-bold">{(chunk.novelty ?? 0).toFixed(1)}/10</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                          <p className="text-lg font-bold">{Math.round((chunk.confidence ?? 0) * 100)}%</p>
+                        </div>
+                      </div>
+
+                      {/* AI Reasoning */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>
+                        <p className="text-sm">{chunk.reasoning || 'No reasoning provided.'}</p>
+                      </div>
+                    </>
                   )}
 
                   {/* Commit details */}
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Commits ({chunk.commitShas.length}):</p>
-                    {chunk.commitShas.map((sha, idx) => (
+                    <p className="text-sm font-medium text-muted-foreground">Commits ({(chunk.commitShas ?? []).length}):</p>
+                    {(chunk.commitShas ?? []).map((sha, idx) => (
                       <div key={sha} className="flex items-start gap-2 text-sm">
                         <GitCommit className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                         <div className="min-w-0">
                           <code className="text-xs bg-muted px-1 py-0.5 rounded">{sha.slice(0, 7)}</code>
-                          <span className="ml-2 break-all">{chunk.commitMessages[idx]}</span>
+                          <span className="ml-2 break-all">{(chunk.commitMessages ?? [])[idx]}</span>
                         </div>
                       </div>
                     ))}
@@ -170,11 +194,11 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                   <div className="flex gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <FileCode className="h-3 w-3" />
-                      {chunk.linesChanged} lines
+                      {chunk.linesChanged ?? 0} lines
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {new Date(chunk.timestamp).toLocaleDateString()}
+                      {new Date(chunk.timestamp ?? new Date().toISOString()).toLocaleDateString()}
                     </span>
                   </div>
                 </CardContent>

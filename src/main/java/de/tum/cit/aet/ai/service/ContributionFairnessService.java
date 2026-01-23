@@ -3,19 +3,24 @@ package de.tum.cit.aet.ai.service;
 import de.tum.cit.aet.ai.domain.FairnessFlag;
 import de.tum.cit.aet.ai.dto.*;
 
+import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
+import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * Orchestrator service for contribution fairness analysis.
- * Integrates Git analysis, commit chunking, and LLM effort rating to generate a
- * fairness report.
+ * Integrates Git analysis, commit chunking, pre-filtering, LLM effort rating,
+ * and CQI calculation to generate a fairness report.
  */
 @Service
 @Slf4j
@@ -24,17 +29,12 @@ public class ContributionFairnessService {
 
     private final CommitChunkerService commitChunkerService;
     private final CommitEffortRaterService commitEffortRaterService;
-    // private final GitContributionAnalysisService gitContributionAnalysisService;
-    // // Not used yet in MVP logic
-
-    // Thresholds
-    private static final double WARNING_THRESHOLD_SHARE = 0.70; // 70% share warning
-    private static final double CRITICAL_THRESHOLD_SHARE = 0.85; // 85% share critical
-    private static final double TRIVIAL_RATIO_THRESHOLD = 0.40; // 40% trivial commits
-    // private static final double LATE_WORK_THRESHOLD = 0.50; // Not used yet
+    private final CommitPreFilterService commitPreFilterService;
+    private final CQICalculatorService cqiCalculatorService;
 
     /**
      * Analyzes a repository for contribution fairness.
+     * Uses pre-filtering, LLM rating, and CQI calculation.
      *
      * @param repositoryDTO the repository data transfer object to analyze
      * @return a FairnessReportDTO containing the analysis results
@@ -42,9 +42,9 @@ public class ContributionFairnessService {
     public FairnessReportDTO analyzeFairness(TeamRepositoryDTO repositoryDTO) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
+        int teamSize = repositoryDTO.participation().team().students().size();
 
         if (repoPath == null) {
-            log.warn("Repository not cloned locally for team {}", teamName);
             return FairnessReportDTO.error(teamName, "Repository not cloned locally");
         }
 
@@ -55,36 +55,77 @@ public class ContributionFairnessService {
             Map<String, Long> commitToAuthor = mapCommitsToAuthors(repositoryDTO.vcsLogs());
 
             if (commitToAuthor.isEmpty()) {
-                log.warn("No commits found for team {} - VCS logs may be empty", teamName);
                 return FairnessReportDTO.error(teamName, "No commits found in VCS logs");
             }
 
             // 2. Chunk and bundle commits
-            List<CommitChunkDTO> chunks = commitChunkerService.processRepository(repoPath, commitToAuthor);
+            List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repoPath, commitToAuthor);
 
-            if (chunks.isEmpty()) {
-                log.warn("No valid chunks created for team {} - all commits may have been filtered", teamName);
+            if (allChunks.isEmpty()) {
                 return FairnessReportDTO.error(teamName, "No analyzable code changes found");
             }
 
-            // 3. Rate effort for each chunk (individual errors are handled in rateChunks)
-            List<RatedChunk> ratedChunks = rateChunks(chunks);
+            // 3. PRE-FILTER: Remove trivial commits BEFORE LLM analysis (saves API costs)
+            CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+            List<CommitChunkDTO> chunksToAnalyze = filterResult.chunksToAnalyze();
+            FilterSummaryDTO filterSummary = filterResult.summary();
 
-            // 4. Aggregate results per author
+            log.info("Pre-filter for team {}: {} of {} commits will be analyzed (saved {}%)",
+                    teamName, chunksToAnalyze.size(), allChunks.size(),
+                    String.format("%.0f", filterSummary.getFilteredPercentage()));
+
+            if (chunksToAnalyze.isEmpty()) {
+                return FairnessReportDTO.error(teamName, "All commits were filtered as non-productive");
+            }
+
+            // 4. Rate effort for each chunk with LLM (only non-trivial commits)
+            List<RatedChunk> ratedChunks = rateChunks(chunksToAnalyze);
+
+            // 5. Calculate CQI using the 4-component formula
+            LocalDateTime projectStart = chunksToAnalyze.stream()
+                    .map(CommitChunkDTO::timestamp)
+                    .filter(Objects::nonNull)
+                    .min(LocalDateTime::compareTo)
+                    .orElse(LocalDateTime.now().minusDays(30));
+
+            LocalDateTime projectEnd = chunksToAnalyze.stream()
+                    .map(CommitChunkDTO::timestamp)
+                    .filter(Objects::nonNull)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(LocalDateTime.now());
+
+            // Convert to CQI RatedChunks
+            List<CQICalculatorService.RatedChunk> cqiRatedChunks = ratedChunks.stream()
+                    .map(rc -> new CQICalculatorService.RatedChunk(rc.chunk, rc.rating))
+                    .toList();
+
+            CQIResultDTO cqiResult = cqiCalculatorService.calculate(
+                    cqiRatedChunks,
+                    teamSize,
+                    projectStart,
+                    projectEnd,
+                    filterSummary
+            );
+
+            double balanceScore = cqiResult.cqi();
+            log.info("CQI calculated for team {}: {} (base={}, penalty={})",
+                    teamName, String.format("%.1f", balanceScore),
+                    String.format("%.1f", cqiResult.baseScore()),
+                    String.format("%.2f", cqiResult.penaltyMultiplier()));
+
+            // 6. Aggregate stats for report (legacy compatibility)
             Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);
-
-            // 5. Calculate global metrics
             double totalEffort = authorStats.values().stream().mapToDouble(s -> s.totalEffort).sum();
             Map<Long, Double> effortShare = calculateShares(authorStats, totalEffort);
-            double balanceScore = calculateBalanceScore(effortShare);
 
-            // 6. Generate flags
-            List<FairnessFlag> flags = generateFlags(effortShare, authorStats, totalEffort);
+            // 7. Generate flags from CQI penalties
+            List<FairnessFlag> flags = generateFlagsFromCQI(cqiResult, effortShare);
 
-            // 7. Build report
+            // 8. Build report
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Fairness analysis completed for team {}: score={}, chunks={}, duration={}ms",
-                    teamName, balanceScore, chunks.size(), duration);
+            log.info("Fairness analysis completed for team {}: CQI={}, chunks={}, filtered={}, duration={}ms",
+                    teamName, String.format("%.1f", balanceScore), chunksToAnalyze.size(),
+                    filterSummary.getTotalFiltered(), duration);
 
             return buildReport(
                     teamName,
@@ -92,14 +133,38 @@ public class ContributionFairnessService {
                     authorStats,
                     effortShare,
                     flags,
-                    chunks.size(),
+                    allChunks.size(),
                     ratedChunks,
-                    duration);
+                    duration,
+                    cqiResult);
 
         } catch (Exception e) {
             log.error("Fairness analysis failed for team {}: {}", teamName, e.getMessage(), e);
             return FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage());
         }
+    }
+
+    /**
+     * Generate fairness flags from CQI penalties.
+     */
+    private List<FairnessFlag> generateFlagsFromCQI(CQIResultDTO cqiResult, Map<Long, Double> effortShare) {
+        List<FairnessFlag> flags = new ArrayList<>();
+
+        if (cqiResult.penalties() != null) {
+            for (var penalty : cqiResult.penalties()) {
+                switch (penalty.type()) {
+                    case "SOLO_DEVELOPMENT" -> flags.add(FairnessFlag.SOLO_CONTRIBUTOR);
+                    case "SEVERE_IMBALANCE" -> flags.add(FairnessFlag.UNEVEN_DISTRIBUTION);
+                    case "HIGH_TRIVIAL_RATIO" -> flags.add(FairnessFlag.HIGH_TRIVIAL_RATIO);
+                    case "LOW_CONFIDENCE" -> flags.add(FairnessFlag.LOW_CONFIDENCE);
+                    case "LATE_WORK" -> flags.add(FairnessFlag.LATE_WORK);
+                    default -> log.debug("Unknown penalty type: {}", penalty.type());
+                }
+            }
+        }
+
+        // Deduplicate flags
+        return new ArrayList<>(new LinkedHashSet<>(flags));
     }
 
     private Map<String, Long> mapCommitsToAuthors(List<VCSLogDTO> logs) {
@@ -167,67 +232,6 @@ public class ContributionFairnessService {
         return shares;
     }
 
-    private double calculateBalanceScore(Map<Long, Double> shares) {
-        if (shares.isEmpty()) {
-            return 0.0;
-        }
-        if (shares.size() == 1) {
-            return 0.0; // Solo dev = 0 balance
-        }
-
-        // Simple Gini-like metric for 2 people: 100 * (1 - |diff|)
-        // Ideally works for n people using standard deviation
-        double[] values = shares.values().stream().mapToDouble(d -> d).toArray();
-        double stdev = calculateStDev(values);
-        double maxStdev = Math.sqrt(shares.size() - 1.0) / shares.size(); // Rough approx
-
-        // If maxStdev is 0 (shouldn't happen with size > 1) prevent NaN
-        if (maxStdev == 0) {
-            return 100.0;
-        }
-
-        // Normalized score
-        double score = 100.0 * (1.0 - (stdev / 0.5)); // 0.5 is max possible stdev for 2 people (0.0, 1.0)
-        return Math.max(0.0, Math.min(100.0, score));
-    }
-
-    private double calculateStDev(double[] values) {
-        double mean = 1.0 / values.length; // Shares sum to 1
-        double sumSq = 0.0;
-        for (double v : values) {
-            sumSq += Math.pow(v - mean, 2);
-        }
-        return Math.sqrt(sumSq / values.length);
-    }
-
-    private List<FairnessFlag> generateFlags(Map<Long, Double> shares, Map<Long, AuthorStats> stats,
-            double totalEffort) {
-        List<FairnessFlag> flags = new ArrayList<>();
-
-        // Distribution checks
-        for (double share : shares.values()) {
-            if (share > CRITICAL_THRESHOLD_SHARE) {
-                flags.add(FairnessFlag.SOLO_CONTRIBUTOR);
-                break; // Critical implies uneven
-            } else if (share > WARNING_THRESHOLD_SHARE) {
-                if (!flags.contains(FairnessFlag.SOLO_CONTRIBUTOR)) {
-                    flags.add(FairnessFlag.UNEVEN_DISTRIBUTION);
-                }
-            }
-        }
-
-        // Triviality checks
-        for (AuthorStats s : stats.values()) {
-            int trivial = s.commitsByType.getOrDefault(CommitLabel.TRIVIAL, 0);
-            if (s.chunkCount > 5 && (double) trivial / s.chunkCount > TRIVIAL_RATIO_THRESHOLD) {
-                flags.add(FairnessFlag.HIGH_TRIVIAL_RATIO);
-                break;
-            }
-        }
-
-        return flags;
-    }
-
     private FairnessReportDTO buildReport(
             String teamId,
             double score,
@@ -236,7 +240,8 @@ public class ContributionFairnessService {
             List<FairnessFlag> flags,
             int totalChunks,
             List<RatedChunk> ratedChunks,
-            long duration) {
+            long duration,
+            CQIResultDTO cqiResult) {
         List<FairnessReportDTO.AuthorDetailDTO> details = new ArrayList<>();
 
         stats.forEach((id, stat) -> {
@@ -271,6 +276,9 @@ public class ContributionFairnessService {
                         rc.chunk.authorEmail(), // Use email as name placeholder
                         rc.rating.type().name(),
                         rc.rating.weightedEffort(),
+                        rc.rating.complexity(),
+                        rc.rating.novelty(),
+                        rc.rating.confidence(),
                         rc.rating.reasoning(),
                         List.of(rc.chunk.commitSha()),
                         List.of(rc.chunk.commitMessage()),
@@ -292,7 +300,8 @@ public class ContributionFairnessService {
                 !flags.isEmpty(),
                 details,
                 metadata,
-                analyzedChunks);
+                analyzedChunks,
+                cqiResult);
     }
 
     // --- Helper Classes ---

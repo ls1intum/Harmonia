@@ -3,6 +3,7 @@ package de.tum.cit.aet.repositoryProcessing.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
+import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 
 import java.util.List;
 
@@ -18,6 +19,7 @@ import java.util.List;
  * @param cqi             The Collaboration Quality Index score.
  * @param isSuspicious    Whether the team's collaboration pattern is flagged as
  *                        suspicious.
+ * @param cqiDetails      Detailed CQI breakdown with component scores and penalties.
  * @param analysisHistory The detailed AI analysis results for each commit
  *                        chunk.
  * @param orphanCommits   Commits that couldn't be attributed to any registered
@@ -32,6 +34,7 @@ public record ClientResponseDTO(
         List<StudentAnalysisDTO> students,
         Double cqi,
         Boolean isSuspicious,
+        CQIResultDTO cqiDetails,
         List<AnalyzedChunkDTO> analysisHistory,
         List<OrphanCommitDTO> orphanCommits) {
 }

@@ -6,6 +6,7 @@
 | ------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
 | **analysisHistory** | [**Array&lt;AnalyzedChunkDTO&gt;**](AnalyzedChunkDTO.md)     |             | [optional] [default to undefined] |
 | **cqi**             | **number**                                                   |             | [optional] [default to undefined] |
+| **cqiDetails**      | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
 | **isSuspicious**    | **boolean**                                                  |             | [optional] [default to undefined] |
 | **orphanCommits**   | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
 | **students**        | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
@@ -22,6 +23,7 @@ import { ClientResponseDTO } from './api';
 const instance: ClientResponseDTO = {
   analysisHistory,
   cqi,
+  cqiDetails,
   isSuspicious,
   orphanCommits,
   students,
