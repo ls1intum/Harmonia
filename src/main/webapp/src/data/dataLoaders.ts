@@ -55,10 +55,6 @@ function delay(ms: number): Promise<void> {
 // ============================================================
 const teamCache = new Map<string, Team>();
 
-function getCachedTeam(teamId: string): Team | undefined {
-  return teamCache.get(teamId);
-}
-
 function setCachedTeam(teamId: string, team: Team): void {
   teamCache.set(teamId, team);
 }
