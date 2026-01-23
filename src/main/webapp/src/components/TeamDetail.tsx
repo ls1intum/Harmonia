@@ -28,6 +28,10 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
     return 'bg-destructive/10';
   };
 
+  const isTeamFailed = (team: Team) => {
+    return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
+  };
+
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
       <Button variant="ghost" onClick={onBack} className="mb-4 hover:bg-muted">
@@ -57,7 +61,7 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               <div className="space-y-2 pl-7">
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
-                    <p className="text-lg font-medium">{student.name}</p>
+                    <p className={`text-lg font-medium ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>{student.name}</p>
                     {student.commitCount !== undefined &&
                       student.linesAdded !== undefined &&
                       student.linesDeleted !== undefined &&
@@ -76,7 +80,12 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
               </div>
               <div className="pt-2">
-                {team.isSuspicious ? (
+                {isTeamFailed(team) ? (
+                  <Badge variant="destructive" className="gap-1.5">
+                    <AlertTriangle className="h-3 w-3" />
+                    Failed
+                  </Badge>
+                ) : team.isSuspicious ? (
                   <Badge variant="destructive" className="gap-1.5">
                     <AlertTriangle className="h-3 w-3" />
                     Suspicious Behavior Detected
@@ -137,7 +146,7 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 </p>
                 {team.cqiDetails.penalties.map((penalty, index) => (
                   <div key={index} className="flex items-start gap-2 p-2 bg-destructive/10 rounded-lg">
-                    <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                    <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-medium">{(penalty.type ?? 'Unknown').replace(/_/g, ' ')}</p>
                       <p className="text-xs text-muted-foreground">{penalty.reason}</p>

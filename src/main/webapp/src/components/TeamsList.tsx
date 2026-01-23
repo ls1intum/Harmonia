@@ -37,7 +37,7 @@ const TeamsList = ({
 }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious' | 'failed'>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
 
@@ -64,12 +64,21 @@ const TeamsList = ({
     }
   };
 
+  // Helper to determine if a team is 'failed' (any student with commitCount < 10)
+  const isTeamFailed = (team: Team) => {
+    return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
+  };
+
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = [...teams];
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(team => (statusFilter === 'suspicious' ? team.isSuspicious : !team.isSuspicious));
+      if (statusFilter === 'failed') {
+        filtered = filtered.filter(team => isTeamFailed(team));
+      } else {
+        filtered = filtered.filter(team => (statusFilter === 'suspicious' ? team.isSuspicious : !team.isSuspicious));
+      }
     }
 
     // Apply sorting
@@ -266,7 +275,7 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className="text-sm">
+                        <p key={idx} className={`text-sm ${((student.commitCount ?? 0) < 10) ? 'text-destructive' : ''}`}>
                           {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
                         </p>
                       ))}
@@ -294,7 +303,12 @@ const TeamsList = ({
                   </td>
                   <td className="py-4 px-6">
                     {team.isSuspicious !== undefined ? (
-                      team.isSuspicious ? (
+                      isTeamFailed(team) ? (
+                        <Badge variant="destructive" className="gap-1.5">
+                          <AlertTriangle className="h-3 w-3" />
+                          Failed
+                        </Badge>
+                      ) : team.isSuspicious ? (
                         <Badge variant="destructive" className="gap-1.5">
                           <AlertTriangle className="h-3 w-3" />
                           Suspicious
