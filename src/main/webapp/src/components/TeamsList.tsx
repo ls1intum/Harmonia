@@ -277,7 +277,7 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className={`text-sm ${((student.commitCount ?? 0) < 10) ? 'text-destructive' : ''}`}>
+                        <p key={idx} className={`text-sm ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
                           {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
                         </p>
                       ))}
