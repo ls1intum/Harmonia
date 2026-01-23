@@ -1,25 +1,24 @@
 # AnalyzedChunkDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**authorEmail** | **string** |  | [optional] [default to undefined]
-**authorName** | **string** |  | [optional] [default to undefined]
-**chunkIndex** | **number** |  | [optional] [default to undefined]
-**classification** | **string** |  | [optional] [default to undefined]
-**commitMessages** | **Array&lt;string&gt;** |  | [optional] [default to undefined]
-**commitShas** | **Array&lt;string&gt;** |  | [optional] [default to undefined]
-**effortScore** | **number** |  | [optional] [default to undefined]
-**errorMessage** | **string** |  | [optional] [default to undefined]
-**id** | **string** |  | [optional] [default to undefined]
-**isBundled** | **boolean** |  | [optional] [default to undefined]
-**isError** | **boolean** |  | [optional] [default to undefined]
-**linesChanged** | **number** |  | [optional] [default to undefined]
-**reasoning** | **string** |  | [optional] [default to undefined]
-**timestamp** | **string** |  | [optional] [default to undefined]
-**totalChunks** | **number** |  | [optional] [default to undefined]
+| Name               | Type                    | Description | Notes                             |
+| ------------------ | ----------------------- | ----------- | --------------------------------- |
+| **authorEmail**    | **string**              |             | [optional] [default to undefined] |
+| **authorName**     | **string**              |             | [optional] [default to undefined] |
+| **chunkIndex**     | **number**              |             | [optional] [default to undefined] |
+| **classification** | **string**              |             | [optional] [default to undefined] |
+| **commitMessages** | **Array&lt;string&gt;** |             | [optional] [default to undefined] |
+| **commitShas**     | **Array&lt;string&gt;** |             | [optional] [default to undefined] |
+| **effortScore**    | **number**              |             | [optional] [default to undefined] |
+| **errorMessage**   | **string**              |             | [optional] [default to undefined] |
+| **id**             | **string**              |             | [optional] [default to undefined] |
+| **isBundled**      | **boolean**             |             | [optional] [default to undefined] |
+| **isError**        | **boolean**             |             | [optional] [default to undefined] |
+| **linesChanged**   | **number**              |             | [optional] [default to undefined] |
+| **reasoning**      | **string**              |             | [optional] [default to undefined] |
+| **timestamp**      | **string**              |             | [optional] [default to undefined] |
+| **totalChunks**    | **number**              |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -27,21 +26,21 @@ Name | Type | Description | Notes
 import { AnalyzedChunkDTO } from './api';
 
 const instance: AnalyzedChunkDTO = {
-    authorEmail,
-    authorName,
-    chunkIndex,
-    classification,
-    commitMessages,
-    commitShas,
-    effortScore,
-    errorMessage,
-    id,
-    isBundled,
-    isError,
-    linesChanged,
-    reasoning,
-    timestamp,
-    totalChunks,
+  authorEmail,
+  authorName,
+  chunkIndex,
+  classification,
+  commitMessages,
+  commitShas,
+  effortScore,
+  errorMessage,
+  id,
+  isBundled,
+  isError,
+  linesChanged,
+  reasoning,
+  timestamp,
+  totalChunks,
 };
 ```
 
