@@ -100,10 +100,7 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
 
           return (
             <Card key={chunkId} className={`overflow-hidden transition-colors ${colorClass}`}>
-              <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
-                onClick={() => toggleExpand(chunkId)}
-              >
+              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(chunkId)}>
                 <div className="flex items-center gap-3 overflow-hidden">
                   {isError ? (
                     <Badge variant="destructive" className="shrink-0 flex items-center gap-1">

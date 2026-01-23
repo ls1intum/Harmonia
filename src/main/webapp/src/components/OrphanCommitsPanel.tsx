@@ -49,17 +49,24 @@ const OrphanCommitsPanel = ({ commits }: OrphanCommitsPanelProps) => {
           <div className="h-[300px] w-full overflow-y-auto pr-2">
             <div className="space-y-2">
               {commits.map(commit => (
-                <div key={commit.commitHash ?? ''} className="bg-background rounded-lg border border-amber-100 dark:border-amber-900/50 p-3">
+                <div
+                  key={commit.commitHash ?? ''}
+                  className="bg-background rounded-lg border border-amber-100 dark:border-amber-900/50 p-3"
+                >
                   <div className="flex items-start gap-3">
                     <GitCommit className="w-4 h-4 mt-1 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{(commit.commitHash ?? '').substring(0, 7)}</code>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                          {(commit.commitHash ?? '').substring(0, 7)}
+                        </code>
                         <Badge variant="outline" className="text-xs gap-1">
                           <User className="w-3 h-3" />
                           {commit.authorEmail ?? 'unknown'}
                         </Badge>
-                        <span className="text-xs text-muted-foreground ml-auto">{new Date(commit.timestamp ?? new Date().toISOString()).toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {new Date(commit.timestamp ?? new Date().toISOString()).toLocaleString()}
+                        </span>
                       </div>
                       <p className="text-sm font-medium truncate mb-1">{commit.message ?? ''}</p>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">

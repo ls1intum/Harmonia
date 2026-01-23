@@ -1,9 +1,4 @@
-import type {
-  StudentAnalysisDTO,
-  CQIResultDTO,
-  AnalyzedChunkDTO,
-  OrphanCommitDTO,
-} from '@/app/generated';
+import type { StudentAnalysisDTO, CQIResultDTO, AnalyzedChunkDTO, OrphanCommitDTO } from '@/app/generated';
 
 export interface SubMetric {
   name: string;

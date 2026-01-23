@@ -164,8 +164,11 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                   <span className="font-bold">{team.cqiDetails.filterSummary.totalCommits ?? 0}</span> commits analyzed
                   {(team.cqiDetails.filterSummary.totalCommits ?? 0) > 0 && (
                     <span className="text-xs ml-1">
-                      ({Math.round(((team.cqiDetails.filterSummary.productiveCommits ?? 0) / (team.cqiDetails.filterSummary.totalCommits ?? 1)) * 100)}%
-                      kept)
+                      (
+                      {Math.round(
+                        ((team.cqiDetails.filterSummary.productiveCommits ?? 0) / (team.cqiDetails.filterSummary.totalCommits ?? 1)) * 100,
+                      )}
+                      % kept)
                     </span>
                   )}
                 </p>

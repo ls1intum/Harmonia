@@ -1,11 +1,7 @@
 import type { Team, SubMetric } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import {
-  RequestResourceApi,
-  type ClientResponseDTO,
-  type CQIResultDTO,
-} from '@/app/generated';
+import { RequestResourceApi, type ClientResponseDTO, type CQIResultDTO } from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
