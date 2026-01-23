@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 
-export type SortColumn = 'name' | 'commits' | 'cqi';
+export type SortColumn = 'name' | 'commitCount' | 'cqi';
 
 interface SortableHeaderProps {
   column: SortColumn;

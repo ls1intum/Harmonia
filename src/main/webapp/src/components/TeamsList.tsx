@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { SortableHeader } from '@/components/SortableHeader.tsx';
+import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
@@ -35,7 +35,7 @@ const TeamsList = ({
   exercise,
   analysisStatus,
 }: TeamsListProps) => {
-  const [sortColumn, setSortColumn] = useState<'name' | 'commitCount' | 'cqi' | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -53,7 +53,7 @@ const TeamsList = ({
     return 'bg-destructive/10';
   };
 
-  const handleHeaderClick = (column: 'name' | 'commitCount' | 'cqi') => {
+  const handleHeaderClick = (column: SortColumn) => {
     if (sortColumn !== column) {
       setSortColumn(column);
       setSortDirection('asc');
