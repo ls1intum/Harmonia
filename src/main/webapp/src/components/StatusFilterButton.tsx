@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
-export type StatusFilter = 'all' | 'normal' | 'suspicious';
+export type StatusFilter = 'all' | 'normal' | 'suspicious' | 'failed';
 
 interface StatusFilterButtonProps {
   statusFilter: StatusFilter;
@@ -38,6 +38,7 @@ export const StatusFilterButton = ({ statusFilter, setStatusFilter }: StatusFilt
             <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="normal">Normal</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="suspicious">Suspicious</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="failed">Failed</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>

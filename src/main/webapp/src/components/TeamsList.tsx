@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { SortableHeader } from '@/components/SortableHeader.tsx';
-import { StatusFilterButton } from '@/components/StatusFilterButton.tsx';
+import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
+import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 
@@ -35,9 +35,9 @@ const TeamsList = ({
   exercise,
   analysisStatus,
 }: TeamsListProps) => {
-  const [sortColumn, setSortColumn] = useState<'name' | 'commits' | 'cqi' | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
 
@@ -53,7 +53,7 @@ const TeamsList = ({
     return 'bg-destructive/10';
   };
 
-  const handleHeaderClick = (column: 'name' | 'commits' | 'cqi') => {
+  const handleHeaderClick = (column: SortColumn) => {
     if (sortColumn !== column) {
       setSortColumn(column);
       setSortDirection('asc');
@@ -64,12 +64,23 @@ const TeamsList = ({
     }
   };
 
+  // Helper to determine if a team is 'failed' (any student with commitCount < 10)
+  const isTeamFailed = (team: Team) => {
+    return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
+  };
+
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = [...teams];
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(team => (statusFilter === 'suspicious' ? team.isSuspicious : !team.isSuspicious));
+      if (statusFilter === 'failed') {
+        filtered = filtered.filter(team => isTeamFailed(team));
+      } else if (statusFilter === 'suspicious') {
+        filtered = filtered.filter(team => team.isSuspicious);
+      } else if (statusFilter === 'normal') {
+        filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
+      }
     }
 
     // Apply sorting
@@ -79,7 +90,7 @@ const TeamsList = ({
 
         if (sortColumn === 'name') {
           comparison = a.teamName.localeCompare(b.teamName);
-        } else if (sortColumn === 'commits') {
+        } else if (sortColumn === 'commitCount') {
           const aCommits = a.basicMetrics?.totalCommits || 0;
           const bCommits = b.basicMetrics?.totalCommits || 0;
           comparison = aCommits - bCommits;
@@ -232,7 +243,7 @@ const TeamsList = ({
                 <th className="text-left py-4 px-6 font-semibold text-sm">Members</th>
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <SortableHeader
-                    column="commits"
+                    column="commitCount"
                     label="Commits"
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
@@ -266,7 +277,7 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className="text-sm">
+                        <p key={idx} className={`text-sm ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
                           {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
                         </p>
                       ))}
@@ -294,7 +305,12 @@ const TeamsList = ({
                   </td>
                   <td className="py-4 px-6">
                     {team.isSuspicious !== undefined ? (
-                      team.isSuspicious ? (
+                      isTeamFailed(team) ? (
+                        <Badge variant="destructive" className="gap-1.5">
+                          <AlertTriangle className="h-3 w-3" />
+                          Failed
+                        </Badge>
+                      ) : team.isSuspicious ? (
                         <Badge variant="destructive" className="gap-1.5">
                           <AlertTriangle className="h-3 w-3" />
                           Suspicious
