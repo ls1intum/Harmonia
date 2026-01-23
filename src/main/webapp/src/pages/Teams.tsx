@@ -4,7 +4,7 @@ import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
-import { loadBasicTeamDataStream } from '@/data/dataLoaders';
+import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
 import type { ClientResponseDTO } from '@/app/generated';
 
 export default function Teams() {
@@ -26,26 +26,9 @@ export default function Teams() {
       // Fetch already-analyzed teams from database
       const response = await fetch('/api/requestResource/getData');
       if (!response.ok) return [];
-      const data = await response.json();
-      // Transform to Team type
-      return data.map((item: ClientResponseDTO) => ({
-        id: item.teamId?.toString() || 'unknown',
-        teamName: item.teamName || 'Unknown Team',
-        tutor: item.tutor || 'Unassigned',
-        students: (item.students || []).map(s => ({
-          name: s.name || 'Unknown',
-          commitCount: s.commitCount || 0,
-          linesAdded: s.linesAdded || 0,
-          linesDeleted: s.linesDeleted || 0,
-          linesChanged: s.linesChanged || 0,
-        })),
-        basicMetrics: {
-          totalCommits: (item.students || []).reduce((sum, s) => sum + (s.commitCount || 0), 0),
-          totalLines: (item.students || []).reduce((sum, s) => sum + (s.linesChanged || 0), 0),
-        },
-        cqi: item.cqi !== null && item.cqi !== undefined ? Math.round(item.cqi) : undefined,
-        isSuspicious: item.isSuspicious,
-      })) as Team[];
+      const data: ClientResponseDTO[] = await response.json();
+      // Transform to Team type using shared transformer
+      return data.map(transformToComplexTeamData) as Team[];
     },
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 10 * 60 * 1000,

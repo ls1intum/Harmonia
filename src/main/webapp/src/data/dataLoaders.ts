@@ -102,15 +102,12 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 /**
  * Transform ClientResponseDTO to ComplexTeamData using server-calculated CQI
  */
-function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
+export function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const basicData = transformToBasicTeamData(dto);
   const teamId = dto.teamId?.toString() || 'unknown';
 
-  // Check if we already have this team cached to avoid re-transforming
-  const cached = getCachedTeam(teamId);
-  if (cached) {
-    return cached;
-  }
+  // NOTE: Removed caching to ensure fresh data with analysisHistory and cqiDetails
+  // The cache was causing stale data without these fields to be returned
 
   // Use CQI from server (calculated server-side)
   const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
@@ -155,23 +152,9 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
         {
           name: 'Contribution Balance',
           value: cqi,
-          weight: 40,
+          weight: 100,
           description: 'Are teammates contributing at similar levels?',
-          details: 'Calculated from commit distribution.',
-        },
-        {
-          name: 'Ownership Distribution',
-          value: 0,
-          weight: 30,
-          description: 'Are key files shared rather than monopolized?',
-          details: 'Calculated from git blame analysis.',
-        },
-        {
-          name: 'Pairing Signals',
-          value: 0,
-          weight: 30,
-          description: 'Did teammates actually work together?',
-          details: 'Not yet implemented.',
+          details: 'Calculated from commit distribution. Run AI analysis for detailed metrics.',
         },
       ];
 
@@ -191,8 +174,6 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
     orphanCommits,
   };
 
-  // Cache the transformed team
-  setCachedTeam(teamId, team);
   return team;
 }
 

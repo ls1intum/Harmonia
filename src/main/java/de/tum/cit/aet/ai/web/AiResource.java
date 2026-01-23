@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * REST controller for AI-related endpoints.
@@ -36,6 +38,10 @@ public class AiResource {
     private final CommitClassifierService commitClassifierService;
     private final AnomalyDetectorService anomalyDetectorService;
     private final AiProperties aiProperties;
+    private final RestTemplate restTemplate;
+
+    @Value("${spring.ai.openai.base-url:http://localhost:1234}")
+    private String openAiBaseUrl;
 
     public AiResource(ChatClient chatClient, CommitClassifierService commitClassifierService,
             AnomalyDetectorService anomalyDetectorService, AiProperties aiProperties) {
@@ -43,6 +49,33 @@ public class AiResource {
         this.commitClassifierService = commitClassifierService;
         this.anomalyDetectorService = anomalyDetectorService;
         this.aiProperties = aiProperties;
+        this.restTemplate = new RestTemplate();
+    }
+
+    /**
+     * Get available LLM models from the configured AI server.
+     *
+     * @return list of available models
+     */
+    @GetMapping("models")
+    public ResponseEntity<?> getAvailableModels() {
+        try {
+            String modelsUrl = openAiBaseUrl + "/v1/models";
+            log.debug("Fetching models from: {}", modelsUrl);
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(modelsUrl, Map.class);
+            
+            if (response == null) {
+                return ResponseEntity.ok(Map.of("data", List.of()));
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.warn("Failed to fetch models from LLM server: {}", e.getMessage());
+            // Return empty list if LLM server is not available
+            return ResponseEntity.ok(Map.of("data", List.of()));
+        }
     }
 
     /**
