@@ -227,10 +227,11 @@ components:
     LoginRequestDTO:
       type: object
       properties:
+        courseId: {type: string, minLength: 1}
         password: {type: string, minLength: 1}
         serverUrl: {type: string, minLength: 1}
         username: {type: string, minLength: 1}
-      required: [password, serverUrl, username]
+      required: [courseId, password, serverUrl, username]
     OrphanCommitDTO:
       type: object
       properties:

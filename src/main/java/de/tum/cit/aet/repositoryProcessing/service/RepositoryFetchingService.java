@@ -95,7 +95,7 @@ public class RepositoryFetchingService {
                     .filter(p -> p.getExerciseId().equals(exerciseId))
                     .findFirst()
                     .map(HarmoniaProperties.Project::getGitRepoPath)
-                    .orElse("Projects/repos");
+                    .orElse("Projects/exercise-" + exerciseId);
 
             String localPath = gitOperationsService.cloneOrPullRepository(
                     repositoryUri, teamName, credentials.username(), credentials.password(), gitRepoPath);
