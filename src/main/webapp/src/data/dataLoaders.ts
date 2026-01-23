@@ -28,7 +28,6 @@ const requestApi = new RequestResourceApi(apiConfig);
 // TYPES
 // ============================================================
 export type BasicTeamData = Omit<Team, 'cqi' | 'isSuspicious' | 'subMetrics'>;
-export type ComplexTeamData = Team;
 
 // ============================================================
 // DUMMY DATA HELPERS
@@ -42,7 +41,7 @@ function getBasicDummyTeams(): BasicTeamData[] {
   });
 }
 
-function getComplexDummyTeams(): ComplexTeamData[] {
+function getComplexDummyTeams(): Team[] {
   return dummyTeams;
 }
 
@@ -54,13 +53,13 @@ function delay(ms: number): Promise<void> {
 // ============================================================
 // CACHE - Store transformed team data to ensure consistency
 // ============================================================
-const teamCache = new Map<string, ComplexTeamData>();
+const teamCache = new Map<string, Team>();
 
-function getCachedTeam(teamId: string): ComplexTeamData | undefined {
+function getCachedTeam(teamId: string): Team | undefined {
   return teamCache.get(teamId);
 }
 
-function setCachedTeam(teamId: string, team: ComplexTeamData): void {
+function setCachedTeam(teamId: string, team: Team): void {
   teamCache.set(teamId, team);
 }
 
@@ -100,17 +99,11 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 }
 
 /**
- * Transform ClientResponseDTO to ComplexTeamData using server-calculated CQI
+ * Transform ClientResponseDTO to Team using server-calculated CQI
  */
-function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
+export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   const basicData = transformToBasicTeamData(dto);
   const teamId = dto.teamId?.toString() || 'unknown';
-
-  // Check if we already have this team cached to avoid re-transforming
-  const cached = getCachedTeam(teamId);
-  if (cached) {
-    return cached;
-  }
 
   // Use CQI from server (calculated server-side)
   const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
@@ -181,7 +174,7 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   // Use orphan commits directly from server (already in correct DTO format)
   const orphanCommits = dto.orphanCommits;
 
-  const team: ComplexTeamData = {
+  const team: Team = {
     ...basicData,
     cqi,
     isSuspicious,
@@ -215,12 +208,12 @@ async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData
 }
 
 // TODO: Use course and exercise parameters when server supports them
-async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeamData[]> {
+async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
   try {
     const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
 
-    // Transform DTOs to ComplexTeamData with mocked analysis
+    // Transform DTOs to Team with mocked analysis
     return teamRepos.map(transformToComplexTeamData);
   } catch (error) {
     console.error('Error fetching complex team data:', error);
@@ -231,7 +224,7 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeam
 /**
  * Fetch a single team by ID from server
  */
-async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData | null> {
+async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
   try {
     const response = await requestApi.getData();
     const teamRepo = response.data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
@@ -252,7 +245,7 @@ async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData 
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
-  onUpdate: (team: ComplexTeamData) => void,
+  onUpdate: (team: Team) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
 ): () => void {
@@ -283,7 +276,7 @@ export function loadBasicTeamDataStream(
       if (data.type === 'START') {
         onStart(data.total);
       } else if (data.type === 'UPDATE') {
-        // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to ComplexTeamData
+        // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
         onUpdate(transformToComplexTeamData(data.data));
       } else if (data.type === 'DONE') {
         eventSource.close();
@@ -319,7 +312,7 @@ export async function loadBasicTeamData(_course: string, exercise: string): Prom
 /**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-export async function loadComplexTeamData(_course: string, exercise: string): Promise<ComplexTeamData[]> {
+export async function loadComplexTeamData(_course: string, exercise: string): Promise<Team[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
     return getComplexDummyTeams();
@@ -336,7 +329,7 @@ export async function loadTeamDataProgressive(
   course: string,
   exercise: string,
   onBasicLoaded: (teams: BasicTeamData[]) => void,
-  onComplexLoaded: (teams: ComplexTeamData[]) => void,
+  onComplexLoaded: (teams: Team[]) => void,
   onError: (error: Error) => void,
 ): Promise<void> {
   try {
@@ -360,7 +353,7 @@ export async function loadTeamDataProgressive(
 /**
  * Fetch a single team by ID
  */
-export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<ComplexTeamData | null> {
+export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<Team | null> {
   if (USE_DUMMY_DATA) {
     await delay(300); // Simulate network delay
     return dummyTeams.find(t => t.id === teamId) || null;

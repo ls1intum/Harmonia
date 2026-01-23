@@ -182,9 +182,6 @@ public class GitContributionAnalysisService {
                                     current.linesAdded() + linesAdded,
                                     current.linesDeleted() + linesDeleted,
                                     current.commitCount() + 1));
-
-                            log.debug("Student ID {}: +{} -{} lines for commit {}",
-                                    authorId, linesAdded, linesDeleted, commitHash);
                         }
                     }
                 }
@@ -311,9 +308,6 @@ public class GitContributionAnalysisService {
                             currentContributions.linesAdded() + linesAdded,
                             currentContributions.linesDeleted() + linesDeleted,
                             currentContributions.commitCount() + 1));
-
-                    log.info("Student ID {}: +{} -{} lines for commit {}", authorId, linesAdded, linesDeleted,
-                            commitHash);
                 }
             }
         } catch (Exception e) {

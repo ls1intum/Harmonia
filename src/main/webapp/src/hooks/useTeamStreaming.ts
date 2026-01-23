@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { loadBasicTeamDataStream, type ComplexTeamData } from '@/data/dataLoaders';
+import { loadBasicTeamDataStream } from '@/data/dataLoaders';
+import type { Team } from '@/types/team';
 import { toast } from '@/hooks/use-toast';
 
 interface UseTeamStreamingProps {
@@ -30,14 +31,14 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
     if (!enabled || !course || !exercise) return;
 
     // Check if we already have cached teams for this exercise
-    const cachedTeams = queryClient.getQueryData<ComplexTeamData[]>(['teams', exercise]);
+    const cachedTeams = queryClient.getQueryData<Team[]>(['teams', exercise]);
     if (cachedTeams && cachedTeams.length > 0) {
       // We have cached data, don't re-stream
       return;
     }
 
     // Only stream if we don't have cached data
-    const streamedTeams: ComplexTeamData[] = [];
+    const streamedTeams: Team[] = [];
 
     // Initialize state for streaming
     let mounted = true;
