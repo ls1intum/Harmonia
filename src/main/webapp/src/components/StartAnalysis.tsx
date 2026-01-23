@@ -99,7 +99,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       const match = path.match(regex);
       if (!match) return null;
       return { baseUrl, courseId: match[1], exerciseId: match[2] };
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -142,7 +142,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           description: 'Please check your credentials and try again.',
         });
       }
-    } catch (e) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -163,7 +163,12 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       <div className="w-full max-w-md space-y-4 mt-4">
         <div className="space-y-2">
           <Label htmlFor="exerciseUrl">Artemis Exercise URL</Label>
-          <Input id="exerciseUrl" placeholder="https://artemis.../courses/30/exercises/282" value={exerciseUrl} onChange={e => setExerciseUrl(e.target.value)} />
+          <Input
+            id="exerciseUrl"
+            placeholder="https://artemis.../courses/30/exercises/282"
+            value={exerciseUrl}
+            onChange={e => setExerciseUrl(e.target.value)}
+          />
         </div>
 
         <div className="space-y-2">
