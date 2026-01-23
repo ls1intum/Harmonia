@@ -61,13 +61,4 @@ public record CQIResultDTO(
                 filterSummary
         );
     }
-
-    /**
-     * Check if CQI calculation was successful.
-     */
-    public boolean isSuccessful() {
-        return cqi > 0 && penalties.stream().noneMatch(p ->
-                p.type().equals("SINGLE_CONTRIBUTOR") ||
-                        p.type().equals("NO_PRODUCTIVE_WORK"));
-    }
 }

@@ -58,12 +58,12 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
                     <p className="text-lg font-medium">{student.name}</p>
-                    {student.commits !== undefined &&
+                    {student.commitCount !== undefined &&
                       student.linesAdded !== undefined &&
                       student.linesDeleted !== undefined &&
                       student.linesChanged !== undefined && (
                         <p className="text-xs text-muted-foreground">
-                          {student.commits} commits • {student.linesChanged} lines changed (
+                          {student.commitCount} commits • {student.linesChanged} lines changed (
                           <span className="text-green-600">+{student.linesAdded}</span>{' '}
                           <span className="text-red-600">-{student.linesDeleted}</span>)
                         </p>
@@ -131,17 +131,17 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground mb-3">
-                  Base Score: <span className="font-bold">{Math.round(team.cqiDetails.baseScore)}</span> → Final:{' '}
-                  <span className="font-bold">{Math.round(team.cqiDetails.cqi)}</span>{' '}
-                  <span className="text-xs">(×{team.cqiDetails.penaltyMultiplier.toFixed(2)})</span>
+                  Base Score: <span className="font-bold">{Math.round(team.cqiDetails.baseScore ?? 0)}</span> → Final:{' '}
+                  <span className="font-bold">{Math.round(team.cqiDetails.cqi ?? 0)}</span>{' '}
+                  <span className="text-xs">(×{(team.cqiDetails.penaltyMultiplier ?? 1).toFixed(2)})</span>
                 </p>
                 {team.cqiDetails.penalties.map((penalty, index) => (
                   <div key={index} className="flex items-start gap-2 p-2 bg-destructive/10 rounded-lg">
                     <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium">{penalty.type.replace(/_/g, ' ')}</p>
+                      <p className="text-sm font-medium">{(penalty.type ?? 'Unknown').replace(/_/g, ' ')}</p>
                       <p className="text-xs text-muted-foreground">{penalty.reason}</p>
-                      <p className="text-xs text-destructive">-{((1 - penalty.factor) * 100).toFixed(0)}% reduction</p>
+                      <p className="text-xs text-destructive">-{((1 - (penalty.multiplier ?? 1)) * 100).toFixed(0)}% reduction</p>
                     </div>
                   </div>
                 ))}
@@ -160,47 +160,47 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">
-                  <span className="font-bold">{team.cqiDetails.filterSummary.productiveCommits}</span> of{' '}
-                  <span className="font-bold">{team.cqiDetails.filterSummary.totalCommits}</span> commits analyzed
-                  {team.cqiDetails.filterSummary.totalCommits > 0 && (
+                  <span className="font-bold">{team.cqiDetails.filterSummary.productiveCommits ?? 0}</span> of{' '}
+                  <span className="font-bold">{team.cqiDetails.filterSummary.totalCommits ?? 0}</span> commits analyzed
+                  {(team.cqiDetails.filterSummary.totalCommits ?? 0) > 0 && (
                     <span className="text-xs ml-1">
-                      ({Math.round((team.cqiDetails.filterSummary.productiveCommits / team.cqiDetails.filterSummary.totalCommits) * 100)}%
+                      ({Math.round(((team.cqiDetails.filterSummary.productiveCommits ?? 0) / (team.cqiDetails.filterSummary.totalCommits ?? 1)) * 100)}%
                       kept)
                     </span>
                   )}
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  {team.cqiDetails.filterSummary.mergeCount > 0 && (
+                  {(team.cqiDetails.filterSummary.mergeCount ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Merge commits:</span>
                       <span>{team.cqiDetails.filterSummary.mergeCount}</span>
                     </div>
                   )}
-                  {team.cqiDetails.filterSummary.revertCount > 0 && (
+                  {(team.cqiDetails.filterSummary.revertCount ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Revert commits:</span>
                       <span>{team.cqiDetails.filterSummary.revertCount}</span>
                     </div>
                   )}
-                  {team.cqiDetails.filterSummary.trivialCount > 0 && (
+                  {(team.cqiDetails.filterSummary.trivialCount ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Trivial commits:</span>
                       <span>{team.cqiDetails.filterSummary.trivialCount}</span>
                     </div>
                   )}
-                  {team.cqiDetails.filterSummary.formatOnlyCount > 0 && (
+                  {(team.cqiDetails.filterSummary.formatOnlyCount ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Format-only:</span>
                       <span>{team.cqiDetails.filterSummary.formatOnlyCount}</span>
                     </div>
                   )}
-                  {team.cqiDetails.filterSummary.autoGeneratedCount > 0 && (
+                  {(team.cqiDetails.filterSummary.autoGeneratedCount ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Auto-generated:</span>
                       <span>{team.cqiDetails.filterSummary.autoGeneratedCount}</span>
                     </div>
                   )}
-                  {team.cqiDetails.filterSummary.emptyCount > 0 && (
+                  {(team.cqiDetails.filterSummary.emptyCount ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Empty commits:</span>
                       <span>{team.cqiDetails.filterSummary.emptyCount}</span>
@@ -225,11 +225,11 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
             team.analysisHistory
               ?.filter(chunk => chunk.isError && chunk.errorMessage)
               .map(chunk => ({
-                id: chunk.id,
-                authorEmail: chunk.authorEmail,
-                timestamp: chunk.timestamp,
+                id: chunk.id ?? '',
+                authorEmail: chunk.authorEmail ?? '',
+                timestamp: chunk.timestamp ?? '',
                 errorMessage: chunk.errorMessage!,
-                commitShas: chunk.commitShas,
+                commitShas: chunk.commitShas ?? [],
               })) || []
           }
         />

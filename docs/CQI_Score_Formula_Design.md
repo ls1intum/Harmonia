@@ -326,36 +326,6 @@ private double calculateOwnershipSpread(List<FilteredChunkDTO> chunks, int teamS
 }
 ```
 
----
-
-### 3.5 Combined CQI
-
-```java
-public CQIResultDTO calculate(CQIInputDTO input) {
-    // Calculate component scores
-    double effortScore = calculateEffortBalance(input.effortByAuthor());
-    double locScore = calculateLocBalance(input.locByAuthor());
-    double temporalScore = calculateTemporalSpread(chunks, start, end);
-    double ownershipScore = calculateOwnershipSpread(chunks, teamSize);
-    
-    // Weighted sum
-    double baseScore = 0.40 * effortScore 
-                     + 0.25 * locScore 
-                     + 0.20 * temporalScore 
-                     + 0.15 * ownershipScore;
-    
-    // Apply penalties
-    List<CQIPenaltyDTO> penalties = calculatePenalties(input);
-    double penaltyMultiplier = penalties.stream()
-        .mapToDouble(CQIPenaltyDTO::multiplier)
-        .reduce(1.0, (a, b) -> a * b);
-    
-    return new CQIResultDTO(baseScore * penaltyMultiplier, ...);
-}
-```
-
----
-
 ## 4. Edge Cases
 
 | Case | Handling |

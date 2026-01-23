@@ -44,13 +44,6 @@ public record FilterSummaryDTO(
     }
 
     /**
-     * Check if a significant portion was filtered.
-     */
-    public boolean hasSignificantFiltering() {
-        return getFilteredPercentage() > 30.0;
-    }
-
-    /**
      * Get summary string for logging.
      */
     public String toSummary() {

@@ -113,21 +113,21 @@ public class RequestService {
         log.info("Exercise ID: {}", exerciseId);
         log.info("Max teams to analyze: {}", maxTeams == Integer.MAX_VALUE ? "ALL" : maxTeams);
 
-        // Fetch and clone repositories
+        // Step 1: Fetch and clone repositories from Artemis
         List<TeamRepositoryDTO> repositories = fetchAndCloneRepositories(credentials, exerciseId);
         log.info("Fetched {} repositories from Artemis", repositories.size());
 
-        // Limit to maxTeams
+        // Step 2: Limit to maxTeams if specified
         if (repositories.size() > maxTeams) {
             log.info("Limiting analysis to first {} teams (out of {})", maxTeams, repositories.size());
             repositories = repositories.subList(0, maxTeams);
         }
 
-        // Analyze contributions
+        // Step 3: Analyze contributions for each repository
         log.info("Analyzing contributions for {} teams...", repositories.size());
         Map<Long, AuthorContributionDTO> contributionData = getContributionData(repositories);
 
-        // Save results to the database
+        // Step 4: Save results to the database
         log.info("Saving results to database...");
         List<ClientResponseDTO> results = saveResults(repositories, contributionData);
 
@@ -170,12 +170,11 @@ public class RequestService {
      */
     public List<ClientResponseDTO> saveResults(List<TeamRepositoryDTO> repositories,
             Map<Long, AuthorContributionDTO> contributionData) {
-        // TODO: Implement a better strategy for updating existing records instead of
-        // deleting all data
-        // Clear existing data in database tables. We assume a full refresh of all data
-        // is intended, effectively treating the run as idempotent
+        // Step 1: Clear existing data in database (full refresh approach)
+        // TODO: Implement a better strategy for updating existing records instead of deleting all data
         clearDatabase();
 
+        // Step 2: Process and save each repository result
         List<ClientResponseDTO> results = new ArrayList<>();
         for (TeamRepositoryDTO repo : repositories) {
             ClientResponseDTO result = saveSingleResult(repo, contributionData);
@@ -207,7 +206,7 @@ public class RequestService {
      */
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo,
             Map<Long, AuthorContributionDTO> contributionData) {
-        // Save tutor
+        // Step 1: Save tutor information
         ParticipantDTO tut = repo.participation().team().owner();
         Tutor tutor = null;
         if (tut == null) {
@@ -217,24 +216,21 @@ public class RequestService {
             tutorRepository.save(tutor);
         }
 
-        // Save team participation (CQI and isSuspicious will be updated after
-        // calculation)
+        // Step 2: Save team participation (CQI and isSuspicious will be updated later)
         ParticipationDTO participation = repo.participation();
         TeamDTO team = participation.team();
         TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
                 team.shortName(), participation.repositoryUri(), participation.submissionCount());
-        // Initial save - CQI will be updated after calculation
         teamParticipationRepository.save(teamParticipation);
 
-        // Save students with contributions
+        // Step 3: Save students with their contribution metrics
         List<Student> students = new ArrayList<>();
         List<StudentAnalysisDTO> studentAnalysisDTOS = new ArrayList<>();
 
         for (ParticipantDTO student : repo.participation().team().students()) {
             AuthorContributionDTO contributionDTO = contributionData.get(student.id());
 
-            // Handle the case where a student made no contributions (e.g., if they were
-            // registered but never committed)
+            // Handle the case where a student made no contributions
             if (contributionDTO == null) {
                 contributionDTO = new AuthorContributionDTO(0, 0, 0);
             }
@@ -252,27 +248,25 @@ public class RequestService {
         }
         studentRepository.saveAll(students);
 
-        // Save team repository
+        // Step 4: Save team repository with VCS logs
         TeamRepository teamRepo = new TeamRepository(teamParticipation, null, repo.localPath(), repo.isCloned(),
                 repo.error());
 
-        // Process VCS logs
         List<VCSLog> vcsLogs = repo.vcsLogs().stream().map(log -> new VCSLog(teamRepo, log.commitHash(), log.email()))
                 .toList();
 
-        // Save the TeamRepository (through cascade, VCSLogs will also be saved)
         teamRepo.setVcsLogs(vcsLogs);
         teamRepositoryRepository.save(teamRepo);
 
         log.info("Processed repository for team: {}", team.name());
 
-        // Calculate CQI using effort-based fairness analysis
+        // Step 5: Calculate CQI using effort-based fairness analysis
         Double cqi = null;
         boolean isSuspicious = false;
         List<AnalyzedChunkDTO> analysisHistory = null;
         List<OrphanCommitDTO> orphanCommits = null;
 
-        // Detect orphan commits first
+        // Step 5a: Detect orphan commits first
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
                     .analyzeRepositoryWithOrphans(repo);
@@ -286,8 +280,8 @@ public class RequestService {
 
         CQIResultDTO cqiDetails = null;
 
+        // Step 5b: Try effort-based fairness analysis (primary method)
         try {
-            // Try effort-based fairness analysis first
             FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
             if (fairnessReport.balanceScore() > 0 || !fairnessReport.authorDetails().isEmpty()) {
                 cqi = fairnessReport.balanceScore();
@@ -307,12 +301,12 @@ public class RequestService {
                     team.name(), e.getMessage());
         }
 
-        // Fallback to CQI calculator with pre-filtered commits if fairness analysis failed or returned 0
+        // Step 5c: Fallback to CQI calculator with pre-filtered commits if fairness analysis failed
         if (cqi == null || cqi == 0.0) {
             try {
                 // Try pre-filtered LoC-based CQI calculation
                 if (repo.localPath() != null) {
-                    Map<String, Long> commitToAuthor = buildCommitToAuthorMap(repo);
+                    Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
 
                     // Apply pre-filter to remove trivial commits
@@ -336,7 +330,7 @@ public class RequestService {
                 log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
             }
 
-            // Last resort: simple commit-count based balance
+            // Step 5d: Last resort - simple commit-count based balance
             if (cqi == null || cqi == 0.0) {
                 Map<String, Integer> commitCounts = new HashMap<>();
                 students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
@@ -346,11 +340,12 @@ public class RequestService {
             }
         }
 
-        // Save CQI and isSuspicious to TeamParticipation
+        // Step 6: Update TeamParticipation with CQI and isSuspicious flag
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(isSuspicious);
         teamParticipationRepository.save(teamParticipation);
 
+        // Step 7: Return the assembled client response DTO
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
                 participation.team().id(),
@@ -375,15 +370,16 @@ public class RequestService {
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId,
             java.util.function.Consumer<Object> eventEmitter) {
         try {
+            // Step 1: Fetch all participations from Artemis
             List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials,
                     exerciseId);
 
-            // Filter participations with repositories
+            // Step 2: Filter participations with valid repositories
             List<ParticipationDTO> validParticipations = participations.stream()
                     .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                     .toList();
 
-            // Filter out already-analyzed teams
+            // Step 3: Filter out already-analyzed teams
             List<ParticipationDTO> teamsToAnalyze = validParticipations.stream()
                     .filter(p -> !isTeamAlreadyAnalyzed(p.id()))
                     .toList();
@@ -391,16 +387,15 @@ public class RequestService {
             int totalToProcess = teamsToAnalyze.size();
             log.info("Found {} teams total, {} need analysis", validParticipations.size(), totalToProcess);
 
-            // Start tracking in state service
+            // Step 4: Start tracking in state service
             analysisStateService.startAnalysis(exerciseId, totalToProcess);
 
-            // Emit total count
+            // Step 5: Emit initial count to client
             eventEmitter.accept(Map.of("type", "START", "total", totalToProcess));
 
-            // Thread-safe counter for progress
             java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(0);
 
-            // Process repositories in parallel
+            // Step 6: Process repositories in parallel
             teamsToAnalyze.parallelStream().forEach(participation -> {
                 // Check if analysis was cancelled
                 if (!analysisStateService.isRunning(exerciseId)) {
@@ -410,39 +405,32 @@ public class RequestService {
                 String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
                 try {
-                    // Update state: downloading
+                    // Step 6a: Clone repository
                     analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", processedCount.get());
-
-                    // Clone
                     TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials,
                             exerciseId);
 
-                    // Update state: analyzing
+                    // Step 6b: Analyze contributions
                     analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING", processedCount.get());
-
-                    // Analyze
                     Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
 
-                    // Save
+                    // Step 6c: Save results to database
                     ClientResponseDTO dto = saveSingleResult(repo, contributions);
 
                     int currentProcessed = processedCount.incrementAndGet();
-
-                    // Update state with new progress count
                     analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
 
-                    // Emit result (synchronized to ensure thread safety)
+                    // Step 6d: Emit result to client
                     synchronized (eventEmitter) {
                         eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
                     }
                 } catch (Exception e) {
                     log.error("Error processing participation {} (team: {})", participation.id(), teamName, e);
                     processedCount.incrementAndGet();
-                    // Continue with other teams, don't fail entire analysis
                 }
             });
 
-            // Complete the analysis
+            // Step 7: Complete the analysis
             analysisStateService.completeAnalysis(exerciseId);
             eventEmitter.accept(Map.of("type", "DONE"));
 
@@ -469,16 +457,18 @@ public class RequestService {
     public List<ClientResponseDTO> getAllRepositoryData() {
         log.info("RequestService: Initiating data extraction from database");
 
-        // Fetch all TeamParticipation records
+        // Step 1: Fetch all TeamParticipation records from database
         List<TeamParticipation> participations = teamParticipationRepository.findAll();
 
-        // Map and assemble the data into ClientResponseDTOs
+        // Step 2: Map and assemble the data into ClientResponseDTOs
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(participation -> {
+                    // Step 2a: Fetch students for this participation
                     List<Student> students = studentRepository.findAllByTeam(participation);
 
                     Tutor tutor = participation.getTutor();
 
+                    // Step 2b: Map students to StudentAnalysisDTOs
                     List<StudentAnalysisDTO> studentAnalysisDTOS = students.stream()
                             .map(student -> (new StudentAnalysisDTO(
                                     student.getName(),
@@ -488,12 +478,12 @@ public class RequestService {
                                     student.getLinesChanged())))
                             .toList();
 
-                    // Use persisted CQI and isSuspicious values
+                    // Step 2c: Get persisted CQI and isSuspicious values
                     Double cqi = participation.getCqi();
                     Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious()
                             : false;
 
-                    // Fallback: recalculate if CQI is null (legacy data)
+                    // Step 2d: Fallback - recalculate if CQI is null (legacy data)
                     if (cqi == null) {
                         Map<String, Integer> commitCounts = new HashMap<>();
                         students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
@@ -502,6 +492,7 @@ public class RequestService {
                         }
                     }
 
+                    // Step 2e: Assemble final response DTO
                     return new ClientResponseDTO(
                             tutor != null ? tutor.getName() : "Unassigned",
                             participation.getTeam(),
@@ -608,33 +599,5 @@ public class RequestService {
         } catch (Exception e) {
             return "[]";
         }
-    }
-
-    /**
-     * Builds a mapping from commit SHA to author ID from VCS logs.
-     */
-    private Map<String, Long> buildCommitToAuthorMap(TeamRepositoryDTO repo) {
-        Map<String, Long> mapping = new HashMap<>();
-        Map<String, Long> emailToId = new HashMap<>();
-        long idCounter = 1;
-
-        if (repo.vcsLogs() == null) {
-            return mapping;
-        }
-
-        for (var log : repo.vcsLogs()) {
-            if (log.commitHash() == null || log.email() == null) {
-                continue;
-            }
-
-            Long authorId = emailToId.get(log.email());
-            if (authorId == null) {
-                authorId = idCounter++;
-                emailToId.put(log.email(), authorId);
-            }
-            mapping.put(log.commitHash(), authorId);
-        }
-
-        return mapping;
     }
 }

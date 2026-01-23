@@ -45,7 +45,6 @@ public class ContributionFairnessService {
         int teamSize = repositoryDTO.participation().team().students().size();
 
         if (repoPath == null) {
-            log.warn("Repository not cloned locally for team {}", teamName);
             return FairnessReportDTO.error(teamName, "Repository not cloned locally");
         }
 
@@ -56,7 +55,6 @@ public class ContributionFairnessService {
             Map<String, Long> commitToAuthor = mapCommitsToAuthors(repositoryDTO.vcsLogs());
 
             if (commitToAuthor.isEmpty()) {
-                log.warn("No commits found for team {} - VCS logs may be empty", teamName);
                 return FairnessReportDTO.error(teamName, "No commits found in VCS logs");
             }
 
@@ -64,7 +62,6 @@ public class ContributionFairnessService {
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repoPath, commitToAuthor);
 
             if (allChunks.isEmpty()) {
-                log.warn("No valid chunks created for team {} - all commits may have been filtered", teamName);
                 return FairnessReportDTO.error(teamName, "No analyzable code changes found");
             }
 
@@ -78,7 +75,6 @@ public class ContributionFairnessService {
                     String.format("%.0f", filterSummary.getFilteredPercentage()));
 
             if (chunksToAnalyze.isEmpty()) {
-                log.warn("All commits filtered for team {} - no productive work detected", teamName);
                 return FairnessReportDTO.error(teamName, "All commits were filtered as non-productive");
             }
 

@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, AlertTriangle, GitCommit, User, FileCode } from 'lucide-react';
-import type { OrphanCommit } from '@/types/team';
+import type { OrphanCommitDTO } from '@/app/generated';
 import { Badge } from '@/components/ui/badge';
 
 interface OrphanCommitsPanelProps {
-  commits: OrphanCommit[];
+  commits: OrphanCommitDTO[];
 }
 
 const OrphanCommitsPanel = ({ commits }: OrphanCommitsPanelProps) => {
@@ -16,7 +16,7 @@ const OrphanCommitsPanel = ({ commits }: OrphanCommitsPanelProps) => {
     return null;
   }
 
-  const totalLines = commits.reduce((sum, c) => sum + c.linesAdded + c.linesDeleted, 0);
+  const totalLines = commits.reduce((sum, c) => sum + (c.linesAdded ?? 0) + (c.linesDeleted ?? 0), 0);
 
   return (
     <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 mb-6">
@@ -49,25 +49,25 @@ const OrphanCommitsPanel = ({ commits }: OrphanCommitsPanelProps) => {
           <div className="h-[300px] w-full overflow-y-auto pr-2">
             <div className="space-y-2">
               {commits.map(commit => (
-                <div key={commit.commitHash} className="bg-background rounded-lg border border-amber-100 dark:border-amber-900/50 p-3">
+                <div key={commit.commitHash ?? ''} className="bg-background rounded-lg border border-amber-100 dark:border-amber-900/50 p-3">
                   <div className="flex items-start gap-3">
                     <GitCommit className="w-4 h-4 mt-1 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{commit.commitHash.substring(0, 7)}</code>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{(commit.commitHash ?? '').substring(0, 7)}</code>
                         <Badge variant="outline" className="text-xs gap-1">
                           <User className="w-3 h-3" />
-                          {commit.authorEmail}
+                          {commit.authorEmail ?? 'unknown'}
                         </Badge>
-                        <span className="text-xs text-muted-foreground ml-auto">{new Date(commit.timestamp).toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{new Date(commit.timestamp ?? new Date().toISOString()).toLocaleString()}</span>
                       </div>
-                      <p className="text-sm font-medium truncate mb-1">{commit.message}</p>
+                      <p className="text-sm font-medium truncate mb-1">{commit.message ?? ''}</p>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <FileCode className="w-3 h-3" />
-                          <span className="text-green-600">+{commit.linesAdded}</span>
+                          <span className="text-green-600">+{commit.linesAdded ?? 0}</span>
                           {' / '}
-                          <span className="text-red-600">-{commit.linesDeleted}</span>
+                          <span className="text-red-600">-{commit.linesDeleted ?? 0}</span>
                         </span>
                         {commit.authorName && <span>by {commit.authorName}</span>}
                       </div>

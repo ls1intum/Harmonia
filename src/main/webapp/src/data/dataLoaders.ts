@@ -1,7 +1,11 @@
-import type { Team, CQIDetails, SubMetric } from '@/types/team';
+import type { Team, SubMetric } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import { RequestResourceApi, type ClientResponseDTO, type AnalyzedChunkDTO } from '@/app/generated';
+import {
+  RequestResourceApi,
+  type ClientResponseDTO,
+  type CQIResultDTO,
+} from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
@@ -76,20 +80,14 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
   const students = dto.students || [];
   const totalCommits = dto.submissionCount || 0;
 
-  const studentData = students.map(student => {
-    const commits = student.commitCount || 0;
-    const linesAdded = student.linesAdded || 0;
-    const linesDeleted = student.linesDeleted || 0;
-    const linesChanged = student.linesChanged || 0;
-
-    return {
-      name: student.name || 'Unknown',
-      commits,
-      linesAdded,
-      linesDeleted,
-      linesChanged,
-    };
-  });
+  // Students are already in DTO format, just ensure defaults
+  const studentData = students.map(student => ({
+    name: student.name || 'Unknown',
+    commitCount: student.commitCount || 0,
+    linesAdded: student.linesAdded || 0,
+    linesDeleted: student.linesDeleted || 0,
+    linesChanged: student.linesChanged || 0,
+  }));
 
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
 
@@ -123,36 +121,35 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
   const isSuspicious = dto.isSuspicious ?? false;
 
   // Extract CQI details from server response
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const serverCqiDetails = (dto as any).cqiDetails as CQIDetails | undefined;
+  const serverCqiDetails = dto.cqiDetails as CQIResultDTO | undefined;
 
   // Generate sub-metrics from CQI details if available
   const subMetrics: SubMetric[] = serverCqiDetails?.components
     ? [
         {
           name: 'Effort Balance',
-          value: Math.round(serverCqiDetails.components.effortBalance),
+          value: Math.round(serverCqiDetails.components.effortBalance ?? 0),
           weight: 40,
           description: 'Is effort distributed fairly among team members?',
           details: 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
         },
         {
           name: 'Lines of Code Balance',
-          value: Math.round(serverCqiDetails.components.locBalance),
+          value: Math.round(serverCqiDetails.components.locBalance ?? 0),
           weight: 25,
           description: 'Are code contributions balanced?',
           details: 'Measures the distribution of lines added/deleted across team members.',
         },
         {
           name: 'Temporal Spread',
-          value: Math.round(serverCqiDetails.components.temporalSpread),
+          value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
           weight: 20,
           description: 'Is work spread over time or crammed at deadline?',
           details: 'Higher scores mean work was spread consistently throughout the project period.',
         },
         {
           name: 'File Ownership Spread',
-          value: Math.round(serverCqiDetails.components.ownershipSpread),
+          value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
           weight: 15,
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
@@ -182,38 +179,11 @@ function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
         },
       ];
 
-  // Map analysis history from server
-  const analysisHistory = dto.analysisHistory?.map((chunk: AnalyzedChunkDTO) => ({
-    id: chunk.id ?? '',
-    authorEmail: chunk.authorEmail ?? '',
-    authorName: chunk.authorName ?? '',
-    classification: chunk.classification ?? '',
-    effortScore: chunk.effortScore ?? 0,
-    complexity: chunk.complexity ?? 0,
-    novelty: chunk.novelty ?? 0,
-    confidence: chunk.confidence ?? 0,
-    reasoning: chunk.reasoning ?? '',
-    commitShas: chunk.commitShas ?? [],
-    commitMessages: chunk.commitMessages ?? [],
-    timestamp: chunk.timestamp ?? new Date().toISOString(),
-    linesChanged: chunk.linesChanged ?? 0,
-    isBundled: chunk.isBundled ?? false,
-    chunkIndex: chunk.chunkIndex ?? 0,
-    totalChunks: chunk.totalChunks ?? 0,
-    isError: chunk.isError,
-    errorMessage: chunk.errorMessage,
-  }));
+  // Use analysis history directly from server (already in correct DTO format)
+  const analysisHistory = dto.analysisHistory;
 
-  // Map orphan commits
-  const orphanCommits = dto.orphanCommits?.map(commit => ({
-    commitHash: commit.commitHash || '',
-    authorEmail: commit.authorEmail || '',
-    authorName: commit.authorName || '',
-    message: commit.message || '',
-    timestamp: commit.timestamp || new Date().toISOString(),
-    linesAdded: commit.linesAdded || 0,
-    linesDeleted: commit.linesDeleted || 0,
-  }));
+  // Use orphan commits directly from server (already in correct DTO format)
+  const orphanCommits = dto.orphanCommits;
 
   const team: ComplexTeamData = {
     ...basicData,
