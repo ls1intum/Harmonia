@@ -226,7 +226,6 @@ components:
           type: array
           items: {$ref: '#/components/schemas/CQIPenaltyDTO'}
         penaltyMultiplier: {type: number, format: double}
-        successful: {type: boolean}
     ClientResponseDTO:
       type: object
       properties:

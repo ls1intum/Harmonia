@@ -29,5 +29,4 @@ export interface CQIResultDTO {
   filterSummary?: FilterSummaryDTO;
   penalties?: Array<CQIPenaltyDTO>;
   penaltyMultiplier?: number;
-  successful?: boolean;
 }
