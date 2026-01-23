@@ -30,7 +30,8 @@ class FairnessReportDTOTest {
                                 2L, "bob@test.com", 95.0, 0.49, 9, 11, 8.6,
                                 Map.of(CommitLabel.FEATURE, 4, CommitLabel.TEST, 4))),
                 new FairnessReportDTO.AnalysisMetadataDTO(19, 23, 2, 0.92, 1, 1500),
-                List.of());
+                List.of(),
+                null);
 
         assertEquals("team-123", report.teamId());
         assertEquals(85.0, report.balanceScore());
@@ -50,7 +51,8 @@ class FairnessReportDTOTest {
                 true,
                 List.of(),
                 new FairnessReportDTO.AnalysisMetadataDTO(15, 18, 0, 0.85, 2, 2000),
-                List.of());
+                List.of(),
+                null);
 
         assertEquals(35.0, report.balanceScore());
         assertTrue(report.requiresManualReview());
@@ -124,7 +126,8 @@ class FairnessReportDTOTest {
                     "test", 50.0, Map.of(), Map.of(),
                     List.of(flag), true, List.of(),
                     new FairnessReportDTO.AnalysisMetadataDTO(0, 0, 0, 0, 0, 0),
-                    List.of());
+                    List.of(),
+                    null);
             assertTrue(report.flags().contains(flag));
         }
     }

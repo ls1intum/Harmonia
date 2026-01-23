@@ -200,10 +200,47 @@ public class GitContributionAnalysisService {
         return new RepositoryAnalysisResultDTO(repoContributions, orphanCommits);
     }
 
+    // ========== Public utility methods ==========
+
+    /**
+     * Builds a mapping from commit SHA to synthetic author ID from VCS logs.
+     * This creates synthetic IDs based on unique email addresses, useful when
+     * real student IDs are not available or not needed.
+     *
+     * @param repo The repository containing VCS logs
+     * @return Map of commit hashes to synthetic author IDs
+     */
+    public Map<String, Long> buildCommitToAuthorMap(TeamRepositoryDTO repo) {
+        Map<String, Long> mapping = new HashMap<>();
+        Map<String, Long> emailToId = new HashMap<>();
+        long idCounter = 1;
+
+        if (repo.vcsLogs() == null) {
+            return mapping;
+        }
+
+        for (var logEntry : repo.vcsLogs()) {
+            if (logEntry.commitHash() == null || logEntry.email() == null) {
+                continue;
+            }
+
+            Long authorId = emailToId.get(logEntry.email());
+            if (authorId == null) {
+                authorId = idCounter++;
+                emailToId.put(logEntry.email(), authorId);
+            }
+            mapping.put(logEntry.commitHash(), authorId);
+        }
+
+        log.debug("Mapped {} commits to {} unique authors", mapping.size(), emailToId.size());
+        return mapping;
+    }
+
     // ========== Legacy methods for backward compatibility ==========
 
     /**
      * Maps each commit hash to the corresponding author ID (legacy method).
+     * Uses real student IDs from the database instead of synthetic IDs.
      */
     private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
         Map<String, Long> commitToStudent = new HashMap<>();

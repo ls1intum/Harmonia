@@ -267,7 +267,7 @@ const TeamsList = ({
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
                         <p key={idx} className="text-sm">
-                          {student.name} {student.commits !== undefined && `(${student.commits} commits)`}
+                          {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
                         </p>
                       ))}
                     </div>

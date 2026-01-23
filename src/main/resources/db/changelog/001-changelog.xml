@@ -148,6 +148,9 @@
             <column name="author_name" type="VARCHAR(255)"/>
             <column name="classification" type="VARCHAR(255)"/>
             <column name="effort_score" type="DOUBLE"/>
+            <column name="complexity" type="DOUBLE"/>
+            <column name="novelty" type="DOUBLE"/>
+            <column name="confidence" type="DOUBLE"/>
             <column name="reasoning" type="TEXT"/>
             <column name="commit_shas" type="TEXT"/>
             <column name="commit_messages" type="TEXT"/>

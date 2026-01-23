@@ -16,6 +16,9 @@ public record AnalyzedChunkDTO(
                 String authorName,
                 String classification,
                 double effortScore,
+                double complexity,
+                double novelty,
+                double confidence,
                 String reasoning,
                 List<String> commitShas,
                 List<String> commitMessages,
@@ -31,10 +34,11 @@ public record AnalyzedChunkDTO(
          */
         public static AnalyzedChunkDTO single(
                         String sha, String authorEmail, String authorName,
-                        String classification, double effort, String reasoning,
+                        String classification, double effort, double complexity, double novelty,
+                        double confidence, String reasoning,
                         String message, LocalDateTime timestamp, int linesChanged) {
                 return new AnalyzedChunkDTO(
-                                sha, authorEmail, authorName, classification, effort, reasoning,
+                                sha, authorEmail, authorName, classification, effort, complexity, novelty, confidence, reasoning,
                                 List.of(sha), List.of(message), timestamp, linesChanged,
                                 false, 0, 1, false, null);
         }
@@ -44,11 +48,12 @@ public record AnalyzedChunkDTO(
          */
         public static AnalyzedChunkDTO bundled(
                         String id, String authorEmail, String authorName,
-                        String classification, double effort, String reasoning,
+                        String classification, double effort, double complexity, double novelty,
+                        double confidence, String reasoning,
                         List<String> shas, List<String> messages,
                         LocalDateTime timestamp, int linesChanged) {
                 return new AnalyzedChunkDTO(
-                                id, authorEmail, authorName, classification, effort, reasoning,
+                                id, authorEmail, authorName, classification, effort, complexity, novelty, confidence, reasoning,
                                 shas, messages, timestamp, linesChanged,
                                 true, 0, 1, false, null);
         }
@@ -61,7 +66,7 @@ public record AnalyzedChunkDTO(
                         String message, LocalDateTime timestamp, int linesChanged,
                         String errorMessage) {
                 return new AnalyzedChunkDTO(
-                                sha, authorEmail, authorName, "ERROR", 0.0, errorMessage,
+                                sha, authorEmail, authorName, "ERROR", 0.0, 0.0, 0.0, 0.0, errorMessage,
                                 List.of(sha), List.of(message), timestamp, linesChanged,
                                 false, 0, 1, true, errorMessage);
         }

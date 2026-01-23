@@ -1,10 +1,4 @@
-export interface Student {
-  name: string;
-  commits?: number;
-  linesAdded?: number;
-  linesDeleted?: number;
-  linesChanged?: number;
-}
+import type { StudentAnalysisDTO, CQIResultDTO, AnalyzedChunkDTO, OrphanCommitDTO } from '@/app/generated';
 
 export interface SubMetric {
   name: string;
@@ -19,40 +13,12 @@ export interface BasicMetrics {
   totalLines: number;
 }
 
-export interface AnalyzedChunk {
-  id: string;
-  authorEmail: string;
-  authorName: string;
-  classification: string;
-  effortScore: number;
-  reasoning: string;
-  commitShas: string[];
-  commitMessages: string[];
-  timestamp: string;
-  linesChanged: number;
-  isBundled: boolean;
-  chunkIndex: number;
-  totalChunks: number;
-  isError?: boolean;
-  errorMessage?: string;
-}
-
 export interface AnalysisError {
-  id: string; // Reuse chunk ID
+  id: string;
   authorEmail: string;
   timestamp: string;
   errorMessage: string;
   commitShas: string[];
-}
-
-export interface OrphanCommit {
-  commitHash: string;
-  authorEmail: string;
-  authorName: string;
-  message: string;
-  timestamp: string;
-  linesAdded: number;
-  linesDeleted: number;
 }
 
 export interface Team {
@@ -60,11 +26,12 @@ export interface Team {
   teamName: string;
   tutor: string;
   submissionCount?: number;
-  students: Student[];
+  students: StudentAnalysisDTO[];
   cqi?: number;
   isSuspicious?: boolean;
+  cqiDetails?: CQIResultDTO;
   subMetrics?: SubMetric[];
   basicMetrics?: BasicMetrics;
-  analysisHistory?: AnalyzedChunk[];
-  orphanCommits?: OrphanCommit[];
+  analysisHistory?: AnalyzedChunkDTO[];
+  orphanCommits?: OrphanCommitDTO[];
 }
