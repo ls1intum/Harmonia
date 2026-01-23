@@ -35,7 +35,7 @@ const TeamsList = ({
   exercise,
   analysisStatus,
 }: TeamsListProps) => {
-  const [sortColumn, setSortColumn] = useState<'name' | 'commits' | 'cqi' | null>(null);
+  const [sortColumn, setSortColumn] = useState<'name' | 'commitCount' | 'cqi' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -53,7 +53,7 @@ const TeamsList = ({
     return 'bg-destructive/10';
   };
 
-  const handleHeaderClick = (column: 'name' | 'commits' | 'cqi') => {
+  const handleHeaderClick = (column: 'name' | 'commitCount' | 'cqi') => {
     if (sortColumn !== column) {
       setSortColumn(column);
       setSortDirection('asc');
@@ -79,7 +79,7 @@ const TeamsList = ({
 
         if (sortColumn === 'name') {
           comparison = a.teamName.localeCompare(b.teamName);
-        } else if (sortColumn === 'commits') {
+        } else if (sortColumn === 'commitCount') {
           const aCommits = a.basicMetrics?.totalCommits || 0;
           const bCommits = b.basicMetrics?.totalCommits || 0;
           comparison = aCommits - bCommits;
@@ -232,7 +232,7 @@ const TeamsList = ({
                 <th className="text-left py-4 px-6 font-semibold text-sm">Members</th>
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <SortableHeader
-                    column="commits"
+                    column="commitCount"
                     label="Commits"
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}

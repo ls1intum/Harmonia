@@ -34,7 +34,7 @@ export default function Teams() {
         tutor: item.tutor || 'Unassigned',
         students: (item.students || []).map(s => ({
           name: s.name || 'Unknown',
-          commits: s.commitCount || 0,
+          commitCount: s.commitCount || 0,
           linesAdded: s.linesAdded || 0,
           linesDeleted: s.linesDeleted || 0,
           linesChanged: s.linesChanged || 0,
