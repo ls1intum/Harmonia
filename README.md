@@ -86,8 +86,8 @@ Alternatively, you can manually build and launch everything:
    - Spring Boot server: http://localhost:8080
    - PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
 
-The Compose setup builds the Gradle boot jar inside `docker/server.Dockerfile`, bundles the React client with Vite via
-`docker/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images
+The Compose setup builds the Gradle boot jar inside `docker/local-setup/server.Dockerfile`, bundles the React client with Vite via
+`docker/local-setup/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images
 restart automatically unless stopped.
 
 ### Database only
