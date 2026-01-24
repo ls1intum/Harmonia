@@ -78,7 +78,7 @@ Alternatively, you can manually build and launch everything:
 1. Build and launch:
 
    ```bash
-   docker compose -f docker/docker-compose.yml up --build
+   docker compose -f docker/local-setup/docker-compose.yml up --build
    ```
 
 2. Access the services:
@@ -95,7 +95,7 @@ restart automatically unless stopped.
 If you only need the database for local development you can start just the PostgreSQL service:
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d postgres
+docker compose -f docker/local-setup/docker-compose.yml up -d postgres
 ```
 
 ## 🚀 How to Run the Server
