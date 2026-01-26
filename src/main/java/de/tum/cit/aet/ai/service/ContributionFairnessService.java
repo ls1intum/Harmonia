@@ -192,32 +192,6 @@ public class ContributionFairnessService {
     }
 
     /**
-     * Normalizes TUM email addresses to a canonical form for matching.
-     * TUM uses multiple domains: @tum.de, @mytum.de, @in.tum.de, @cit.tum.de, etc.
-     */
-    private String normalizeEmail(String email) {
-        if (email == null) {
-            return null;
-        }
-        String lower = email.toLowerCase().trim();
-        
-        int atIndex = lower.indexOf('@');
-        if (atIndex <= 0) {
-            return lower;
-        }
-        
-        String localPart = lower.substring(0, atIndex);
-        String domain = lower.substring(atIndex + 1);
-        
-        // Normalize TUM domains to canonical form
-        if (domain.endsWith("tum.de") || domain.equals("mytum.de")) {
-            return localPart + "@tum.de";
-        }
-        
-        return lower;
-    }
-
-    /**
      * Result of author mapping, separating team member commits from external commits.
      * Also includes a map of commit hash to VCS email for overriding Git emails.
      */
@@ -232,6 +206,9 @@ public class ContributionFairnessService {
      * Maps commits to authors, separating team member commits from external contributor commits.
      * Only commits from registered team members are included in the main mapping for CQI calculation.
      * Also builds a map of commit hashes to VCS emails for use in chunking.
+     * 
+     * VCS emails from Artemis are used directly (no normalization needed) since both
+     * VCS logs and team member emails come from Artemis and are guaranteed to match.
      */
     private AuthorMappingResult mapCommitsToAuthors(List<VCSLogDTO> logs, List<ParticipantDTO> teamMembers) {
         Map<String, Long> teamMemberCommits = new HashMap<>();
@@ -239,17 +216,15 @@ public class ContributionFairnessService {
         Set<String> externalEmails = new HashSet<>();
         Map<String, String> commitToEmail = new HashMap<>();
 
-        // Build a lookup map of team member emails to their IDs (using normalized emails)
+        // Build a lookup map of team member emails to their IDs
         Map<String, Long> teamMemberEmailToId = new HashMap<>();
         for (ParticipantDTO member : teamMembers) {
             if (member.email() != null) {
-                String normalized = normalizeEmail(member.email());
-                teamMemberEmailToId.put(normalized, member.id());
                 teamMemberEmailToId.put(member.email().toLowerCase(), member.id());
             }
         }
         
-        log.debug("Team members (normalized): {}", teamMemberEmailToId.keySet());
+        log.debug("Team members: {}", teamMemberEmailToId.keySet());
 
         // Track synthetic IDs for external contributors
         Map<String, Long> externalEmailToId = new HashMap<>();
@@ -260,26 +235,22 @@ public class ContributionFairnessService {
                 continue;
             }
 
-            String normalizedEmail = normalizeEmail(vcsLog.email());
-            String originalEmail = vcsLog.email().toLowerCase();
+            String emailLower = vcsLog.email().toLowerCase();
             
             // Always store the VCS email for this commit (to override Git email)
             commitToEmail.put(vcsLog.commitHash(), vcsLog.email());
             
-            // Try normalized email first, then original
-            Long teamMemberId = teamMemberEmailToId.get(normalizedEmail);
-            if (teamMemberId == null) {
-                teamMemberId = teamMemberEmailToId.get(originalEmail);
-            }
+            // Check if this is a team member
+            Long teamMemberId = teamMemberEmailToId.get(emailLower);
             
             if (teamMemberId != null) {
                 teamMemberCommits.put(vcsLog.commitHash(), teamMemberId);
             } else {
                 // External contributor
-                Long externalId = externalEmailToId.get(originalEmail);
+                Long externalId = externalEmailToId.get(emailLower);
                 if (externalId == null) {
                     externalId = externalIdCounter--;
-                    externalEmailToId.put(originalEmail, externalId);
+                    externalEmailToId.put(emailLower, externalId);
                     externalEmails.add(vcsLog.email());
                 }
                 externalCommits.put(vcsLog.commitHash(), externalId);

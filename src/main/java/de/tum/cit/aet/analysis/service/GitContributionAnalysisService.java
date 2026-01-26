@@ -38,32 +38,6 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Normalizes TUM email addresses to a canonical form for matching.
-     * TUM uses multiple domains: @tum.de, @mytum.de, @in.tum.de, @cit.tum.de, etc.
-     */
-    private String normalizeEmail(String email) {
-        if (email == null) {
-            return null;
-        }
-        String lower = email.toLowerCase().trim();
-        
-        int atIndex = lower.indexOf('@');
-        if (atIndex <= 0) {
-            return lower;
-        }
-        
-        String localPart = lower.substring(0, atIndex);
-        String domain = lower.substring(atIndex + 1);
-        
-        // Normalize TUM domains to canonical form
-        if (domain.endsWith("tum.de") || domain.equals("mytum.de")) {
-            return localPart + "@tum.de";
-        }
-        
-        return lower;
-    }
-
-    /**
      * Maps each commit hash to the corresponding author ID based on the VCS logs
      * and team participation data. Also tracks orphan commits.
      *
@@ -76,11 +50,9 @@ public class GitContributionAnalysisService {
         Set<String> orphanCommitHashes = new HashSet<>();
         Map<String, String> commitToEmail = new HashMap<>();
 
-        // Map registered student emails to their IDs (using both normalized and original)
+        // Map registered student emails to their IDs (VCS emails from Artemis)
         repo.participation().team().students().forEach(student -> {
             if (student.email() != null) {
-                String normalized = normalizeEmail(student.email());
-                emailToStudent.put(normalized, student.id());
                 emailToStudent.put(student.email().toLowerCase(), student.id());
             }
         });
@@ -90,13 +62,10 @@ public class GitContributionAnalysisService {
             String email = logEntry.email();
             commitToEmail.put(commitHash, email);
 
-            // Try to match email using normalized form first, then original
+            // Match email directly (both from Artemis)
             Long studentId = null;
             if (email != null) {
-                studentId = emailToStudent.get(normalizeEmail(email));
-                if (studentId == null) {
-                    studentId = emailToStudent.get(email.toLowerCase());
-                }
+                studentId = emailToStudent.get(email.toLowerCase());
             }
 
             if (studentId != null) {
@@ -280,11 +249,9 @@ public class GitContributionAnalysisService {
         Map<String, Long> commitToStudent = new HashMap<>();
         Map<String, Long> emailToStudent = new HashMap<>();
         
-        // Use normalized emails for matching
+        // Map student emails directly (both from Artemis)
         repo.participation().team().students().forEach(student -> {
             if (student.email() != null) {
-                String normalized = normalizeEmail(student.email());
-                emailToStudent.put(normalized, student.id());
                 emailToStudent.put(student.email().toLowerCase(), student.id());
             }
         });
@@ -293,10 +260,7 @@ public class GitContributionAnalysisService {
             String email = logEntry.email();
             Long studentId = null;
             if (email != null) {
-                studentId = emailToStudent.get(normalizeEmail(email));
-                if (studentId == null) {
-                    studentId = emailToStudent.get(email.toLowerCase());
-                }
+                studentId = emailToStudent.get(email.toLowerCase());
             }
             if (studentId != null) {
                 commitToStudent.put(logEntry.commitHash(), studentId);
