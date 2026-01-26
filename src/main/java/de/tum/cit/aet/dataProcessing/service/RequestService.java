@@ -442,10 +442,12 @@ public class RequestService {
     }
 
     /**
-     * Check if a team has already been analyzed (has data in the database).
+     * Check if a team has been fully analyzed (has CQI calculated).
+     * A team is considered "analyzed" only if it has a CQI value,
+     * not just if the participation record exists.
      */
     private boolean isTeamAlreadyAnalyzed(Long participationId) {
-        return teamParticipationRepository.existsByParticipation(participationId);
+        return teamParticipationRepository.existsByParticipationAndCqiIsNotNull(participationId);
     }
 
     /**
