@@ -67,12 +67,15 @@ public class ContributionFairnessService {
             }
 
             // 2. Chunk and bundle commits (team members only for CQI calculation)
-            List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repoPath, authorMapping.teamMemberCommits);
+            // Pass commitToEmail to use VCS emails instead of Git emails
+            List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(
+                    repoPath, authorMapping.teamMemberCommits, authorMapping.commitToEmail);
             
             // 2b. Also chunk external contributor commits (for display only, not CQI)
             List<CommitChunkDTO> externalChunks = Collections.emptyList();
             if (!authorMapping.externalCommits.isEmpty()) {
-                externalChunks = commitChunkerService.processRepository(repoPath, authorMapping.externalCommits);
+                externalChunks = commitChunkerService.processRepository(
+                        repoPath, authorMapping.externalCommits, authorMapping.commitToEmail);
                 log.info("Team {}: {} external contributor chunks identified", teamName, externalChunks.size());
             }
 
@@ -216,21 +219,25 @@ public class ContributionFairnessService {
 
     /**
      * Result of author mapping, separating team member commits from external commits.
+     * Also includes a map of commit hash to VCS email for overriding Git emails.
      */
     private record AuthorMappingResult(
             Map<String, Long> teamMemberCommits,
             Map<String, Long> externalCommits,
-            Set<String> externalCommitEmails
+            Set<String> externalCommitEmails,
+            Map<String, String> commitToEmail // Maps commit hash to VCS email (from Artemis)
     ) {}
 
     /**
      * Maps commits to authors, separating team member commits from external contributor commits.
      * Only commits from registered team members are included in the main mapping for CQI calculation.
+     * Also builds a map of commit hashes to VCS emails for use in chunking.
      */
     private AuthorMappingResult mapCommitsToAuthors(List<VCSLogDTO> logs, List<ParticipantDTO> teamMembers) {
         Map<String, Long> teamMemberCommits = new HashMap<>();
         Map<String, Long> externalCommits = new HashMap<>();
         Set<String> externalEmails = new HashSet<>();
+        Map<String, String> commitToEmail = new HashMap<>();
 
         // Build a lookup map of team member emails to their IDs (using normalized emails)
         Map<String, Long> teamMemberEmailToId = new HashMap<>();
@@ -256,6 +263,9 @@ public class ContributionFairnessService {
             String normalizedEmail = normalizeEmail(vcsLog.email());
             String originalEmail = vcsLog.email().toLowerCase();
             
+            // Always store the VCS email for this commit (to override Git email)
+            commitToEmail.put(vcsLog.commitHash(), vcsLog.email());
+            
             // Try normalized email first, then original
             Long teamMemberId = teamMemberEmailToId.get(normalizedEmail);
             if (teamMemberId == null) {
@@ -278,7 +288,7 @@ public class ContributionFairnessService {
 
         log.debug("Mapped {} team member commits and {} external commits from {} external contributors", 
                 teamMemberCommits.size(), externalCommits.size(), externalEmails.size());
-        return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails);
+        return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails, commitToEmail);
     }
 
     private List<RatedChunk> rateChunks(List<CommitChunkDTO> chunks) {
