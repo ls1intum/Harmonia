@@ -38,6 +38,32 @@ public class GitContributionAnalysisService {
     }
 
     /**
+     * Normalizes TUM email addresses to a canonical form for matching.
+     * TUM uses multiple domains: @tum.de, @mytum.de, @in.tum.de, @cit.tum.de, etc.
+     */
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        String lower = email.toLowerCase().trim();
+        
+        int atIndex = lower.indexOf('@');
+        if (atIndex <= 0) {
+            return lower;
+        }
+        
+        String localPart = lower.substring(0, atIndex);
+        String domain = lower.substring(atIndex + 1);
+        
+        // Normalize TUM domains to canonical form
+        if (domain.endsWith("tum.de") || domain.equals("mytum.de")) {
+            return localPart + "@tum.de";
+        }
+        
+        return lower;
+    }
+
+    /**
      * Maps each commit hash to the corresponding author ID based on the VCS logs
      * and team participation data. Also tracks orphan commits.
      *
@@ -50,17 +76,28 @@ public class GitContributionAnalysisService {
         Set<String> orphanCommitHashes = new HashSet<>();
         Map<String, String> commitToEmail = new HashMap<>();
 
-        // Map registered student emails to their IDs
-        repo.participation().team().students()
-                .forEach(student -> emailToStudent.put(student.email().toLowerCase(), student.id()));
+        // Map registered student emails to their IDs (using both normalized and original)
+        repo.participation().team().students().forEach(student -> {
+            if (student.email() != null) {
+                String normalized = normalizeEmail(student.email());
+                emailToStudent.put(normalized, student.id());
+                emailToStudent.put(student.email().toLowerCase(), student.id());
+            }
+        });
 
         for (VCSLogDTO logEntry : repo.vcsLogs()) {
             String commitHash = logEntry.commitHash();
             String email = logEntry.email();
             commitToEmail.put(commitHash, email);
 
-            // Try to match email (case-insensitive)
-            Long studentId = emailToStudent.get(email != null ? email.toLowerCase() : null);
+            // Try to match email using normalized form first, then original
+            Long studentId = null;
+            if (email != null) {
+                studentId = emailToStudent.get(normalizeEmail(email));
+                if (studentId == null) {
+                    studentId = emailToStudent.get(email.toLowerCase());
+                }
+            }
 
             if (studentId != null) {
                 commitToStudent.put(commitHash, studentId);
@@ -242,9 +279,28 @@ public class GitContributionAnalysisService {
     private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
         Map<String, Long> commitToStudent = new HashMap<>();
         Map<String, Long> emailToStudent = new HashMap<>();
-        repo.participation().team().students().forEach(student -> emailToStudent.put(student.email(), student.id()));
+        
+        // Use normalized emails for matching
+        repo.participation().team().students().forEach(student -> {
+            if (student.email() != null) {
+                String normalized = normalizeEmail(student.email());
+                emailToStudent.put(normalized, student.id());
+                emailToStudent.put(student.email().toLowerCase(), student.id());
+            }
+        });
+        
         for (VCSLogDTO logEntry : repo.vcsLogs()) {
-            commitToStudent.put(logEntry.commitHash(), emailToStudent.get(logEntry.email()));
+            String email = logEntry.email();
+            Long studentId = null;
+            if (email != null) {
+                studentId = emailToStudent.get(normalizeEmail(email));
+                if (studentId == null) {
+                    studentId = emailToStudent.get(email.toLowerCase());
+                }
+            }
+            if (studentId != null) {
+                commitToStudent.put(logEntry.commitHash(), studentId);
+            }
         }
         return commitToStudent;
     }

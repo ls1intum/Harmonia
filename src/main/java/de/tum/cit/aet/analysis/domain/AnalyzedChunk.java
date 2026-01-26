@@ -83,6 +83,13 @@ public class AnalyzedChunk {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /**
+     * Transient field to mark chunks from external contributors (not persisted).
+     * External chunks are shown in UI but not included in CQI calculation.
+     */
+    @Transient
+    private Boolean isExternalContributor;
+
     public AnalyzedChunk(TeamParticipation participation, String chunkIdentifier,
             String authorEmail, String authorName, String classification,
             Double effortScore, Double complexity, Double novelty, Double confidence,
@@ -90,7 +97,8 @@ public class AnalyzedChunk {
             String commitMessages, LocalDateTime timestamp,
             Integer linesChanged, Boolean isBundled,
             Integer chunkIndex, Integer totalChunks,
-            Boolean isError, String errorMessage) {
+            Boolean isError, String errorMessage,
+            Boolean isExternalContributor) {
         this.participation = participation;
         this.chunkIdentifier = chunkIdentifier;
         this.authorEmail = authorEmail;
@@ -110,5 +118,23 @@ public class AnalyzedChunk {
         this.totalChunks = totalChunks;
         this.isError = isError;
         this.errorMessage = errorMessage;
+        this.isExternalContributor = isExternalContributor;
+    }
+    
+    /**
+     * Legacy constructor for backward compatibility.
+     */
+    public AnalyzedChunk(TeamParticipation participation, String chunkIdentifier,
+            String authorEmail, String authorName, String classification,
+            Double effortScore, Double complexity, Double novelty, Double confidence,
+            String reasoning, String commitShas,
+            String commitMessages, LocalDateTime timestamp,
+            Integer linesChanged, Boolean isBundled,
+            Integer chunkIndex, Integer totalChunks,
+            Boolean isError, String errorMessage) {
+        this(participation, chunkIdentifier, authorEmail, authorName, classification,
+                effortScore, complexity, novelty, confidence, reasoning, commitShas,
+                commitMessages, timestamp, linesChanged, isBundled, chunkIndex, totalChunks,
+                isError, errorMessage, false);
     }
 }

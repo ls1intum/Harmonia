@@ -7,6 +7,7 @@ import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
+import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class ContributionFairnessService {
     /**
      * Analyzes a repository for contribution fairness.
      * Uses pre-filtering, LLM rating, and CQI calculation.
+     * Only commits from registered team members are included in CQI calculation.
      *
      * @param repositoryDTO the repository data transfer object to analyze
      * @return a FairnessReportDTO containing the analysis results
@@ -43,6 +45,7 @@ public class ContributionFairnessService {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         int teamSize = repositoryDTO.participation().team().students().size();
+        List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
 
         if (repoPath == null) {
             return FairnessReportDTO.error(teamName, "Repository not cloned locally");
@@ -51,15 +54,27 @@ public class ContributionFairnessService {
         long startTime = System.currentTimeMillis();
 
         try {
-            // 1. Map commits to authors
-            Map<String, Long> commitToAuthor = mapCommitsToAuthors(repositoryDTO.vcsLogs());
+            // 1. Map commits to authors (only team members for CQI)
+            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO.vcsLogs(), teamMembers);
 
-            if (commitToAuthor.isEmpty()) {
-                return FairnessReportDTO.error(teamName, "No commits found in VCS logs");
+            if (authorMapping.teamMemberCommits.isEmpty()) {
+                return FairnessReportDTO.error(teamName, "No commits found from team members in VCS logs");
+            }
+            
+            if (!authorMapping.externalCommitEmails.isEmpty()) {
+                log.info("Team {}: Found {} external contributor(s): {}", 
+                        teamName, authorMapping.externalCommitEmails.size(), authorMapping.externalCommitEmails);
             }
 
-            // 2. Chunk and bundle commits
-            List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repoPath, commitToAuthor);
+            // 2. Chunk and bundle commits (team members only for CQI calculation)
+            List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repoPath, authorMapping.teamMemberCommits);
+            
+            // 2b. Also chunk external contributor commits (for display only, not CQI)
+            List<CommitChunkDTO> externalChunks = Collections.emptyList();
+            if (!authorMapping.externalCommits.isEmpty()) {
+                externalChunks = commitChunkerService.processRepository(repoPath, authorMapping.externalCommits);
+                log.info("Team {}: {} external contributor chunks identified", teamName, externalChunks.size());
+            }
 
             if (allChunks.isEmpty()) {
                 return FairnessReportDTO.error(teamName, "No analyzable code changes found");
@@ -120,12 +135,17 @@ public class ContributionFairnessService {
 
             // 7. Generate flags from CQI penalties
             List<FairnessFlag> flags = generateFlagsFromCQI(cqiResult, effortShare);
+            
+            // 7b. Rate external chunks with trivial rating (for display only)
+            List<RatedChunk> externalRatedChunks = externalChunks.stream()
+                    .map(chunk -> new RatedChunk(chunk, EffortRatingDTO.trivial("External contributor")))
+                    .toList();
 
             // 8. Build report
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Fairness analysis completed for team {}: CQI={}, chunks={}, filtered={}, duration={}ms",
+            log.info("Fairness analysis completed for team {}: CQI={}, chunks={}, filtered={}, external={}, duration={}ms",
                     teamName, String.format("%.1f", balanceScore), chunksToAnalyze.size(),
-                    filterSummary.getTotalFiltered(), duration);
+                    filterSummary.getTotalFiltered(), externalChunks.size(), duration);
 
             return buildReport(
                     teamName,
@@ -135,6 +155,7 @@ public class ContributionFairnessService {
                     flags,
                     allChunks.size(),
                     ratedChunks,
+                    externalRatedChunks,
                     duration,
                     cqiResult);
 
@@ -167,33 +188,97 @@ public class ContributionFairnessService {
         return new ArrayList<>(new LinkedHashSet<>(flags));
     }
 
-    private Map<String, Long> mapCommitsToAuthors(List<VCSLogDTO> logs) {
-        Map<String, Long> mapping = new HashMap<>();
+    /**
+     * Normalizes TUM email addresses to a canonical form for matching.
+     * TUM uses multiple domains: @tum.de, @mytum.de, @in.tum.de, @cit.tum.de, etc.
+     */
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        String lower = email.toLowerCase().trim();
+        
+        int atIndex = lower.indexOf('@');
+        if (atIndex <= 0) {
+            return lower;
+        }
+        
+        String localPart = lower.substring(0, atIndex);
+        String domain = lower.substring(atIndex + 1);
+        
+        // Normalize TUM domains to canonical form
+        if (domain.endsWith("tum.de") || domain.equals("mytum.de")) {
+            return localPart + "@tum.de";
+        }
+        
+        return lower;
+    }
 
-        // Build synthetic author IDs from email addresses
-        // In a real implementation, this would look up actual user IDs from the
-        // database
-        Map<String, Long> emailToSyntheticId = new HashMap<>();
-        long idCounter = 1;
+    /**
+     * Result of author mapping, separating team member commits from external commits.
+     */
+    private record AuthorMappingResult(
+            Map<String, Long> teamMemberCommits,
+            Map<String, Long> externalCommits,
+            Set<String> externalCommitEmails
+    ) {}
 
-        for (VCSLogDTO log : logs) {
-            if (log.commitHash() == null || log.email() == null) {
+    /**
+     * Maps commits to authors, separating team member commits from external contributor commits.
+     * Only commits from registered team members are included in the main mapping for CQI calculation.
+     */
+    private AuthorMappingResult mapCommitsToAuthors(List<VCSLogDTO> logs, List<ParticipantDTO> teamMembers) {
+        Map<String, Long> teamMemberCommits = new HashMap<>();
+        Map<String, Long> externalCommits = new HashMap<>();
+        Set<String> externalEmails = new HashSet<>();
+
+        // Build a lookup map of team member emails to their IDs (using normalized emails)
+        Map<String, Long> teamMemberEmailToId = new HashMap<>();
+        for (ParticipantDTO member : teamMembers) {
+            if (member.email() != null) {
+                String normalized = normalizeEmail(member.email());
+                teamMemberEmailToId.put(normalized, member.id());
+                teamMemberEmailToId.put(member.email().toLowerCase(), member.id());
+            }
+        }
+        
+        log.debug("Team members (normalized): {}", teamMemberEmailToId.keySet());
+
+        // Track synthetic IDs for external contributors
+        Map<String, Long> externalEmailToId = new HashMap<>();
+        long externalIdCounter = -1;
+
+        for (VCSLogDTO vcsLog : logs) {
+            if (vcsLog.commitHash() == null || vcsLog.email() == null) {
                 continue;
             }
 
-            // Get or create a synthetic ID for this email
-            Long authorId = emailToSyntheticId.get(log.email());
-            if (authorId == null) {
-                authorId = idCounter++;
-                emailToSyntheticId.put(log.email(), authorId);
+            String normalizedEmail = normalizeEmail(vcsLog.email());
+            String originalEmail = vcsLog.email().toLowerCase();
+            
+            // Try normalized email first, then original
+            Long teamMemberId = teamMemberEmailToId.get(normalizedEmail);
+            if (teamMemberId == null) {
+                teamMemberId = teamMemberEmailToId.get(originalEmail);
             }
-
-            // Map commit hash to author ID
-            mapping.put(log.commitHash(), authorId);
+            
+            if (teamMemberId != null) {
+                teamMemberCommits.put(vcsLog.commitHash(), teamMemberId);
+            } else {
+                // External contributor
+                Long externalId = externalEmailToId.get(originalEmail);
+                if (externalId == null) {
+                    externalId = externalIdCounter--;
+                    externalEmailToId.put(originalEmail, externalId);
+                    externalEmails.add(vcsLog.email());
+                }
+                externalCommits.put(vcsLog.commitHash(), externalId);
+            }
         }
 
-        log.debug("Mapped {} commits to {} unique authors", mapping.size(), emailToSyntheticId.size());
-        return mapping;
+        log.debug("Mapped {} team member commits and {} external commits from {} external contributors", 
+                teamMemberCommits.size(), externalCommits.size(), externalEmails.size());
+        return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails);
     }
 
     private List<RatedChunk> rateChunks(List<CommitChunkDTO> chunks) {
@@ -240,6 +325,7 @@ public class ContributionFairnessService {
             List<FairnessFlag> flags,
             int totalChunks,
             List<RatedChunk> ratedChunks,
+            List<RatedChunk> externalRatedChunks,
             long duration,
             CQIResultDTO cqiResult) {
         List<FairnessReportDTO.AuthorDetailDTO> details = new ArrayList<>();
@@ -268,7 +354,7 @@ public class ContributionFairnessService {
                 lowConf,
                 duration);
 
-        // Convert RatedChunks to AnalyzedChunkDTOs for client
+        // Convert RatedChunks to AnalyzedChunkDTOs for client (team members)
         List<AnalyzedChunkDTO> analyzedChunks = ratedChunks.stream()
                 .map(rc -> new AnalyzedChunkDTO(
                         rc.chunk.commitSha(),
@@ -288,8 +374,33 @@ public class ContributionFairnessService {
                         rc.chunk.chunkIndex(),
                         rc.chunk.totalChunks(),
                         rc.rating.isError(),
-                        rc.rating.errorMessage()))
+                        rc.rating.errorMessage(),
+                        false)) // isExternalContributor = false
                 .collect(Collectors.toList());
+        
+        // Add external contributor chunks (marked with isExternalContributor = true)
+        List<AnalyzedChunkDTO> externalChunks = externalRatedChunks.stream()
+                .map(rc -> new AnalyzedChunkDTO(
+                        rc.chunk.commitSha(),
+                        rc.chunk.authorEmail(),
+                        rc.chunk.authorEmail(),
+                        "EXTERNAL",
+                        0.0, // No effort contribution to CQI
+                        0.0, 0.0, 0.0,
+                        "External contributor - not included in CQI calculation",
+                        List.of(rc.chunk.commitSha()),
+                        List.of(rc.chunk.commitMessage()),
+                        rc.chunk.timestamp(),
+                        rc.chunk.linesAdded() + rc.chunk.linesDeleted(),
+                        rc.chunk.isBundled(),
+                        rc.chunk.chunkIndex(),
+                        rc.chunk.totalChunks(),
+                        false, null,
+                        true)) // isExternalContributor = true
+                .toList();
+        
+        // Combine team member and external chunks
+        analyzedChunks.addAll(externalChunks);
 
         return new FairnessReportDTO(
                 teamId,
