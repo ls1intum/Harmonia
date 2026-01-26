@@ -102,14 +102,15 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   const teamId = dto.teamId?.toString() || 'unknown';
 
   // Use CQI from server (calculated server-side)
-  const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
-  const isSuspicious = dto.isSuspicious ?? false;
+  // Keep undefined if null - indicates analysis not yet complete
+  const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : undefined;
+  const isSuspicious = dto.isSuspicious ?? undefined;
 
   // Extract CQI details from server response
   const serverCqiDetails = dto.cqiDetails as CQIResultDTO | undefined;
 
-  // Generate sub-metrics from CQI details if available
-  const subMetrics: SubMetric[] = serverCqiDetails?.components
+  // Generate sub-metrics from CQI details if available, or undefined if CQI not calculated
+  const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? [
         {
           name: 'Effort Balance',
@@ -140,29 +141,31 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
       ]
-    : [
-        {
-          name: 'Contribution Balance',
-          value: cqi,
-          weight: 40,
-          description: 'Are teammates contributing at similar levels?',
-          details: 'Calculated from commit distribution.',
-        },
-        {
-          name: 'Ownership Distribution',
-          value: 0,
-          weight: 30,
-          description: 'Are key files shared rather than monopolized?',
-          details: 'Calculated from git blame analysis.',
-        },
-        {
-          name: 'Pairing Signals',
-          value: 0,
-          weight: 30,
-          description: 'Did teammates actually work together?',
-          details: 'Not yet implemented.',
-        },
-      ];
+    : cqi !== undefined
+      ? [
+          {
+            name: 'Contribution Balance',
+            value: cqi,
+            weight: 40,
+            description: 'Are teammates contributing at similar levels?',
+            details: 'Calculated from commit distribution.',
+          },
+          {
+            name: 'Ownership Distribution',
+            value: 0,
+            weight: 30,
+            description: 'Are key files shared rather than monopolized?',
+            details: 'Calculated from git blame analysis.',
+          },
+          {
+            name: 'Pairing Signals',
+            value: 0,
+            weight: 30,
+            description: 'Did teammates actually work together?',
+            details: 'Not yet implemented.',
+          },
+        ]
+      : undefined;
 
   // Use analysis history directly from server (already in correct DTO format)
   const analysisHistory = dto.analysisHistory;
