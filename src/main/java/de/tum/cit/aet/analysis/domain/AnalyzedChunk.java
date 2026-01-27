@@ -44,6 +44,15 @@ public class AnalyzedChunk {
     @Column(name = "effort_score")
     private Double effortScore;
 
+    @Column(name = "complexity")
+    private Double complexity;
+
+    @Column(name = "novelty")
+    private Double novelty;
+
+    @Column(name = "confidence")
+    private Double confidence;
+
     @Column(name = "reasoning", columnDefinition = "TEXT")
     private String reasoning;
 
@@ -76,7 +85,8 @@ public class AnalyzedChunk {
 
     public AnalyzedChunk(TeamParticipation participation, String chunkIdentifier,
             String authorEmail, String authorName, String classification,
-            Double effortScore, String reasoning, String commitShas,
+            Double effortScore, Double complexity, Double novelty, Double confidence,
+            String reasoning, String commitShas,
             String commitMessages, LocalDateTime timestamp,
             Integer linesChanged, Boolean isBundled,
             Integer chunkIndex, Integer totalChunks,
@@ -87,6 +97,9 @@ public class AnalyzedChunk {
         this.authorName = authorName;
         this.classification = classification;
         this.effortScore = effortScore;
+        this.complexity = complexity;
+        this.novelty = novelty;
+        this.confidence = confidence;
         this.reasoning = reasoning;
         this.commitShas = commitShas;
         this.commitMessages = commitMessages;

@@ -74,6 +74,7 @@ class CommitEffortRaterServiceTest {
     private CommitChunkDTO createDummyChunk() {
         return new CommitChunkDTO(
                 "sha1", 1L, "author@test.com", "msg", LocalDateTime.now(),
-                List.of("file.java"), "diff", 10, 5, 0, 1, false, List.of());
+                List.of("file.java"), "diff", 10, 5, 0, 1, false, List.of(),
+                null, null, null);
     }
 }

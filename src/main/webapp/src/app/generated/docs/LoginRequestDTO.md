@@ -4,6 +4,7 @@
 
 | Name          | Type       | Description | Notes                  |
 | ------------- | ---------- | ----------- | ---------------------- |
+| **courseId**  | **string** |             | [default to undefined] |
 | **password**  | **string** |             | [default to undefined] |
 | **serverUrl** | **string** |             | [default to undefined] |
 | **username**  | **string** |             | [default to undefined] |
@@ -14,6 +15,7 @@
 import { LoginRequestDTO } from './api';
 
 const instance: LoginRequestDTO = {
+  courseId,
   password,
   serverUrl,
   username,

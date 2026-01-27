@@ -69,7 +69,8 @@ class CommitChunkDTOTest {
                 2, // chunkIndex
                 5, // totalChunks
                 false,
-                List.of());
+                List.of(),
+                null, null, null);
 
         assertEquals(2, chunk.chunkIndex());
         assertEquals(5, chunk.totalChunks());
@@ -93,7 +94,8 @@ class CommitChunkDTOTest {
                 0,
                 1,
                 true, // isBundled
-                bundledShas);
+                bundledShas,
+                null, null, null);
 
         assertTrue(chunk.isBundled());
         assertEquals(3, chunk.bundledCommits().size());

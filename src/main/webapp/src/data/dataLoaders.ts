@@ -1,7 +1,7 @@
-import type { Team } from '@/types/team';
+import type { Team, SubMetric } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import { RequestResourceApi, type ClientResponseDTO, type AnalyzedChunkDTO } from '@/app/generated';
+import { RequestResourceApi, type ClientResponseDTO, type CQIResultDTO } from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
@@ -28,7 +28,6 @@ const requestApi = new RequestResourceApi(apiConfig);
 // TYPES
 // ============================================================
 export type BasicTeamData = Omit<Team, 'cqi' | 'isSuspicious' | 'subMetrics'>;
-export type ComplexTeamData = Team;
 
 // ============================================================
 // DUMMY DATA HELPERS
@@ -42,7 +41,7 @@ function getBasicDummyTeams(): BasicTeamData[] {
   });
 }
 
-function getComplexDummyTeams(): ComplexTeamData[] {
+function getComplexDummyTeams(): Team[] {
   return dummyTeams;
 }
 
@@ -54,13 +53,9 @@ function delay(ms: number): Promise<void> {
 // ============================================================
 // CACHE - Store transformed team data to ensure consistency
 // ============================================================
-const teamCache = new Map<string, ComplexTeamData>();
+const teamCache = new Map<string, Team>();
 
-function getCachedTeam(teamId: string): ComplexTeamData | undefined {
-  return teamCache.get(teamId);
-}
-
-function setCachedTeam(teamId: string, team: ComplexTeamData): void {
+function setCachedTeam(teamId: string, team: Team): void {
   teamCache.set(teamId, team);
 }
 
@@ -76,20 +71,14 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
   const students = dto.students || [];
   const totalCommits = dto.submissionCount || 0;
 
-  const studentData = students.map(student => {
-    const commits = student.commitCount || 0;
-    const linesAdded = student.linesAdded || 0;
-    const linesDeleted = student.linesDeleted || 0;
-    const linesChanged = student.linesChanged || 0;
-
-    return {
-      name: student.name || 'Unknown',
-      commits,
-      linesAdded,
-      linesDeleted,
-      linesChanged,
-    };
-  });
+  // Students are already in DTO format, just ensure defaults
+  const studentData = students.map(student => ({
+    name: student.name || 'Unknown',
+    commitCount: student.commitCount || 0,
+    linesAdded: student.linesAdded || 0,
+    linesDeleted: student.linesDeleted || 0,
+    linesChanged: student.linesChanged || 0,
+  }));
 
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
 
@@ -106,81 +95,86 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 }
 
 /**
- * Transform ClientResponseDTO to ComplexTeamData using server-calculated CQI
+ * Transform ClientResponseDTO to Team using server-calculated CQI
  */
-function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
+export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   const basicData = transformToBasicTeamData(dto);
   const teamId = dto.teamId?.toString() || 'unknown';
-
-  // Check if we already have this team cached to avoid re-transforming
-  const cached = getCachedTeam(teamId);
-  if (cached) {
-    return cached;
-  }
 
   // Use CQI from server (calculated server-side)
   const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : 0;
   const isSuspicious = dto.isSuspicious ?? false;
 
-  // Sub-metrics not yet implemented on server
-  const subMetrics = [
-    {
-      name: 'Contribution Balance',
-      value: cqi,
-      weight: 40,
-      description: 'Are teammates contributing at similar levels?',
-      details: 'Calculated from commit distribution.',
-    },
-    {
-      name: 'Ownership Distribution',
-      value: 0,
-      weight: 30,
-      description: 'Are key files shared rather than monopolized?',
-      details: 'Calculated from git blame analysis.',
-    },
-    {
-      name: 'Pairing Signals',
-      value: 0,
-      weight: 30,
-      description: 'Did teammates actually work together?',
-      details: 'Not yet implemented.',
-    },
-  ];
+  // Extract CQI details from server response
+  const serverCqiDetails = dto.cqiDetails as CQIResultDTO | undefined;
 
-  // Map analysis history from server
-  const analysisHistory = dto.analysisHistory?.map((chunk: AnalyzedChunkDTO) => ({
-    id: chunk.id ?? '',
-    authorEmail: chunk.authorEmail ?? '',
-    authorName: chunk.authorName ?? '',
-    classification: chunk.classification ?? '',
-    effortScore: chunk.effortScore ?? 0,
-    reasoning: chunk.reasoning ?? '',
-    commitShas: chunk.commitShas ?? [],
-    commitMessages: chunk.commitMessages ?? [],
-    timestamp: chunk.timestamp ?? new Date().toISOString(),
-    linesChanged: chunk.linesChanged ?? 0,
-    isBundled: chunk.isBundled ?? false,
-    chunkIndex: chunk.chunkIndex ?? 0,
-    totalChunks: chunk.totalChunks ?? 0,
-    isError: chunk.isError,
-    errorMessage: chunk.errorMessage,
-  }));
+  // Generate sub-metrics from CQI details if available
+  const subMetrics: SubMetric[] = serverCqiDetails?.components
+    ? [
+        {
+          name: 'Effort Balance',
+          value: Math.round(serverCqiDetails.components.effortBalance ?? 0),
+          weight: 40,
+          description: 'Is effort distributed fairly among team members?',
+          details: 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
+        },
+        {
+          name: 'Lines of Code Balance',
+          value: Math.round(serverCqiDetails.components.locBalance ?? 0),
+          weight: 25,
+          description: 'Are code contributions balanced?',
+          details: 'Measures the distribution of lines added/deleted across team members.',
+        },
+        {
+          name: 'Temporal Spread',
+          value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
+          weight: 20,
+          description: 'Is work spread over time or crammed at deadline?',
+          details: 'Higher scores mean work was spread consistently throughout the project period.',
+        },
+        {
+          name: 'File Ownership Spread',
+          value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
+          weight: 15,
+          description: 'Are files owned by multiple team members?',
+          details: 'Measures how well files are shared among team members (based on git blame analysis).',
+        },
+      ]
+    : [
+        {
+          name: 'Contribution Balance',
+          value: cqi,
+          weight: 40,
+          description: 'Are teammates contributing at similar levels?',
+          details: 'Calculated from commit distribution.',
+        },
+        {
+          name: 'Ownership Distribution',
+          value: 0,
+          weight: 30,
+          description: 'Are key files shared rather than monopolized?',
+          details: 'Calculated from git blame analysis.',
+        },
+        {
+          name: 'Pairing Signals',
+          value: 0,
+          weight: 30,
+          description: 'Did teammates actually work together?',
+          details: 'Not yet implemented.',
+        },
+      ];
 
-  // Map orphan commits
-  const orphanCommits = dto.orphanCommits?.map(commit => ({
-    commitHash: commit.commitHash || '',
-    authorEmail: commit.authorEmail || '',
-    authorName: commit.authorName || '',
-    message: commit.message || '',
-    timestamp: commit.timestamp || new Date().toISOString(),
-    linesAdded: commit.linesAdded || 0,
-    linesDeleted: commit.linesDeleted || 0,
-  }));
+  // Use analysis history directly from server (already in correct DTO format)
+  const analysisHistory = dto.analysisHistory;
 
-  const team: ComplexTeamData = {
+  // Use orphan commits directly from server (already in correct DTO format)
+  const orphanCommits = dto.orphanCommits;
+
+  const team: Team = {
     ...basicData,
     cqi,
     isSuspicious,
+    cqiDetails: serverCqiDetails,
     subMetrics,
     analysisHistory,
     orphanCommits,
@@ -210,12 +204,12 @@ async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData
 }
 
 // TODO: Use course and exercise parameters when server supports them
-async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeamData[]> {
+async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
   try {
     const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
 
-    // Transform DTOs to ComplexTeamData with mocked analysis
+    // Transform DTOs to Team with mocked analysis
     return teamRepos.map(transformToComplexTeamData);
   } catch (error) {
     console.error('Error fetching complex team data:', error);
@@ -226,7 +220,7 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeam
 /**
  * Fetch a single team by ID from server
  */
-async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData | null> {
+async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
   try {
     const response = await requestApi.getData();
     const teamRepo = response.data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
@@ -247,7 +241,7 @@ async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData 
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
-  onUpdate: (team: ComplexTeamData) => void,
+  onUpdate: (team: Team) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
 ): () => void {
@@ -278,7 +272,7 @@ export function loadBasicTeamDataStream(
       if (data.type === 'START') {
         onStart(data.total);
       } else if (data.type === 'UPDATE') {
-        // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to ComplexTeamData
+        // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
         onUpdate(transformToComplexTeamData(data.data));
       } else if (data.type === 'DONE') {
         eventSource.close();
@@ -314,7 +308,7 @@ export async function loadBasicTeamData(_course: string, exercise: string): Prom
 /**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-export async function loadComplexTeamData(_course: string, exercise: string): Promise<ComplexTeamData[]> {
+export async function loadComplexTeamData(_course: string, exercise: string): Promise<Team[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
     return getComplexDummyTeams();
@@ -331,7 +325,7 @@ export async function loadTeamDataProgressive(
   course: string,
   exercise: string,
   onBasicLoaded: (teams: BasicTeamData[]) => void,
-  onComplexLoaded: (teams: ComplexTeamData[]) => void,
+  onComplexLoaded: (teams: Team[]) => void,
   onError: (error: Error) => void,
 ): Promise<void> {
   try {
@@ -355,7 +349,7 @@ export async function loadTeamDataProgressive(
 /**
  * Fetch a single team by ID
  */
-export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<ComplexTeamData | null> {
+export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<Team | null> {
   if (USE_DUMMY_DATA) {
     await delay(300); // Simulate network delay
     return dummyTeams.find(t => t.id === teamId) || null;

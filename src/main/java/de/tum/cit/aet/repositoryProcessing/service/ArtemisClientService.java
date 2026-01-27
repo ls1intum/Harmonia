@@ -121,8 +121,8 @@ public class ArtemisClientService {
     /**
      * Fetches all participations for the configured exercise from Artemis using provided credentials.
      *
-     * @param serverUrl The Artemis server URL
-     * @param jwtToken  The JWT token for authentication
+     * @param serverUrl  The Artemis server URL
+     * @param jwtToken   The JWT token for authentication
      * @param exerciseId The exercise ID to fetch participations for
      * @return List of participation DTOs containing team and repository information
      */
@@ -236,6 +236,53 @@ public class ArtemisClientService {
         } catch (Exception e) {
             log.error("Error fetching VCS access log from Artemis for participation {}", participationId, e);
             throw new ArtemisConnectionException("Failed to fetch VCS access logs from Artemis", e);
+        }
+    }
+
+    /**
+     * Verifies whether the provided username belongs to the list of instructors for the given course.
+     * Calls the Artemis instructors endpoint and inspects both JSON and XML responses.
+     *
+     * @param serverUrl The base Artemis server URL (scheme+host)
+     * @param jwtToken  The JWT token used as cookie (without the "jwt=" prefix)
+     * @param courseId  The numeric course id to check
+     * @param username  The username to verify
+     * @return true if username is present in the instructors list, false otherwise
+     */
+    public boolean isUserInstructor(String serverUrl, String jwtToken, Long courseId, String username) {
+        log.info("Verifying instructor {} for course {} at {}", username, courseId, serverUrl);
+        String uri = String.format("/api/core/courses/%d/instructors", courseId);
+        try {
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            ResponseEntity<String> response = dynamicClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.warn("Instructor check returned non-2xx status: {}", response.getStatusCode().value());
+                return false;
+            }
+
+            String contentType = response.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE);
+            String body = response.getBody();
+            if (body == null) {
+                return false;
+            }
+            if (contentType != null && contentType.contains("application/json")) {
+                // Check common representations: "login":"username" or "login": "username"
+                return body.contains("\"login\":\"" + username + "\"") || body.contains("\"login\": \"" + username + "\"");
+            } else {
+                // Try simple substring match for <login>username</login>
+                return body.contains("<login>" + username + "</login>") || body.contains("\"login\": \"" + username + "\"");
+            }
+        } catch (Exception e) {
+            log.info("Error while verifying instructor membership", e);
+            return false;
         }
     }
 }

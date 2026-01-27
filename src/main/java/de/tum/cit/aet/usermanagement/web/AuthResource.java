@@ -6,6 +6,7 @@ import de.tum.cit.aet.usermanagement.dto.LoginRequestDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,18 +37,36 @@ public class AuthResource {
 
     /**
      * Authenticates the user against Artemis and sets the necessary cookies.
+     * Also verifies that the provided username is an instructor for the specified courseId (if provided).
      *
-     * @param loginRequest The login request containing username, password, and server URL
-     * @return ResponseEntity with the cookies set
+     * @param loginRequest The login request containing username, password, server URL and optional courseId
+     * @return ResponseEntity with cookies set on success, or 403 if instructor verification fails
      */
     @PostMapping("/login")
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
         log.info("POST request received: /api/auth/login for server {}", loginRequest.serverUrl());
+
+        // 1) Authenticate with Artemis and obtain JWT
         String jwtToken = artemisClientService.authenticate(
                 loginRequest.serverUrl(),
                 loginRequest.username(),
                 loginRequest.password()
         );
+
+        // 2) Verify instructor membership
+        if (loginRequest.courseId() != null && !loginRequest.courseId().isBlank()) {
+            try {
+                Long courseId = Long.parseLong(loginRequest.courseId());
+                boolean isInstructor = artemisClientService.isUserInstructor(loginRequest.serverUrl(), jwtToken, courseId, loginRequest.username());
+                if (!isInstructor) {
+                    log.info("User {} is not an instructor for course {}", loginRequest.username(), courseId);
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+            } catch (NumberFormatException e) {
+                log.warn("Invalid courseId provided: {}", loginRequest.courseId());
+                return ResponseEntity.badRequest().build();
+            }
+        }
 
         ResponseCookie jwtCookie = ResponseCookie.from("jwt", jwtToken)
                 .httpOnly(true)

@@ -12,9 +12,8 @@
  * Do not edit the class manually.
  */
 
-export interface LoginRequestDTO {
-  courseId: string;
-  password: string;
-  serverUrl: string;
-  username: string;
+export interface CQIPenaltyDTO {
+  multiplier?: number;
+  reason?: string;
+  type?: string;
 }

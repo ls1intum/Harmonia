@@ -7,14 +7,12 @@ import de.tum.cit.aet.ai.dto.CommitClassificationRequestDTO;
 import de.tum.cit.aet.ai.service.AnomalyDetectorService;
 import de.tum.cit.aet.ai.service.CommitClassifierService;
 import de.tum.cit.aet.core.config.AiProperties;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * REST controller for AI-related endpoints.
@@ -39,40 +36,13 @@ public class AiResource {
     private final CommitClassifierService commitClassifierService;
     private final AnomalyDetectorService anomalyDetectorService;
     private final AiProperties aiProperties;
-    private final WebClient webClient;
 
     public AiResource(ChatClient chatClient, CommitClassifierService commitClassifierService,
-            AnomalyDetectorService anomalyDetectorService, AiProperties aiProperties,
-            @Value("${spring.ai.openai.base-url:http://localhost:1234}") String llmBaseUrl) {
+            AnomalyDetectorService anomalyDetectorService, AiProperties aiProperties) {
         this.chatClient = chatClient;
         this.commitClassifierService = commitClassifierService;
         this.anomalyDetectorService = anomalyDetectorService;
         this.aiProperties = aiProperties;
-        this.webClient = WebClient.builder().baseUrl(llmBaseUrl).build();
-    }
-
-    /**
-     * Get list of available LLM models from the configured LLM server.
-     *
-     * @return list of model IDs
-     */
-    @GetMapping("models")
-    public ResponseEntity<?> getAvailableModels() {
-        log.info("Fetching available models from LLM server");
-        try {
-            String response = webClient.get()
-                    .uri("/v1/models")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(response);
-        } catch (Exception e) {
-            log.error("Failed to fetch models from LLM server: {}", e.getMessage());
-            return ResponseEntity.status(503)
-                    .body(Map.of("error", "LLM server not reachable", "details", e.getMessage()));
-        }
     }
 
     /**
@@ -83,7 +53,9 @@ public class AiResource {
     @GetMapping("model")
     public ResponseEntity<?> getCurrentModel() {
         String currentModel = aiProperties.getCommitClassifier().getModelName();
-        return ResponseEntity.ok(Map.of("model", currentModel));
+        Map<String, String> response = new HashMap<>();
+        response.put("model", currentModel);
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -112,41 +84,6 @@ public class AiResource {
         aiProperties.getAnomalyDetector().setModelName(modelId);
     }
 
-    /**
-     * Auto-detects available models on startup and sets the first one as default
-     * if no model is currently configured.
-     */
-    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
-    public void autoDetectModel() {
-        if (aiProperties.getCommitClassifier().getModelName() != null) {
-            log.info("Model already configured: {}", aiProperties.getCommitClassifier().getModelName());
-            return;
-        }
-
-        log.info("No AI model configured. Attempting auto-discovery...");
-        try {
-            String response = webClient.get()
-                    .uri("/v1/models")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            if (response != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode root = mapper.readTree(response);
-                JsonNode data = root.get("data");
-                if (data != null && data.isArray() && data.size() > 0) {
-                    String firstModelId = data.get(0).get("id").asText();
-                    log.info("Auto-discovered model: {}", firstModelId);
-                    setModel(firstModelId);
-                } else {
-                    log.warn("No models found in LM Studio response.");
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to auto-detect AI models on startup (LM Studio might be down): {}", e.getMessage());
-        }
-    }
 
     /**
      * Example endpoint to generate a story based on the provided message. (Must be

@@ -78,7 +78,7 @@ Alternatively, you can manually build and launch everything:
 1. Build and launch:
 
    ```bash
-   docker compose -f docker/docker-compose.yml up --build
+   docker compose -f docker/local-setup/docker-compose.yml up --build
    ```
 
 2. Access the services:
@@ -86,8 +86,8 @@ Alternatively, you can manually build and launch everything:
    - Spring Boot server: http://localhost:8080
    - PostgreSQL: localhost:5432 (user `postgres`, password `harmonia`)
 
-The Compose setup builds the Gradle boot jar inside `docker/server.Dockerfile`, bundles the React client with Vite via
-`docker/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images
+The Compose setup builds the Gradle boot jar inside `docker/local-setup/server.Dockerfile`, bundles the React client with Vite via
+`docker/local-setup/client.Dockerfile`, and proxies `/api` + `/actuator` calls from nginx to the server container. All images
 restart automatically unless stopped.
 
 ### Database only
@@ -95,7 +95,7 @@ restart automatically unless stopped.
 If you only need the database for local development you can start just the PostgreSQL service:
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d postgres
+docker compose -f docker/local-setup/docker-compose.yml up -d postgres
 ```
 
 ## 🚀 How to Run the Server

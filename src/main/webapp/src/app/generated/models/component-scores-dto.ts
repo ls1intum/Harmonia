@@ -12,9 +12,9 @@
  * Do not edit the class manually.
  */
 
-export interface LoginRequestDTO {
-  courseId: string;
-  password: string;
-  serverUrl: string;
-  username: string;
+export interface ComponentScoresDTO {
+  effortBalance?: number;
+  locBalance?: number;
+  ownershipSpread?: number;
+  temporalSpread?: number;
 }

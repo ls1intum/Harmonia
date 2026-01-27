@@ -110,14 +110,14 @@ class CommitChunkerServiceTest {
     void testChunkCommit_largeCommitChunked() {
         // Create commit with multiple files totaling 1200 lines
         List<FileChange> files = List.of(
-                new FileChange("file1.java", "diff1", 300, 0),
-                new FileChange("file2.java", "diff2", 300, 0),
-                new FileChange("file3.java", "diff3", 300, 0),
-                new FileChange("file4.java", "diff4", 300, 0));
+                new FileChange("file1.java", "diff1", 300, 0, false, 0),
+                new FileChange("file2.java", "diff2", 300, 0, false, 0),
+                new FileChange("file3.java", "diff3", 300, 0, false, 0),
+                new FileChange("file4.java", "diff4", 300, 0, false, 0));
 
         RawCommitData commit = new RawCommitData(
                 "sha1", 1L, "test@test.com", "Large commit",
-                LocalDateTime.now(), files);
+                LocalDateTime.now(), files, false, false, false);
 
         List<CommitChunkDTO> chunks = invokeChunkCommit(commit);
 
@@ -140,13 +140,13 @@ class CommitChunkerServiceTest {
     @DisplayName("Total lines across chunks should equal original commit")
     void testChunkCommit_preservesTotalLines() {
         List<FileChange> files = List.of(
-                new FileChange("file1.java", "diff1", 400, 50),
-                new FileChange("file2.java", "diff2", 350, 30),
-                new FileChange("file3.java", "diff3", 200, 20));
+                new FileChange("file1.java", "diff1", 400, 50, false, 0),
+                new FileChange("file2.java", "diff2", 350, 30, false, 0),
+                new FileChange("file3.java", "diff3", 200, 20, false, 0));
 
         RawCommitData commit = new RawCommitData(
                 "sha1", 1L, "test@test.com", "msg",
-                LocalDateTime.now(), files);
+                LocalDateTime.now(), files, false, false, false);
 
         List<CommitChunkDTO> chunks = invokeChunkCommit(commit);
 
@@ -184,13 +184,67 @@ class CommitChunkerServiceTest {
     void testCommitWithNoFiles() {
         RawCommitData commit = new RawCommitData(
                 "sha1", 1L, "test@test.com", "Empty commit",
-                LocalDateTime.now(), List.of());
+                LocalDateTime.now(), List.of(), false, false, false);
 
         List<CommitChunkDTO> chunks = invokeChunkCommit(commit);
 
         assertEquals(1, chunks.size());
         assertEquals(0, chunks.get(0).linesAdded());
         assertEquals(0, chunks.get(0).linesDeleted());
+    }
+
+    // ========== Detection Flag Tests ==========
+
+    @Test
+    @DisplayName("Rename flag should be propagated from file to commit")
+    void testRenameDetectionFlag() {
+        List<FileChange> files = List.of(
+                new FileChange("NewFile.java", "diff", 5, 5, true, 0)); // isRename=true
+
+        RawCommitData commit = new RawCommitData(
+                "sha1", 1L, "test@test.com", "refactor: rename file",
+                LocalDateTime.now(), files, true, false, false);
+
+        assertTrue(commit.renameDetected());
+    }
+
+    @Test
+    @DisplayName("Format-only flag should indicate whitespace-only changes")
+    void testFormatOnlyFlag() {
+        // 80% whitespace-only changes
+        List<FileChange> files = List.of(
+                new FileChange("File.java", "diff", 10, 10, false, 16)); // 16 of 20 lines are ws-only
+
+        RawCommitData commit = new RawCommitData(
+                "sha1", 1L, "test@test.com", "style: format code",
+                LocalDateTime.now(), files, false, true, false);
+
+        assertTrue(commit.formatOnly());
+    }
+
+    @Test
+    @DisplayName("Mass reformat flag should indicate many files with small changes")
+    void testMassReformatFlag() {
+        // 12 files, 24 total lines = 2 avg lines per file
+        List<FileChange> files = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            files.add(new FileChange("File" + i + ".java", "diff", 1, 1, false, 0));
+        }
+
+        RawCommitData commit = new RawCommitData(
+                "sha1", 1L, "test@test.com", "run formatter on all files",
+                LocalDateTime.now(), files, false, false, true);
+
+        assertTrue(commit.massReformatFlag());
+    }
+
+    @Test
+    @DisplayName("FileChange whitespaceOnlyLines should track whitespace differences")
+    void testWhitespaceOnlyLinesTracking() {
+        FileChange change = new FileChange("File.java", "diff", 50, 30, false, 60);
+
+        assertEquals(80, change.totalLines());
+        assertEquals(60, change.whitespaceOnlyLines());
     }
 
     // ========== Helper Methods ==========
@@ -201,8 +255,9 @@ class CommitChunkerServiceTest {
 
     private RawCommitData createCommit(String sha, Long authorId, LocalDateTime time, int lines) {
         List<FileChange> files = List.of(
-                new FileChange("file.java", "diff content", lines, 0));
-        return new RawCommitData(sha, authorId, "author@test.com", "commit msg", time, files);
+                new FileChange("file.java", "diff content", lines, 0, false, 0));
+        return new RawCommitData(sha, authorId, "author@test.com", "commit msg", time, files,
+                false, false, false);
     }
 
     /**
@@ -262,9 +317,13 @@ class CommitChunkerServiceTest {
         List<FileChange> allChanges = bundle.stream()
                 .flatMap(c -> c.fileChanges().stream())
                 .toList();
+        boolean anyRename = bundle.stream().anyMatch(RawCommitData::renameDetected);
+        boolean allFormatOnly = bundle.stream().allMatch(RawCommitData::formatOnly);
+        boolean anyMassReformat = bundle.stream().anyMatch(RawCommitData::massReformatFlag);
         return new RawCommitData(
                 first.sha(), first.authorId(), first.authorEmail(),
-                "bundled", first.timestamp(), allChanges);
+                "bundled", first.timestamp(), allChanges,
+                anyRename, allFormatOnly, anyMassReformat);
     }
 
     /**
@@ -308,7 +367,8 @@ class CommitChunkerServiceTest {
                 .map(c -> new CommitChunkDTO(
                         c.commitSha(), c.authorId(), c.authorEmail(), c.commitMessage(),
                         c.timestamp(), c.files(), c.diffContent(), c.linesAdded(), c.linesDeleted(),
-                        c.chunkIndex(), totalChunks, c.isBundled(), c.bundledCommits()))
+                        c.chunkIndex(), totalChunks, c.isBundled(), c.bundledCommits(),
+                        c.renameDetected(), c.formatOnly(), c.massReformatFlag()))
                 .toList();
     }
 
@@ -321,6 +381,7 @@ class CommitChunkerServiceTest {
                 files.stream().map(FileChange::diffContent).reduce("", (a, b) -> a + b),
                 files.stream().mapToInt(FileChange::linesAdded).sum(),
                 files.stream().mapToInt(FileChange::linesDeleted).sum(),
-                chunkIndex, totalChunks, false, List.of());
+                chunkIndex, totalChunks, false, List.of(),
+                commit.renameDetected(), commit.formatOnly(), commit.massReformatFlag());
     }
 }

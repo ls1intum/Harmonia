@@ -65,7 +65,8 @@ class LlmIntegrationTest {
                                 0,
                                 1,
                                 false,
-                                List.of());
+                                List.of(),
+                                null, null, null);
 
                 // When: We rate the chunk
                 EffortRatingDTO rating = effortRaterService.rateChunk(chunk);
@@ -107,7 +108,8 @@ class LlmIntegrationTest {
                                 0,
                                 1,
                                 false,
-                                List.of());
+                                List.of(),
+                                null, null, null);
 
                 // When
                 EffortRatingDTO rating = effortRaterService.rateChunk(chunk);
@@ -149,7 +151,8 @@ class LlmIntegrationTest {
                                 0,
                                 1,
                                 false,
-                                List.of());
+                                List.of(),
+                                null, null, null);
 
                 // When: This should NOT throw "template string is not valid"
                 EffortRatingDTO rating = effortRaterService.rateChunk(chunk);
