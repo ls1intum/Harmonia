@@ -79,7 +79,7 @@ dependencies {
     // Uses patched netty version to resolve vulnerability in Spring AI
     implementation 'io.netty:netty-codec-http:4.2.9.Final'
     // Spring AI for LLM interaction
-    implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M1')
+    implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M2')
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     implementation 'org.springframework.ai:spring-ai-starter-model-azure-openai'
 
