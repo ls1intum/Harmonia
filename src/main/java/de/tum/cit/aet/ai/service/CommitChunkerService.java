@@ -98,10 +98,24 @@ public class CommitChunkerService {
      * @return List of commit chunks
      */
     public List<CommitChunkDTO> processRepository(String localPath, Map<String, Long> commitToAuthor) {
+        return processRepository(localPath, commitToAuthor, Map.of());
+    }
+
+    /**
+     * Processes a repository and returns chunked commits ready for LLM analysis.
+     * Uses VCS emails from Artemis instead of Git emails when available.
+     *
+     * @param localPath       Path to the cloned repository
+     * @param commitToAuthor  Map of commit SHA to author ID
+     * @param commitToVcsEmail Map of commit SHA to VCS email (from Artemis, overrides Git email)
+     * @return List of commit chunks
+     */
+    public List<CommitChunkDTO> processRepository(String localPath, Map<String, Long> commitToAuthor, 
+            Map<String, String> commitToVcsEmail) {
         log.info("Processing repository for chunking: {}", localPath);
 
         try {
-            List<RawCommitData> rawCommits = extractCommitData(localPath, commitToAuthor);
+            List<RawCommitData> rawCommits = extractCommitData(localPath, commitToAuthor, commitToVcsEmail);
             log.info("Extracted {} raw commits", rawCommits.size());
 
             // Sort by timestamp for bundling
@@ -129,9 +143,14 @@ public class CommitChunkerService {
     /**
      * Extracts raw commit data from a Git repository.
      * Includes detection of renames, format-only changes, and mass reformats.
+     * Uses VCS emails from Artemis when available to handle misconfigured Git clients.
+     *
+     * @param localPath        Path to the cloned repository
+     * @param commitToAuthor   Map of commit SHA to author ID
+     * @param commitToVcsEmail Map of commit SHA to VCS email (from Artemis, overrides Git email)
      */
-    private List<RawCommitData> extractCommitData(String localPath, Map<String, Long> commitToAuthor)
-            throws IOException {
+    private List<RawCommitData> extractCommitData(String localPath, Map<String, Long> commitToAuthor,
+            Map<String, String> commitToVcsEmail) throws IOException {
         List<RawCommitData> commits = new ArrayList<>();
         File gitDir = new File(localPath, ".git");
 
@@ -172,7 +191,15 @@ public class CommitChunkerService {
                 LocalDateTime timestamp = LocalDateTime.ofEpochSecond(
                         commit.getCommitTime(), 0, ZoneOffset.UTC);
 
-                String authorEmail = commit.getAuthorIdent().getEmailAddress();
+                // Use VCS email from Artemis if available, otherwise fall back to Git email
+                // This handles cases where students have misconfigured Git clients
+                String gitEmail = commit.getAuthorIdent().getEmailAddress();
+                String authorEmail = commitToVcsEmail.getOrDefault(commitHash, gitEmail);
+                
+                if (!authorEmail.equals(gitEmail)) {
+                    log.debug("Commit {}: Using VCS email '{}' instead of Git email '{}'", 
+                            commitHash.substring(0, 7), authorEmail, gitEmail);
+                }
 
                 // Detect commit-level flags
                 boolean renameDetected = fileChanges.stream().anyMatch(FileChange::isRename);

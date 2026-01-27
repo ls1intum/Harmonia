@@ -26,6 +26,7 @@ export interface AnalyzedChunkDTO {
   id?: string;
   isBundled?: boolean;
   isError?: boolean;
+  isExternalContributor?: boolean;
   linesChanged?: number;
   novelty?: number;
   reasoning?: string;

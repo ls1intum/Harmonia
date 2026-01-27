@@ -204,6 +204,7 @@ components:
         id: {type: string}
         isBundled: {type: boolean}
         isError: {type: boolean}
+        isExternalContributor: {type: boolean}
         linesChanged: {type: integer, format: int32}
         novelty: {type: number, format: double}
         reasoning: {type: string}
