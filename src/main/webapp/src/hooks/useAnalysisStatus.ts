@@ -21,7 +21,7 @@ async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> 
 
   // Validate and cast state to the expected type
   const state = data.state as AnalysisStatus['state'];
-  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'DONE', 'ERROR'];
+  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'PAUSED', 'DONE', 'ERROR'];
   const finalState = validStates.includes(state) ? state : 'IDLE';
 
   return {

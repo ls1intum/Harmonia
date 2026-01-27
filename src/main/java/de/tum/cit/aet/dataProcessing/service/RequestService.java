@@ -1,6 +1,8 @@
 package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
+import de.tum.cit.aet.analysis.domain.AnalysisState;
+import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisService;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.*;
 
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -94,7 +97,7 @@ public class RequestService {
      * @return List of ClientResponseDTO with analysis results
      */
     public List<ClientResponseDTO> fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId,
-            int maxTeams) {
+                                                                   int maxTeams) {
         log.info("=== Starting Analysis Pipeline ===");
         log.info("Exercise ID: {}", exerciseId);
         log.info("Max teams to analyze: {}", maxTeams == Integer.MAX_VALUE ? "ALL" : maxTeams);
@@ -155,7 +158,7 @@ public class RequestService {
      * @return List of ClientResponseDTO with saved results
      */
     public List<ClientResponseDTO> saveResults(List<TeamRepositoryDTO> repositories,
-            Map<Long, AuthorContributionDTO> contributionData) {
+                                               Map<Long, AuthorContributionDTO> contributionData) {
         // TODO: Implement a better strategy for updating existing records instead of
         // deleting all data
         // Clear existing data in database tables. We assume a full refresh of all data
@@ -192,7 +195,7 @@ public class RequestService {
      * @return Client response DTO with calculated metrics
      */
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo,
-            Map<Long, AuthorContributionDTO> contributionData) {
+                                              Map<Long, AuthorContributionDTO> contributionData) {
         // Save tutor
         ParticipantDTO tut = repo.participation().team().owner();
         Tutor tutor = null;
@@ -320,13 +323,15 @@ public class RequestService {
     /**
      * Fetches, analyzes, and saves repositories with streaming updates.
      * Tracks progress via AnalysisStateService and skips already-analyzed teams.
+     * Uses interruptible ExecutorService instead of parallelStream for proper cancellation.
      *
      * @param credentials  Artemis credentials
      * @param exerciseId   Exercise ID to fetch repositories for
      * @param eventEmitter Consumer to emit progress events
      */
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId,
-            java.util.function.Consumer<Object> eventEmitter) {
+                                                      java.util.function.Consumer<Object> eventEmitter) {
+        ExecutorService executor = null;
         try {
             List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials,
                     exerciseId);
@@ -336,7 +341,7 @@ public class RequestService {
                     .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                     .toList();
 
-            // Filter out already-analyzed teams
+            // Filter out already-analyzed teams (idempotency)
             List<ParticipationDTO> teamsToAnalyze = validParticipations.stream()
                     .filter(p -> !isTeamAlreadyAnalyzed(p.id()))
                     .toList();
@@ -344,65 +349,165 @@ public class RequestService {
             int totalToProcess = teamsToAnalyze.size();
             log.info("Found {} teams total, {} need analysis", validParticipations.size(), totalToProcess);
 
-            // Start tracking in state service
-            analysisStateService.startAnalysis(exerciseId, totalToProcess);
+            // Get current status to check if resuming
+            AnalysisStatus currentStatus = analysisStateService.getStatus(exerciseId);
+            int alreadyProcessed = 0;
+
+            if (currentStatus.getState() == AnalysisState.PAUSED) {
+                // Resuming: use existing total and processed counts
+                alreadyProcessed = currentStatus.getProcessedTeams();
+                log.info("Resuming analysis: {} teams already processed, {} remaining",
+                        alreadyProcessed, totalToProcess - alreadyProcessed);
+            } else {
+                // Starting fresh
+                analysisStateService.startAnalysis(exerciseId, totalToProcess);
+            }
 
             // Emit total count
-            eventEmitter.accept(Map.of("type", "START", "total", totalToProcess));
+            eventEmitter.accept(Map.of("type", "START", "total", totalToProcess,
+                    "alreadyProcessed", alreadyProcessed));
 
             // Thread-safe counter for progress
-            java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+            java.util.concurrent.atomic.AtomicInteger processedCount =
+                    new java.util.concurrent.atomic.AtomicInteger(alreadyProcessed);
 
-            // Process repositories in parallel
-            teamsToAnalyze.parallelStream().forEach(participation -> {
-                // Check if analysis was cancelled
-                if (!analysisStateService.isRunning(exerciseId)) {
-                    return;
-                }
+            // Use ExecutorService with thread pool for interruptible parallel processing
+            int threadCount = Math.min(teamsToAnalyze.size(),
+                    Runtime.getRuntime().availableProcessors());
+            executor = Executors.newFixedThreadPool(threadCount);
 
-                String teamName = participation.team() != null ? participation.team().name() : "Unknown";
+            List<Future<?>> futures = new ArrayList<>();
+            CountDownLatch completionLatch = new CountDownLatch(teamsToAnalyze.size());
 
-                try {
-                    // Update state: downloading
-                    analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", processedCount.get());
+            // Submit tasks for each team
+            for (ParticipationDTO participation : teamsToAnalyze) {
+                Future<?> future = executor.submit(() -> {
+                    try {
+                        // Check if analysis was cancelled/paused (check more frequently)
+                        if (!analysisStateService.isRunning(exerciseId)) {
+                            log.debug("Analysis stopped, skipping team {}",
+                                    participation.team() != null ? participation.team().name() : "Unknown");
+                            return;
+                        }
 
-                    // Clone
-                    TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(participation, credentials,
-                            exerciseId);
+                        // Check if already processed (for resume scenario)
+                        if (isTeamAlreadyAnalyzed(participation.id())) {
+                            log.debug("Team {} already analyzed, skipping", participation.id());
+                            processedCount.incrementAndGet();
+                            return;
+                        }
 
-                    // Update state: analyzing
-                    analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING", processedCount.get());
+                        String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
-                    // Analyze
-                    Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+                        // Check interruption status
+                        if (Thread.currentThread().isInterrupted()) {
+                            log.debug("Thread interrupted, stopping processing");
+                            return;
+                        }
 
-                    // Save
-                    ClientResponseDTO dto = saveSingleResult(repo, contributions);
+                        try {
+                            // Update state: downloading
+                            analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING",
+                                    processedCount.get());
 
-                    int currentProcessed = processedCount.incrementAndGet();
+                            // Check again before expensive operations
+                            if (!analysisStateService.isRunning(exerciseId) ||
+                                    Thread.currentThread().isInterrupted()) {
+                                return;
+                            }
 
-                    // Update state with new progress count
-                    analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
+                            // Clone
+                            TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(
+                                    participation, credentials, exerciseId);
 
-                    // Emit result (synchronized to ensure thread safety)
-                    synchronized (eventEmitter) {
-                        eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                            // Update state: analyzing
+                            analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING",
+                                    processedCount.get());
+
+                            // Check again
+                            if (!analysisStateService.isRunning(exerciseId) ||
+                                    Thread.currentThread().isInterrupted()) {
+                                return;
+                            }
+
+                            // Analyze
+                            Map<Long, AuthorContributionDTO> contributions =
+                                    analysisService.analyzeRepository(repo);
+
+                            // Check again before saving
+                            if (!analysisStateService.isRunning(exerciseId) ||
+                                    Thread.currentThread().isInterrupted()) {
+                                return;
+                            }
+
+                            // Save (persistent storage)
+                            ClientResponseDTO dto = saveSingleResult(repo, contributions);
+
+                            int currentProcessed = processedCount.incrementAndGet();
+
+                            // Update state with new progress count
+                            analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
+
+                            // Emit result (synchronized to ensure thread safety)
+                            synchronized (eventEmitter) {
+                                eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                            }
+                        } catch (Exception e) {
+                            log.error("Error processing participation {} (team: {})",
+                                    participation.id(), teamName, e);
+                            processedCount.incrementAndGet();
+                            // Continue with other teams, don't fail entire analysis
+                        } finally {
+                            completionLatch.countDown();
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.info("Task interrupted");
+                        completionLatch.countDown();
                     }
-                } catch (Exception e) {
-                    log.error("Error processing participation {} (team: {})", participation.id(), teamName, e);
-                    processedCount.incrementAndGet();
-                    // Continue with other teams, don't fail entire analysis
-                }
-            });
+                });
+                futures.add(future);
+            }
 
-            // Complete the analysis
-            analysisStateService.completeAnalysis(exerciseId);
-            eventEmitter.accept(Map.of("type", "DONE"));
+            // Wait for all tasks to complete or be cancelled
+            try {
+                completionLatch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.info("Waiting for completion interrupted");
+            }
+
+            // Check if we should complete or if analysis was paused
+            if (analysisStateService.isRunning(exerciseId)) {
+                // Complete the analysis
+                analysisStateService.completeAnalysis(exerciseId);
+                eventEmitter.accept(Map.of("type", "DONE"));
+            } else {
+                // Analysis was paused/cancelled
+                log.info("Analysis paused/cancelled for exercise {}", exerciseId);
+                eventEmitter.accept(Map.of("type", "PAUSED",
+                        "processed", processedCount.get(),
+                        "total", totalToProcess));
+            }
 
         } catch (Exception e) {
             log.error("Analysis failed for exercise {}", exerciseId, e);
             analysisStateService.failAnalysis(exerciseId, e.getMessage());
             eventEmitter.accept(Map.of("type", "ERROR", "message", e.getMessage()));
+        } finally {
+            // Shutdown executor and interrupt any remaining tasks
+            if (executor != null) {
+                log.info("Shutting down executor for exercise {}", exerciseId);
+                executor.shutdownNow(); // Interrupts all running tasks
+                try {
+                    if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                        log.warn("Executor did not terminate within 5 seconds");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Interrupted while waiting for executor shutdown");
+                }
+            }
         }
     }
 

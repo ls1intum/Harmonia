@@ -129,6 +129,13 @@ const TeamsList = ({
             Cancel
           </Button>
         );
+      case 'PAUSED':
+        return (
+          <Button onClick={onStart}>
+            <Play className="h-4 w-4" />
+            Resume Analysis
+          </Button>
+        );
       case 'DONE':
       case 'ERROR':
         return (

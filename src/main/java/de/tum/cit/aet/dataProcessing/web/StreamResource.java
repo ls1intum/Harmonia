@@ -14,8 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 @RestController
 @RequestMapping("api/requestResource/")
@@ -25,6 +24,9 @@ public class StreamResource {
     private final RequestService requestService;
     private final CryptoService cryptoService;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
+
+    // Track running tasks per exercise ID so they can be cancelled
+    private final ConcurrentHashMap<Long, Future<?>> runningTasks = new ConcurrentHashMap<>();
 
     @Autowired
     public StreamResource(RequestService requestService, CryptoService cryptoService) {
@@ -63,7 +65,10 @@ public class StreamResource {
             return emitter;
         }
 
-        executorService.execute(() -> {
+        // Cancel any existing task for this exercise
+        cancelRunningTask(exerciseId);
+
+        Future<?> future = executorService.submit(() -> {
             try {
                 requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, (event) -> {
                     try {
@@ -77,9 +82,35 @@ public class StreamResource {
             } catch (Exception e) {
                 log.error("Error in stream processing", e);
                 emitter.completeWithError(e);
+            } finally {
+                // Remove from tracking when done
+                runningTasks.remove(exerciseId);
             }
         });
 
+        // Track this task
+        runningTasks.put(exerciseId, future);
+
         return emitter;
+    }
+
+    /**
+     * Cancel a running analysis task for the given exercise.
+     * This will interrupt the thread pool workers.
+     */
+    public void cancelRunningTask(Long exerciseId) {
+        Future<?> task = runningTasks.remove(exerciseId);
+        if (task != null && !task.isDone()) {
+            log.info("Cancelling running task for exercise {}", exerciseId);
+            task.cancel(true); // true = interrupt if running
+        }
+    }
+
+    /**
+     * Check if there's a running task for the given exercise.
+     */
+    public boolean hasRunningTask(Long exerciseId) {
+        Future<?> task = runningTasks.get(exerciseId);
+        return task != null && !task.isDone();
     }
 }
