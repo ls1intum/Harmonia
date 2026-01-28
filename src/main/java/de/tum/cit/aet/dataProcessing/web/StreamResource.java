@@ -105,12 +105,4 @@ public class StreamResource {
             task.cancel(true); // true = interrupt if running
         }
     }
-
-    /**
-     * Check if there's a running task for the given exercise.
-     */
-    public boolean hasRunningTask(Long exerciseId) {
-        Future<?> task = runningTasks.get(exerciseId);
-        return task != null && !task.isDone();
-    }
 }

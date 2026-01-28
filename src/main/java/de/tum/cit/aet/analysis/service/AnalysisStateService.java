@@ -179,30 +179,7 @@ public class AnalysisStateService {
      * @return The updated analysis status
      */
     @Transactional
-public AnalysisStatus cancelAnalysis(Long exerciseId) {
-    AnalysisStatus status = statusRepository.findById(exerciseId)
-            .orElseGet(() -> new AnalysisStatus(exerciseId));
-
-    // Always set to PAUSED when cancelling (preserves progress)
-    if (status.getState() != AnalysisState.PAUSED) {
-        status.setState(AnalysisState.PAUSED);
-        status.setLastUpdatedAt(Instant.now());
-        log.info("Cancelled/paused analysis for exercise {} (preserving progress: {}/{})",
-                exerciseId, status.getProcessedTeams(), status.getTotalTeams());
-        return statusRepository.save(status);
-    }
-
-    return status;
-}
-
-    /**
-     * Pause a running analysis. Preserves progress so it can be continued later.
-     *
-     * @param exerciseId The ID of the exercise
-     * @return The updated analysis status
-     */
-    @Transactional
-    public AnalysisStatus pauseAnalysis(Long exerciseId) {
+    public AnalysisStatus cancelAnalysis(Long exerciseId) {
         AnalysisStatus status = statusRepository.findById(exerciseId).orElse(null);
 
         if (status == null) {
@@ -210,37 +187,15 @@ public AnalysisStatus cancelAnalysis(Long exerciseId) {
         }
 
         if (status.getState() == AnalysisState.RUNNING) {
+            // Pause instead of reset to preserve progress
             status.setState(AnalysisState.PAUSED);
             status.setLastUpdatedAt(Instant.now());
-            log.info("Paused analysis for exercise {} (processed: {}/{})",
+            log.info("Cancelled/paused analysis for exercise {} (preserving progress: {}/{})",
                     exerciseId, status.getProcessedTeams(), status.getTotalTeams());
             return statusRepository.save(status);
         }
 
         return status;
-    }
-
-    /**
-     * Resume a paused analysis. Continues from where it left off.
-     *
-     * @param exerciseId The ID of the exercise
-     * @return The updated analysis status
-     * @throws IllegalStateException if analysis is not paused
-     */
-    @Transactional
-    public AnalysisStatus resumeAnalysis(Long exerciseId) {
-        AnalysisStatus status = statusRepository.findById(exerciseId)
-                .orElseThrow(() -> new IllegalStateException("No analysis found for exercise " + exerciseId));
-
-        if (status.getState() != AnalysisState.PAUSED) {
-            throw new IllegalStateException("Analysis is not paused for exercise " + exerciseId);
-        }
-
-        status.setState(AnalysisState.RUNNING);
-        status.setLastUpdatedAt(Instant.now());
-        log.info("Resumed analysis for exercise {} (processed: {}/{})",
-                exerciseId, status.getProcessedTeams(), status.getTotalTeams());
-        return statusRepository.save(status);
     }
 
     /**

@@ -4,7 +4,6 @@ import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
-import de.tum.cit.aet.dataProcessing.web.StreamResource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,13 +22,10 @@ public class AnalysisResource {
 
     private final AnalysisStateService stateService;
     private final RequestService requestService;
-    private final StreamResource streamResource;
 
-    public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
-                            StreamResource streamResource) {
+    public AnalysisResource(AnalysisStateService stateService, RequestService requestService) {
         this.stateService = stateService;
         this.requestService = requestService;
-        this.streamResource = streamResource;
     }
 
     /**
@@ -45,7 +41,8 @@ public class AnalysisResource {
     }
 
     /**
-     * Cancel a running analysis. This will pause the analysis and kill pool workers.
+     * Cancel a running analysis. This will pause the analysis and preserve progress.
+     * The analysis thread will check the state and exit gracefully when it sees PAUSED.
      *
      * @param exerciseId the id of the exercise
      * @return the updated status DTO
@@ -54,10 +51,8 @@ public class AnalysisResource {
     public ResponseEntity<AnalysisStatusDTO> cancelAnalysis(@PathVariable Long exerciseId) {
         log.info("Cancel requested for exercise: {}", exerciseId);
 
-        // Cancel the running task (interrupts threads)
-        streamResource.cancelRunningTask(exerciseId);
-
         // Pause the analysis (preserves progress)
+        // The analysis thread will check isRunning() and exit gracefully
         AnalysisStatus status = stateService.cancelAnalysis(exerciseId);
         return ResponseEntity.ok(toDTO(status));
     }
