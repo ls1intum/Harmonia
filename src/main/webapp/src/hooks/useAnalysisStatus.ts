@@ -66,8 +66,8 @@ export function useAnalysisStatus({ exerciseId, enabled = true }: UseAnalysisSta
     // Poll faster when running
     refetchInterval: query => {
       const status = query.state.data;
-      if (status?.state === 'RUNNING') {
-        return 2000; // 2 seconds when running
+      if (status?.state === 'RUNNING' || status?.state === 'PAUSED') {
+        return 2000; // 2 seconds when running or paused
       }
       return 10000; // 10 seconds otherwise
     },
