@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PlayCircle, Loader2, RefreshCw, Cpu } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import FileUpload from "@/components/FileUpload.tsx";
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username: string, password: string) => void;
@@ -218,6 +219,11 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
             </SelectContent>
           </Select>
         </div>
+
+        <div className="my-6 border-t border-border" />
+
+        {/* Pair Programming Attendance Upload */}
+        <FileUpload />
 
         <Button
           size="lg"
