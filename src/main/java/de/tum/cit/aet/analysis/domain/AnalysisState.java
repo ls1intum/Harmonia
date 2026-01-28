@@ -7,5 +7,6 @@ public enum AnalysisState {
     IDLE, // Not started or reset
     RUNNING, // Currently analyzing
     DONE, // Completed successfully
-    ERROR // Failed with error
+    ERROR, // Failed with error
+    PAUSED
 }

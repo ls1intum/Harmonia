@@ -27,7 +27,7 @@ public class AnalysisStateService {
     }
 
     /**
-     * On startup, reset any RUNNING states to IDLE.
+     * On startup, set any RUNNING states to PAUSED (preserving progress).
      * This handles the case where the server was restarted during an analysis.
      */
     @PostConstruct
@@ -35,11 +35,14 @@ public class AnalysisStateService {
     public void cleanupOrphanedAnalyses() {
         List<AnalysisStatus> runningAnalyses = statusRepository.findByState(AnalysisState.RUNNING);
         if (!runningAnalyses.isEmpty()) {
-            log.info("Found {} orphaned RUNNING analyses, resetting to IDLE", runningAnalyses.size());
+            log.info("Found {} orphaned RUNNING analyses, setting to PAUSED to preserve progress",
+                    runningAnalyses.size());
             for (AnalysisStatus status : runningAnalyses) {
-                status.reset();
+                status.setState(AnalysisState.PAUSED);
+                status.setLastUpdatedAt(Instant.now());
                 statusRepository.save(status);
-                log.info("Reset orphaned analysis for exercise {}", status.getExerciseId());
+                log.info("Paused orphaned analysis for exercise {} (processed: {}/{})",
+                        status.getExerciseId(), status.getProcessedTeams(), status.getTotalTeams());
             }
         }
     }
@@ -60,10 +63,10 @@ public class AnalysisStateService {
     }
 
     /**
-     * Start an analysis for the given exercise.
+     * Start an analysis for the given exercise. If paused, resumes from where it left off.
      *
      * @param exerciseId The ID of the exercise
-     * @param totalTeams The total number of teams to process
+     * @param totalTeams The total number of teams to process (only used if starting fresh)
      * @return The updated analysis status
      * @throws IllegalStateException if analysis is already running
      */
@@ -76,6 +79,16 @@ public class AnalysisStateService {
             throw new IllegalStateException("Analysis is already running for exercise " + exerciseId);
         }
 
+        // If paused, resume instead of starting fresh
+        if (status.getState() == AnalysisState.PAUSED) {
+            status.setState(AnalysisState.RUNNING);
+            status.setLastUpdatedAt(Instant.now());
+            log.info("Resuming analysis for exercise {} from {} teams processed",
+                    exerciseId, status.getProcessedTeams());
+            return statusRepository.save(status);
+        }
+
+        // Starting fresh
         status.setState(AnalysisState.RUNNING);
         status.setTotalTeams(totalTeams);
         status.setProcessedTeams(0);
@@ -159,7 +172,8 @@ public class AnalysisStateService {
     }
 
     /**
-     * Cancel a running analysis. Safe to call even if not running.
+     * Cancel/pause a running analysis. Sets state to PAUSED to preserve progress.
+     * Safe to call even if not running.
      *
      * @param exerciseId The ID of the exercise
      * @return The updated analysis status
@@ -173,8 +187,11 @@ public class AnalysisStateService {
         }
 
         if (status.getState() == AnalysisState.RUNNING) {
-            status.reset();
-            log.info("Cancelled analysis for exercise {}", exerciseId);
+            // Pause instead of reset to preserve progress
+            status.setState(AnalysisState.PAUSED);
+            status.setLastUpdatedAt(Instant.now());
+            log.info("Cancelled/paused analysis for exercise {} (preserving progress: {}/{})",
+                    exerciseId, status.getProcessedTeams(), status.getTotalTeams());
             return statusRepository.save(status);
         }
 

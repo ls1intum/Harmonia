@@ -21,7 +21,7 @@ async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> 
 
   // Validate and cast state to the expected type
   const state = data.state as AnalysisStatus['state'];
-  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'DONE', 'ERROR'];
+  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'PAUSED', 'DONE', 'ERROR'];
   const finalState = validStates.includes(state) ? state : 'IDLE';
 
   return {
@@ -66,8 +66,8 @@ export function useAnalysisStatus({ exerciseId, enabled = true }: UseAnalysisSta
     // Poll faster when running
     refetchInterval: query => {
       const status = query.state.data;
-      if (status?.state === 'RUNNING') {
-        return 2000; // 2 seconds when running
+      if (status?.state === 'RUNNING' || status?.state === 'PAUSED') {
+        return 2000; // 2 seconds when running or paused
       }
       return 10000; // 10 seconds otherwise
     },
