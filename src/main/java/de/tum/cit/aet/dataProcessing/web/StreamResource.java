@@ -97,6 +97,7 @@ public class StreamResource {
     /**
      * Cancel a running analysis task for the given exercise.
      * This will interrupt the thread pool workers.
+     * @param exerciseId the ID of the exercise
      */
     public void cancelRunningTask(Long exerciseId) {
         Future<?> task = runningTasks.remove(exerciseId);

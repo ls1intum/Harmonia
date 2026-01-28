@@ -73,45 +73,45 @@ export function ActivityLog({ status }: ActivityLogProps) {
   const progress = status.totalTeams > 0 ? Math.round((status.processedTeams / status.totalTeams) * 100) : 0;
 
   return (
-      <Card className="mb-4 overflow-hidden">
-        <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            {getStatusIcon()}
-            <span className="text-sm font-medium">{getStatusText()}</span>
-            {(status.state === 'RUNNING' || status.state === 'PAUSED') && (
-                <Badge variant="secondary" className="text-xs">
-                  {progress}%
-                </Badge>
-            )}
-          </div>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </button>
+    <Card className="mb-4 overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {getStatusIcon()}
+          <span className="text-sm font-medium">{getStatusText()}</span>
+          {(status.state === 'RUNNING' || status.state === 'PAUSED') && (
+            <Badge variant="secondary" className="text-xs">
+              {progress}%
+            </Badge>
+          )}
+        </div>
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </button>
 
-        {isExpanded && status.state === 'RUNNING' && status.currentTeamName && (
-            <div className="px-3 pb-3 pt-0 border-t">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                {getStageIcon()}
-                <span>
+      {isExpanded && status.state === 'RUNNING' && status.currentTeamName && (
+        <div className="px-3 pb-3 pt-0 border-t">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+            {getStageIcon()}
+            <span>
               {status.currentStage === 'DOWNLOADING' ? 'Downloading' : 'Analyzing'}:{' '}
-                  <span className="font-medium text-foreground">{status.currentTeamName}</span>
+              <span className="font-medium text-foreground">{status.currentTeamName}</span>
             </span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-1.5 mt-2">
-                <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-        )}
+          </div>
+          <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
 
-        {isExpanded && status.state === 'ERROR' && (
-            <div className="px-3 pb-3 pt-0 border-t">
-              <p className="text-sm text-destructive mt-2">{status.errorMessage}</p>
-            </div>
-        )}
-      </Card>
+      {isExpanded && status.state === 'ERROR' && (
+        <div className="px-3 pb-3 pt-0 border-t">
+          <p className="text-sm text-destructive mt-2">{status.errorMessage}</p>
+        </div>
+      )}
+    </Card>
   );
 }
