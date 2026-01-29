@@ -232,7 +232,8 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                   </Button>
                 </div>
                 <p className="text-sm text-amber-600/80 dark:text-amber-400/80 mt-1">
-                  These commits are from contributors not registered as team members. They are shown for transparency but are <strong>not included</strong> in the CQI calculation.
+                  These commits are from contributors not registered as team members. They are shown for transparency but are{' '}
+                  <strong>not included</strong> in the CQI calculation.
                 </p>
               </CardHeader>
             </CollapsibleTrigger>
@@ -245,7 +246,10 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
 
                   return (
                     <Card key={chunkId} className={`overflow-hidden transition-colors border-amber-200/50 ${colorClass}`}>
-                      <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(chunkId)}>
+                      <div
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleExpand(chunkId)}
+                      >
                         <div className="flex items-center gap-3 overflow-hidden">
                           <Badge className={`shrink-0 ${colorClass}`}>{chunk.classification}</Badge>
                           <Badge variant="outline" className="shrink-0 text-amber-600 border-amber-300">

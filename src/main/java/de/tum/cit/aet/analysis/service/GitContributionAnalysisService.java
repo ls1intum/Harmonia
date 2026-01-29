@@ -248,14 +248,14 @@ public class GitContributionAnalysisService {
     private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
         Map<String, Long> commitToStudent = new HashMap<>();
         Map<String, Long> emailToStudent = new HashMap<>();
-        
+
         // Map student emails directly (both from Artemis)
         repo.participation().team().students().forEach(student -> {
             if (student.email() != null) {
                 emailToStudent.put(student.email().toLowerCase(), student.id());
             }
         });
-        
+
         for (VCSLogDTO logEntry : repo.vcsLogs()) {
             String email = logEntry.email();
             Long studentId = null;

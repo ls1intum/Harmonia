@@ -17,7 +17,7 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
      * @return true if it exists, false otherwise
      */
     boolean existsByParticipation(Long participation);
-    
+
     /**
      * Check if a participation has been fully analyzed (has CQI calculated).
      *
@@ -25,7 +25,7 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
      * @return true if it exists AND has a CQI value, false otherwise
      */
     boolean existsByParticipationAndCqiIsNotNull(Long participation);
-    
+
     /**
      * Find a participation by its Artemis participation ID.
      *

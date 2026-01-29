@@ -120,7 +120,7 @@ public class AnalyzedChunk {
         this.errorMessage = errorMessage;
         this.isExternalContributor = isExternalContributor;
     }
-    
+
     /**
      * Legacy constructor for backward compatibility.
      */

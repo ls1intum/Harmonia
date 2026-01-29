@@ -30,7 +30,7 @@ public record AnalyzedChunkDTO(
                 boolean isError,
                 String errorMessage,
                 boolean isExternalContributor) {
-        
+
         /**
          * Constructor for backward compatibility without isExternalContributor.
          */
@@ -46,7 +46,7 @@ public record AnalyzedChunkDTO(
                         confidence, reasoning, commitShas, commitMessages, timestamp, linesChanged,
                         isBundled, chunkIndex, totalChunks, isError, errorMessage, false);
         }
-        
+
         /**
          * Creates a simple chunk for a single commit analysis.
          */
@@ -88,7 +88,7 @@ public record AnalyzedChunkDTO(
                                 List.of(sha), List.of(message), timestamp, linesChanged,
                                 false, 0, 1, true, errorMessage, false);
         }
-        
+
         /**
          * Creates a copy of this chunk marked as external contributor.
          */

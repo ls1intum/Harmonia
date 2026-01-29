@@ -60,9 +60,9 @@ public class ContributionFairnessService {
             if (authorMapping.teamMemberCommits.isEmpty()) {
                 return FairnessReportDTO.error(teamName, "No commits found from team members in VCS logs");
             }
-            
+
             if (!authorMapping.externalCommitEmails.isEmpty()) {
-                log.info("Team {}: Found {} external contributor(s): {}", 
+                log.info("Team {}: Found {} external contributor(s): {}",
                         teamName, authorMapping.externalCommitEmails.size(), authorMapping.externalCommitEmails);
             }
 
@@ -70,7 +70,7 @@ public class ContributionFairnessService {
             // Pass commitToEmail to use VCS emails instead of Git emails
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(
                     repoPath, authorMapping.teamMemberCommits, authorMapping.commitToEmail);
-            
+
             // 2b. Also chunk external contributor commits (for display only, not CQI)
             List<CommitChunkDTO> externalChunks = Collections.emptyList();
             if (!authorMapping.externalCommits.isEmpty()) {
@@ -138,7 +138,7 @@ public class ContributionFairnessService {
 
             // 7. Generate flags from CQI penalties
             List<FairnessFlag> flags = generateFlagsFromCQI(cqiResult, effortShare);
-            
+
             // 7b. Rate external chunks with trivial rating (for display only)
             List<RatedChunk> externalRatedChunks = externalChunks.stream()
                     .map(chunk -> new RatedChunk(chunk, EffortRatingDTO.trivial("External contributor")))
@@ -206,7 +206,7 @@ public class ContributionFairnessService {
      * Maps commits to authors, separating team member commits from external contributor commits.
      * Only commits from registered team members are included in the main mapping for CQI calculation.
      * Also builds a map of commit hashes to VCS emails for use in chunking.
-     * 
+     *
      * VCS emails from Artemis are used directly (no normalization needed) since both
      * VCS logs and team member emails come from Artemis and are guaranteed to match.
      */
@@ -223,7 +223,7 @@ public class ContributionFairnessService {
                 teamMemberEmailToId.put(member.email().toLowerCase(), member.id());
             }
         }
-        
+
         log.debug("Team members: {}", teamMemberEmailToId.keySet());
 
         // Track synthetic IDs for external contributors
@@ -236,13 +236,13 @@ public class ContributionFairnessService {
             }
 
             String emailLower = vcsLog.email().toLowerCase();
-            
+
             // Always store the VCS email for this commit (to override Git email)
             commitToEmail.put(vcsLog.commitHash(), vcsLog.email());
-            
+
             // Check if this is a team member
             Long teamMemberId = teamMemberEmailToId.get(emailLower);
-            
+
             if (teamMemberId != null) {
                 teamMemberCommits.put(vcsLog.commitHash(), teamMemberId);
             } else {
@@ -257,7 +257,7 @@ public class ContributionFairnessService {
             }
         }
 
-        log.debug("Mapped {} team member commits and {} external commits from {} external contributors", 
+        log.debug("Mapped {} team member commits and {} external commits from {} external contributors",
                 teamMemberCommits.size(), externalCommits.size(), externalEmails.size());
         return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails, commitToEmail);
     }
@@ -358,7 +358,7 @@ public class ContributionFairnessService {
                         rc.rating.errorMessage(),
                         false)) // isExternalContributor = false
                 .collect(Collectors.toList());
-        
+
         // Add external contributor chunks (marked with isExternalContributor = true)
         List<AnalyzedChunkDTO> externalChunks = externalRatedChunks.stream()
                 .map(rc -> new AnalyzedChunkDTO(
@@ -379,7 +379,7 @@ public class ContributionFairnessService {
                         false, null,
                         true)) // isExternalContributor = true
                 .toList();
-        
+
         // Combine team member and external chunks
         analyzedChunks.addAll(externalChunks);
 

@@ -110,7 +110,7 @@ public class CommitChunkerService {
      * @param commitToVcsEmail Map of commit SHA to VCS email (from Artemis, overrides Git email)
      * @return List of commit chunks
      */
-    public List<CommitChunkDTO> processRepository(String localPath, Map<String, Long> commitToAuthor, 
+    public List<CommitChunkDTO> processRepository(String localPath, Map<String, Long> commitToAuthor,
             Map<String, String> commitToVcsEmail) {
         log.info("Processing repository for chunking: {}", localPath);
 
@@ -195,9 +195,9 @@ public class CommitChunkerService {
                 // This handles cases where students have misconfigured Git clients
                 String gitEmail = commit.getAuthorIdent().getEmailAddress();
                 String authorEmail = commitToVcsEmail.getOrDefault(commitHash, gitEmail);
-                
+
                 if (!authorEmail.equals(gitEmail)) {
-                    log.debug("Commit {}: Using VCS email '{}' instead of Git email '{}'", 
+                    log.debug("Commit {}: Using VCS email '{}' instead of Git email '{}'",
                             commitHash.substring(0, 7), authorEmail, gitEmail);
                 }
 
