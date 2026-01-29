@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export interface AnalysisStatus {
-  state: 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
+  state: 'IDLE' | 'RUNNING' | 'PAUSED' | 'DONE' | 'ERROR';
   totalTeams: number;
   processedTeams: number;
   currentTeamName?: string;
@@ -33,6 +33,8 @@ export function ActivityLog({ status }: ActivityLogProps) {
     switch (status.state) {
       case 'RUNNING':
         return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
+      case 'PAUSED':
+        return <Loader2 className="h-4 w-4 text-muted-foreground" />;
       case 'DONE':
         return <CheckCircle className="h-4 w-4 text-success" />;
       case 'ERROR':
@@ -57,6 +59,8 @@ export function ActivityLog({ status }: ActivityLogProps) {
     switch (status.state) {
       case 'RUNNING':
         return `Analyzing ${status.processedTeams} / ${status.totalTeams} teams`;
+      case 'PAUSED':
+        return `Paused: ${status.processedTeams} / ${status.totalTeams} teams processed`;
       case 'DONE':
         return `Completed: ${status.processedTeams} teams analyzed`;
       case 'ERROR':
@@ -77,7 +81,7 @@ export function ActivityLog({ status }: ActivityLogProps) {
         <div className="flex items-center gap-3">
           {getStatusIcon()}
           <span className="text-sm font-medium">{getStatusText()}</span>
-          {status.state === 'RUNNING' && (
+          {(status.state === 'RUNNING' || status.state === 'PAUSED') && (
             <Badge variant="secondary" className="text-xs">
               {progress}%
             </Badge>
