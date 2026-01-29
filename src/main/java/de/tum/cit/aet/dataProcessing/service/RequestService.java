@@ -33,6 +33,8 @@ import de.tum.cit.aet.ai.dto.FairnessReportDTO;
 import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
+import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 
 @Service
@@ -345,6 +347,20 @@ public class RequestService {
         // Step 6: Update TeamParticipation with CQI and isSuspicious flag
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(isSuspicious);
+
+        // Step 6a: Persist CQI components for later reconstruction
+        if (cqiDetails != null && cqiDetails.components() != null) {
+            teamParticipation.setCqiEffortBalance(cqiDetails.components().effortBalance());
+            teamParticipation.setCqiLocBalance(cqiDetails.components().locBalance());
+            teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
+            teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
+            teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
+            teamParticipation.setCqiPenaltyMultiplier(cqiDetails.penaltyMultiplier());
+            if (cqiDetails.penalties() != null) {
+                teamParticipation.setCqiPenalties(serializePenalties(cqiDetails.penalties()));
+            }
+        }
+
         teamParticipationRepository.save(teamParticipation);
 
         // Step 7: Return the assembled client response DTO
@@ -554,10 +570,12 @@ public class RequestService {
     }
 
     /**
-     * Check if a team has already been analyzed (has data in the database).
+     * Check if a team has been fully analyzed (has CQI calculated).
+     * A team is considered "analyzed" only if it has a CQI value,
+     * not just if the participation record exists.
      */
     private boolean isTeamAlreadyAnalyzed(Long participationId) {
-        return teamParticipationRepository.existsByParticipation(participationId);
+        return teamParticipationRepository.existsByParticipationAndCqiIsNotNull(participationId);
     }
 
     /**
@@ -604,7 +622,10 @@ public class RequestService {
                         }
                     }
 
-                    // Step 2e: Assemble final response DTO
+                    // Step 2e: Reconstruct CQI details from persisted components
+                    CQIResultDTO cqiDetails = reconstructCqiDetails(participation);
+
+                    // Step 2f: Assemble final response DTO
                     return new ClientResponseDTO(
                             tutor != null ? tutor.getName() : "Unassigned",
                             participation.getTeam(),
@@ -613,7 +634,7 @@ public class RequestService {
                             studentAnalysisDTOS,
                             cqi,
                             isSuspicious,
-                            null, // CQI details not persisted - only available during live analysis
+                            cqiDetails,
                             loadAnalyzedChunks(participation),
                             null); // Orphan commits are not persisted, only shown during live analysis
                 })
@@ -711,5 +732,66 @@ public class RequestService {
         } catch (Exception e) {
             return "[]";
         }
+    }
+
+    /**
+     * Serializes a list of CQI penalties to JSON for database storage.
+     */
+    private String serializePenalties(List<CQIPenaltyDTO> penalties) {
+        try {
+            return objectMapper.writeValueAsString(penalties);
+        } catch (Exception e) {
+            log.warn("Failed to serialize CQI penalties: {}", e.getMessage());
+            return "[]";
+        }
+    }
+
+    /**
+     * Deserializes a JSON string to a list of CQI penalties.
+     */
+    private List<CQIPenaltyDTO> deserializePenalties(String json) {
+        try {
+            if (json == null || json.isEmpty()) {
+                return List.of();
+            }
+            return objectMapper.readValue(json,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, CQIPenaltyDTO.class));
+        } catch (Exception e) {
+            log.warn("Failed to deserialize CQI penalties: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Reconstructs a CQIResultDTO from persisted TeamParticipation fields.
+     * Returns null if no CQI components were stored.
+     */
+    private CQIResultDTO reconstructCqiDetails(TeamParticipation participation) {
+        // Check if we have stored CQI component data
+        if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
+                && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
+            return null;
+        }
+
+        // Reconstruct components
+        ComponentScoresDTO components = new ComponentScoresDTO(
+                participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
+                participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
+                participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
+                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0
+        );
+
+        // Reconstruct penalties
+        List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
+
+        // Build the full CQI result
+        return new CQIResultDTO(
+                participation.getCqi() != null ? participation.getCqi() : 0.0,
+                components,
+                penalties,
+                participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
+                participation.getCqiPenaltyMultiplier() != null ? participation.getCqiPenaltyMultiplier() : 1.0,
+                null  // FilterSummary is not persisted - only available during live analysis
+        );
     }
 }

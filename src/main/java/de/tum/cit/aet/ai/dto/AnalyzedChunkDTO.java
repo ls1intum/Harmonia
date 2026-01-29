@@ -28,7 +28,25 @@ public record AnalyzedChunkDTO(
                 int chunkIndex,
                 int totalChunks,
                 boolean isError,
-                String errorMessage) {
+                String errorMessage,
+                boolean isExternalContributor) {
+
+        /**
+         * Constructor for backward compatibility without isExternalContributor.
+         */
+        public AnalyzedChunkDTO(
+                        String id, String authorEmail, String authorName,
+                        String classification, double effortScore, double complexity, double novelty,
+                        double confidence, String reasoning,
+                        List<String> commitShas, List<String> commitMessages,
+                        LocalDateTime timestamp, int linesChanged,
+                        boolean isBundled, int chunkIndex, int totalChunks,
+                        boolean isError, String errorMessage) {
+                this(id, authorEmail, authorName, classification, effortScore, complexity, novelty,
+                        confidence, reasoning, commitShas, commitMessages, timestamp, linesChanged,
+                        isBundled, chunkIndex, totalChunks, isError, errorMessage, false);
+        }
+
         /**
          * Creates a simple chunk for a single commit analysis.
          */
@@ -40,7 +58,7 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 sha, authorEmail, authorName, classification, effort, complexity, novelty, confidence, reasoning,
                                 List.of(sha), List.of(message), timestamp, linesChanged,
-                                false, 0, 1, false, null);
+                                false, 0, 1, false, null, false);
         }
 
         /**
@@ -55,7 +73,7 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 id, authorEmail, authorName, classification, effort, complexity, novelty, confidence, reasoning,
                                 shas, messages, timestamp, linesChanged,
-                                true, 0, 1, false, null);
+                                true, 0, 1, false, null, false);
         }
 
         /**
@@ -68,6 +86,16 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 sha, authorEmail, authorName, "ERROR", 0.0, 0.0, 0.0, 0.0, errorMessage,
                                 List.of(sha), List.of(message), timestamp, linesChanged,
-                                false, 0, 1, true, errorMessage);
+                                false, 0, 1, true, errorMessage, false);
+        }
+
+        /**
+         * Creates a copy of this chunk marked as external contributor.
+         */
+        public AnalyzedChunkDTO withExternalContributor(boolean isExternal) {
+                return new AnalyzedChunkDTO(
+                                id, authorEmail, authorName, classification, effortScore, complexity, novelty, confidence, reasoning,
+                                commitShas, commitMessages, timestamp, linesChanged,
+                                isBundled, chunkIndex, totalChunks, isError, errorMessage, isExternal);
         }
 }

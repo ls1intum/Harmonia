@@ -50,17 +50,23 @@ public class GitContributionAnalysisService {
         Set<String> orphanCommitHashes = new HashSet<>();
         Map<String, String> commitToEmail = new HashMap<>();
 
-        // Map registered student emails to their IDs
-        repo.participation().team().students()
-                .forEach(student -> emailToStudent.put(student.email().toLowerCase(), student.id()));
+        // Map registered student emails to their IDs (VCS emails from Artemis)
+        repo.participation().team().students().forEach(student -> {
+            if (student.email() != null) {
+                emailToStudent.put(student.email().toLowerCase(), student.id());
+            }
+        });
 
         for (VCSLogDTO logEntry : repo.vcsLogs()) {
             String commitHash = logEntry.commitHash();
             String email = logEntry.email();
             commitToEmail.put(commitHash, email);
 
-            // Try to match email (case-insensitive)
-            Long studentId = emailToStudent.get(email != null ? email.toLowerCase() : null);
+            // Match email directly (both from Artemis)
+            Long studentId = null;
+            if (email != null) {
+                studentId = emailToStudent.get(email.toLowerCase());
+            }
 
             if (studentId != null) {
                 commitToStudent.put(commitHash, studentId);
@@ -242,9 +248,23 @@ public class GitContributionAnalysisService {
     private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
         Map<String, Long> commitToStudent = new HashMap<>();
         Map<String, Long> emailToStudent = new HashMap<>();
-        repo.participation().team().students().forEach(student -> emailToStudent.put(student.email(), student.id()));
+
+        // Map student emails directly (both from Artemis)
+        repo.participation().team().students().forEach(student -> {
+            if (student.email() != null) {
+                emailToStudent.put(student.email().toLowerCase(), student.id());
+            }
+        });
+
         for (VCSLogDTO logEntry : repo.vcsLogs()) {
-            commitToStudent.put(logEntry.commitHash(), emailToStudent.get(logEntry.email()));
+            String email = logEntry.email();
+            Long studentId = null;
+            if (email != null) {
+                studentId = emailToStudent.get(email.toLowerCase());
+            }
+            if (studentId != null) {
+                commitToStudent.put(logEntry.commitHash(), studentId);
+            }
         }
         return commitToStudent;
     }
