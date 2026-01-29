@@ -41,7 +41,8 @@ public class AnalysisResource {
     }
 
     /**
-     * Cancel a running analysis.
+     * Cancel a running analysis. This will pause the analysis and preserve progress.
+     * The analysis thread will check the state and exit gracefully when it sees PAUSED.
      *
      * @param exerciseId the id of the exercise
      * @return the updated status DTO
@@ -49,6 +50,9 @@ public class AnalysisResource {
     @PostMapping("/{exerciseId}/cancel")
     public ResponseEntity<AnalysisStatusDTO> cancelAnalysis(@PathVariable Long exerciseId) {
         log.info("Cancel requested for exercise: {}", exerciseId);
+
+        // Pause the analysis (preserves progress)
+        // The analysis thread will check isRunning() and exit gracefully
         AnalysisStatus status = stateService.cancelAnalysis(exerciseId);
         return ResponseEntity.ok(toDTO(status));
     }

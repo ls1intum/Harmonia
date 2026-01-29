@@ -28,7 +28,7 @@ try {
 
 # Step 2: Clean up any existing containers
 Write-Green "[2/4] Cleaning up existing containers..."
-docker compose -f docker/docker-compose.yml down --remove-orphans 2>$null
+docker compose -f docker/local-setup/docker-compose.yml down --remove-orphans 2>$null
 Write-Green "✓ Cleanup completed"
 Write-Host ""
 
@@ -38,14 +38,14 @@ Write-Yellow "This may take several minutes for the first run..."
 Write-Yellow "Building Docker images and starting containers..."
 Write-Host ""
 
-docker compose -f docker/docker-compose.yml up --build -d
+docker compose -f docker/local-setup/docker-compose.yml up --build -d
 
 if ($LASTEXITCODE -eq 0) {
     Write-Green "✓ All services started successfully"
     Write-Host ""
 } else {
     Write-Red "✗ Failed to start services"
-    Write-Yellow "Check logs with: docker compose -f docker/docker-compose.yml logs"
+    Write-Yellow "Check logs with: docker compose -f docker/local-setup/docker-compose.yml logs"
     exit 1
 }
 
@@ -58,7 +58,7 @@ Write-Yellow "• Waiting for PostgreSQL..."
 $timeout = 60
 $postgresReady = $false
 while ($timeout -gt 0) {
-    $status = docker compose -f docker/docker-compose.yml ps postgres 2>$null | Select-String "healthy"
+    $status = docker compose -f docker/local-setup/docker-compose.yml ps postgres 2>$null | Select-String "healthy"
     if ($status) {
         Write-Green "  ✓ PostgreSQL is ready"
         $postgresReady = $true
@@ -133,11 +133,11 @@ Write-Host " PostgreSQL on localhost:5432"
 Write-Host ""
 Write-Yellow "Useful commands:"
 Write-Yellow "• View logs:" -NoNewline
-Write-Host " docker compose -f docker/docker-compose.yml logs -f"
+Write-Host " docker compose -f docker/local-setup/docker-compose.yml logs -f"
 Write-Yellow "• Stop services:" -NoNewline
-Write-Host " docker compose -f docker/docker-compose.yml down"
+Write-Host " docker compose -f docker/local-setup/docker-compose.yml down"
 Write-Yellow "• Restart services:" -NoNewline
-Write-Host " docker compose -f docker/docker-compose.yml restart"
+Write-Host " docker compose -f docker/local-setup/docker-compose.yml restart"
 Write-Host ""
 Write-Yellow "Press Ctrl+C to stop all services"
 Write-Host ""
@@ -148,4 +148,4 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 # Cleanup on exit
 Write-Host ""
 Write-Red "Shutting down all services..."
-docker compose -f docker/docker-compose.yml down
+docker compose -f docker/local-setup/docker-compose.yml down

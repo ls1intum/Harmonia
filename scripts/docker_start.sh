@@ -27,7 +27,7 @@ echo -e "${GREEN}✓ Docker is running${NC}\n"
 
 # Step 2: Clean up any existing containers
 echo -e "${GREEN}[2/4] Cleaning up existing containers...${NC}"
-docker compose -f docker/docker-compose.yml down --remove-orphans 2>/dev/null || true
+docker compose -f docker/local-setup/docker-compose.yml down --remove-orphans 2>/dev/null || true
 echo -e "${GREEN}✓ Cleanup completed${NC}\n"
 
 # Step 3: Build and start all services
@@ -36,13 +36,13 @@ echo -e "${YELLOW}This may take several minutes for the first run...${NC}"
 echo -e "${YELLOW}Building Docker images and starting containers...${NC}\n"
 
 # Start services in background and capture output
-docker compose -f docker/docker-compose.yml up --build -d
+docker compose -f docker/local-setup/docker-compose.yml up --build -d
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ All services started successfully${NC}\n"
 else
     echo -e "${RED}✗ Failed to start services${NC}"
-    echo -e "${YELLOW}Check logs with: docker compose -f docker/docker-compose.yml logs${NC}"
+    echo -e "${YELLOW}Check logs with: docker compose -f docker/local-setup/docker-compose.yml logs${NC}"
     exit 1
 fi
 
@@ -54,7 +54,7 @@ echo -e "${YELLOW}Checking service health...${NC}"
 echo -e "${YELLOW}• Waiting for PostgreSQL...${NC}"
 timeout=60
 while [ $timeout -gt 0 ]; do
-    if docker compose -f docker/docker-compose.yml ps postgres | grep -q "healthy"; then
+    if docker compose -f docker/local-setup/docker-compose.yml ps postgres | grep -q "healthy"; then
         echo -e "${GREEN}  ✓ PostgreSQL is ready${NC}"
         break
     fi
@@ -107,7 +107,7 @@ echo -e "${YELLOW}Server:${NC} http://localhost:8080"
 echo -e "${YELLOW}Client:${NC} http://localhost:5173"
 echo -e "${YELLOW}Database:${NC} PostgreSQL on localhost:5432"
 echo -e "\n${YELLOW}Useful commands:${NC}"
-echo -e "${YELLOW}• View logs:${NC} docker compose -f docker/docker-compose.yml logs -f"
-echo -e "${YELLOW}• Stop services:${NC} docker compose -f docker/docker-compose.yml down"
-echo -e "${YELLOW}• Restart services:${NC} docker compose -f docker/docker-compose.yml restart"
+echo -e "${YELLOW}• View logs:${NC} docker compose -f docker/local-setup/docker-compose.yml logs -f"
+echo -e "${YELLOW}• Stop services:${NC} docker compose -f docker/local-setup/docker-compose.yml down"
+echo -e "${YELLOW}• Restart services:${NC} docker compose -f docker/local-setup/docker-compose.yml restart"
 
