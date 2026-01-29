@@ -2,5 +2,19 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
-  ]
+  ],
+  "schedule": [
+    "every weekend"
+  ],
+  "timezone": "Europe/Berlin",
+  "minimumReleaseAge": "14 days",
+  "prTitle": "`General`: Update {{depName}} to {{newVersion}}",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security fix",
+      "dependencies",
+      "ready for review"
+    ]
+  }
 }
