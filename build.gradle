@@ -84,7 +84,7 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-model-azure-openai'
 
     // use newest version of nimbus-jose-jwt to avoid security issues through outdated dependencies
-    implementation "com.nimbusds:nimbus-jose-jwt:10.6"
+    implementation "com.nimbusds:nimbus-jose-jwt:10.7"
 
     // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.9'
