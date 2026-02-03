@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClient;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
@@ -396,26 +397,11 @@ public class ArtemisClientService {
 
     private OffsetDateTime parseOffsetDateTime(String value) {
         try {
-            return OffsetDateTime.parse(value);
-        } catch (DateTimeParseException ignored) {
-            // continue
-        }
-        try {
-            return ZonedDateTime.parse(value).toOffsetDateTime();
-        } catch (DateTimeParseException ignored) {
-            // continue
-        }
-        try {
-            Instant instant = Instant.parse(value);
-            return instant.atOffset(ZoneOffset.UTC);
-        } catch (DateTimeParseException ignored) {
-            // continue
-        }
-        try {
-            LocalDateTime localDateTime = LocalDateTime.parse(value);
-            return localDateTime.atOffset(ZoneOffset.UTC);
+            OffsetDateTime parsed = OffsetDateTime.parse(value);
+            return parsed.atZoneSameInstant(ZoneId.of("Europe/Berlin")).toOffsetDateTime();
         } catch (DateTimeParseException ignored) {
             return null;
         }
+    
     }
 }
