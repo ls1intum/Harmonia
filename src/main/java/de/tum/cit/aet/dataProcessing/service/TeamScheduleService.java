@@ -5,6 +5,7 @@ import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +35,8 @@ public class TeamScheduleService {
         return teamsByNormalizedName.get(normalize(teamName));
     }
 
-    public Set<OffsetDateTime> getClassDates(String teamName) {
+    // TODO: Depending on CommitInfo, change back to ZonedDateTime/OffsetDateTime
+    public Set<LocalDateTime> getClassDates(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null) {
             return Set.of();
@@ -46,15 +48,20 @@ public class TeamScheduleService {
         if (sessionMap.isEmpty()) {
             return Set.of();
         }
-        return new HashSet<>(sessionMap.keySet());
+        return sessionMap.keySet().stream()
+                .map(OffsetDateTime::toLocalDateTime)
+                .collect(Collectors.toSet());
     }
 
-    public List<OffsetDateTime> getPairedSessions(String teamName) {
+    // TODO: Depending on CommitInfo, change back to ZonedDateTime/OffsetDateTime
+    public Set<LocalDateTime> getPairedSessions(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null || attendance.pairedSessions() == null) {
-            return List.of();
+            return Set.of();
         }
-        return attendance.pairedSessions();
+        return attendance.pairedSessions().stream()
+                .map(OffsetDateTime::toLocalDateTime)
+                .collect(Collectors.toSet());
     }
 
     public boolean isPairedAtLeastTwoOfThree(String teamName) {
