@@ -25,8 +25,12 @@ import java.util.Set;
 @Service
 @Slf4j
 public class AttendanceService {
+    /**
+     * Processes the Excel file information and combines it with the tutorial group
+     * timeslots fetched via the Artemis API
+     */
 
-    private static final int START_ROW_INDEX = 5; // row 6 in Excel (0-based index)
+    private static final int START_ROW_INDEX = 4; // row 5 in Excel (0-based index)
     private static final int ROW_STEP = 3;
     private static final int TEAM_NAME_COLUMN = 0; // column A
     private static final int[] STUDENT1_COLUMNS = new int[]{4, 8, 12}; // E, I, M

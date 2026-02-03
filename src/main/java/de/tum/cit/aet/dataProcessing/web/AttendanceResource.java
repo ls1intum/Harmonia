@@ -20,6 +20,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("api/attendance")
 @Slf4j
 public class AttendanceResource {
+    /**
+     * Passes the Excel file information to the Attendance Service
+     */
 
     private final AttendanceService attendanceService;
     private final CryptoService cryptoService;

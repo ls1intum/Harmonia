@@ -4,7 +4,7 @@ import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.exceptions.ArtemisConnectionException;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
