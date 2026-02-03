@@ -2,7 +2,6 @@ import type { Team } from '@/types/team';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
@@ -110,17 +109,20 @@ const TeamsList = ({
   const courseAverages = useMemo(() => {
     if (teams.length === 0) return null;
 
-    const totalCQI = teams.reduce((sum, team) => sum + (team.cqi || 0), 0);
+    // Only include teams with calculated CQI in the average
+    const teamsWithCQI = teams.filter(team => team.cqi !== undefined);
+    const totalCQI = teamsWithCQI.reduce((sum, team) => sum + (team.cqi ?? 0), 0);
     const totalCommits = teams.reduce((sum, team) => sum + (team.basicMetrics?.totalCommits || 0), 0);
     const totalLines = teams.reduce((sum, team) => sum + (team.basicMetrics?.totalLines || 0), 0);
-    const suspiciousCount = teams.filter(team => team.isSuspicious).length;
+    const suspiciousCount = teams.filter(team => team.isSuspicious === true).length;
 
     return {
-      avgCQI: Math.round(totalCQI / teams.length),
+      avgCQI: teamsWithCQI.length > 0 ? Math.round(totalCQI / teamsWithCQI.length) : 0,
       avgCommits: Math.round(totalCommits / teams.length),
       avgLines: Math.round(totalLines / teams.length),
       suspiciousPercentage: Math.round((suspiciousCount / teams.length) * 100),
       totalTeams: teams.length,
+      analyzedTeams: teamsWithCQI.length,
     };
   }, [teams]);
 
@@ -138,6 +140,13 @@ const TeamsList = ({
           <Button variant="destructive" onClick={onCancel}>
             <Square className="h-4 w-4" />
             Cancel
+          </Button>
+        );
+      case 'PAUSED':
+        return (
+          <Button onClick={onStart}>
+            <Play className="h-4 w-4" />
+            Resume Analysis
           </Button>
         );
       case 'DONE':
@@ -300,7 +309,10 @@ const TeamsList = ({
                         <div className="text-xs text-muted-foreground">out of 100</div>
                       </div>
                     ) : (
-                      <Skeleton className="h-16 w-32" />
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Analyzing...</span>
+                      </div>
                     )}
                   </td>
                   <td className="py-4 px-6">
@@ -321,7 +333,10 @@ const TeamsList = ({
                         </Badge>
                       )
                     ) : (
-                      <Skeleton className="h-6 w-20" />
+                      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        Analyzing
+                      </Badge>
                     )}
                   </td>
                 </tr>
