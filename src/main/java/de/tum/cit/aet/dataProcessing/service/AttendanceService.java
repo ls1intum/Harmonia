@@ -71,9 +71,16 @@ public class AttendanceService {
                     log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
                 }
 
+                OffsetDateTime submissionDeadline = OffsetDateTime.parse("2026-01-28T13:00:00+01:00");
+
+                long count = sessionTimes.stream()
+                        .filter(session -> session.isBefore(submissionDeadline))
+                        .count();
+
                 List<OffsetDateTime> sortedSessions = sessionTimes.stream()
+                        .filter(session -> session.isBefore(submissionDeadline))
                         .sorted()
-                        .limit(3)
+                        .skip(Math.max(0, count - 3))
                         .toList();
 
                 Map<String, TeamAttendanceDTO> parsedTeams = parseSheet(sheet, sortedSessions, formatter);

@@ -70,6 +70,7 @@ public class AttendanceResource {
         }
 
         TeamsScheduleDTO results = attendanceService.parseAttendance(file, credentials, courseId);
+        log.info("AttendanceResource: {}", results);
         return ResponseEntity.ok(results);
     }
 }

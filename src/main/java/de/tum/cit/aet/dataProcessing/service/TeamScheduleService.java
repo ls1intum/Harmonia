@@ -35,8 +35,7 @@ public class TeamScheduleService {
         return teamsByNormalizedName.get(normalize(teamName));
     }
 
-    // TODO: Depending on CommitInfo, change back to ZonedDateTime/OffsetDateTime
-    public Set<LocalDateTime> getClassDates(String teamName) {
+    public Set<OffsetDateTime> getClassDates(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null) {
             return Set.of();
@@ -48,20 +47,15 @@ public class TeamScheduleService {
         if (sessionMap.isEmpty()) {
             return Set.of();
         }
-        return sessionMap.keySet().stream()
-                .map(OffsetDateTime::toLocalDateTime)
-                .collect(Collectors.toSet());
+        return new HashSet<>(sessionMap.keySet());
     }
 
-    // TODO: Depending on CommitInfo, change back to ZonedDateTime/OffsetDateTime
-    public Set<LocalDateTime> getPairedSessions(String teamName) {
+    public Set<OffsetDateTime> getPairedSessions(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null || attendance.pairedSessions() == null) {
             return Set.of();
         }
-        return attendance.pairedSessions().stream()
-                .map(OffsetDateTime::toLocalDateTime)
-                .collect(Collectors.toSet());
+        return new HashSet<>(attendance.pairedSessions());
     }
 
     public boolean isPairedAtLeastTwoOfThree(String teamName) {
