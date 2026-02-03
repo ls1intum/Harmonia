@@ -6,10 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -37,7 +34,7 @@ public class TeamScheduleService {
         return teamsByNormalizedName.get(normalize(teamName));
     }
 
-    public Set<LocalDate> getClassDates(String teamName) {
+    public Set<OffsetDateTime> getClassDates(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null) {
             return Set.of();
@@ -49,9 +46,7 @@ public class TeamScheduleService {
         if (sessionMap.isEmpty()) {
             return Set.of();
         }
-        return sessionMap.keySet().stream()
-                .map(OffsetDateTime::toLocalDate)
-                .collect(Collectors.toSet());
+        return new HashSet<>(sessionMap.keySet());
     }
 
     public List<OffsetDateTime> getPairedSessions(String teamName) {
