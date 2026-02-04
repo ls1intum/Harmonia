@@ -12,9 +12,9 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/analysis-resource-api';
-export * from './apis/attendance-resource-api';
-export * from './apis/auth-resource-api';
-export * from './apis/config-resource-api';
-export * from './apis/request-resource-api';
-export * from './apis/stream-resource-api';
+export interface TeamAttendanceDTO {
+  pairedAtLeastTwoOfThree?: boolean;
+  pairedSessions?: Array<string>;
+  student1Attendance?: { [key: string]: boolean };
+  student2Attendance?: { [key: string]: boolean };
+}
