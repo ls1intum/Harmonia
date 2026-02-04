@@ -28,6 +28,13 @@ public class AttendanceResource {
     private final CryptoService cryptoService;
     private final ArtemisConfig artemisConfig;
 
+    /**
+     * Constructs the AttendanceResource with required dependencies.
+     *
+     * @param attendanceService the attendance service
+     * @param cryptoService the crypto service
+     * @param artemisConfig the Artemis configuration
+     */
     public AttendanceResource(
             AttendanceService attendanceService,
             CryptoService cryptoService,
@@ -38,6 +45,17 @@ public class AttendanceResource {
         this.artemisConfig = artemisConfig;
     }
 
+    /**
+     * Uploads and processes attendance data from an Excel file.
+     *
+     * @param file the Excel file to upload
+     * @param courseId the course ID
+     * @param jwtToken the JWT token from cookies
+     * @param serverUrl the Artemis server URL from cookies
+     * @param username the username from cookies
+     * @param encryptedPassword the encrypted password from cookies
+     * @return the teams schedule DTO
+     */
     @PostMapping(value = "upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TeamsScheduleDTO> uploadAttendance(
             @RequestParam("file") MultipartFile file,

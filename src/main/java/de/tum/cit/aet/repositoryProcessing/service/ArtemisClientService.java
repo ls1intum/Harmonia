@@ -397,6 +397,6 @@ public class ArtemisClientService {
         } catch (DateTimeParseException ignored) {
             return null;
         }
-    
+
     }
 }
