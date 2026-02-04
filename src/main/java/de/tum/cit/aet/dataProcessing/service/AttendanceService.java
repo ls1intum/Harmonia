@@ -1,5 +1,6 @@
 package de.tum.cit.aet.dataProcessing.service;
 
+import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
@@ -29,19 +30,14 @@ public class AttendanceService {
      * Processes the Excel file information and combines it with the tutorial group
      * timeslots fetched via the Artemis API
      */
-
-    private static final int START_ROW_INDEX = 4; // row 5 in Excel (0-based index)
-    private static final int ROW_STEP = 3;
-    private static final int TEAM_NAME_COLUMN = 0; // column A
-    private static final int[] STUDENT1_COLUMNS = new int[]{4, 8, 12}; // E, I, M
-    private static final int[] STUDENT2_COLUMNS = new int[]{5, 9, 13}; // F, J, N
-
     private final ArtemisClientService artemisClientService;
     private final TeamScheduleService teamScheduleService;
+    private final AttendanceConfiguration attendanceConfiguration;
 
-    public AttendanceService(ArtemisClientService artemisClientService, TeamScheduleService teamScheduleService) {
+    public AttendanceService(ArtemisClientService artemisClientService, TeamScheduleService teamScheduleService, AttendanceConfiguration attendanceConfiguration) {
         this.artemisClientService = artemisClientService;
         this.teamScheduleService = teamScheduleService;
+        this.attendanceConfiguration = attendanceConfiguration;
     }
 
     public TeamsScheduleDTO parseAttendance(
@@ -71,16 +67,14 @@ public class AttendanceService {
                     log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
                 }
 
-                OffsetDateTime submissionDeadline = OffsetDateTime.parse("2026-01-28T13:00:00+01:00");
-
                 long count = sessionTimes.stream()
-                        .filter(session -> session.isBefore(submissionDeadline))
+                        .filter(session -> session.isBefore(attendanceConfiguration.getSubmissionDeadline()))
                         .count();
 
                 List<OffsetDateTime> sortedSessions = sessionTimes.stream()
-                        .filter(session -> session.isBefore(submissionDeadline))
+                        .filter(session -> session.isBefore(attendanceConfiguration.getSubmissionDeadline()))
                         .sorted()
-                        .skip(Math.max(0, count - 3))
+                        .skip(Math.max(0, count - attendanceConfiguration.getNumberProgrammingSessions()))
                         .toList();
 
                 Map<String, TeamAttendanceDTO> parsedTeams = parseSheet(sheet, sortedSessions, formatter);
@@ -108,11 +102,11 @@ public class AttendanceService {
 
     private Map<String, TeamAttendanceDTO> parseSheet(Sheet sheet, List<OffsetDateTime> sessionTimes, DataFormatter formatter) {
         Map<String, TeamAttendanceDTO> teams = new LinkedHashMap<>();
-        int rowIndex = START_ROW_INDEX;
+        int rowIndex = attendanceConfiguration.getStartRowIndex();
 
         while (true) {
             Row row = sheet.getRow(rowIndex);
-            String teamName = getCellString(row, TEAM_NAME_COLUMN, formatter);
+            String teamName = getCellString(row, attendanceConfiguration.getTeamNameColumn(), formatter);
             if (teamName == null || teamName.isBlank()) {
                 break;
             }
@@ -122,8 +116,8 @@ public class AttendanceService {
 
             for (int i = 0; i < sessionTimes.size(); i++) {
                 OffsetDateTime sessionTime = sessionTimes.get(i);
-                Boolean student1 = getCellBoolean(row, STUDENT1_COLUMNS[i], formatter);
-                Boolean student2 = getCellBoolean(row, STUDENT2_COLUMNS[i], formatter);
+                Boolean student1 = getCellBoolean(row, attendanceConfiguration.getStudent1Columns()[i], formatter);
+                Boolean student2 = getCellBoolean(row, attendanceConfiguration.getStudent2Columns()[i], formatter);
                 student1Attendance.put(sessionTime, student1);
                 student2Attendance.put(sessionTime, student2);
             }
@@ -143,7 +137,7 @@ public class AttendanceService {
                     pairedSessions
             ));
 
-            rowIndex += ROW_STEP;
+            rowIndex += attendanceConfiguration.getRowStep();
         }
 
         return teams;
