@@ -12,8 +12,10 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/analysis-resource-api';
-export * from './apis/attendance-resource-api';
-export * from './apis/auth-resource-api';
-export * from './apis/config-resource-api';
-export * from './apis/request-resource-api';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { TeamAttendanceDTO } from './team-attendance-dto';
+
+export interface TeamsScheduleDTO {
+  teams?: { [key: string]: TeamAttendanceDTO };
+}

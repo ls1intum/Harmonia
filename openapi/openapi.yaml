@@ -71,6 +71,45 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
+  /api/attendance/upload:
+    post:
+      tags: [attendance-resource]
+      operationId: uploadAttendance
+      parameters:
+      - name: courseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      - name: jwt
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_server_url
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_username
+        in: cookie
+        required: false
+        schema: {type: string}
+      - name: artemis_password
+        in: cookie
+        required: false
+        schema: {type: string}
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: {type: string, format: binary}
+              required: [file]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TeamsScheduleDTO'}
   /api/auth/login:
     post:
       tags: [auth-resource]
@@ -365,3 +404,22 @@ components:
         linesChanged: {type: integer, format: int32}
         linesDeleted: {type: integer, format: int32}
         name: {type: string}
+    TeamAttendanceDTO:
+      type: object
+      properties:
+        pairedAtLeastTwoOfThree: {type: boolean}
+        pairedSessions:
+          type: array
+          items: {type: string, format: date-time}
+        student1Attendance:
+          type: object
+          additionalProperties: {type: boolean}
+        student2Attendance:
+          type: object
+          additionalProperties: {type: boolean}
+    TeamsScheduleDTO:
+      type: object
+      properties:
+        teams:
+          type: object
+          additionalProperties: {$ref: '#/components/schemas/TeamAttendanceDTO'}
