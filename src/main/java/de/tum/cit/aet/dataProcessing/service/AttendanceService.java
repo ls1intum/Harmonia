@@ -34,12 +34,27 @@ public class AttendanceService {
     private final TeamScheduleService teamScheduleService;
     private final AttendanceConfiguration attendanceConfiguration;
 
+    /**
+     * Constructs the AttendanceService with required dependencies.
+     *
+     * @param artemisClientService the Artemis client service
+     * @param teamScheduleService the team schedule service
+     * @param attendanceConfiguration the attendance configuration
+     */
     public AttendanceService(ArtemisClientService artemisClientService, TeamScheduleService teamScheduleService, AttendanceConfiguration attendanceConfiguration) {
         this.artemisClientService = artemisClientService;
         this.teamScheduleService = teamScheduleService;
         this.attendanceConfiguration = attendanceConfiguration;
     }
 
+    /**
+     * Parses attendance data from an Excel file.
+     *
+     * @param file the Excel file to parse
+     * @param credentials the Artemis credentials
+     * @param courseId the course ID
+     * @return the teams schedule DTO
+     */
     public TeamsScheduleDTO parseAttendance(
             MultipartFile file,
             ArtemisCredentials credentials,

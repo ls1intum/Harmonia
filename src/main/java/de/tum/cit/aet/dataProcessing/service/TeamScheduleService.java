@@ -4,18 +4,20 @@ import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Service
 public class TeamScheduleService {
 
     private final Map<String, TeamAttendanceDTO> teamsByNormalizedName = new ConcurrentHashMap<>();
 
+    /**
+     * Updates the team schedule with the provided schedule data.
+     *
+     * @param schedule the teams schedule DTO
+     */
     public void update(TeamsScheduleDTO schedule) {
         teamsByNormalizedName.clear();
         if (schedule == null || schedule.teams() == null) {
@@ -28,6 +30,12 @@ public class TeamScheduleService {
         });
     }
 
+    /**
+     * Retrieves the attendance information for a specific team.
+     *
+     * @param teamName the name of the team
+     * @return the team attendance DTO or null if not found
+     */
     public TeamAttendanceDTO getTeamAttendance(String teamName) {
         if (teamName == null) {
             return null;
@@ -35,6 +43,12 @@ public class TeamScheduleService {
         return teamsByNormalizedName.get(normalize(teamName));
     }
 
+    /**
+     * Retrieves the class dates for a specific team.
+     *
+     * @param teamName the name of the team
+     * @return a set of class dates
+     */
     public Set<OffsetDateTime> getClassDates(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null) {
@@ -50,6 +64,12 @@ public class TeamScheduleService {
         return new HashSet<>(sessionMap.keySet());
     }
 
+    /**
+     * Retrieves the paired sessions for a specific team.
+     *
+     * @param teamName the name of the team
+     * @return a set of paired sessions
+     */
     public Set<OffsetDateTime> getPairedSessions(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         if (attendance == null || attendance.pairedSessions() == null) {
