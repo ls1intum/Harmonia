@@ -1,6 +1,6 @@
 // import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from '@/hooks/use-toast';
@@ -62,34 +62,22 @@ export default function FileUpload({ courseId }: FileUploadProps) {
   };
 
   return (
-      <form action="#" method="POST">
-        <div className="space-y-2">
-          <Label htmlFor="file-1">
-            <FileSpreadsheet className="h-4 w-4" />
-            Upload Pair Programming Attendance file <span className="text-destructive">*</span>
-          </Label>
-          <Input
-              id="file-1"
-              name="file-1"
-              type="file"
-              accept=".xlsx"
-              className="pt-2"
-              onChange={handleFileChange}
-              disabled={isUploading}
-          />
-          {isUploading && (
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Uploading and parsing attendance...
-              </p>
-          )}
-          {error && (
-              <p className="text-sm text-destructive">{error}</p>
-          )}
-          <p className="text-sm text-muted-foreground">
-            You are only allowed to upload XLSX files.
+    <form action="#" method="POST">
+      <div className="space-y-2">
+        <Label htmlFor="file-1">
+          <FileSpreadsheet className="h-4 w-4" />
+          Upload Pair Programming Attendance file <span className="text-destructive">*</span>
+        </Label>
+        <Input id="file-1" name="file-1" type="file" accept=".xlsx" className="pt-2" onChange={handleFileChange} disabled={isUploading} />
+        {isUploading && (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Uploading and parsing attendance...
           </p>
-        </div>
-      </form>
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <p className="text-sm text-muted-foreground">You are only allowed to upload XLSX files.</p>
+      </div>
+    </form>
   );
 }
