@@ -332,7 +332,6 @@ const TeamsList = ({
                             <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}> ({student.commitCount} commits)</span>
                           ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
                             <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
-                              <RefreshCw className="h-3 w-3 animate-spin inline" />
                               <span className="text-xs">analyzing...</span>
                             </span>
                           ) : null}
@@ -348,7 +347,6 @@ const TeamsList = ({
                       </div>
                     ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <RefreshCw className="h-4 w-4 animate-spin" />
                         <span className="text-sm">Pending</span>
                       </div>
                     ) : team.analysisStatus === 'ERROR' ? (
@@ -371,7 +369,6 @@ const TeamsList = ({
                       <span className="text-sm text-muted-foreground">Cancelled</span>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <RefreshCw className="h-4 w-4 animate-spin" />
                         <span className="text-sm">{team.analysisStatus === 'PENDING' ? 'Pending' : 'Analyzing...'}</span>
                       </div>
                     )}
@@ -421,7 +418,6 @@ const TeamsList = ({
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-                        <RefreshCw className="h-3 w-3 animate-spin" />
                         {team.analysisStatus === 'PENDING' ? 'Pending' : 'Analyzing'}
                       </Badge>
                     )}
