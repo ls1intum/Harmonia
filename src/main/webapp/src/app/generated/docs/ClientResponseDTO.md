@@ -5,6 +5,7 @@
 | Name                | Type                                                         | Description | Notes                             |
 | ------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
 | **analysisHistory** | [**Array&lt;AnalyzedChunkDTO&gt;**](AnalyzedChunkDTO.md)     |             | [optional] [default to undefined] |
+| **analysisStatus**  | **string**                                                   |             | [optional] [default to undefined] |
 | **cqi**             | **number**                                                   |             | [optional] [default to undefined] |
 | **cqiDetails**      | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
 | **isSuspicious**    | **boolean**                                                  |             | [optional] [default to undefined] |
@@ -22,6 +23,7 @@ import { ClientResponseDTO } from './api';
 
 const instance: ClientResponseDTO = {
   analysisHistory,
+  analysisStatus,
   cqi,
   cqiDetails,
   isSuspicious,
