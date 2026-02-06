@@ -363,13 +363,19 @@ public class RequestService {
         CQIResultDTO cqiDetails = null;
 
         // Step 5b: Try effort-based fairness analysis (primary method)
+        boolean fairnessAnalysisSucceeded = false;
         try {
             FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
-            if (fairnessReport.balanceScore() > 0 || !fairnessReport.authorDetails().isEmpty()) {
+            // Check if this is an error report (has ANALYSIS_ERROR flag) or a valid analysis
+            boolean isErrorReport = fairnessReport.flags() != null &&
+                    fairnessReport.flags().contains(de.tum.cit.aet.ai.domain.FairnessFlag.ANALYSIS_ERROR);
+            if (!isErrorReport) {
+                // Valid analysis result (even if balanceScore is 0)
                 cqi = fairnessReport.balanceScore();
                 isSuspicious = fairnessReport.requiresManualReview();
                 analysisHistory = fairnessReport.analyzedChunks();
                 cqiDetails = fairnessReport.cqiResult();
+                fairnessAnalysisSucceeded = true;
                 log.debug("Fairness analysis complete for team {}: score={}, suspicious={}, chunks={}",
                         team.name(), cqi, isSuspicious, analysisHistory != null ? analysisHistory.size() : 0);
 
@@ -377,6 +383,8 @@ public class RequestService {
                 if (analysisHistory != null && !analysisHistory.isEmpty()) {
                     saveAnalyzedChunks(teamParticipation, analysisHistory);
                 }
+            } else {
+                log.warn("Fairness analysis returned error for team {}", team.name());
             }
         } catch (Exception e) {
             log.warn("Fairness analysis failed for team {}, falling back to balance calculator: {}",
@@ -385,7 +393,7 @@ public class RequestService {
 
         // Step 5c: Fallback to CQI calculator with pre-filtered commits if fairness
         // analysis failed
-        if (cqi == null || cqi == 0.0) {
+        if (!fairnessAnalysisSucceeded) {
             try {
                 // Try pre-filtered LoC-based CQI calculation
                 if (repo.localPath() != null) {

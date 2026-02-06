@@ -7,9 +7,9 @@ import java.util.List;
  *
  * @param cqi               Final CQI score (0-100)
  * @param components        Individual component scores
- * @param penalties         Applied penalties (if any)
+ * @param penalties         Applied penalties (empty - penalties are disabled)
  * @param baseScore         Score before penalties
- * @param penaltyMultiplier Combined penalty multiplier
+ * @param penaltyMultiplier Combined penalty multiplier (always 1.0)
  * @param filterSummary     Summary of filtered commits
  */
 public record CQIResultDTO(
@@ -27,10 +27,9 @@ public record CQIResultDTO(
         return new CQIResultDTO(
                 30.0, // Low but non-zero CQI
                 ComponentScoresDTO.zero(),
-                List.of(new CQIPenaltyDTO("SINGLE_CONTRIBUTOR", 0.3,
-                        "Only one contributor - collaboration quality affected")),
-                100.0, // Base score (if there was collaboration)
-                0.3, // 70% penalty for single contributor
+                List.of(), // No penalties
+                30.0,
+                1.0,
                 null);
     }
 
@@ -41,20 +40,20 @@ public record CQIResultDTO(
         return new CQIResultDTO(
                 0.0,
                 ComponentScoresDTO.zero(),
-                List.of(new CQIPenaltyDTO("NO_PRODUCTIVE_WORK", 0.0, "All commits were filtered as non-productive")),
+                List.of(), // No penalties
                 0.0,
-                0.0,
+                1.0,
                 filterSummary);
     }
 
     /**
-     * Create result for fallback calculation (LLM failed).
+     * Create result for fallback calculation (LoC-based).
      */
     public static CQIResultDTO fallback(double locScore, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 locScore,
                 new ComponentScoresDTO(0.0, locScore, 0.0, 0.0),
-                List.of(new CQIPenaltyDTO("LLM_FALLBACK", 1.0, "LLM analysis failed - using LoC-only calculation")),
+                List.of(), // No penalties
                 locScore,
                 1.0,
                 filterSummary);

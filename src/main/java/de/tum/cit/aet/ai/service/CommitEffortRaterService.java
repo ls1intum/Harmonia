@@ -105,6 +105,10 @@ public class CommitEffortRaterService {
 
             return rating;
 
+        } catch (InterruptedException e) {
+            // Re-throw InterruptedException to allow cancellation
+            Thread.currentThread().interrupt();
+            throw e;
         } catch (Exception e) {
             log.error("Error rating commit chunk {}: {}", chunk.commitSha(), e.getMessage());
             return EffortRatingDTO.trivial("Error during AI analysis: " + e.getMessage());
