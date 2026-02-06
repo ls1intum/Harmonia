@@ -105,11 +105,19 @@ public class AnalysisStateService {
      */
     @Transactional
     public AnalysisStatus updateProgress(Long exerciseId, String teamName, String stage, int processed) {
-        AnalysisStatus status = statusRepository.findById(exerciseId)
-                .orElseThrow(() -> new IllegalStateException("No analysis found for exercise " + exerciseId));
+        AnalysisStatus status = statusRepository.findById(exerciseId).orElse(null);
+
+        // Gracefully handle missing or non-running analysis (e.g., cancelled
+        // mid-processing)
+        if (status == null) {
+            log.debug("No analysis found for exercise {} - skipping progress update", exerciseId);
+            return null;
+        }
 
         if (status.getState() != AnalysisState.RUNNING) {
-            throw new IllegalStateException("Analysis is not running for exercise " + exerciseId);
+            log.debug("Analysis is not running for exercise {} (state: {}) - skipping progress update",
+                    exerciseId, status.getState());
+            return status;
         }
 
         if ("DONE".equals(stage)) {

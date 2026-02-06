@@ -298,16 +298,19 @@ public class RequestService {
                 .orElse(new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
                         team.shortName(), participation.repositoryUri(), participation.submissionCount()));
 
-        // Update fields
+        // Update fields - keep status as ANALYZING until CQI is calculated
         teamParticipation.setExerciseId(exerciseId);
         teamParticipation.setTutor(tutor);
         teamParticipation.setSubmissionCount(participation.submissionCount());
-        teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE);
+        teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.ANALYZING);
         teamParticipationRepository.save(teamParticipation);
 
         // Step 3: Save students with their contribution metrics
         List<Student> students = new ArrayList<>();
         List<StudentAnalysisDTO> studentAnalysisDTOS = new ArrayList<>();
+
+        // Delete existing students for this team (avoid duplicates from pending state)
+        studentRepository.deleteAllByTeam(teamParticipation);
 
         for (ParticipantDTO student : repo.participation().team().students()) {
             AuthorContributionDTO contributionDTO = contributionData.get(student.id());
@@ -366,7 +369,8 @@ public class RequestService {
         boolean fairnessAnalysisSucceeded = false;
         try {
             FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
-            // Check if this is an error report (has ANALYSIS_ERROR flag) or a valid analysis
+            // Check if this is an error report (has ANALYSIS_ERROR flag) or a valid
+            // analysis
             boolean isErrorReport = fairnessReport.flags() != null &&
                     fairnessReport.flags().contains(de.tum.cit.aet.ai.domain.FairnessFlag.ANALYSIS_ERROR);
             if (!isErrorReport) {
@@ -448,6 +452,9 @@ public class RequestService {
             }
         }
 
+        // Step 6b: NOW set status to DONE - after all data is populated
+        // This prevents race conditions where status=DONE but CQI is still null
+        teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
         // Step 7: Return the assembled client response DTO
@@ -481,7 +488,8 @@ public class RequestService {
         try {
             // Step 0: Clear all existing data for this exercise to ensure clean state
             // This prevents issues with stale data from previous analyses
-            // Use transactionTemplate because @Transactional doesn't work on self-invocation
+            // Use transactionTemplate because @Transactional doesn't work on
+            // self-invocation
             log.info("Clearing existing data for exercise {} before starting analysis", exerciseId);
             transactionTemplate.executeWithoutResult(status -> {
                 clearDatabaseForExerciseInternal(exerciseId);
@@ -513,7 +521,6 @@ public class RequestService {
             for (ParticipationDTO participation : validParticipations) {
                 if (participation.team() != null) {
                     TeamDTO team = participation.team();
-
 
                     // Build a minimal ClientResponseDTO with just basic info (no CQI)
                     Map<String, Object> pendingTeam = new HashMap<>();
@@ -552,128 +559,156 @@ public class RequestService {
                 return;
             }
 
-            // Thread-safe counter for progress
-            java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+            // ============================================================
+            // PHASE 1: DOWNLOAD ALL REPOSITORIES IN PARALLEL
+            // ============================================================
+            log.info("Phase 1: Downloading {} repositories in parallel", validParticipations.size());
 
-            // Use ExecutorService with thread pool for interruptible parallel processing
+            // Store cloned repos for Phase 2
+            Map<Long, TeamRepositoryDTO> clonedRepos = new java.util.concurrent.ConcurrentHashMap<>();
+
             int threadCount = Math.max(1, Math.min(validParticipations.size(),
                     Runtime.getRuntime().availableProcessors()));
             executor = Executors.newFixedThreadPool(threadCount);
-
-            // Register executor for cancellation support
             activeExecutors.put(exerciseId, executor);
 
-            List<Future<?>> futures = new ArrayList<>();
-            CountDownLatch completionLatch = new CountDownLatch(validParticipations.size());
+            CountDownLatch downloadLatch = new CountDownLatch(validParticipations.size());
+            java.util.concurrent.atomic.AtomicInteger downloadedCount = new java.util.concurrent.atomic.AtomicInteger(
+                    0);
 
-            // Submit tasks for each team
             for (ParticipationDTO participation : validParticipations) {
-                Future<?> future = executor.submit(() -> {
+                executor.submit(() -> {
                     try {
-                        // Check if analysis was cancelled
                         if (!analysisStateService.isRunning(exerciseId)) {
-                            log.debug("Analysis stopped, skipping team {}",
-                                    participation.team() != null ? participation.team().name() : "Unknown");
                             return;
                         }
 
                         String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
-                        // Check interruption status
-                        if (Thread.currentThread().isInterrupted()) {
-                            log.debug("Thread interrupted, stopping processing");
-                            return;
+                        // Update status to DOWNLOADING for this team
+                        analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", downloadedCount.get());
+
+                        // Clone the repository
+                        TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(
+                                participation, credentials, exerciseId);
+
+                        if (repo != null) {
+                            clonedRepos.put(participation.id(), repo);
                         }
 
-                        try {
-                            // Update state: downloading
-                            analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING",
-                                    processedCount.get());
+                        int downloaded = downloadedCount.incrementAndGet();
+                        log.debug("Downloaded {}/{}: {}", downloaded, validParticipations.size(), teamName);
 
-                            // Check again before expensive operations
-                            if (!analysisStateService.isRunning(exerciseId) ||
-                                    Thread.currentThread().isInterrupted()) {
-                                return;
-                            }
-
-                            // Clone
-                            TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(
-                                    participation, credentials, exerciseId);
-
-                            // Update state: analyzing
-                            analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING",
-                                    processedCount.get());
-
-                            // Check again
-                            if (!analysisStateService.isRunning(exerciseId) ||
-                                    Thread.currentThread().isInterrupted()) {
-                                return;
-                            }
-
-                            // Analyze
-                            Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
-
-                            // Check again before saving
-                            if (!analysisStateService.isRunning(exerciseId) ||
-                                    Thread.currentThread().isInterrupted()) {
-                                return;
-                            }
-
-                            // Save (persistent storage)
-                            ClientResponseDTO dto = saveSingleResult(repo, contributions, exerciseId);
-
-                            int currentProcessed = processedCount.incrementAndGet();
-
-                            // Update state with new progress count (pass name so we can safely clear it if
-                            // it's still ours)
-                            analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
-
-                            // Emit result (synchronized to ensure thread safety)
-                            synchronized (eventEmitter) {
-                                eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
-                            }
-                        } catch (Exception e) {
-                            log.error("Error processing participation {} (team: {})",
-                                    participation.id(), teamName, e);
-                            markTeamAsFailed(participation, exerciseId);
-                            processedCount.incrementAndGet();
-                            // Update progress on error too (to move the bar)
-                            analysisStateService.updateProgress(exerciseId, teamName, "ERROR", processedCount.get());
-                            // Emit error event for this team
-                            synchronized (eventEmitter) {
-                                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
-                            }
-                        } finally {
-                            completionLatch.countDown();
-                        }
                     } catch (Exception e) {
-                        log.error("Unexpected error in processing thread for participation {}",
-                                participation.id(), e);
-                        completionLatch.countDown();
+                        log.error("Failed to download repo for team {}",
+                                participation.team() != null ? participation.team().name() : participation.id(), e);
+                        // Mark as failed but continue with other downloads
+                        markTeamAsFailed(participation, exerciseId);
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                        }
+                    } finally {
+                        downloadLatch.countDown();
                     }
                 });
-                futures.add(future);
             }
 
-            // Wait for all tasks to complete or be cancelled
+            // Wait for all downloads to complete
             try {
-                completionLatch.await();
+                downloadLatch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                log.info("Waiting for completion interrupted");
+                log.info("Download phase interrupted");
             }
 
-            // Check if we should complete or if analysis was cancelled
+            // Shutdown download executor
+            executor.shutdown();
+
+            log.info("Phase 1 complete: Downloaded {} of {} repositories", clonedRepos.size(),
+                    validParticipations.size());
+
+            // Check if cancelled
+            if (!analysisStateService.isRunning(exerciseId)) {
+                log.info("Analysis cancelled after download phase");
+                markPendingTeamsAsCancelled(exerciseId);
+                eventEmitter.accept(Map.of("type", "CANCELLED", "processed", 0, "total", totalToProcess));
+                return;
+            }
+
+            // ============================================================
+            // PHASE 2: ANALYZE TEAMS SEQUENTIALLY (ONE BY ONE)
+            // ============================================================
+            log.info("Phase 2: Analyzing {} teams sequentially", clonedRepos.size());
+
+            java.util.concurrent.atomic.AtomicInteger analyzedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+            for (ParticipationDTO participation : validParticipations) {
+                // Check if cancelled
+                if (!analysisStateService.isRunning(exerciseId)) {
+                    log.info("Analysis cancelled during analysis phase");
+                    break;
+                }
+
+                TeamRepositoryDTO repo = clonedRepos.get(participation.id());
+                String teamName = participation.team() != null ? participation.team().name() : "Unknown";
+
+                if (repo == null) {
+                    // This team failed to download, already marked as failed
+                    analyzedCount.incrementAndGet();
+                    continue;
+                }
+
+                try {
+                    // Update status to ANALYZING for this team
+                    analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING", analyzedCount.get());
+
+                    // Emit event to notify frontend this team is now being analyzed
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of(
+                                "type", "ANALYZING",
+                                "teamId", participation.team().id(),
+                                "teamName", teamName));
+                    }
+
+                    // Analyze the repository
+                    Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+
+                    // Save results (wrap in transaction for delete/save operations)
+                    final TeamRepositoryDTO finalRepo = repo;
+                    ClientResponseDTO dto = transactionTemplate
+                            .execute(status -> saveSingleResult(finalRepo, contributions, exerciseId));
+
+                    int currentProcessed = analyzedCount.incrementAndGet();
+
+                    // Update state with DONE
+                    analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
+
+                    // Emit result
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                    }
+
+                    log.debug("Analyzed {}/{}: {}", currentProcessed, clonedRepos.size(), teamName);
+
+                } catch (Exception e) {
+                    log.error("Error analyzing team {}", teamName, e);
+                    markTeamAsFailed(participation, exerciseId);
+                    analyzedCount.incrementAndGet();
+                    analysisStateService.updateProgress(exerciseId, teamName, "ERROR", analyzedCount.get());
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                    }
+                }
+            }
+
+            // Complete or mark as cancelled
             if (analysisStateService.isRunning(exerciseId)) {
-                // Complete the analysis
                 analysisStateService.completeAnalysis(exerciseId);
                 eventEmitter.accept(Map.of("type", "DONE"));
             } else {
-                // Analysis was cancelled - mark pending teams as CANCELLED
-                log.info("Analysis cancelled for exercise {}", exerciseId);
                 markPendingTeamsAsCancelled(exerciseId);
                 eventEmitter.accept(Map.of("type", "CANCELLED",
-                        "processed", processedCount.get(),
+                        "processed", analyzedCount.get(),
                         "total", totalToProcess));
             }
 
@@ -685,10 +720,10 @@ public class RequestService {
             // Remove from active executors
             activeExecutors.remove(exerciseId);
 
-            // Shutdown executor and interrupt any remaining tasks
-            if (executor != null) {
+            // Shutdown executor if still running
+            if (executor != null && !executor.isShutdown()) {
                 log.info("Shutting down executor for exercise {}", exerciseId);
-                executor.shutdownNow(); // Interrupts all running tasks
+                executor.shutdownNow();
                 try {
                     if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
                         log.warn("Executor did not terminate within 5 seconds");
@@ -800,13 +835,19 @@ public class RequestService {
             return new ArrayList<>();
         }
 
-        // Step 1b: Map and assemble the data into ClientResponseDTOs (reuse existing
-        // logic)
+        // Step 1b: Map all participations to DTOs
+        // DONE teams will have full data, PENDING/ANALYZING will have null CQI
+        // The status field tells the frontend what state each team is in
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(this::mapParticipationToClientResponse)
                 .toList();
 
-        log.info("RequestService: Found {} teams for exercise ID: {}", responseDTOs.size(), exerciseId);
+        long doneCount = participations.stream()
+                .filter(p -> p.getAnalysisStatus() == de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE)
+                .count();
+
+        log.info("RequestService: Found {} teams ({} analyzed) for exercise ID: {}",
+                responseDTOs.size(), doneCount, exerciseId);
         return responseDTOs;
     }
 
@@ -1092,6 +1133,21 @@ public class RequestService {
                 teamParticipation.setExerciseId(exerciseId);
                 teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
                 teamParticipationRepository.save(teamParticipation);
+
+                // Also save students with basic info (no commit counts yet)
+                // This ensures student names are visible for pending teams after page refresh
+                if (participation.team().students() != null) {
+                    for (ParticipantDTO student : participation.team().students()) {
+                        Student studentEntity = new Student(
+                                student.id(),
+                                student.login(),
+                                student.name(),
+                                student.email(),
+                                teamParticipation,
+                                0, 0, 0, 0); // No commit data yet
+                        studentRepository.save(studentEntity);
+                    }
+                }
             }
         }
     }

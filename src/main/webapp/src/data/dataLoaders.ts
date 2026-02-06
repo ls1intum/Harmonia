@@ -305,6 +305,16 @@ export function loadBasicTeamDataStream(
       } else if (data.type === 'INIT') {
         // Teams arriving with pending status (no CQI yet)
         onInit(transformToComplexTeamData(data.data));
+      } else if (data.type === 'ANALYZING') {
+        // A specific team is now being analyzed - update its status
+        // Create a partial update with just the status change
+        const partialTeam = {
+          id: data.teamId?.toString() || 'unknown',
+          teamId: data.teamId,
+          teamName: data.teamName,
+          analysisStatus: 'ANALYZING',
+        };
+        onUpdate(partialTeam as any);
       } else if (data.type === 'UPDATE') {
         // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
         onUpdate(transformToComplexTeamData(data.data));
@@ -315,6 +325,13 @@ export function loadBasicTeamDataStream(
         // Analysis was cancelled - close stream and notify completion
         eventSource.close();
         onComplete();
+      } else if (data.type === 'ALREADY_RUNNING') {
+        // Analysis is already running (started by another user or before refresh)
+        // Close this stream - the client will poll status and DB for updates
+        console.log('Analysis already running, switching to polling mode');
+        eventSource.close();
+        // Throw a special error so the caller knows this is not a failure
+        onError(new Error('ALREADY_RUNNING'));
       }
     } catch (e) {
       console.error('Error parsing SSE event:', e);

@@ -22,9 +22,10 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
-  // Fetch teams from database on load - disabled during analysis
+  // Fetch teams from database on load
+  // During analysis, this shows already-analyzed teams
   const isAnalysisRunning = status.state === 'RUNNING';
-  const { data: teams = [] } = useQuery<Team[]>({
+  const { data: teams = [], refetch: refetchTeams } = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
       // Fetch already-analyzed teams from database (filtered by exerciseId)
@@ -34,10 +35,11 @@ export default function Teams() {
       // Transform to Team type
       return data.map(transformToComplexTeamData);
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: isAnalysisRunning ? 2000 : 30 * 1000, // Faster updates during analysis
     gcTime: 10 * 60 * 1000,
-    enabled: !!exercise && !isAnalysisRunning, // Disable during analysis
-    refetchOnWindowFocus: !isAnalysisRunning, // Don't refetch when analysis is running
+    enabled: !!exercise,
+    refetchInterval: isAnalysisRunning ? 3000 : false, // Poll every 3s during analysis to get new teams
+    refetchOnWindowFocus: !isAnalysisRunning,
   });
 
   // Mutation for starting analysis
@@ -69,13 +71,15 @@ export default function Teams() {
               return [...old, team as unknown as Team];
             });
           },
-          // onUpdate: Replace existing team with analyzed data
+          // onUpdate: Update existing team with new data (merge for partial updates like ANALYZING)
           team => {
             queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
               const teamData = team as unknown as Team;
-              const exists = old.some(t => t.id === teamData.id);
-              if (exists) {
-                return old.map(t => (t.id === teamData.id ? teamData : t));
+              const existingTeam = old.find(t => t.id === teamData.id);
+              if (existingTeam) {
+                // Merge: keep existing data, override with new data
+                // This handles partial updates (ANALYZING) and full updates (UPDATE)
+                return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
               }
               return [...old, teamData];
             });
@@ -95,7 +99,13 @@ export default function Teams() {
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       refetchStatus();
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (error?.message === 'ALREADY_RUNNING') {
+        // Analysis was already running - this is not an error, just inform the user
+        toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
+        refetchStatus();
+        return;
+      }
       toast({
         variant: 'destructive',
         title: 'Failed to start analysis',
@@ -157,9 +167,10 @@ export default function Teams() {
           team => {
             queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
               const teamData = team as unknown as Team;
-              const exists = old.some(t => t.id === teamData.id);
-              if (exists) {
-                return old.map(t => (t.id === teamData.id ? teamData : t));
+              const existingTeam = old.find(t => t.id === teamData.id);
+              if (existingTeam) {
+                // Merge: keep existing data, override with new data
+                return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
               }
               return [...old, teamData];
             });
@@ -179,7 +190,12 @@ export default function Teams() {
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       refetchStatus();
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (error?.message === 'ALREADY_RUNNING') {
+        toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
+        refetchStatus();
+        return;
+      }
       toast({
         variant: 'destructive',
         title: 'Failed to reanalyze',

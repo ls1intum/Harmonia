@@ -78,6 +78,18 @@ const TeamsList = ({
     return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
   };
 
+  // Get priority for analysis status (lower = shown first)
+  const getStatusPriority = (status: string | undefined): number => {
+    switch (status) {
+      case 'ANALYZING': return 0; // Currently being analyzed - show first
+      case 'PENDING': return 1;   // Waiting to be analyzed
+      case 'DONE': return 2;      // Completed
+      case 'ERROR': return 3;     // Failed
+      case 'CANCELLED': return 4; // Cancelled
+      default: return 5;          // Unknown
+    }
+  };
+
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = [...teams];
 
@@ -92,24 +104,55 @@ const TeamsList = ({
       }
     }
 
-    // Apply sorting
+    // First, sort by analysis status priority (ANALYZING > PENDING > DONE)
+    filtered.sort((a, b) => {
+      const aPriority = getStatusPriority(a.analysisStatus);
+      const bPriority = getStatusPriority(b.analysisStatus);
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      // If same priority, maintain original order or apply column sort
+      return 0;
+    });
+
+    // Then apply column sorting within each status group
     if (sortColumn) {
-      filtered.sort((a, b) => {
-        let comparison = 0;
-
-        if (sortColumn === 'name') {
-          comparison = a.teamName.localeCompare(b.teamName);
-        } else if (sortColumn === 'commitCount') {
-          const aCommits = a.basicMetrics?.totalCommits || 0;
-          const bCommits = b.basicMetrics?.totalCommits || 0;
-          comparison = aCommits - bCommits;
-        } else if (sortColumn === 'cqi') {
-          const aCqi = a.cqi || 0;
-          const bCqi = b.cqi || 0;
-          comparison = aCqi - bCqi;
+      // Create a stable sort that preserves status priority
+      const statusGroups = new Map<number, Team[]>();
+      filtered.forEach(team => {
+        const priority = getStatusPriority(team.analysisStatus);
+        if (!statusGroups.has(priority)) {
+          statusGroups.set(priority, []);
         }
+        statusGroups.get(priority)!.push(team);
+      });
 
-        return sortDirection === 'asc' ? comparison : -comparison;
+      // Sort within each group
+      statusGroups.forEach(group => {
+        group.sort((a, b) => {
+          let comparison = 0;
+          if (sortColumn === 'name') {
+            comparison = a.teamName.localeCompare(b.teamName);
+          } else if (sortColumn === 'commitCount') {
+            const aCommits = a.basicMetrics?.totalCommits || 0;
+            const bCommits = b.basicMetrics?.totalCommits || 0;
+            comparison = aCommits - bCommits;
+          } else if (sortColumn === 'cqi') {
+            const aCqi = a.cqi || 0;
+            const bCqi = b.cqi || 0;
+            comparison = aCqi - bCqi;
+          }
+          return sortDirection === 'asc' ? comparison : -comparison;
+        });
+      });
+
+      // Reconstruct filtered array in priority order
+      filtered = [];
+      [0, 1, 2, 3, 4, 5].forEach(priority => {
+        const group = statusGroups.get(priority);
+        if (group) {
+          filtered.push(...group);
+        }
       });
     }
 
@@ -331,16 +374,12 @@ const TeamsList = ({
                           className={`text-sm ${team.analysisStatus === 'DONE' && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
                         >
                           {student.name}
-                          {team.analysisStatus === 'DONE' && student.commitCount !== undefined ? (
+                          {team.analysisStatus === 'DONE' && student.commitCount !== undefined && (
                             <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
                               {' '}
                               ({student.commitCount} commits)
                             </span>
-                          ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
-                            <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
-                              <span className="text-xs">analyzing...</span>
-                            </span>
-                          ) : null}
+                          )}
                         </p>
                       ))}
                     </div>

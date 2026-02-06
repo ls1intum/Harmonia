@@ -102,23 +102,54 @@ public class RequestResource {
             return emitter;
         }
 
-        // Cancel any existing task for this exercise
-        cancelRunningTask(exerciseId);
+        // Check if analysis is already running for this exercise
+        Future<?> existingTask = runningTasks.get(exerciseId);
+        if (existingTask != null && !existingTask.isDone()) {
+            log.info("Analysis already running for exercise {}, client can poll status", exerciseId);
+            // Send a message that analysis is already running, then complete
+            // The client should poll the status endpoint instead
+            try {
+                emitter.send(java.util.Map.of("type", "ALREADY_RUNNING", "message", "Analysis is already in progress"));
+                emitter.complete();
+            } catch (Exception e) {
+                log.debug("Could not send ALREADY_RUNNING message: {}", e.getMessage());
+            }
+            return emitter;
+        }
 
         Future<?> future = executorService.submit(() -> {
             try {
                 requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, (event) -> {
                     try {
                         emitter.send(event);
+                    } catch (IllegalStateException e) {
+                        // Client disconnected - this is normal when user navigates away or refreshes
+                        // DON'T stop the analysis - let it continue in the background
+                        // The client can reconnect and get the current status
+                        log.debug("Client disconnected for exercise {}, analysis continues in background", exerciseId);
                     } catch (Exception e) {
-                        log.error("Error sending SSE event", e);
-                        emitter.completeWithError(e);
+                        // Check if this is a broken pipe / client abort
+                        if (isBrokenPipeException(e)) {
+                            // DON'T stop the analysis - let it continue in the background
+                            log.debug("Client connection closed for exercise {}, analysis continues in background", exerciseId);
+                        } else {
+                            log.error("Error sending SSE event for exercise {}", exerciseId, e);
+                            try {
+                                emitter.completeWithError(e);
+                            } catch (Exception ignored) {
+                                // Emitter may already be completed
+                            }
+                        }
                     }
                 });
                 emitter.complete();
             } catch (Exception e) {
-                log.error("Error in stream processing", e);
-                emitter.completeWithError(e);
+                log.error("Error in stream processing for exercise {}", exerciseId, e);
+                try {
+                    emitter.completeWithError(e);
+                } catch (Exception ignored) {
+                    // Emitter may already be completed
+                }
             } finally {
                 // Remove from tracking when done
                 runningTasks.remove(exerciseId);
@@ -200,5 +231,26 @@ public class RequestResource {
         log.info("GET request received: getData (from database) for exercise {}", exerciseId);
         List<ClientResponseDTO> clientResponseDTOS = requestService.getTeamsByExerciseId(exerciseId);
         return ResponseEntity.ok(clientResponseDTOS);
+    }
+
+    /**
+     * Check if an exception is caused by a broken pipe / client disconnect.
+     */
+    private boolean isBrokenPipeException(Throwable e) {
+        while (e != null) {
+            String message = e.getMessage();
+            if (message != null && (message.contains("Broken pipe") ||
+                    message.contains("Connection reset") ||
+                    message.contains("ClientAbortException") ||
+                    message.contains("AsyncRequestNotUsableException"))) {
+                return true;
+            }
+            if (e.getClass().getSimpleName().contains("ClientAbortException") ||
+                    e.getClass().getSimpleName().contains("AsyncRequestNotUsableException")) {
+                return true;
+            }
+            e = e.getCause();
+        }
+        return false;
     }
 }
