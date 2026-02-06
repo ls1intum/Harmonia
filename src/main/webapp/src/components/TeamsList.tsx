@@ -229,7 +229,7 @@ const TeamsList = ({
               <p className="text-sm text-muted-foreground">Average CQI</p>
               <div className="flex items-baseline gap-2">
                 {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
-                  <p className="text-3xl font-bold text-amber-500">Pending</p>
+                  <p className="text-2xl font-bold text-amber-500">Pending</p>
                 ) : (
                   <>
                     <p className={`text-3xl font-bold ${getCQIColor(courseAverages.avgCQI)}`}>{courseAverages.avgCQI}</p>
@@ -258,7 +258,7 @@ const TeamsList = ({
               <p className="text-sm text-muted-foreground">Suspicious Teams</p>
               <div className="flex items-baseline gap-2">
                 {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
-                  <p className="text-3xl font-bold text-amber-500">Pending</p>
+                  <p className="text-2xl font-bold text-amber-500">Pending</p>
                 ) : (
                   <>
                     <p className={`text-3xl font-bold ${courseAverages.suspiciousPercentage > 30 ? 'text-destructive' : 'text-success'}`}>
