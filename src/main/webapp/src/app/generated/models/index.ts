@@ -2,6 +2,8 @@ export * from './analysis-status-dto';
 export * from './analyzed-chunk-dto';
 export * from './client-response-dto';
 export * from './component-scores-dto';
+export * from './cqipenalty-dto';
+export * from './cqiresult-dto';
 export * from './filter-summary-dto';
 export * from './login-request-dto';
 export * from './orphan-commit-dto';

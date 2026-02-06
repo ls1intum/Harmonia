@@ -10,6 +10,9 @@ import { StatusFilterButton } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 
+type SortColumn = 'name' | 'commitCount' | 'cqi';
+type StatusFilter = 'all' | 'normal' | 'suspicious' | 'failed';
+
 interface TeamsListProps {
   teams: Team[];
   onTeamSelect: (team: Team) => void;
@@ -35,9 +38,9 @@ const TeamsList = ({
   exercise,
   analysisStatus,
 }: TeamsListProps) => {
-  const [sortColumn, setSortColumn] = useState<'name' | 'commits' | 'cqi' | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'suspicious'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
 

@@ -114,7 +114,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
   const handleStart = async () => {
     const selectedProject = projects.find(p => p.id === selectedProjectId);
-    if (selectedProject && username && password && serverUrl) {
+    if (selectedProject && username && password && exerciseUrl) {
       setIsLoading(true);
       try {
         const response = await fetch('/api/auth/login', {
@@ -122,11 +122,10 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ username, password, serverUrl }),
+          body: JSON.stringify({ username, password, serverUrl: exerciseUrl }),
         });
 
         if (response.ok) {
-          // Pass course name and exercise ID (as string)
           onStart(selectedProject.courseName, selectedProject.exerciseId.toString(), username, password);
         } else {
           toast({
@@ -138,24 +137,12 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       } catch {
         toast({
           variant: 'destructive',
-          title: 'Access denied',
-          description: 'Your user is not listed as an instructor for the specified course.',
+          title: 'Error',
+          description: 'An error occurred during login.',
         });
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Login failed',
-          description: 'Please check your credentials and try again.',
-        });
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'An error occurred during login.',
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -244,7 +231,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         <Button
           size="lg"
           onClick={handleStart}
-          disabled={!selectedProjectId || !username || !password || !serverUrl || isLoading}
+          disabled={!selectedProjectId || !username || !password || !exerciseUrl || isLoading}
           className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}

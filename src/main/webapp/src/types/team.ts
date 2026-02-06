@@ -54,7 +54,7 @@ export interface Team {
   teamName: string;
   tutor: string;
   submissionCount?: number;
-  students: Student[];
+  students: StudentAnalysisDTO[];
   cqi?: number;
   isSuspicious?: boolean;
   cqiDetails?: CQIResultDTO;

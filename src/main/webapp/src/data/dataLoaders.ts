@@ -53,13 +53,13 @@ function delay(ms: number): Promise<void> {
 // ============================================================
 // CACHE - Store transformed team data to ensure consistency
 // ============================================================
-const teamCache = new Map<string, ComplexTeamData>();
+const teamCache = new Map<string, Team>();
 
-function getCachedTeam(teamId: string): ComplexTeamData | undefined {
+function getCachedTeam(teamId: string): Team | undefined {
   return teamCache.get(teamId);
 }
 
-function setCachedTeam(teamId: string, team: ComplexTeamData): void {
+function setCachedTeam(teamId: string, team: Team): void {
   teamCache.set(teamId, team);
 }
 
@@ -99,10 +99,10 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 }
 
 /**
- * Transform ClientResponseDTO to ComplexTeamData using server-calculated CQI
+ * Transform ClientResponseDTO to Team using server-calculated CQI
  * Exported for use in components that need to transform DTOs
  */
-export function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamData {
+export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   const basicData = transformToBasicTeamData(dto);
   const teamId = dto.teamId?.toString() || 'unknown';
 
@@ -166,7 +166,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): ComplexTeamD
     linesDeleted: commit.linesDeleted || 0,
   }));
 
-  const team: ComplexTeamData = {
+  const team: Team = {
     ...basicData,
     cqi: Math.round(cqi),
     isSuspicious,
@@ -199,7 +199,7 @@ async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData
 }
 
 // TODO: Use course and exercise parameters when server supports them
-async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeamData[]> {
+async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
   try {
     const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
@@ -215,7 +215,7 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeam
 /**
  * Fetch a single team by ID from server
  */
-async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData | null> {
+async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
   try {
     const response = await requestApi.getData();
     const teamRepo = response.data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
@@ -236,7 +236,7 @@ async function fetchTeamByIdFromServer(teamId: string): Promise<ComplexTeamData 
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
-  onUpdate: (team: ComplexTeamData) => void,
+  onUpdate: (team: Team) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
 ): () => void {
@@ -302,7 +302,7 @@ export async function loadBasicTeamData(_course: string, exercise: string): Prom
 /**
  * Fetch complex team data (slower, complete analysis with CQI, etc.)
  */
-export async function loadComplexTeamData(_course: string, exercise: string): Promise<ComplexTeamData[]> {
+export async function loadComplexTeamData(_course: string, exercise: string): Promise<Team[]> {
   if (USE_DUMMY_DATA) {
     await delay(2000); // Simulate longer processing time
     return getComplexDummyTeams();
@@ -343,7 +343,7 @@ export async function loadTeamDataProgressive(
 /**
  * Fetch a single team by ID
  */
-export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<ComplexTeamData | null> {
+export async function loadTeamById(teamId: string, _exerciseId?: string): Promise<Team | null> {
   if (USE_DUMMY_DATA) {
     await delay(300); // Simulate network delay
     return dummyTeams.find(t => t.id === teamId) || null;
