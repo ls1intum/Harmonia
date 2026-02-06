@@ -53,7 +53,7 @@ const TeamsList = ({
     return 'bg-destructive/10';
   };
 
-  const handleHeaderClick = (column: 'name' | 'commits' | 'cqi') => {
+  const handleHeaderClick = (column: SortColumn) => {
     if (sortColumn !== column) {
       setSortColumn(column);
       setSortDirection('asc');
@@ -64,12 +64,23 @@ const TeamsList = ({
     }
   };
 
+  // Helper to determine if a team is 'failed' (any student with commitCount < 10)
+  const isTeamFailed = (team: Team) => {
+    return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
+  };
+
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = [...teams];
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(team => (statusFilter === 'suspicious' ? team.isSuspicious : !team.isSuspicious));
+      if (statusFilter === 'failed') {
+        filtered = filtered.filter(team => isTeamFailed(team));
+      } else if (statusFilter === 'suspicious') {
+        filtered = filtered.filter(team => team.isSuspicious);
+      } else if (statusFilter === 'normal') {
+        filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
+      }
     }
 
     // Apply sorting
@@ -79,7 +90,7 @@ const TeamsList = ({
 
         if (sortColumn === 'name') {
           comparison = a.teamName.localeCompare(b.teamName);
-        } else if (sortColumn === 'commits') {
+        } else if (sortColumn === 'commitCount') {
           const aCommits = a.basicMetrics?.totalCommits || 0;
           const bCommits = b.basicMetrics?.totalCommits || 0;
           comparison = aCommits - bCommits;
@@ -99,17 +110,20 @@ const TeamsList = ({
   const courseAverages = useMemo(() => {
     if (teams.length === 0) return null;
 
-    const totalCQI = teams.reduce((sum, team) => sum + (team.cqi || 0), 0);
+    // Only include teams with calculated CQI in the average
+    const teamsWithCQI = teams.filter(team => team.cqi !== undefined);
+    const totalCQI = teamsWithCQI.reduce((sum, team) => sum + (team.cqi ?? 0), 0);
     const totalCommits = teams.reduce((sum, team) => sum + (team.basicMetrics?.totalCommits || 0), 0);
     const totalLines = teams.reduce((sum, team) => sum + (team.basicMetrics?.totalLines || 0), 0);
-    const suspiciousCount = teams.filter(team => team.isSuspicious).length;
+    const suspiciousCount = teams.filter(team => team.isSuspicious === true).length;
 
     return {
-      avgCQI: Math.round(totalCQI / teams.length),
+      avgCQI: teamsWithCQI.length > 0 ? Math.round(totalCQI / teamsWithCQI.length) : 0,
       avgCommits: Math.round(totalCommits / teams.length),
       avgLines: Math.round(totalLines / teams.length),
       suspiciousPercentage: Math.round((suspiciousCount / teams.length) * 100),
       totalTeams: teams.length,
+      analyzedTeams: teamsWithCQI.length,
     };
   }, [teams]);
 
@@ -232,7 +246,7 @@ const TeamsList = ({
                 <th className="text-left py-4 px-6 font-semibold text-sm">Members</th>
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <SortableHeader
-                    column="commits"
+                    column="commitCount"
                     label="Commits"
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
@@ -266,8 +280,8 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className="text-sm">
-                          {student.name} {student.commits !== undefined && `(${student.commits} commits)`}
+                        <p key={idx} className={`text-sm ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
+                          {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
                         </p>
                       ))}
                     </div>
@@ -289,12 +303,20 @@ const TeamsList = ({
                         <div className="text-xs text-muted-foreground">out of 100</div>
                       </div>
                     ) : (
-                      <Skeleton className="h-16 w-32" />
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Analyzing...</span>
+                      </div>
                     )}
                   </td>
                   <td className="py-4 px-6">
                     {team.isSuspicious !== undefined ? (
-                      team.isSuspicious ? (
+                      isTeamFailed(team) ? (
+                        <Badge variant="destructive" className="gap-1.5">
+                          <AlertTriangle className="h-3 w-3" />
+                          Failed
+                        </Badge>
+                      ) : team.isSuspicious ? (
                         <Badge variant="destructive" className="gap-1.5">
                           <AlertTriangle className="h-3 w-3" />
                           Suspicious
@@ -305,7 +327,10 @@ const TeamsList = ({
                         </Badge>
                       )
                     ) : (
-                      <Skeleton className="h-6 w-20" />
+                      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        Analyzing
+                      </Badge>
                     )}
                   </td>
                 </tr>

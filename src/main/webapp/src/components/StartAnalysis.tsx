@@ -24,7 +24,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [serverUrl, setServerUrl] = useState('https://artemis.tum.de');
+  const [exerciseUrl, setExerciseUrl] = useState('https://artemis.tum.de/courses/478/exercises/18806');
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch available models from LLM server
@@ -138,12 +138,24 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       } catch {
         toast({
           variant: 'destructive',
-          title: 'Error',
-          description: 'An error occurred during login.',
+          title: 'Access denied',
+          description: 'Your user is not listed as an instructor for the specified course.',
         });
-      } finally {
-        setIsLoading(false);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: 'Please check your credentials and try again.',
+        });
       }
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An error occurred during login.',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -156,8 +168,13 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
       <div className="w-full max-w-md space-y-4 mt-4">
         <div className="space-y-2">
-          <Label htmlFor="serverUrl">Artemis Server URL</Label>
-          <Input id="serverUrl" placeholder="https://artemis.cit.tum.de" value={serverUrl} onChange={e => setServerUrl(e.target.value)} />
+          <Label htmlFor="exerciseUrl">Artemis Exercise URL</Label>
+          <Input
+            id="exerciseUrl"
+            placeholder="https://artemis.../courses/30/exercises/282"
+            value={exerciseUrl}
+            onChange={e => setExerciseUrl(e.target.value)}
+          />
         </div>
 
         <div className="space-y-2">
@@ -231,7 +248,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
-          Start Analysis
+          Login
         </Button>
       </div>
     </div>

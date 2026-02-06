@@ -1,10 +1,4 @@
-export interface Student {
-  name: string;
-  commits?: number;
-  linesAdded?: number;
-  linesDeleted?: number;
-  linesChanged?: number;
-}
+import type { StudentAnalysisDTO, CQIResultDTO, AnalyzedChunkDTO, OrphanCommitDTO } from '@/app/generated';
 
 export interface SubMetric {
   name: string;
@@ -63,6 +57,7 @@ export interface Team {
   students: Student[];
   cqi?: number;
   isSuspicious?: boolean;
+  cqiDetails?: CQIResultDTO;
   subMetrics?: SubMetric[];
   basicMetrics?: BasicMetrics;
   analysisHistory?: AnalyzedChunk[];

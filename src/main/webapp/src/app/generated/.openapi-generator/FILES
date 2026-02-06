@@ -13,6 +13,8 @@ docs/AnalysisResourceApi.md
 docs/AnalysisStatusDTO.md
 docs/AnalyzedChunkDTO.md
 docs/AuthResourceApi.md
+docs/CQIPenaltyDTO.md
+docs/CQIResultDTO.md
 docs/ClientResponseDTO.md
 docs/ConfigResourceApi.md
 docs/LoginRequestDTO.md
@@ -27,6 +29,10 @@ index.ts
 models/analysis-status-dto.ts
 models/analyzed-chunk-dto.ts
 models/client-response-dto.ts
+models/component-scores-dto.ts
+models/cqipenalty-dto.ts
+models/cqiresult-dto.ts
+models/filter-summary-dto.ts
 models/index.ts
 models/login-request-dto.ts
 models/orphan-commit-dto.ts

@@ -4,6 +4,7 @@ import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +54,7 @@ public class RequestResource {
     ) {
         log.info("GET request received: fetchData for exerciseId: {}", exerciseId);
 
-        String password = decryptPassword(encryptedPassword);
+        String password = CredentialUtils.decryptPassword(cryptoService, encryptedPassword);
         ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
 
         // Fallback to config if cookies are missing
@@ -118,18 +119,12 @@ public class RequestResource {
     /**
      * Decrypts the encrypted password using the CryptoService.
      *
-     * @param encryptedPassword The encrypted password
-     * @return The decrypted password, or null if decryption fails
+     * @return ResponseEntity containing the list of ClientResponseDTO
      */
-    private String decryptPassword(String encryptedPassword) {
-        if (encryptedPassword == null) {
-            return null;
-        }
-        try {
-            return cryptoService.decrypt(encryptedPassword);
-        } catch (Exception e) {
-            log.error("Failed to decrypt password from cookie", e);
-            return null;
-        }
+    @GetMapping("getData")
+    public ResponseEntity<List<ClientResponseDTO>> getData() {
+        log.info("GET request received: getData (from database)");
+        List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
+        return ResponseEntity.ok(clientResponseDTOS);
     }
 }

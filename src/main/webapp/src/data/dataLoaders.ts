@@ -1,7 +1,7 @@
-import type { Team } from '@/types/team';
+import type { Team, SubMetric } from '@/types/team';
 import { dummyTeams } from '@/data/dummyTeams';
 import config from '@/config';
-import { RequestResourceApi, type ClientResponseDTO } from '@/app/generated';
+import { RequestResourceApi, type ClientResponseDTO, type CQIResultDTO } from '@/app/generated';
 import { Configuration } from '@/app/generated/configuration';
 
 // ============================================================
@@ -28,7 +28,6 @@ const requestApi = new RequestResourceApi(apiConfig);
 // TYPES
 // ============================================================
 export type BasicTeamData = Omit<Team, 'cqi' | 'isSuspicious' | 'subMetrics'>;
-export type ComplexTeamData = Team;
 
 // ============================================================
 // DUMMY DATA HELPERS
@@ -42,7 +41,7 @@ function getBasicDummyTeams(): BasicTeamData[] {
   });
 }
 
-function getComplexDummyTeams(): ComplexTeamData[] {
+function getComplexDummyTeams(): Team[] {
   return dummyTeams;
 }
 
@@ -76,20 +75,14 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
   const students = dto.students || [];
   const totalCommits = dto.submissionCount || 0;
 
-  const studentData = students.map(student => {
-    const commits = student.commitCount || 0;
-    const linesAdded = student.linesAdded || 0;
-    const linesDeleted = student.linesDeleted || 0;
-    const linesChanged = student.linesChanged || 0;
-
-    return {
-      name: student.name || 'Unknown',
-      commits,
-      linesAdded,
-      linesDeleted,
-      linesChanged,
-    };
-  });
+  // Students are already in DTO format, just ensure defaults
+  const studentData = students.map(student => ({
+    name: student.name || 'Unknown',
+    commitCount: student.commitCount || 0,
+    linesAdded: student.linesAdded || 0,
+    linesDeleted: student.linesDeleted || 0,
+    linesChanged: student.linesChanged || 0,
+  }));
 
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
 
@@ -211,7 +204,7 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<ComplexTeam
     const response = await requestApi.fetchData(parseInt(exerciseId));
     const teamRepos = response.data;
 
-    // Transform DTOs to ComplexTeamData with mocked analysis
+    // Transform DTOs to Team with mocked analysis
     return teamRepos.map(transformToComplexTeamData);
   } catch (error) {
     console.error('Error fetching complex team data:', error);
@@ -326,7 +319,7 @@ export async function loadTeamDataProgressive(
   course: string,
   exercise: string,
   onBasicLoaded: (teams: BasicTeamData[]) => void,
-  onComplexLoaded: (teams: ComplexTeamData[]) => void,
+  onComplexLoaded: (teams: Team[]) => void,
   onError: (error: Error) => void,
 ): Promise<void> {
   try {

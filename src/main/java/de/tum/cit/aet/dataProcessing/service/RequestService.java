@@ -4,6 +4,8 @@ import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisService;
+import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
+import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
@@ -18,6 +20,20 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.*;
+
+import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
+import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
+import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
+import de.tum.cit.aet.ai.dto.CommitChunkDTO;
+import de.tum.cit.aet.ai.dto.FairnessReportDTO;
+import de.tum.cit.aet.ai.service.CommitChunkerService;
+import de.tum.cit.aet.ai.service.ContributionFairnessService;
+import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
+import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
+import de.tum.cit.aet.analysis.service.AnalysisStateService;
 
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -435,12 +451,13 @@ public class RequestService {
     public List<ClientResponseDTO> getAllRepositoryData() {
         log.info("RequestService: Initiating data extraction from database");
 
-        // Fetch all TeamParticipation records
+        // Step 1: Fetch all TeamParticipation records from database
         List<TeamParticipation> participations = teamParticipationRepository.findAll();
 
-        // Map and assemble the data into ClientResponseDTOs
+        // Step 2: Map and assemble the data into ClientResponseDTOs
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(participation -> {
+                    // Step 2a: Fetch students for this participation
                     List<Student> students = studentRepository.findAllByTeam(participation);
 
                     Tutor tutor = participation.getTutor();

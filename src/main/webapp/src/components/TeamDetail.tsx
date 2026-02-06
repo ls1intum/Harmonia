@@ -1,8 +1,8 @@
 import type { Team } from '@/types/team';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users, ClipboardCheck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, TrendingDown } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
@@ -26,6 +26,10 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
     if (cqi >= 80) return 'bg-success/10';
     if (cqi >= 60) return 'bg-warning/10';
     return 'bg-destructive/10';
+  };
+
+  const isTeamFailed = (team: Team) => {
+    return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
 
   return (
@@ -57,13 +61,13 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               <div className="space-y-2 pl-7">
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
-                    <p className="text-lg font-medium">{student.name}</p>
-                    {student.commits !== undefined &&
+                    <p className={`text-lg font-medium ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>{student.name}</p>
+                    {student.commitCount !== undefined &&
                       student.linesAdded !== undefined &&
                       student.linesDeleted !== undefined &&
                       student.linesChanged !== undefined && (
                         <p className="text-xs text-muted-foreground">
-                          {student.commits} commits • {student.linesChanged} lines changed (
+                          {student.commitCount} commits • {student.linesChanged} lines changed (
                           <span className="text-green-600">+{student.linesAdded}</span>{' '}
                           <span className="text-red-600">-{student.linesDeleted}</span>)
                         </p>
@@ -76,7 +80,12 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
               </div>
               <div className="pt-2">
-                {team.isSuspicious ? (
+                {isTeamFailed(team) ? (
+                  <Badge variant="destructive" className="gap-1.5">
+                    <AlertTriangle className="h-3 w-3" />
+                    Failed
+                  </Badge>
+                ) : team.isSuspicious ? (
                   <Badge variant="destructive" className="gap-1.5">
                     <AlertTriangle className="h-3 w-3" />
                     Suspicious Behavior Detected
