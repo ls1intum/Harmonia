@@ -48,11 +48,13 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
 
   // Check if student metadata is available (only show after analysis is complete)
   const hasStudentMetadata = (student: { commitCount?: number; linesAdded?: number; linesDeleted?: number; linesChanged?: number }) => {
-    return isAnalysisComplete &&
-           student.commitCount !== undefined &&
-           student.linesAdded !== undefined &&
-           student.linesDeleted !== undefined &&
-           student.linesChanged !== undefined;
+    return (
+      isAnalysisComplete &&
+      student.commitCount !== undefined &&
+      student.linesAdded !== undefined &&
+      student.linesDeleted !== undefined &&
+      student.linesChanged !== undefined
+    );
   };
 
   return (
@@ -84,7 +86,9 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               <div className="space-y-2 pl-7">
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
-                    <p className={`text-lg font-medium ${isAnalysisComplete && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>{student.name}</p>
+                    <p className={`text-lg font-medium ${isAnalysisComplete && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
+                      {student.name}
+                    </p>
                     {hasStudentMetadata(student) ? (
                       <p className="text-xs text-muted-foreground">
                         {student.commitCount} commits • {student.linesChanged} lines changed (
@@ -173,7 +177,9 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
 
         {team.subMetrics && team.subMetrics.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {team.subMetrics.map((metric, index) => <MetricCard key={index} metric={metric} />)}
+            {team.subMetrics.map((metric, index) => (
+              <MetricCard key={index} metric={metric} />
+            ))}
           </div>
         ) : (
           <Card className="p-8 flex items-center justify-center">

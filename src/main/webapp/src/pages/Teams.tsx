@@ -13,7 +13,11 @@ export default function Teams() {
   const { course, exercise } = location.state || {};
 
   // Use new server-synced status hook
-  const { status, refetch: refetchStatus, isLoading: isStatusLoading } = useAnalysisStatus({
+  const {
+    status,
+    refetch: refetchStatus,
+    isLoading: isStatusLoading,
+  } = useAnalysisStatus({
     exerciseId: exercise,
     enabled: !!exercise,
   });
@@ -56,7 +60,7 @@ export default function Teams() {
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
-          () => { }, // onTotal
+          () => {}, // onTotal
           // onInit: Add team with pending status
           team => {
             queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
@@ -142,7 +146,7 @@ export default function Teams() {
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
-          () => { },
+          () => {},
           team => {
             queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
               const exists = old.some(t => t.id === (team as unknown as Team).id);

@@ -88,19 +88,14 @@ export function ActivityLog({ status }: ActivityLogProps) {
 
             {/* Progress Bar */}
             <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out" style={{ width: `${progress}%` }} />
             </div>
           </div>
         )}
 
         {/* Error Message */}
         {status.state === 'ERROR' && (
-          <div className="px-3 py-2 bg-destructive/10 rounded text-sm text-destructive">
-            {status.errorMessage}
-          </div>
+          <div className="px-3 py-2 bg-destructive/10 rounded text-sm text-destructive">{status.errorMessage}</div>
         )}
       </div>
     </Card>
