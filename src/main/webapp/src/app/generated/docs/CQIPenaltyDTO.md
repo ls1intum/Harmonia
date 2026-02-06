@@ -1,12 +1,13 @@
 # CQIPenaltyDTO
 
+
 ## Properties
 
-| Name           | Type       | Description | Notes                             |
-| -------------- | ---------- | ----------- | --------------------------------- |
-| **multiplier** | **number** |             | [optional] [default to undefined] |
-| **reason**     | **string** |             | [optional] [default to undefined] |
-| **type**       | **string** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**multiplier** | **number** |  | [optional] [default to undefined]
+**reason** | **string** |  | [optional] [default to undefined]
+**type** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -14,9 +15,9 @@
 import { CQIPenaltyDTO } from './api';
 
 const instance: CQIPenaltyDTO = {
-  multiplier,
-  reason,
-  type,
+    multiplier,
+    reason,
+    type,
 };
 ```
 
