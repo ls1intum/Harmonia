@@ -162,6 +162,10 @@ public class ContributionFairnessService {
                     duration,
                     cqiResult);
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Preserve interrupt status
+            log.info("Fairness analysis cancelled for team {}", teamName);
+            return FairnessReportDTO.error(teamName, "Analysis cancelled");
         } catch (Exception e) {
             log.error("Fairness analysis failed for team {}: {}", teamName, e.getMessage(), e);
             return FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage());
@@ -262,10 +266,16 @@ public class ContributionFairnessService {
         return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails, commitToEmail);
     }
 
-    private List<RatedChunk> rateChunks(List<CommitChunkDTO> chunks) {
-        return chunks.stream()
-                .map(chunk -> new RatedChunk(chunk, commitEffortRaterService.rateChunk(chunk)))
-                .toList();
+    private List<RatedChunk> rateChunks(List<CommitChunkDTO> chunks) throws InterruptedException {
+        List<RatedChunk> ratedChunks = new ArrayList<>();
+        for (CommitChunkDTO chunk : chunks) {
+            // Check if cancelled
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Analysis cancelled during chunk rating");
+            }
+            ratedChunks.add(new RatedChunk(chunk, commitEffortRaterService.rateChunk(chunk)));
+        }
+        return ratedChunks;
     }
 
     private Map<Long, AuthorStats> aggregateStats(List<RatedChunk> ratedChunks) {

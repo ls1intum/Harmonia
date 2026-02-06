@@ -91,7 +91,7 @@ class ContributionFairnessServiceTest {
     }
 
     @Test
-    void testAnalyzeFairness_unevenDistribution() {
+    void testAnalyzeFairness_unevenDistribution() throws InterruptedException {
         List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
         when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
         when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
@@ -119,7 +119,7 @@ class ContributionFairnessServiceTest {
     }
 
     @Test
-    void testAnalyzeFairness_balanced() {
+    void testAnalyzeFairness_balanced() throws InterruptedException {
         List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
         when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
         when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
@@ -145,7 +145,7 @@ class ContributionFairnessServiceTest {
     }
 
     @Test
-    void testAnalyzeFairness_soloContributor() {
+    void testAnalyzeFairness_soloContributor() throws InterruptedException {
         List<CommitChunkDTO> chunks = List.of(chunkA);
         when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
         when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);

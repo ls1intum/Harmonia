@@ -6,19 +6,13 @@ import de.tum.cit.aet.ai.dto.CommitClassificationDTO;
 import de.tum.cit.aet.ai.dto.CommitClassificationRequestDTO;
 import de.tum.cit.aet.ai.service.AnomalyDetectorService;
 import de.tum.cit.aet.ai.service.CommitClassifierService;
-import de.tum.cit.aet.core.config.AiProperties;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,55 +29,13 @@ public class AiResource {
     private final ChatClient chatClient;
     private final CommitClassifierService commitClassifierService;
     private final AnomalyDetectorService anomalyDetectorService;
-    private final AiProperties aiProperties;
 
     public AiResource(ChatClient chatClient, CommitClassifierService commitClassifierService,
-            AnomalyDetectorService anomalyDetectorService, AiProperties aiProperties) {
+            AnomalyDetectorService anomalyDetectorService) {
         this.chatClient = chatClient;
         this.commitClassifierService = commitClassifierService;
         this.anomalyDetectorService = anomalyDetectorService;
-        this.aiProperties = aiProperties;
     }
-
-    /**
-     * Get the currently selected model.
-     *
-     * @return current model name
-     */
-    @GetMapping("model")
-    public ResponseEntity<?> getCurrentModel() {
-        String currentModel = aiProperties.getCommitClassifier().getModelName();
-        Map<String, String> response = new HashMap<>();
-        response.put("model", currentModel);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Set the active LLM model for analysis.
-     *
-     * @param request containing the model ID to use
-     * @return confirmation of the change
-     */
-    @PostMapping("model")
-    public ResponseEntity<?> setActiveModel(@RequestBody Map<String, String> request) {
-        String modelId = request.get("model");
-        if (modelId == null || modelId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Model ID is required"));
-        }
-
-        setModel(modelId);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Model updated successfully",
-                "model", modelId));
-    }
-
-    private void setModel(String modelId) {
-        log.info("Setting active AI model to: {}", modelId);
-        aiProperties.getCommitClassifier().setModelName(modelId);
-        aiProperties.getAnomalyDetector().setModelName(modelId);
-    }
-
 
     /**
      * Example endpoint to generate a story based on the provided message. (Must be

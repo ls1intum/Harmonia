@@ -27,7 +27,7 @@ public class AnalysisStateService {
     }
 
     /**
-     * On startup, set any RUNNING states to PAUSED (preserving progress).
+     * On startup, set any RUNNING states to CANCELLED.
      * This handles the case where the server was restarted during an analysis.
      */
     @PostConstruct
@@ -35,13 +35,13 @@ public class AnalysisStateService {
     public void cleanupOrphanedAnalyses() {
         List<AnalysisStatus> runningAnalyses = statusRepository.findByState(AnalysisState.RUNNING);
         if (!runningAnalyses.isEmpty()) {
-            log.info("Found {} orphaned RUNNING analyses, setting to PAUSED to preserve progress",
+            log.info("Found {} orphaned RUNNING analyses, setting to CANCELLED",
                     runningAnalyses.size());
             for (AnalysisStatus status : runningAnalyses) {
-                status.setState(AnalysisState.PAUSED);
+                status.setState(AnalysisState.CANCELLED);
                 status.setLastUpdatedAt(Instant.now());
                 statusRepository.save(status);
-                log.info("Paused orphaned analysis for exercise {} (processed: {}/{})",
+                log.info("Cancelled orphaned analysis for exercise {} (processed: {}/{})",
                         status.getExerciseId(), status.getProcessedTeams(), status.getTotalTeams());
             }
         }
@@ -63,10 +63,10 @@ public class AnalysisStateService {
     }
 
     /**
-     * Start an analysis for the given exercise. If paused, resumes from where it left off.
+     * Start an analysis for the given exercise. Always starts fresh.
      *
      * @param exerciseId The ID of the exercise
-     * @param totalTeams The total number of teams to process (only used if starting fresh)
+     * @param totalTeams The total number of teams to process
      * @return The updated analysis status
      * @throws IllegalStateException if analysis is already running
      */
@@ -79,16 +79,7 @@ public class AnalysisStateService {
             throw new IllegalStateException("Analysis is already running for exercise " + exerciseId);
         }
 
-        // If paused, resume instead of starting fresh
-        if (status.getState() == AnalysisState.PAUSED) {
-            status.setState(AnalysisState.RUNNING);
-            status.setLastUpdatedAt(Instant.now());
-            log.info("Resuming analysis for exercise {} from {} teams processed",
-                    exerciseId, status.getProcessedTeams());
-            return statusRepository.save(status);
-        }
-
-        // Starting fresh
+        // Always start fresh
         status.setState(AnalysisState.RUNNING);
         status.setTotalTeams(totalTeams);
         status.setProcessedTeams(0);
@@ -114,19 +105,47 @@ public class AnalysisStateService {
      */
     @Transactional
     public AnalysisStatus updateProgress(Long exerciseId, String teamName, String stage, int processed) {
-        AnalysisStatus status = statusRepository.findById(exerciseId)
-                .orElseThrow(() -> new IllegalStateException("No analysis found for exercise " + exerciseId));
+        AnalysisStatus status = statusRepository.findById(exerciseId).orElse(null);
 
-        if (status.getState() != AnalysisState.RUNNING) {
-            throw new IllegalStateException("Analysis is not running for exercise " + exerciseId);
+        // Gracefully handle missing or non-running analysis (e.g., cancelled
+        // mid-processing)
+        if (status == null) {
+            log.debug("No analysis found for exercise {} - skipping progress update", exerciseId);
+            return null;
         }
 
-        status.setCurrentTeamName(teamName);
+        if (status.getState() != AnalysisState.RUNNING) {
+            log.debug("Analysis is not running for exercise {} (state: {}) - skipping progress update",
+                    exerciseId, status.getState());
+            return status;
+        }
+
+        if ("DONE".equals(stage)) {
+            if (teamName != null) {
+                // If finishing a team, clear the current team name ONLY if it matches the one
+                // we just finished.
+                statusRepository.updateProgressAndClearNameIfMatching(exerciseId, teamName, stage, processed);
+
+                if (teamName.equals(status.getCurrentTeamName())) {
+                    status.setCurrentTeamName(null);
+                }
+            } else {
+                statusRepository.updateProgress(exerciseId, stage, processed);
+            }
+        } else {
+            // Not DONE (Downloading / Analyzing)
+            if (teamName != null) {
+                // Set the current team name (overwrite)
+                statusRepository.updateProgressAndName(exerciseId, teamName, stage, processed);
+                status.setCurrentTeamName(teamName);
+            } else {
+                statusRepository.updateProgress(exerciseId, stage, processed);
+            }
+        }
+
         status.setCurrentStage(stage);
         status.setProcessedTeams(processed);
-        status.setLastUpdatedAt(Instant.now());
-
-        return statusRepository.save(status);
+        return status;
     }
 
     /**
@@ -172,7 +191,7 @@ public class AnalysisStateService {
     }
 
     /**
-     * Cancel/pause a running analysis. Sets state to PAUSED to preserve progress.
+     * Cancel a running analysis. Sets state to CANCELLED.
      * Safe to call even if not running.
      *
      * @param exerciseId The ID of the exercise
@@ -187,10 +206,9 @@ public class AnalysisStateService {
         }
 
         if (status.getState() == AnalysisState.RUNNING) {
-            // Pause instead of reset to preserve progress
-            status.setState(AnalysisState.PAUSED);
+            status.setState(AnalysisState.CANCELLED);
             status.setLastUpdatedAt(Instant.now());
-            log.info("Cancelled/paused analysis for exercise {} (preserving progress: {}/{})",
+            log.info("Cancelled analysis for exercise {} (processed: {}/{})",
                     exerciseId, status.getProcessedTeams(), status.getTotalTeams());
             return statusRepository.save(status);
         }

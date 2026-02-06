@@ -33,6 +33,8 @@ import {
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
 import type { ClientResponseDTO } from '../models';
+// @ts-ignore
+import type { SseEmitter } from '../models';
 /**
  * RequestResourceApi - axios parameter creator
  */
@@ -85,11 +87,14 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
     },
     /**
      *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getData: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      const localVarPath = `/api/requestResource/getData`;
+    getData: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('getData', 'exerciseId', exerciseId);
+      const localVarPath = `/api/requestResource/{exerciseId}/getData`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -100,6 +105,111 @@ export const RequestResourceApiAxiosParamCreator = function (configuration?: Con
       const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getTeamsByExercise: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('getTeamsByExercise', 'exerciseId', exerciseId);
+      const localVarPath = `/api/requestResource/teams/{exerciseId}`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    hasAnalyzedData: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('hasAnalyzedData', 'exerciseId', exerciseId);
+      const localVarPath = `/api/requestResource/hasData/{exerciseId}`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    streamAnalysis: async (
+      exerciseId: number,
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('streamAnalysis', 'exerciseId', exerciseId);
+      const localVarPath = `/api/requestResource/stream`;
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      if (exerciseId !== undefined) {
+        localVarQueryParameter['exerciseId'] = exerciseId;
+      }
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -152,15 +262,81 @@ export const RequestResourceApiFp = function (configuration?: Configuration) {
     },
     /**
      *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async getData(
+      exerciseId: number,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.getData(options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getData(exerciseId, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath = operationServerMap['RequestResourceApi.getData']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async getTeamsByExercise(
+      exerciseId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getTeamsByExercise(exerciseId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['RequestResourceApi.getTeamsByExercise']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async hasAnalyzedData(
+      exerciseId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<boolean>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.hasAnalyzedData(exerciseId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath = operationServerMap['RequestResourceApi.hasAnalyzedData']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async streamAnalysis(
+      exerciseId: number,
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SseEmitter>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.streamAnalysis(
+        exerciseId,
+        jwt,
+        artemisServerUrl,
+        artemisUsername,
+        artemisPassword,
+        options,
+      );
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath = operationServerMap['RequestResourceApi.streamAnalysis']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
@@ -197,11 +373,52 @@ export const RequestResourceApiFactory = function (configuration?: Configuration
     },
     /**
      *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getData(options?: RawAxiosRequestConfig): AxiosPromise<Array<ClientResponseDTO>> {
-      return localVarFp.getData(options).then(request => request(axios, basePath));
+    getData(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<Array<ClientResponseDTO>> {
+      return localVarFp.getData(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getTeamsByExercise(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<Array<ClientResponseDTO>> {
+      return localVarFp.getTeamsByExercise(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    hasAnalyzedData(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<boolean> {
+      return localVarFp.hasAnalyzedData(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {string} [jwt]
+     * @param {string} [artemisServerUrl]
+     * @param {string} [artemisUsername]
+     * @param {string} [artemisPassword]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    streamAnalysis(
+      exerciseId: number,
+      jwt?: string,
+      artemisServerUrl?: string,
+      artemisUsername?: string,
+      artemisPassword?: string,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<SseEmitter> {
+      return localVarFp
+        .streamAnalysis(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+        .then(request => request(axios, basePath));
     },
   };
 };
@@ -235,12 +452,60 @@ export class RequestResourceApi extends BaseAPI {
 
   /**
    *
+   * @param {number} exerciseId
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getData(options?: RawAxiosRequestConfig) {
+  public getData(exerciseId: number, options?: RawAxiosRequestConfig) {
     return RequestResourceApiFp(this.configuration)
-      .getData(options)
+      .getData(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public getTeamsByExercise(exerciseId: number, options?: RawAxiosRequestConfig) {
+    return RequestResourceApiFp(this.configuration)
+      .getTeamsByExercise(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public hasAnalyzedData(exerciseId: number, options?: RawAxiosRequestConfig) {
+    return RequestResourceApiFp(this.configuration)
+      .hasAnalyzedData(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {string} [jwt]
+   * @param {string} [artemisServerUrl]
+   * @param {string} [artemisUsername]
+   * @param {string} [artemisPassword]
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public streamAnalysis(
+    exerciseId: number,
+    jwt?: string,
+    artemisServerUrl?: string,
+    artemisUsername?: string,
+    artemisPassword?: string,
+    options?: RawAxiosRequestConfig,
+  ) {
+    return RequestResourceApiFp(this.configuration)
+      .streamAnalysis(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
       .then(request => request(this.axios, this.basePath));
   }
 }

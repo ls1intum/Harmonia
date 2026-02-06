@@ -11,4 +11,11 @@ import java.util.UUID;
 @Repository
 public interface StudentRepository extends JpaRepository<Student, UUID> {
     List<Student> findAllByTeam(TeamParticipation participation);
+
+    /**
+     * Delete all students for a given team participation.
+     *
+     * @param participation the team participation to delete students for
+     */
+    void deleteAllByTeam(TeamParticipation participation);
 }

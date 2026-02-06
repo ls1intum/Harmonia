@@ -27,6 +27,7 @@ import type { StudentAnalysisDTO } from './student-analysis-dto';
 
 export interface ClientResponseDTO {
   analysisHistory?: Array<AnalyzedChunkDTO>;
+  analysisStatus?: ClientResponseDTOAnalysisStatusEnum;
   cqi?: number;
   cqiDetails?: CQIResultDTO;
   isSuspicious?: boolean;
@@ -37,3 +38,14 @@ export interface ClientResponseDTO {
   teamName?: string;
   tutor?: string;
 }
+
+export const ClientResponseDTOAnalysisStatusEnum = {
+  Pending: 'PENDING',
+  Analyzing: 'ANALYZING',
+  Done: 'DONE',
+  Error: 'ERROR',
+  Cancelled: 'CANCELLED',
+} as const;
+
+export type ClientResponseDTOAnalysisStatusEnum =
+  (typeof ClientResponseDTOAnalysisStatusEnum)[keyof typeof ClientResponseDTOAnalysisStatusEnum];

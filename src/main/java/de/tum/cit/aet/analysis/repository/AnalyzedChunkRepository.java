@@ -28,4 +28,11 @@ public interface AnalyzedChunkRepository extends JpaRepository<AnalyzedChunk, UU
      * @param participation the team participation to delete chunks for
      */
     void deleteByParticipation(TeamParticipation participation);
+
+    /**
+     * Delete all chunks for a given participation (alias).
+     *
+     * @param participation the team participation to delete chunks for
+     */
+    void deleteAllByParticipation(TeamParticipation participation);
 }

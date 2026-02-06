@@ -21,7 +21,7 @@ async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> 
 
   // Validate and cast state to the expected type
   const state = data.state as AnalysisStatus['state'];
-  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'PAUSED', 'DONE', 'ERROR'];
+  const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'CANCELLED', 'DONE', 'ERROR'];
   const finalState = validStates.includes(state) ? state : 'IDLE';
 
   return {
@@ -56,7 +56,7 @@ interface UseAnalysisStatusOptions {
 
 /**
  * Hook to poll server for analysis status.
- * Polls every 2 seconds when analysis is RUNNING, otherwise every 10 seconds.
+ * Polls every 1 second when analysis is RUNNING, otherwise every 10 seconds.
  */
 export function useAnalysisStatus({ exerciseId, enabled = true }: UseAnalysisStatusOptions) {
   const query = useQuery({
@@ -66,12 +66,12 @@ export function useAnalysisStatus({ exerciseId, enabled = true }: UseAnalysisSta
     // Poll faster when running
     refetchInterval: query => {
       const status = query.state.data;
-      if (status?.state === 'RUNNING' || status?.state === 'PAUSED') {
-        return 2000; // 2 seconds when running or paused
+      if (status?.state === 'RUNNING') {
+        return 1000; // 1 second when running for responsive team name updates
       }
       return 10000; // 10 seconds otherwise
     },
-    staleTime: 1000, // Consider data stale after 1 second
+    staleTime: 500, // Consider data stale after 0.5 second
   });
 
   return {

@@ -59,12 +59,26 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
           setTotalRepos(total);
         }
       },
+      // onInit: Add team with pending status (no CQI yet)
       team => {
         streamedTeams.push(team);
         if (mounted) {
-          setProcessedRepos(streamedTeams.length);
-          // Update React Query cache in real-time
-          queryClient.setQueryData(['teams', exercise], streamedTeams);
+          // Update React Query cache with pending teams
+          queryClient.setQueryData(['teams', exercise], [...streamedTeams]);
+        }
+      },
+      // onUpdate: Replace with analyzed team data
+      team => {
+        const index = streamedTeams.findIndex(t => t.id === team.id);
+        if (index !== -1) {
+          streamedTeams[index] = team;
+        } else {
+          streamedTeams.push(team);
+        }
+        if (mounted) {
+          setProcessedRepos(prev => prev + 1);
+          // Update React Query cache with analyzed data
+          queryClient.setQueryData(['teams', exercise], [...streamedTeams]);
         }
       },
       () => {
@@ -72,7 +86,7 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
           setIsStreaming(false);
         }
       },
-      error => {
+      (error: unknown) => {
         if (mounted) {
           setIsStreaming(false);
           toast({
