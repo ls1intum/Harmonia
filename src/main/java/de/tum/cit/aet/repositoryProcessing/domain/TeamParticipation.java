@@ -25,6 +25,9 @@ public class TeamParticipation {
     @Column(name = "artemis_team_id")
     private Long team;
 
+    @Column(name = "exercise_id")
+    private Long exerciseId;
+
     @ManyToOne
     @JoinColumn(name = "tutor_id")
     private Tutor tutor;

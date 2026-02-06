@@ -22,8 +22,8 @@ export default function Teams() {
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
-      // Fetch already-analyzed teams from database
-      const response = await fetch('/api/requestResource/getData');
+      // Fetch already-analyzed teams from database (filtered by exerciseId)
+      const response = await fetch(`/api/requestResource/${exercise}/getData`);
       if (!response.ok) return [];
       const data = await response.json();
       // Transform to Team type
@@ -38,14 +38,22 @@ export default function Teams() {
   const startMutation = useMutation({
     mutationFn: async () => {
       toast({ title: 'Starting analysis...' });
+      // Clear existing teams before starting fresh
+      queryClient.setQueryData(['teams', exercise], []);
       // Start streaming
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
-          () => {}, // onTotal
+          () => { }, // onTotal
+          // onInit: Add team with pending status
           team => {
-            // Update cache with new team
             queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => [...old, team as unknown as Team]);
+          },
+          // onUpdate: Replace existing team with analyzed data
+          team => {
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) =>
+              old.map(t => (t.id === (team as unknown as Team).id ? (team as unknown as Team) : t)),
+            );
           },
           () => {
             refetchStatus();

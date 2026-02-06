@@ -41,8 +41,10 @@ public class AnalysisResource {
     }
 
     /**
-     * Cancel a running analysis. This will pause the analysis and preserve progress.
-     * The analysis thread will check the state and exit gracefully when it sees PAUSED.
+     * Cancel a running analysis. This will pause the analysis and preserve
+     * progress.
+     * The analysis thread will check the state and exit gracefully when it sees
+     * PAUSED.
      *
      * @param exerciseId the id of the exercise
      * @return the updated status DTO
@@ -72,7 +74,7 @@ public class AnalysisResource {
 
         try {
             if ("db".equals(type) || "both".equals(type)) {
-                requestService.clearDatabase();
+                requestService.clearDatabaseForExercise(exerciseId);
                 stateService.resetStatus(exerciseId);
                 log.info("Database cleared for exercise {}", exerciseId);
             }

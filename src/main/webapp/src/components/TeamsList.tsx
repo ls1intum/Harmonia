@@ -8,6 +8,7 @@ import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TeamsListProps {
   teams: Team[];
@@ -63,9 +64,16 @@ const TeamsList = ({
     }
   };
 
-  // Helper to determine if a team is 'failed' (any student with commitCount < 10)
+  // Helper to determine if a team is 'failed' (any student with <10 commits)
   const isTeamFailed = (team: Team) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
+  };
+
+  // Get tooltip text explaining why a team failed
+  const getFailedReason = (team: Team) => {
+    const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
+    if (failedStudents.length === 0) return '';
+    return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
   };
 
   const sortedAndFilteredTeams = useMemo(() => {
@@ -203,13 +211,26 @@ const TeamsList = ({
 
       {courseAverages && (
         <Card className="p-6 shadow-card">
-          <h3 className="text-lg font-semibold mb-4">Course Averages</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Course Averages</h3>
+            {courseAverages.analyzedTeams < courseAverages.totalTeams && (
+              <span className="text-sm text-muted-foreground">
+                {courseAverages.analyzedTeams} of {courseAverages.totalTeams} teams analyzed
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Average CQI</p>
               <div className="flex items-baseline gap-2">
-                <p className={`text-3xl font-bold ${getCQIColor(courseAverages.avgCQI)}`}>{courseAverages.avgCQI}</p>
-                <span className="text-sm text-muted-foreground">/ 100</span>
+                {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                  <p className="text-3xl font-bold text-amber-500">Pending</p>
+                ) : (
+                  <>
+                    <p className={`text-3xl font-bold ${getCQIColor(courseAverages.avgCQI)}`}>{courseAverages.avgCQI}</p>
+                    <span className="text-sm text-muted-foreground">/ 100</span>
+                  </>
+                )}
               </div>
             </div>
             <div className="space-y-1">
@@ -223,12 +244,18 @@ const TeamsList = ({
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Suspicious Teams</p>
               <div className="flex items-baseline gap-2">
-                <p className={`text-3xl font-bold ${courseAverages.suspiciousPercentage > 30 ? 'text-destructive' : 'text-success'}`}>
-                  {courseAverages.suspiciousPercentage}%
-                </p>
-                <span className="text-sm text-muted-foreground">
-                  ({teams.filter(t => t.isSuspicious).length} of {courseAverages.totalTeams})
-                </span>
+                {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                  <p className="text-3xl font-bold text-amber-500">Pending</p>
+                ) : (
+                  <>
+                    <p className={`text-3xl font-bold ${courseAverages.suspiciousPercentage > 30 ? 'text-destructive' : 'text-success'}`}>
+                      {courseAverages.suspiciousPercentage}%
+                    </p>
+                    <span className="text-sm text-muted-foreground">
+                      ({teams.filter(t => t.isSuspicious).length} of {courseAverages.totalTeams})
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -318,24 +345,42 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     {team.isSuspicious !== undefined ? (
                       isTeamFailed(team) ? (
-                        <Badge variant="destructive" className="gap-1.5">
-                          <AlertTriangle className="h-3 w-3" />
-                          Failed
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="gap-1.5 cursor-help">
+                                <AlertTriangle className="h-3 w-3" />
+                                Failed
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>{getFailedReason(team)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       ) : team.isSuspicious ? (
-                        <Badge variant="destructive" className="gap-1.5">
-                          <AlertTriangle className="h-3 w-3" />
-                          Suspicious
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="gap-1.5 cursor-help">
+                                <AlertTriangle className="h-3 w-3" />
+                                Suspicious
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Suspicious collaboration patterns detected during analysis</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       ) : (
                         <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
                           Normal
                         </Badge>
                       )
                     ) : (
-                      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+                      <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
                         <RefreshCw className="h-3 w-3 animate-spin" />
-                        Analyzing
+                        Pending
                       </Badge>
                     )}
                   </td>

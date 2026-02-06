@@ -112,59 +112,59 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   // Generate sub-metrics from CQI details if available, or undefined if CQI not calculated
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? [
-        {
-          name: 'Effort Balance',
-          value: Math.round(serverCqiDetails.components.effortBalance ?? 0),
-          weight: 40,
-          description: 'Is effort distributed fairly among team members?',
-          details: 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
-        },
-        {
-          name: 'Lines of Code Balance',
-          value: Math.round(serverCqiDetails.components.locBalance ?? 0),
-          weight: 25,
-          description: 'Are code contributions balanced?',
-          details: 'Measures the distribution of lines added/deleted across team members.',
-        },
-        {
-          name: 'Temporal Spread',
-          value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
-          weight: 20,
-          description: 'Is work spread over time or crammed at deadline?',
-          details: 'Higher scores mean work was spread consistently throughout the project period.',
-        },
-        {
-          name: 'File Ownership Spread',
-          value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
-          weight: 15,
-          description: 'Are files owned by multiple team members?',
-          details: 'Measures how well files are shared among team members (based on git blame analysis).',
-        },
-      ]
+      {
+        name: 'Effort Balance',
+        value: Math.round(serverCqiDetails.components.effortBalance ?? 0),
+        weight: 40,
+        description: 'Is effort distributed fairly among team members?',
+        details: 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
+      },
+      {
+        name: 'Lines of Code Balance',
+        value: Math.round(serverCqiDetails.components.locBalance ?? 0),
+        weight: 25,
+        description: 'Are code contributions balanced?',
+        details: 'Measures the distribution of lines added/deleted across team members.',
+      },
+      {
+        name: 'Temporal Spread',
+        value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
+        weight: 20,
+        description: 'Is work spread over time or crammed at deadline?',
+        details: 'Higher scores mean work was spread consistently throughout the project period.',
+      },
+      {
+        name: 'File Ownership Spread',
+        value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
+        weight: 15,
+        description: 'Are files owned by multiple team members?',
+        details: 'Measures how well files are shared among team members (based on git blame analysis).',
+      },
+    ]
     : cqi !== undefined
       ? [
-          {
-            name: 'Contribution Balance',
-            value: cqi,
-            weight: 40,
-            description: 'Are teammates contributing at similar levels?',
-            details: 'Calculated from commit distribution.',
-          },
-          {
-            name: 'Ownership Distribution',
-            value: 0,
-            weight: 30,
-            description: 'Are key files shared rather than monopolized?',
-            details: 'Calculated from git blame analysis.',
-          },
-          {
-            name: 'Pairing Signals',
-            value: 0,
-            weight: 30,
-            description: 'Did teammates actually work together?',
-            details: 'Not yet implemented.',
-          },
-        ]
+        {
+          name: 'Contribution Balance',
+          value: cqi,
+          weight: 40,
+          description: 'Are teammates contributing at similar levels?',
+          details: 'Calculated from commit distribution.',
+        },
+        {
+          name: 'Ownership Distribution',
+          value: 0,
+          weight: 30,
+          description: 'Are key files shared rather than monopolized?',
+          details: 'Calculated from git blame analysis.',
+        },
+        {
+          name: 'Pairing Signals',
+          value: 0,
+          weight: 30,
+          description: 'Did teammates actually work together?',
+          details: 'Not yet implemented.',
+        },
+      ]
       : undefined;
 
   // Use analysis history directly from server (already in correct DTO format)
@@ -223,10 +223,20 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
 /**
  * Fetch a single team by ID from server
  */
-async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
+async function fetchTeamByIdFromServer(teamId: string, exerciseId?: string): Promise<Team | null> {
   try {
-    const response = await requestApi.getData();
-    const teamRepo = response.data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
+    // Use exercise-specific endpoint if exerciseId is provided
+    const url = exerciseId
+      ? `/api/requestResource/${exerciseId}/getData`
+      : `/api/requestResource/getData`;
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const data: ClientResponseDTO[] = await response.json();
+    const teamRepo = data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
     return teamRepo ? transformToComplexTeamData(teamRepo) : null;
   } catch (error) {
     console.error('Error fetching team by ID from server:', error);
@@ -240,10 +250,16 @@ async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
 
 /**
  * Stream team data from server via SSE
+ * The streaming flow is:
+ * 1. START - total count of teams
+ * 2. INIT - each team with pending status (no CQI)
+ * 3. UPDATE - each team with analyzed data (with CQI)
+ * 4. DONE - analysis complete
  */
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
+  onInit: (team: Team) => void,
   onUpdate: (team: Team) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
@@ -252,6 +268,11 @@ export function loadBasicTeamDataStream(
     // Simulate streaming for dummy data
     const teams = getComplexDummyTeams();
     onStart(teams.length);
+    // First send all as pending
+    for (const team of teams) {
+      onInit({ ...team, cqi: undefined, isSuspicious: undefined });
+    }
+    // Then simulate analysis updates
     let i = 0;
     const interval = setInterval(() => {
       if (i < teams.length) {
@@ -274,6 +295,9 @@ export function loadBasicTeamDataStream(
       const data = JSON.parse(event.data);
       if (data.type === 'START') {
         onStart(data.total);
+      } else if (data.type === 'INIT') {
+        // Teams arriving with pending status (no CQI yet)
+        onInit(transformToComplexTeamData(data.data));
       } else if (data.type === 'UPDATE') {
         // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
         onUpdate(transformToComplexTeamData(data.data));

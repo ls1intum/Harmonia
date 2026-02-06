@@ -63,10 +63,12 @@ public class AnalysisStateService {
     }
 
     /**
-     * Start an analysis for the given exercise. If paused, resumes from where it left off.
+     * Start an analysis for the given exercise. If paused, resumes from where it
+     * left off.
      *
      * @param exerciseId The ID of the exercise
-     * @param totalTeams The total number of teams to process (only used if starting fresh)
+     * @param totalTeams The total number of teams to process (only used if starting
+     *                   fresh)
      * @return The updated analysis status
      * @throws IllegalStateException if analysis is already running
      */
@@ -121,7 +123,13 @@ public class AnalysisStateService {
             throw new IllegalStateException("Analysis is not running for exercise " + exerciseId);
         }
 
-        status.setCurrentTeamName(teamName);
+        // Clear team name when a team is done to avoid showing completed team as "in
+        // progress"
+        if ("DONE".equals(stage)) {
+            status.setCurrentTeamName(null);
+        } else {
+            status.setCurrentTeamName(teamName);
+        }
         status.setCurrentStage(stage);
         status.setProcessedTeams(processed);
         status.setLastUpdatedAt(Instant.now());

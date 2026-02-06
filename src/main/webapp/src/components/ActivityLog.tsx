@@ -92,7 +92,7 @@ export function ActivityLog({ status }: ActivityLogProps) {
         </Button>
       </button>
 
-      {isExpanded && status.state === 'RUNNING' && status.currentTeamName && (
+      {isExpanded && status.state === 'RUNNING' && status.currentTeamName && status.currentStage !== 'DONE' && (
         <div className="px-3 pb-3 pt-0 border-t">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
             {getStageIcon()}

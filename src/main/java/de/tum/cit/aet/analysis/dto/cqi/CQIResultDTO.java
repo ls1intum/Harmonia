@@ -18,20 +18,20 @@ public record CQIResultDTO(
         List<CQIPenaltyDTO> penalties,
         double baseScore,
         double penaltyMultiplier,
-        FilterSummaryDTO filterSummary
-) {
+        FilterSummaryDTO filterSummary) {
     /**
      * Create result for single contributor (no collaboration possible).
+     * Returns a low but non-zero score (30) to indicate collaboration issues.
      */
     public static CQIResultDTO singleContributor() {
         return new CQIResultDTO(
-                0.0,
+                30.0, // Low but non-zero CQI
                 ComponentScoresDTO.zero(),
-                List.of(new CQIPenaltyDTO("SINGLE_CONTRIBUTOR", 0.0, "Only one contributor - no collaboration possible")),
-                0.0,
-                0.0,
-                null
-        );
+                List.of(new CQIPenaltyDTO("SINGLE_CONTRIBUTOR", 0.3,
+                        "Only one contributor - collaboration quality affected")),
+                100.0, // Base score (if there was collaboration)
+                0.3, // 70% penalty for single contributor
+                null);
     }
 
     /**
@@ -44,8 +44,7 @@ public record CQIResultDTO(
                 List.of(new CQIPenaltyDTO("NO_PRODUCTIVE_WORK", 0.0, "All commits were filtered as non-productive")),
                 0.0,
                 0.0,
-                filterSummary
-        );
+                filterSummary);
     }
 
     /**
@@ -58,7 +57,6 @@ public record CQIResultDTO(
                 List.of(new CQIPenaltyDTO("LLM_FALLBACK", 1.0, "LLM analysis failed - using LoC-only calculation")),
                 locScore,
                 1.0,
-                filterSummary
-        );
+                filterSummary);
     }
 }

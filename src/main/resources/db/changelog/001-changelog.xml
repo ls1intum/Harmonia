@@ -191,4 +191,13 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="1736466000-3" author="Aniruddh">
+        <addColumn tableName="participations">
+            <column name="exercise_id" type="BIGINT"/>
+        </addColumn>
+        <createIndex tableName="participations" indexName="idx_participations_exercise">
+            <column name="exercise_id"/>
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

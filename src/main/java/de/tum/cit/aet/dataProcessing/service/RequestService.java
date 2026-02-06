@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -113,7 +114,7 @@ public class RequestService {
      * @return List of ClientResponseDTO with analysis results
      */
     public List<ClientResponseDTO> fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId,
-                                                                   int maxTeams) {
+            int maxTeams) {
         log.info("=== Starting Analysis Pipeline ===");
         log.info("Exercise ID: {}", exerciseId);
         log.info("Max teams to analyze: {}", maxTeams == Integer.MAX_VALUE ? "ALL" : maxTeams);
@@ -134,7 +135,7 @@ public class RequestService {
 
         // Step 4: Save results to the database
         log.info("Saving results to database...");
-        List<ClientResponseDTO> results = saveResults(repositories, contributionData);
+        List<ClientResponseDTO> results = saveResults(repositories, contributionData, exerciseId);
 
         log.info("=== Analysis Pipeline Complete ===");
         log.info("Total teams analyzed: {}", results.size());
@@ -171,17 +172,19 @@ public class RequestService {
      * @param repositories     List of TeamRepositoryDTO to be saved
      * @param contributionData Map of Participant ID to an array of contribution
      *                         metrics (e.g., lines added, lines deleted)
+     * @param exerciseId       The Artemis exercise ID for this analysis
      * @return List of ClientResponseDTO with saved results
      */
-    public List<ClientResponseDTO> saveResults(List<TeamRepositoryDTO> repositories, Map<Long, AuthorContributionDTO> contributionData) {
-        // Step 1: Clear existing data in database (full refresh approach)
-        // TODO: Implement a better strategy for updating existing records instead of deleting all data
-        clearDatabase();
+    public List<ClientResponseDTO> saveResults(List<TeamRepositoryDTO> repositories,
+            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+        // Note: We no longer clear the database here since we have exercise-specific
+        // filtering. Users can manually clear data using the "Clear Data" button which
+        // calls clearDatabaseForExercise(exerciseId).
 
-        // Step 2: Process and save each repository result
+        // Process and save each repository result
         List<ClientResponseDTO> results = new ArrayList<>();
         for (TeamRepositoryDTO repo : repositories) {
-            ClientResponseDTO result = saveSingleResult(repo, contributionData);
+            ClientResponseDTO result = saveSingleResult(repo, contributionData, exerciseId);
             if (result != null) {
                 results.add(result);
             }
@@ -190,8 +193,43 @@ public class RequestService {
     }
 
     /**
-     * Clears all data from the database tables.
+     * Clears all data for a specific exercise from the database tables.
+     *
+     * @param exerciseId the Artemis exercise ID to clear data for
      */
+    @Transactional
+    public void clearDatabaseForExercise(Long exerciseId) {
+        log.info("Clearing database for exercise {}", exerciseId);
+
+        // Find all participations for this exercise
+        var participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
+
+        if (participations.isEmpty()) {
+            log.info("No participations found for exercise {}", exerciseId);
+            return;
+        }
+
+        // Delete child entities first due to foreign key constraints
+        for (var participation : participations) {
+            // Delete team repository for this participation (references participation)
+            teamRepositoryRepository.deleteAllByTeamParticipation(participation);
+            // Delete analyzed chunks for this participation
+            analyzedChunkRepository.deleteAllByParticipation(participation);
+            // Delete students for this participation
+            studentRepository.deleteAllByTeam(participation);
+        }
+
+        // Delete the participations themselves
+        teamParticipationRepository.deleteAllByExerciseId(exerciseId);
+
+        log.info("Cleared {} participations for exercise {}", participations.size(), exerciseId);
+    }
+
+    /**
+     * Clears all data from the database tables (legacy method - use
+     * clearDatabaseForExercise instead).
+     */
+    @Deprecated
     public void clearDatabase() {
         // Must delete child entities first due to foreign key constraints
         analyzedChunkRepository.deleteAll();
@@ -206,10 +244,11 @@ public class RequestService {
      *
      * @param repo             Repository data to save
      * @param contributionData Contribution data by student ID
+     * @param exerciseId       The Artemis exercise ID for this analysis
      * @return Client response DTO with calculated metrics
      */
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo,
-            Map<Long, AuthorContributionDTO> contributionData) {
+            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         // Step 1: Save tutor information
         ParticipantDTO tut = repo.participation().team().owner();
         Tutor tutor = null;
@@ -225,6 +264,7 @@ public class RequestService {
         TeamDTO team = participation.team();
         TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
                 team.shortName(), participation.repositoryUri(), participation.submissionCount());
+        teamParticipation.setExerciseId(exerciseId);
         teamParticipationRepository.save(teamParticipation);
 
         // Step 3: Save students with their contribution metrics
@@ -305,13 +345,15 @@ public class RequestService {
                     team.name(), e.getMessage());
         }
 
-        // Step 5c: Fallback to CQI calculator with pre-filtered commits if fairness analysis failed
+        // Step 5c: Fallback to CQI calculator with pre-filtered commits if fairness
+        // analysis failed
         if (cqi == null || cqi == 0.0) {
             try {
                 // Try pre-filtered LoC-based CQI calculation
                 if (repo.localPath() != null) {
                     Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
-                    List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
+                    List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(),
+                            commitToAuthor);
 
                     // Apply pre-filter to remove trivial commits
                     CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
@@ -323,8 +365,7 @@ public class RequestService {
                     CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(),
                             students.size(),
-                            filterResult.summary()
-                    );
+                            filterResult.summary());
 
                     cqi = cqiResult.cqi();
                     cqiDetails = cqiResult;
@@ -380,14 +421,15 @@ public class RequestService {
     /**
      * Fetches, analyzes, and saves repositories with streaming updates.
      * Tracks progress via AnalysisStateService and skips already-analyzed teams.
-     * Uses interruptible ExecutorService instead of parallelStream for proper cancellation.
+     * Uses interruptible ExecutorService instead of parallelStream for proper
+     * cancellation.
      *
      * @param credentials  Artemis credentials
      * @param exerciseId   Exercise ID to fetch repositories for
      * @param eventEmitter Consumer to emit progress events
      */
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId,
-                                                      java.util.function.Consumer<Object> eventEmitter) {
+            java.util.function.Consumer<Object> eventEmitter) {
         ExecutorService executor = null;
         try {
             // Step 1: Fetch all participations from Artemis
@@ -422,12 +464,45 @@ public class RequestService {
             }
 
             // Emit total count
-            eventEmitter.accept(Map.of("type", "START", "total", totalToProcess,
+            eventEmitter.accept(Map.of("type", "START", "total", validParticipations.size(),
                     "alreadyProcessed", alreadyProcessed));
 
+            // Step 4: Immediately emit all teams as PENDING so UI can display them right
+            // away
+            for (ParticipationDTO participation : validParticipations) {
+                if (participation.team() != null) {
+                    TeamDTO team = participation.team();
+                    // Build a minimal ClientResponseDTO with just basic info (no CQI)
+                    Map<String, Object> pendingTeam = new HashMap<>();
+                    pendingTeam.put("teamId", team.id());
+                    pendingTeam.put("teamName", team.name());
+                    pendingTeam.put("shortName", team.shortName());
+                    pendingTeam.put("repositoryUri", participation.repositoryUri());
+                    pendingTeam.put("submissionCount", participation.submissionCount());
+                    pendingTeam.put("tutor", team.owner() != null ? team.owner().name() : "Unassigned");
+                    // Students with basic info
+                    List<Map<String, Object>> students = new java.util.ArrayList<>();
+                    if (team.students() != null) {
+                        for (ParticipantDTO student : team.students()) {
+                            Map<String, Object> studentData = new HashMap<>();
+                            studentData.put("name", student.name());
+                            studentData.put("login", student.login());
+                            // No commit counts yet - those come after analysis
+                            students.add(studentData);
+                        }
+                    }
+                    pendingTeam.put("students", students);
+                    // No CQI yet - indicates pending status
+                    pendingTeam.put("cqi", null);
+                    pendingTeam.put("isSuspicious", null);
+
+                    eventEmitter.accept(Map.of("type", "INIT", "data", pendingTeam));
+                }
+            }
+
             // Thread-safe counter for progress
-            java.util.concurrent.atomic.AtomicInteger processedCount =
-                    new java.util.concurrent.atomic.AtomicInteger(alreadyProcessed);
+            java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(
+                    alreadyProcessed);
 
             // Use ExecutorService with thread pool for interruptible parallel processing
             int threadCount = Math.min(teamsToAnalyze.size(),
@@ -489,8 +564,7 @@ public class RequestService {
                             }
 
                             // Analyze
-                            Map<Long, AuthorContributionDTO> contributions =
-                                    analysisService.analyzeRepository(repo);
+                            Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
 
                             // Check again before saving
                             if (!analysisStateService.isRunning(exerciseId) ||
@@ -499,7 +573,7 @@ public class RequestService {
                             }
 
                             // Save (persistent storage)
-                            ClientResponseDTO dto = saveSingleResult(repo, contributions);
+                            ClientResponseDTO dto = saveSingleResult(repo, contributions, exerciseId);
 
                             int currentProcessed = processedCount.incrementAndGet();
 
@@ -645,6 +719,97 @@ public class RequestService {
     }
 
     /**
+     * Step 1: Gets all teams for a specific exercise from the database.
+     * This allows checking for existing data before triggering a new analysis.
+     *
+     * @param exerciseId The Artemis exercise ID
+     * @return List of ClientResponseDTO for the exercise, empty if no data exists
+     */
+    public List<ClientResponseDTO> getTeamsByExerciseId(Long exerciseId) {
+        log.info("RequestService: Fetching teams for exercise ID: {}", exerciseId);
+
+        // Step 1a: Fetch all TeamParticipation records for this exercise
+        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
+
+        if (participations.isEmpty()) {
+            log.info("No teams found in database for exercise ID: {}", exerciseId);
+            return new ArrayList<>();
+        }
+
+        // Step 1b: Map and assemble the data into ClientResponseDTOs (reuse existing
+        // logic)
+        List<ClientResponseDTO> responseDTOs = participations.stream()
+                .map(this::mapParticipationToClientResponse)
+                .toList();
+
+        log.info("RequestService: Found {} teams for exercise ID: {}", responseDTOs.size(), exerciseId);
+        return responseDTOs;
+    }
+
+    /**
+     * Step 2: Checks if analyzed data exists for a specific exercise.
+     * Returns true if at least one team has a CQI value calculated.
+     *
+     * @param exerciseId The Artemis exercise ID
+     * @return true if analyzed data exists, false otherwise
+     */
+    public boolean hasAnalyzedDataForExercise(Long exerciseId) {
+        boolean hasData = teamParticipationRepository.existsByExerciseIdAndCqiIsNotNull(exerciseId);
+        log.debug("Exercise {} has analyzed data: {}", exerciseId, hasData);
+        return hasData;
+    }
+
+    /**
+     * Helper method to map a TeamParticipation entity to ClientResponseDTO.
+     * Reduces code duplication between getAllRepositoryData and
+     * getTeamsByExerciseId.
+     */
+    private ClientResponseDTO mapParticipationToClientResponse(TeamParticipation participation) {
+        // Step 1: Fetch students for this participation
+        List<Student> students = studentRepository.findAllByTeam(participation);
+        Tutor tutor = participation.getTutor();
+
+        // Step 2: Map students to StudentAnalysisDTOs
+        List<StudentAnalysisDTO> studentAnalysisDTOS = students.stream()
+                .map(student -> new StudentAnalysisDTO(
+                        student.getName(),
+                        student.getCommitCount(),
+                        student.getLinesAdded(),
+                        student.getLinesDeleted(),
+                        student.getLinesChanged()))
+                .toList();
+
+        // Step 3: Get persisted CQI and isSuspicious values
+        Double cqi = participation.getCqi();
+        Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious() : false;
+
+        // Step 4: Fallback - recalculate if CQI is null (legacy data)
+        if (cqi == null) {
+            Map<String, Integer> commitCounts = new HashMap<>();
+            students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+            if (!commitCounts.isEmpty()) {
+                cqi = balanceCalculator.calculate(commitCounts);
+            }
+        }
+
+        // Step 5: Reconstruct CQI details from persisted components
+        CQIResultDTO cqiDetails = reconstructCqiDetails(participation);
+
+        // Step 6: Assemble final response DTO
+        return new ClientResponseDTO(
+                tutor != null ? tutor.getName() : "Unassigned",
+                participation.getTeam(),
+                participation.getName(),
+                participation.getSubmissionCount(),
+                studentAnalysisDTOS,
+                cqi,
+                isSuspicious,
+                cqiDetails,
+                loadAnalyzedChunks(participation),
+                null); // Orphan commits are not persisted
+    }
+
+    /**
      * Saves analyzed chunks to the database for a given participation.
      */
     private void saveAnalyzedChunks(TeamParticipation participation, List<AnalyzedChunkDTO> chunks) {
@@ -778,8 +943,7 @@ public class RequestService {
                 participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
-                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0
-        );
+                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0);
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
@@ -791,7 +955,7 @@ public class RequestService {
                 penalties,
                 participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
                 participation.getCqiPenaltyMultiplier() != null ? participation.getCqiPenaltyMultiplier() : 1.0,
-                null  // FilterSummary is not persisted - only available during live analysis
+                null // FilterSummary is not persisted - only available during live analysis
         );
     }
 }
