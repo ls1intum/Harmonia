@@ -30,8 +30,12 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
     return 'bg-destructive/10';
   };
 
-  // Team is 'failed' if any student has <10 commits
+  // Check if team analysis is complete
+  const isAnalysisComplete = team.analysisStatus === 'DONE';
+
+  // Team is 'failed' if any student has <10 commits (only check if analysis is complete)
   const isTeamFailed = (team: Team) => {
+    if (!isAnalysisComplete) return false;
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
 
@@ -40,6 +44,17 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
     const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
     if (failedStudents.length === 0) return '';
     return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
+  };
+
+  // Check if student metadata is available (only show after analysis is complete)
+  const hasStudentMetadata = (student: { commitCount?: number; linesAdded?: number; linesDeleted?: number; linesChanged?: number }) => {
+    return (
+      isAnalysisComplete &&
+      student.commitCount !== undefined &&
+      student.linesAdded !== undefined &&
+      student.linesDeleted !== undefined &&
+      student.linesChanged !== undefined
+    );
   };
 
   return (
@@ -71,17 +86,18 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
               <div className="space-y-2 pl-7">
                 {team.students.map((student, index) => (
                   <div key={index} className="space-y-0.5">
-                    <p className={`text-lg font-medium ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>{student.name}</p>
-                    {student.commitCount !== undefined &&
-                      student.linesAdded !== undefined &&
-                      student.linesDeleted !== undefined &&
-                      student.linesChanged !== undefined && (
-                        <p className="text-xs text-muted-foreground">
-                          {student.commitCount} commits • {student.linesChanged} lines changed (
-                          <span className="text-green-600">+{student.linesAdded}</span>{' '}
-                          <span className="text-red-600">-{student.linesDeleted}</span>)
-                        </p>
-                      )}
+                    <p className={`text-lg font-medium ${isAnalysisComplete && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
+                      {student.name}
+                    </p>
+                    {hasStudentMetadata(student) ? (
+                      <p className="text-xs text-muted-foreground">
+                        {student.commitCount} commits • {student.linesChanged} lines changed (
+                        <span className="text-green-600">+{student.linesAdded}</span>{' '}
+                        <span className="text-red-600">-{student.linesDeleted}</span>)
+                      </p>
+                    ) : !isAnalysisComplete ? (
+                      <p className="text-xs text-amber-500">Analyzing...</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -161,7 +177,9 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
 
         {team.subMetrics && team.subMetrics.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {team.subMetrics.map((metric, index) => <MetricCard key={index} metric={metric} />)}
+            {team.subMetrics.map((metric, index) => (
+              <MetricCard key={index} metric={metric} />
+            ))}
           </div>
         ) : (
           <Card className="p-8 flex items-center justify-center">

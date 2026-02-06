@@ -229,7 +229,7 @@ const TeamsList = ({
               <p className="text-sm text-muted-foreground">Average CQI</p>
               <div className="flex items-baseline gap-2">
                 {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
-                  <p className="text-3xl font-bold text-amber-500">Pending</p>
+                  <p className="text-2xl font-bold text-amber-500">Pending</p>
                 ) : (
                   <>
                     <p className={`text-3xl font-bold ${getCQIColor(courseAverages.avgCQI)}`}>{courseAverages.avgCQI}</p>
@@ -258,7 +258,7 @@ const TeamsList = ({
               <p className="text-sm text-muted-foreground">Suspicious Teams</p>
               <div className="flex items-baseline gap-2">
                 {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
-                  <p className="text-3xl font-bold text-amber-500">Pending</p>
+                  <p className="text-2xl font-bold text-amber-500">Pending</p>
                 ) : (
                   <>
                     <p className={`text-3xl font-bold ${courseAverages.suspiciousPercentage > 30 ? 'text-destructive' : 'text-success'}`}>
@@ -326,10 +326,16 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className={`text-sm ${team.analysisStatus === 'DONE' && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
+                        <p
+                          key={idx}
+                          className={`text-sm ${team.analysisStatus === 'DONE' && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
+                        >
                           {student.name}
                           {team.analysisStatus === 'DONE' && student.commitCount !== undefined ? (
-                            <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}> ({student.commitCount} commits)</span>
+                            <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                              {' '}
+                              ({student.commitCount} commits)
+                            </span>
                           ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
                             <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
                               <span className="text-xs">analyzing...</span>
