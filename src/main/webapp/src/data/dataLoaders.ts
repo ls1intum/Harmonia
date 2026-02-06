@@ -181,6 +181,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
     subMetrics,
     analysisHistory,
     orphanCommits,
+    analysisStatus: (dto as any).analysisStatus,
   };
 
   // Cache the transformed team
@@ -195,8 +196,12 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
 // TODO: Use course and exercise parameters when server supports them
 async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData[]> {
   try {
-    const response = await requestApi.fetchData(parseInt(exerciseId));
-    const teamRepos = response.data;
+    const response = await fetch(`/api/requestResource/${exerciseId}/getData`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`Failed to fetch teams: ${response.statusText}`);
+    const teamRepos: ClientResponseDTO[] = await response.json();
 
     // Transform DTOs to BasicTeamData
     return teamRepos.map(transformToBasicTeamData);
@@ -209,8 +214,12 @@ async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData
 // TODO: Use course and exercise parameters when server supports them
 async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
   try {
-    const response = await requestApi.fetchData(parseInt(exerciseId));
-    const teamRepos = response.data;
+    const response = await fetch(`/api/requestResource/${exerciseId}/getData`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`Failed to fetch teams: ${response.statusText}`);
+    const teamRepos: ClientResponseDTO[] = await response.json();
 
     // Transform DTOs to Team with mocked analysis
     return teamRepos.map(transformToComplexTeamData);

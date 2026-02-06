@@ -184,7 +184,7 @@ public class RequestResource {
         }
 
         requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
-        List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
+        List<ClientResponseDTO> clientResponseDTOS = requestService.getTeamsByExerciseId(exerciseId);
         return ResponseEntity.ok(clientResponseDTOS);
     }
 

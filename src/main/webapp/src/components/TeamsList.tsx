@@ -328,22 +328,24 @@ const TeamsList = ({
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    {team.cqi !== undefined ? (
+                    {team.analysisStatus === 'DONE' && team.cqi !== undefined ? (
                       <div className="flex items-center gap-3">
                         <div className={`flex items-center justify-center w-16 h-16 rounded-lg ${getCQIBgColor(team.cqi)}`}>
                           <span className={`text-2xl font-bold ${getCQIColor(team.cqi)}`}>{team.cqi}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">out of 100</div>
                       </div>
+                    ) : team.analysisStatus === 'ERROR' ? (
+                      <span className="text-sm text-destructive">Analysis Failed</span>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Analyzing...</span>
+                        <span className="text-sm">{team.analysisStatus === 'PENDING' ? 'Pending' : 'Analyzing...'}</span>
                       </div>
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    {team.isSuspicious !== undefined ? (
+                    {team.analysisStatus === 'DONE' && team.isSuspicious !== undefined ? (
                       isTeamFailed(team) ? (
                         <TooltipProvider>
                           <Tooltip>
@@ -380,7 +382,7 @@ const TeamsList = ({
                     ) : (
                       <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
                         <RefreshCw className="h-3 w-3 animate-spin" />
-                        Pending
+                        {team.analysisStatus === 'PENDING' ? 'Pending' : 'Analyzing'}
                       </Badge>
                     )}
                   </td>

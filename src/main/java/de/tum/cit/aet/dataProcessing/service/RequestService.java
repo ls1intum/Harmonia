@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.UUID;
 
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -250,21 +251,22 @@ public class RequestService {
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo,
             Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         // Step 1: Save tutor information
-        ParticipantDTO tut = repo.participation().team().owner();
-        Tutor tutor = null;
-        if (tut == null) {
-            log.warn("No tutor found for team: {}", repo.participation().team().name());
-        } else {
-            tutor = new Tutor(tut.id(), tut.login(), tut.name(), tut.email());
-            tutorRepository.save(tutor);
-        }
+        Tutor tutor = ensureTutor(repo.participation().team());
 
         // Step 2: Save team participation (CQI and isSuspicious will be updated later)
         ParticipationDTO participation = repo.participation();
         TeamDTO team = participation.team();
-        TeamParticipation teamParticipation = new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
-                team.shortName(), participation.repositoryUri(), participation.submissionCount());
+
+        // Find existing participation to update
+        TeamParticipation teamParticipation = teamParticipationRepository.findByParticipation(participation.id())
+                .orElse(new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
+                        team.shortName(), participation.repositoryUri(), participation.submissionCount()));
+
+        // Update fields
         teamParticipation.setExerciseId(exerciseId);
+        teamParticipation.setTutor(tutor);
+        teamParticipation.setSubmissionCount(participation.submissionCount());
+        teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
         // Step 3: Save students with their contribution metrics
@@ -413,6 +415,7 @@ public class RequestService {
                 studentAnalysisDTOS,
                 cqi,
                 isSuspicious,
+                teamParticipation.getAnalysisStatus(),
                 cqiDetails,
                 analysisHistory,
                 orphanCommits);
@@ -467,8 +470,10 @@ public class RequestService {
             eventEmitter.accept(Map.of("type", "START", "total", validParticipations.size(),
                     "alreadyProcessed", alreadyProcessed));
 
-            // Step 4: Immediately emit all teams as PENDING so UI can display them right
-            // away
+            // Step 4: Persist PENDING state to database immediately
+            initializePendingTeams(validParticipations, exerciseId, currentStatus.getState() == AnalysisState.PAUSED);
+
+            // Emit all teams as PENDING so UI can display them right away
             for (ParticipationDTO participation : validParticipations) {
                 if (participation.team() != null) {
                     TeamDTO team = participation.team();
@@ -495,6 +500,7 @@ public class RequestService {
                     // No CQI yet - indicates pending status
                     pendingTeam.put("cqi", null);
                     pendingTeam.put("isSuspicious", null);
+                    pendingTeam.put("analysisStatus", "PENDING");
 
                     eventEmitter.accept(Map.of("type", "INIT", "data", pendingTeam));
                 }
@@ -708,6 +714,7 @@ public class RequestService {
                             studentAnalysisDTOS,
                             cqi,
                             isSuspicious,
+                            participation.getAnalysisStatus(),
                             cqiDetails,
                             loadAnalyzedChunks(participation),
                             null); // Orphan commits are not persisted, only shown during live analysis
@@ -804,6 +811,7 @@ public class RequestService {
                 studentAnalysisDTOS,
                 cqi,
                 isSuspicious,
+                participation.getAnalysisStatus(),
                 cqiDetails,
                 loadAnalyzedChunks(participation),
                 null); // Orphan commits are not persisted
@@ -957,5 +965,64 @@ public class RequestService {
                 participation.getCqiPenaltyMultiplier() != null ? participation.getCqiPenaltyMultiplier() : 1.0,
                 null // FilterSummary is not persisted - only available during live analysis
         );
+    }
+
+    /**
+     * Helper to ensure a tutor exists in the database.
+     */
+    private Tutor ensureTutor(TeamDTO team) {
+        if (team.owner() != null) {
+            ParticipantDTO tut = team.owner();
+            Tutor tutor = new Tutor(tut.id(), tut.login(), tut.name(), tut.email());
+            return tutorRepository.save(tutor);
+        }
+        return null;
+    }
+
+    /**
+     * Initializes all teams with PENDING status in the database.
+     */
+    private void initializePendingTeams(List<ParticipationDTO> participations, Long exerciseId, boolean isResume) {
+        log.info("RequestService: Initializing {} teams with PENDING status (resume={})", participations.size(),
+                isResume);
+        for (ParticipationDTO participation : participations) {
+            if (participation.team() == null)
+                continue;
+
+            // Check if exists
+            var existing = teamParticipationRepository.findByParticipation(participation.id());
+
+            TeamParticipation teamParticipation;
+            if (existing.isPresent()) {
+                teamParticipation = existing.get();
+                // If NOT resuming, reset status to PENDING (unless it was already PENDING)
+                if (!isResume) {
+                    teamParticipation
+                            .setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
+                    // Also ensure tutor is up to date
+                    teamParticipation.setTutor(ensureTutor(participation.team()));
+                    teamParticipationRepository.save(teamParticipation);
+                } else if (teamParticipation.getAnalysisStatus() == null) {
+                    // Fallback for missing status
+                    teamParticipation
+                            .setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
+                    teamParticipationRepository.save(teamParticipation);
+                }
+            } else {
+                // Create new pending team
+                Tutor tutor = ensureTutor(participation.team());
+                teamParticipation = new TeamParticipation(
+                        participation.id(),
+                        participation.team().id(),
+                        tutor,
+                        participation.team().name(),
+                        participation.team().shortName(),
+                        participation.repositoryUri(),
+                        participation.submissionCount());
+                teamParticipation.setExerciseId(exerciseId);
+                teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
+                teamParticipationRepository.save(teamParticipation);
+            }
+        }
     }
 }

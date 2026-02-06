@@ -50,6 +50,10 @@ public class TeamParticipation {
     @Column(name = "is_suspicious")
     private Boolean isSuspicious;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "analysis_status")
+    private AnalysisStatus analysisStatus;
+
     // CQI component fields for persistence
     @Column(name = "cqi_effort_balance")
     private Double cqiEffortBalance;
