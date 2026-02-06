@@ -27,8 +27,14 @@ public class CommitEffortRaterService {
      *
      * @param chunk The commit chunk to analyze
      * @return An EffortRatingDTO containing the scores
+     * @throws InterruptedException if the thread is interrupted (analysis cancelled)
      */
-    public EffortRatingDTO rateChunk(CommitChunkDTO chunk) {
+    public EffortRatingDTO rateChunk(CommitChunkDTO chunk) throws InterruptedException {
+        // Check if cancelled before starting
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Analysis cancelled before rating chunk");
+        }
+
         if (!aiProperties.isEnabled() || !aiProperties.getCommitClassifier().isEnabled()) {
             return EffortRatingDTO.disabled();
         }
@@ -68,6 +74,11 @@ public class CommitEffortRaterService {
                             truncateDiff(chunk.diffContent()));
 
             log.debug("Sending rating request for chunk {} of commit {}", chunk.chunkIndex(), chunk.commitSha());
+
+            // Check again before the potentially slow LLM call
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Analysis cancelled before LLM call");
+            }
 
             // Get raw response instead of using entity() to handle truncated JSON
             String rawResponse = chatClient.prompt()

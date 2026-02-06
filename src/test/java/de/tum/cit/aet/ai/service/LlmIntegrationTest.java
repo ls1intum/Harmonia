@@ -38,7 +38,7 @@ class LlmIntegrationTest {
         private CommitEffortRaterService effortRaterService;
 
         @Test
-        void testRateFeatureCommit() {
+        void testRateFeatureCommit() throws InterruptedException {
                 // Given: A realistic feature commit with Java code
                 CommitChunkDTO chunk = new CommitChunkDTO(
                                 "abc123def",
@@ -90,7 +90,7 @@ class LlmIntegrationTest {
         }
 
         @Test
-        void testRateTrivialCommit() {
+        void testRateTrivialCommit() throws InterruptedException {
                 // Given: A trivial typo fix
                 CommitChunkDTO chunk = new CommitChunkDTO(
                                 "xyz789",
@@ -127,7 +127,7 @@ class LlmIntegrationTest {
         }
 
         @Test
-        void testRateCommitWithCurlyBraces() {
+        void testRateCommitWithCurlyBraces() throws InterruptedException {
                 // Given: A commit with lots of curly braces (the bug we fixed!)
                 CommitChunkDTO chunk = new CommitChunkDTO(
                                 "curly123",

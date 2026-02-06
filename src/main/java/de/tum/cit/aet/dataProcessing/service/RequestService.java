@@ -1,8 +1,6 @@
 package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
-import de.tum.cit.aet.analysis.domain.AnalysisState;
-import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisService;
@@ -24,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.UUID;
 
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -38,6 +35,7 @@ import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @Slf4j
@@ -52,6 +50,7 @@ public class RequestService {
     private final CommitPreFilterService commitPreFilterService;
     private final CQICalculatorService cqiCalculatorService;
     private final CommitChunkerService commitChunkerService;
+    private final TransactionTemplate transactionTemplate;
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
@@ -76,7 +75,8 @@ public class RequestService {
             GitContributionAnalysisService gitContributionAnalysisService,
             CommitPreFilterService commitPreFilterService,
             CQICalculatorService cqiCalculatorService,
-            CommitChunkerService commitChunkerService) {
+            CommitChunkerService commitChunkerService,
+            TransactionTemplate transactionTemplate) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
@@ -91,6 +91,7 @@ public class RequestService {
         this.commitPreFilterService = commitPreFilterService;
         this.cqiCalculatorService = cqiCalculatorService;
         this.commitChunkerService = commitChunkerService;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /**
@@ -195,11 +196,19 @@ public class RequestService {
 
     /**
      * Clears all data for a specific exercise from the database tables.
+     * This is the public API that uses @Transactional for external calls.
      *
      * @param exerciseId the Artemis exercise ID to clear data for
      */
     @Transactional
     public void clearDatabaseForExercise(Long exerciseId) {
+        clearDatabaseForExerciseInternal(exerciseId);
+    }
+
+    /**
+     * Internal method to clear database - called within transactionTemplate.
+     */
+    private void clearDatabaseForExerciseInternal(Long exerciseId) {
         log.info("Clearing database for exercise {}", exerciseId);
 
         // Find all participations for this exercise
@@ -437,8 +446,11 @@ public class RequestService {
         try {
             // Step 0: Clear all existing data for this exercise to ensure clean state
             // This prevents issues with stale data from previous analyses
+            // Use transactionTemplate because @Transactional doesn't work on self-invocation
             log.info("Clearing existing data for exercise {} before starting analysis", exerciseId);
-            clearDatabaseForExercise(exerciseId);
+            transactionTemplate.executeWithoutResult(status -> {
+                clearDatabaseForExerciseInternal(exerciseId);
+            });
 
             // Step 1: Fetch all participations from Artemis
             List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials,
@@ -990,8 +1002,9 @@ public class RequestService {
         log.info("RequestService: Initializing {} teams with PENDING status (resume={})", participations.size(),
                 isResume);
         for (ParticipationDTO participation : participations) {
-            if (participation.team() == null)
+            if (participation.team() == null) {
                 continue;
+            }
 
             // Check if exists
             var existing = teamParticipationRepository.findByParticipation(participation.id());
