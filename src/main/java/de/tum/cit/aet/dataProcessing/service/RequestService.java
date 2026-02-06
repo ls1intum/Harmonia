@@ -60,6 +60,9 @@ public class RequestService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Track active executors by exerciseId for cancellation
+    private final Map<Long, ExecutorService> activeExecutors = new ConcurrentHashMap<>();
+
     @Autowired
     public RequestService(
             RepositoryFetchingService repositoryFetchingService,
@@ -192,6 +195,30 @@ public class RequestService {
             }
         }
         return results;
+    }
+
+    /**
+     * Stops a running analysis by interrupting its executor.
+     * This should be called when the user cancels an analysis.
+     *
+     * @param exerciseId the exercise ID to stop analysis for
+     */
+    public void stopAnalysis(Long exerciseId) {
+        ExecutorService executor = activeExecutors.remove(exerciseId);
+        if (executor != null) {
+            log.info("Stopping active analysis for exercise {}", exerciseId);
+            executor.shutdownNow();
+            try {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    log.warn("Executor for exercise {} did not terminate within 2 seconds", exerciseId);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted while stopping executor for exercise {}", exerciseId);
+            }
+        } else {
+            log.debug("No active executor found for exercise {}", exerciseId);
+        }
     }
 
     /**
@@ -525,6 +552,9 @@ public class RequestService {
                     Runtime.getRuntime().availableProcessors()));
             executor = Executors.newFixedThreadPool(threadCount);
 
+            // Register executor for cancellation support
+            activeExecutors.put(exerciseId, executor);
+
             List<Future<?>> futures = new ArrayList<>();
             CountDownLatch completionLatch = new CountDownLatch(validParticipations.size());
 
@@ -644,6 +674,9 @@ public class RequestService {
             analysisStateService.failAnalysis(exerciseId, e.getMessage());
             eventEmitter.accept(Map.of("type", "ERROR", "message", e.getMessage()));
         } finally {
+            // Remove from active executors
+            activeExecutors.remove(exerciseId);
+
             // Shutdown executor and interrupt any remaining tasks
             if (executor != null) {
                 log.info("Shutting down executor for exercise {}", exerciseId);

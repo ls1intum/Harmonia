@@ -102,9 +102,23 @@ export default function Teams() {
 
   // Mutation for cancelling
   const cancelMutation = useMutation({
-    mutationFn: () => cancelAnalysis(exercise),
+    mutationFn: async () => {
+      // Optimistically update status to CANCELLED immediately
+      queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) => ({
+        ...old,
+        state: 'CANCELLED' as const,
+      }));
+      toast({ title: 'Cancelling analysis...' });
+      return cancelAnalysis(exercise);
+    },
     onSuccess: () => {
       toast({ title: 'Analysis cancelled' });
+      // Invalidate to get fresh data including cancelled teams
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      refetchStatus();
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Failed to cancel analysis' });
       refetchStatus();
     },
   });

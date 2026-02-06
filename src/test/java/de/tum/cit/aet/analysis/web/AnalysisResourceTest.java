@@ -57,6 +57,7 @@ class AnalysisResourceTest {
         ResponseEntity<AnalysisStatusDTO> response = resource.cancelAnalysis(123L);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(requestService).stopAnalysis(123L);
         verify(stateService).cancelAnalysis(123L);
     }
 

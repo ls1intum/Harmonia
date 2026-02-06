@@ -41,10 +41,8 @@ public class AnalysisResource {
     }
 
     /**
-     * Cancel a running analysis. This will pause the analysis and preserve
-     * progress.
-     * The analysis thread will check the state and exit gracefully when it sees
-     * PAUSED.
+     * Cancel a running analysis. This will stop the analysis and interrupt
+     * any running AI requests.
      *
      * @param exerciseId the id of the exercise
      * @return the updated status DTO
@@ -53,8 +51,10 @@ public class AnalysisResource {
     public ResponseEntity<AnalysisStatusDTO> cancelAnalysis(@PathVariable Long exerciseId) {
         log.info("Cancel requested for exercise: {}", exerciseId);
 
-        // Pause the analysis (preserves progress)
-        // The analysis thread will check isRunning() and exit gracefully
+        // First, stop the active executor to interrupt running threads
+        requestService.stopAnalysis(exerciseId);
+
+        // Then update the state to CANCELLED
         AnalysisStatus status = stateService.cancelAnalysis(exerciseId);
         return ResponseEntity.ok(toDTO(status));
     }
