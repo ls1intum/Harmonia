@@ -180,7 +180,7 @@ const TeamsList = ({
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
-      <Button variant="ghost" onClick={onBackToHome} className="mb-4 hover:bg-muted">
+      <Button variant="ghost" onClick={onBackToHome} className="mb-4 text-muted-foreground hover:text-accent-foreground hover:bg-accent">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Home
       </Button>
