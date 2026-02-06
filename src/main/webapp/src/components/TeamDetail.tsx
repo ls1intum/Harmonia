@@ -55,7 +55,7 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
         </p>
       </div>
 
-      <Card className="shadow-elevated bg-gradient-card">
+      <Card className="shadow-elevated bg-white">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div className="space-y-4 flex-1">

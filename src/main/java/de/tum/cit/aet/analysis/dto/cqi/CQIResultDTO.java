@@ -21,14 +21,14 @@ public record CQIResultDTO(
         FilterSummaryDTO filterSummary) {
     /**
      * Create result for single contributor (no collaboration possible).
-     * Returns a low but non-zero score (30) to indicate collaboration issues.
+     * Returns 0 since no collaboration is possible.
      */
     public static CQIResultDTO singleContributor() {
         return new CQIResultDTO(
-                30.0, // Low but non-zero CQI
+                0.0, // No collaboration possible = 0
                 ComponentScoresDTO.zero(),
                 List.of(), // No penalties
-                30.0,
+                0.0,
                 1.0,
                 null);
     }
