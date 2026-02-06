@@ -13,12 +13,13 @@ export default function Teams() {
   const { course, exercise } = location.state || {};
 
   // Use new server-synced status hook
-  const { status, refetch: refetchStatus } = useAnalysisStatus({
+  const { status, refetch: refetchStatus, isLoading: isStatusLoading } = useAnalysisStatus({
     exerciseId: exercise,
     enabled: !!exercise,
   });
 
-  // Fetch teams from database on load
+  // Fetch teams from database on load - disabled during analysis
+  const isAnalysisRunning = status.state === 'RUNNING';
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
@@ -31,29 +32,49 @@ export default function Teams() {
     },
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 10 * 60 * 1000,
-    enabled: !!exercise,
+    enabled: !!exercise && !isAnalysisRunning, // Disable during analysis
+    refetchOnWindowFocus: !isAnalysisRunning, // Don't refetch when analysis is running
   });
 
   // Mutation for starting analysis
   const startMutation = useMutation({
     mutationFn: async () => {
-      toast({ title: 'Starting analysis...' });
-      // Clear existing teams before starting fresh
+      // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
+      // This ensures the button changes immediately to "Cancel"
       queryClient.setQueryData(['teams', exercise], []);
-      // Start streaming
+      queryClient.setQueryData(['analysisStatus', exercise], {
+        state: 'RUNNING' as const,
+        totalTeams: 0,
+        processedTeams: 0,
+        currentTeamName: undefined,
+        currentStage: undefined,
+      });
+
+      toast({ title: 'Starting analysis...' });
+
+      // Step 2: Start streaming (backend will clear data before starting)
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
           () => { }, // onTotal
           // onInit: Add team with pending status
           team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => [...old, team as unknown as Team]);
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+              const exists = old.some(t => t.id === (team as unknown as Team).id);
+              if (exists) return old;
+              return [...old, team as unknown as Team];
+            });
           },
           // onUpdate: Replace existing team with analyzed data
           team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) =>
-              old.map(t => (t.id === (team as unknown as Team).id ? (team as unknown as Team) : t)),
-            );
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+              const teamData = team as unknown as Team;
+              const exists = old.some(t => t.id === teamData.id);
+              if (exists) {
+                return old.map(t => (t.id === teamData.id ? teamData : t));
+              }
+              return [...old, teamData];
+            });
           },
           () => {
             refetchStatus();
@@ -88,14 +109,64 @@ export default function Teams() {
     },
   });
 
-  // Mutation for recompute (force)
+  // Mutation for recompute (force) - same as start since backend clears data first
   const recomputeMutation = useMutation({
     mutationFn: async () => {
+      // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
+      queryClient.setQueryData(['teams', exercise], []);
+      queryClient.setQueryData(['analysisStatus', exercise], {
+        state: 'RUNNING' as const,
+        totalTeams: 0,
+        processedTeams: 0,
+        currentTeamName: undefined,
+        currentStage: undefined,
+      });
+
       toast({ title: 'Forcing reanalysis...' });
-      // Clear DB first, then start fresh
-      await clearData(exercise, 'db');
-      // Trigger start
-      startMutation.mutate();
+
+      // Step 2: Start streaming (backend will clear data before starting)
+      return new Promise<void>((resolve, reject) => {
+        loadBasicTeamDataStream(
+          exercise,
+          () => { },
+          team => {
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+              const exists = old.some(t => t.id === (team as unknown as Team).id);
+              if (exists) return old;
+              return [...old, team as unknown as Team];
+            });
+          },
+          team => {
+            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+              const teamData = team as unknown as Team;
+              const exists = old.some(t => t.id === teamData.id);
+              if (exists) {
+                return old.map(t => (t.id === teamData.id ? teamData : t));
+              }
+              return [...old, teamData];
+            });
+          },
+          () => {
+            refetchStatus();
+            resolve();
+          },
+          error => {
+            reject(error);
+          },
+        );
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Reanalysis completed!' });
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      refetchStatus();
+    },
+    onError: () => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to reanalyze',
+      });
+      refetchStatus();
     },
   });
 
@@ -137,6 +208,7 @@ export default function Teams() {
       course={course}
       exercise={exercise}
       analysisStatus={status}
+      isLoading={isStatusLoading}
     />
   );
 }

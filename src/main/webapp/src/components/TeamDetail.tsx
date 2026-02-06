@@ -159,9 +159,18 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {team.subMetrics && team.subMetrics.map((metric, index) => <MetricCard key={index} metric={metric} />)}
-        </div>
+        {team.subMetrics && team.subMetrics.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {team.subMetrics.map((metric, index) => <MetricCard key={index} metric={metric} />)}
+          </div>
+        ) : (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="text-sm font-medium">Computing detailed metrics...</p>
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Filter Summary */}
@@ -236,23 +245,34 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
           <p className="text-muted-foreground">See exactly how the AI analyzed each commit or group of commits</p>
         </div>
 
-        <ErrorListPanel
-          errors={
-            team.analysisHistory
-              ?.filter((chunk: AnalyzedChunkDTO) => chunk.isError && chunk.errorMessage)
-              .map((chunk: AnalyzedChunkDTO) => ({
-                id: chunk.id ?? '',
-                authorEmail: chunk.authorEmail ?? '',
-                timestamp: chunk.timestamp ?? '',
-                errorMessage: chunk.errorMessage!,
-                commitShas: chunk.commitShas ?? [],
-              })) || []
-          }
-        />
+        {team.analysisHistory && team.analysisHistory.length > 0 ? (
+          <>
+            <ErrorListPanel
+              errors={
+                team.analysisHistory
+                  ?.filter((chunk: AnalyzedChunkDTO) => chunk.isError && chunk.errorMessage)
+                  .map((chunk: AnalyzedChunkDTO) => ({
+                    id: chunk.id ?? '',
+                    authorEmail: chunk.authorEmail ?? '',
+                    timestamp: chunk.timestamp ?? '',
+                    errorMessage: chunk.errorMessage!,
+                    commitShas: chunk.commitShas ?? [],
+                  })) || []
+              }
+            />
 
-        <OrphanCommitsPanel commits={team.orphanCommits || []} />
+            <OrphanCommitsPanel commits={team.orphanCommits || []} />
 
-        <AnalysisFeed chunks={team.analysisHistory || []} />
+            <AnalysisFeed chunks={team.analysisHistory || []} />
+          </>
+        ) : (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="text-sm font-medium">Computing AI analysis...</p>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

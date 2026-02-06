@@ -21,6 +21,7 @@ interface TeamsListProps {
   course: string;
   exercise: string;
   analysisStatus: AnalysisStatus;
+  isLoading?: boolean;
 }
 
 const TeamsList = ({
@@ -34,6 +35,7 @@ const TeamsList = ({
   course,
   exercise,
   analysisStatus,
+  isLoading = false,
 }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -135,8 +137,18 @@ const TeamsList = ({
   }, [teams]);
 
   const renderActionButton = () => {
+    if (isLoading) {
+      return (
+        <Button disabled variant="outline">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          Loading...
+        </Button>
+      );
+    }
+
     switch (analysisStatus.state) {
       case 'IDLE':
+      case 'CANCELLED':
         return (
           <Button onClick={onStart}>
             <Play className="h-4 w-4" />
@@ -148,13 +160,6 @@ const TeamsList = ({
           <Button variant="destructive" onClick={onCancel}>
             <Square className="h-4 w-4" />
             Cancel
-          </Button>
-        );
-      case 'PAUSED':
-        return (
-          <Button onClick={onStart}>
-            <Play className="h-4 w-4" />
-            Resume Analysis
           </Button>
         );
       case 'DONE':
@@ -235,11 +240,19 @@ const TeamsList = ({
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Average Commits</p>
-              <p className="text-3xl font-bold text-foreground">{courseAverages.avgCommits}</p>
+              {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                <p className="text-2xl font-bold text-amber-500">Pending</p>
+              ) : (
+                <p className="text-3xl font-bold text-foreground">{courseAverages.avgCommits}</p>
+              )}
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Average Lines</p>
-              <p className="text-3xl font-bold text-foreground">{courseAverages.avgLines.toLocaleString()}</p>
+              {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                <p className="text-2xl font-bold text-amber-500">Pending</p>
+              ) : (
+                <p className="text-3xl font-bold text-foreground">{courseAverages.avgLines.toLocaleString()}</p>
+              )}
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Suspicious Teams</p>
@@ -313,18 +326,35 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className={`text-sm ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
-                          {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
+                        <p key={idx} className={`text-sm ${team.analysisStatus === 'DONE' && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
+                          {student.name}
+                          {team.analysisStatus === 'DONE' && student.commitCount !== undefined ? (
+                            <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}> ({student.commitCount} commits)</span>
+                          ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
+                            <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
+                              <RefreshCw className="h-3 w-3 animate-spin inline" />
+                              <span className="text-xs">analyzing...</span>
+                            </span>
+                          ) : null}
                         </p>
                       ))}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    {team.basicMetrics && (
+                    {team.analysisStatus === 'DONE' && team.basicMetrics ? (
                       <div className="space-y-1">
                         <p className="font-medium">{team.basicMetrics.totalCommits}</p>
                         <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
                       </div>
+                    ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Pending</span>
+                      </div>
+                    ) : team.analysisStatus === 'ERROR' ? (
+                      <span className="text-sm text-destructive">—</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="py-4 px-6">
@@ -337,6 +367,8 @@ const TeamsList = ({
                       </div>
                     ) : team.analysisStatus === 'ERROR' ? (
                       <span className="text-sm text-destructive">Analysis Failed</span>
+                    ) : team.analysisStatus === 'CANCELLED' ? (
+                      <span className="text-sm text-muted-foreground">Cancelled</span>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <RefreshCw className="h-4 w-4 animate-spin" />
@@ -379,6 +411,14 @@ const TeamsList = ({
                           Normal
                         </Badge>
                       )
+                    ) : team.analysisStatus === 'ERROR' ? (
+                      <Badge variant="destructive" className="gap-1.5">
+                        Error
+                      </Badge>
+                    ) : team.analysisStatus === 'CANCELLED' ? (
+                      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+                        Cancelled
+                      </Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
                         <RefreshCw className="h-3 w-3 animate-spin" />

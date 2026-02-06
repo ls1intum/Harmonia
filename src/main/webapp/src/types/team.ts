@@ -26,7 +26,7 @@ export interface Team {
   teamName: string;
   tutor: string;
   submissionCount?: number;
-  analysisStatus?: 'PENDING' | 'ANALYZING' | 'DONE' | 'ERROR';
+  analysisStatus?: 'PENDING' | 'ANALYZING' | 'DONE' | 'ERROR' | 'CANCELLED';
   students: StudentAnalysisDTO[];
   cqi?: number;
   isSuspicious?: boolean;

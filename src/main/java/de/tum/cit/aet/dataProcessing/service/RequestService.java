@@ -435,6 +435,11 @@ public class RequestService {
             java.util.function.Consumer<Object> eventEmitter) {
         ExecutorService executor = null;
         try {
+            // Step 0: Clear all existing data for this exercise to ensure clean state
+            // This prevents issues with stale data from previous analyses
+            log.info("Clearing existing data for exercise {} before starting analysis", exerciseId);
+            clearDatabaseForExercise(exerciseId);
+
             // Step 1: Fetch all participations from Artemis
             List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials,
                     exerciseId);
@@ -444,39 +449,25 @@ public class RequestService {
                     .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                     .toList();
 
-            // Step 3: Filter out already-analyzed teams
-            List<ParticipationDTO> teamsToAnalyze = validParticipations.stream()
-                    .filter(p -> !isTeamAlreadyAnalyzed(p.id()))
-                    .toList();
+            // All teams need analysis since we just cleared the database
+            int totalToProcess = validParticipations.size();
+            log.info("Found {} teams to analyze", totalToProcess);
 
-            int totalToProcess = teamsToAnalyze.size();
-            log.info("Found {} teams total, {} need analysis", validParticipations.size(), totalToProcess);
-
-            // Get current status to check if resuming
-            AnalysisStatus currentStatus = analysisStateService.getStatus(exerciseId);
-            int alreadyProcessed = 0;
-
-            if (currentStatus.getState() == AnalysisState.PAUSED) {
-                // Resuming: use existing total and processed counts
-                alreadyProcessed = currentStatus.getProcessedTeams();
-                log.info("Resuming analysis: {} teams already processed, {} remaining",
-                        alreadyProcessed, totalToProcess - alreadyProcessed);
-            } else {
-                // Starting fresh
-                analysisStateService.startAnalysis(exerciseId, totalToProcess);
-            }
+            // Always start fresh
+            analysisStateService.startAnalysis(exerciseId, totalToProcess);
 
             // Emit total count
-            eventEmitter.accept(Map.of("type", "START", "total", validParticipations.size(),
-                    "alreadyProcessed", alreadyProcessed));
+            eventEmitter.accept(Map.of("type", "START", "total", validParticipations.size()));
 
             // Step 4: Persist PENDING state to database immediately
-            initializePendingTeams(validParticipations, exerciseId, currentStatus.getState() == AnalysisState.PAUSED);
+            initializePendingTeams(validParticipations, exerciseId, false);
 
-            // Emit all teams as PENDING so UI can display them right away
+            // Emit all teams as PENDING - we cleared the DB so all teams need analysis
             for (ParticipationDTO participation : validParticipations) {
                 if (participation.team() != null) {
                     TeamDTO team = participation.team();
+
+
                     // Build a minimal ClientResponseDTO with just basic info (no CQI)
                     Map<String, Object> pendingTeam = new HashMap<>();
                     pendingTeam.put("teamId", team.id());
@@ -506,33 +497,33 @@ public class RequestService {
                 }
             }
 
+            // If no teams to analyze, complete immediately
+            if (validParticipations.isEmpty()) {
+                log.info("No teams to analyze for exercise {}", exerciseId);
+                analysisStateService.completeAnalysis(exerciseId);
+                eventEmitter.accept(Map.of("type", "DONE"));
+                return;
+            }
+
             // Thread-safe counter for progress
-            java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(
-                    alreadyProcessed);
+            java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(0);
 
             // Use ExecutorService with thread pool for interruptible parallel processing
-            int threadCount = Math.min(teamsToAnalyze.size(),
-                    Runtime.getRuntime().availableProcessors());
+            int threadCount = Math.max(1, Math.min(validParticipations.size(),
+                    Runtime.getRuntime().availableProcessors()));
             executor = Executors.newFixedThreadPool(threadCount);
 
             List<Future<?>> futures = new ArrayList<>();
-            CountDownLatch completionLatch = new CountDownLatch(teamsToAnalyze.size());
+            CountDownLatch completionLatch = new CountDownLatch(validParticipations.size());
 
             // Submit tasks for each team
-            for (ParticipationDTO participation : teamsToAnalyze) {
+            for (ParticipationDTO participation : validParticipations) {
                 Future<?> future = executor.submit(() -> {
                     try {
-                        // Check if analysis was cancelled/paused (check more frequently)
+                        // Check if analysis was cancelled
                         if (!analysisStateService.isRunning(exerciseId)) {
                             log.debug("Analysis stopped, skipping team {}",
                                     participation.team() != null ? participation.team().name() : "Unknown");
-                            return;
-                        }
-
-                        // Check if already processed (for resume scenario)
-                        if (isTeamAlreadyAnalyzed(participation.id())) {
-                            log.debug("Team {} already analyzed, skipping", participation.id());
-                            processedCount.incrementAndGet();
                             return;
                         }
 
@@ -583,7 +574,8 @@ public class RequestService {
 
                             int currentProcessed = processedCount.incrementAndGet();
 
-                            // Update state with new progress count
+                            // Update state with new progress count (pass name so we can safely clear it if
+                            // it's still ours)
                             analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
 
                             // Emit result (synchronized to ensure thread safety)
@@ -593,8 +585,14 @@ public class RequestService {
                         } catch (Exception e) {
                             log.error("Error processing participation {} (team: {})",
                                     participation.id(), teamName, e);
+                            markTeamAsFailed(participation, exerciseId);
                             processedCount.incrementAndGet();
-                            // Continue with other teams, don't fail entire analysis
+                            // Update progress on error too (to move the bar)
+                            analysisStateService.updateProgress(exerciseId, teamName, "ERROR", processedCount.get());
+                            // Emit error event for this team
+                            synchronized (eventEmitter) {
+                                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                            }
                         } finally {
                             completionLatch.countDown();
                         }
@@ -615,15 +613,16 @@ public class RequestService {
                 log.info("Waiting for completion interrupted");
             }
 
-            // Check if we should complete or if analysis was paused
+            // Check if we should complete or if analysis was cancelled
             if (analysisStateService.isRunning(exerciseId)) {
                 // Complete the analysis
                 analysisStateService.completeAnalysis(exerciseId);
                 eventEmitter.accept(Map.of("type", "DONE"));
             } else {
-                // Analysis was paused/cancelled
-                log.info("Analysis paused/cancelled for exercise {}", exerciseId);
-                eventEmitter.accept(Map.of("type", "PAUSED",
+                // Analysis was cancelled - mark pending teams as CANCELLED
+                log.info("Analysis cancelled for exercise {}", exerciseId);
+                markPendingTeamsAsCancelled(exerciseId);
+                eventEmitter.accept(Map.of("type", "CANCELLED",
                         "processed", processedCount.get(),
                         "total", totalToProcess));
             }
@@ -650,12 +649,17 @@ public class RequestService {
     }
 
     /**
-     * Check if a team has been fully analyzed (has CQI calculated).
-     * A team is considered "analyzed" only if it has a CQI value,
-     * not just if the participation record exists.
+     * Check if a team has been fully analyzed (has valid CQI calculated).
+     * A team is considered "analyzed" only if it has a CQI value > 0.
+     * CQI = 0 indicates a failed or incomplete analysis.
      */
     private boolean isTeamAlreadyAnalyzed(Long participationId) {
-        return teamParticipationRepository.existsByParticipationAndCqiIsNotNull(participationId);
+        var participation = teamParticipationRepository.findByParticipation(participationId);
+        if (participation.isEmpty()) {
+            return false;
+        }
+        Double cqi = participation.get().getCqi();
+        return cqi != null && cqi > 0;
     }
 
     /**
@@ -995,7 +999,19 @@ public class RequestService {
             TeamParticipation teamParticipation;
             if (existing.isPresent()) {
                 teamParticipation = existing.get();
-                // If NOT resuming, reset status to PENDING (unless it was already PENDING)
+
+                // PRESERVE already-analyzed teams with valid CQI data (CQI > 0) - don't reset
+                // them
+                // CQI of 0 indicates incomplete/failed analysis, so we should re-analyze
+                if (teamParticipation.getCqi() != null && teamParticipation.getCqi() > 0 &&
+                        teamParticipation
+                                .getAnalysisStatus() == de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE) {
+                    log.debug("Preserving already-analyzed team {} with CQI {}",
+                            participation.team().name(), teamParticipation.getCqi());
+                    continue; // Skip - this team is already done
+                }
+
+                // If NOT resuming and not fully analyzed, reset status to PENDING
                 if (!isResume) {
                     teamParticipation
                             .setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
@@ -1023,6 +1039,46 @@ public class RequestService {
                 teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
                 teamParticipationRepository.save(teamParticipation);
             }
+        }
+    }
+
+    /**
+     * Marks a team as failed in the database.
+     */
+    private void markTeamAsFailed(ParticipationDTO participation, Long exerciseId) {
+        try {
+            TeamDTO team = participation.team();
+            Tutor tutor = ensureTutor(team);
+
+            TeamParticipation teamParticipation = teamParticipationRepository.findByParticipation(participation.id())
+                    .orElse(new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
+                            team.shortName(), participation.repositoryUri(), participation.submissionCount()));
+
+            teamParticipation.setExerciseId(exerciseId);
+            teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.ERROR);
+            teamParticipationRepository.save(teamParticipation);
+        } catch (Exception e) {
+            log.error("Failed to mark team {} as failed", participation.team().name(), e);
+        }
+    }
+
+    /**
+     * Marks all pending teams as CANCELLED when analysis is cancelled.
+     */
+    private void markPendingTeamsAsCancelled(Long exerciseId) {
+        try {
+            List<TeamParticipation> pendingTeams = teamParticipationRepository
+                    .findAllByExerciseIdAndAnalysisStatus(exerciseId,
+                            de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.PENDING);
+
+            for (TeamParticipation team : pendingTeams) {
+                team.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.CANCELLED);
+                teamParticipationRepository.save(team);
+            }
+
+            log.info("Marked {} pending teams as CANCELLED for exercise {}", pendingTeams.size(), exerciseId);
+        } catch (Exception e) {
+            log.error("Failed to mark pending teams as cancelled for exercise {}", exerciseId, e);
         }
     }
 }

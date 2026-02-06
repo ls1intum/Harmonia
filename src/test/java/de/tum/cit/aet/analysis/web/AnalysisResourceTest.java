@@ -65,7 +65,7 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "db");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).clearDatabase();
+        verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
     }
 
@@ -74,7 +74,7 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "files");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService, never()).clearDatabase();
+        verify(requestService, never()).clearDatabaseForExercise(any());
         verify(stateService, never()).resetStatus(any());
     }
 
@@ -83,7 +83,7 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "both");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).clearDatabase();
+        verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
     }
 

@@ -57,4 +57,14 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
      * @param exerciseId the Artemis exercise ID
      */
     void deleteAllByExerciseId(Long exerciseId);
+
+    /**
+     * Find all pending participations for a given exercise.
+     *
+     * @param exerciseId the Artemis exercise ID
+     * @param status the status to filter by
+     * @return list of pending TeamParticipation entities
+     */
+    List<TeamParticipation> findAllByExerciseIdAndAnalysisStatus(Long exerciseId,
+            de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus status);
 }

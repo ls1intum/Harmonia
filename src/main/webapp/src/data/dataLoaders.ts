@@ -313,6 +313,10 @@ export function loadBasicTeamDataStream(
       } else if (data.type === 'DONE') {
         eventSource.close();
         onComplete();
+      } else if (data.type === 'CANCELLED') {
+        // Analysis was cancelled - close stream and notify completion
+        eventSource.close();
+        onComplete();
       }
     } catch (e) {
       console.error('Error parsing SSE event:', e);
