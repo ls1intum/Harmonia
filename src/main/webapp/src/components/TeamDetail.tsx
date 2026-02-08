@@ -33,9 +33,14 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
   // Check if team analysis is complete
   const isAnalysisComplete = team.analysisStatus === 'DONE';
 
-  // Team is 'failed' if any student has <10 commits (only check if analysis is complete)
+  // Check if git analysis is complete (git metrics available)
+  const isGitAnalysisComplete = team.analysisStatus === 'GIT_DONE' ||
+                                 team.analysisStatus === 'AI_ANALYZING' ||
+                                 team.analysisStatus === 'DONE';
+
+  // Team is 'failed' if any student has <10 commits (only check if git analysis is complete)
   const isTeamFailed = (team: Team) => {
-    if (!isAnalysisComplete) return false;
+    if (!isGitAnalysisComplete) return false;
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
 
@@ -46,10 +51,10 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
     return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
   };
 
-  // Check if student metadata is available (only show after analysis is complete)
+  // Check if student metadata is available (show after git analysis is complete)
   const hasStudentMetadata = (student: { commitCount?: number; linesAdded?: number; linesDeleted?: number; linesChanged?: number }) => {
     return (
-      isAnalysisComplete &&
+      isGitAnalysisComplete &&
       student.commitCount !== undefined &&
       student.linesAdded !== undefined &&
       student.linesDeleted !== undefined &&
@@ -95,8 +100,10 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                         <span className="text-green-600">+{student.linesAdded}</span>{' '}
                         <span className="text-red-600">-{student.linesDeleted}</span>)
                       </p>
-                    ) : !isAnalysisComplete ? (
+                    ) : team.analysisStatus === 'GIT_ANALYZING' || team.analysisStatus === 'DOWNLOADING' ? (
                       <p className="text-xs text-amber-500">Analyzing...</p>
+                    ) : team.analysisStatus === 'PENDING' ? (
+                      <p className="text-xs text-muted-foreground">Pending analysis</p>
                     ) : null}
                   </div>
                 ))}
@@ -134,9 +141,13 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                ) : (
+                ) : isGitAnalysisComplete ? (
                   <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
                     Normal Collaboration Pattern
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                    Analyzing...
                   </Badge>
                 )}
               </div>
@@ -150,6 +161,21 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                     <div className="text-xs text-muted-foreground mt-1">CQI Score</div>
                   </div>
                 </div>
+              ) : team.analysisStatus === 'AI_ANALYZING' ? (
+                <div className="flex items-center justify-center w-32 h-32 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-1"></div>
+                    <div className="text-xs text-purple-500">AI Analysis</div>
+                    <div className="text-xs text-purple-500">in progress</div>
+                  </div>
+                </div>
+              ) : team.analysisStatus === 'GIT_DONE' ? (
+                <div className="flex items-center justify-center w-32 h-32 rounded-2xl bg-blue-500/10 border-2 border-blue-500/30">
+                  <div className="text-center">
+                    <div className="text-xs text-blue-500">Git Done</div>
+                    <div className="text-xs text-blue-500">Waiting for AI</div>
+                  </div>
+                </div>
               ) : (
                 <div className="flex items-center justify-center w-32 h-32 rounded-2xl bg-muted/50 border-2 border-dashed border-muted-foreground/30">
                   <div className="text-center">
@@ -160,7 +186,10 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 </div>
               )}
               <p className="text-sm text-muted-foreground text-center md:text-right">
-                {team.cqi !== undefined ? 'Collaboration Quality Index' : 'CQI not yet calculated'}
+                {team.cqi !== undefined ? 'Collaboration Quality Index' :
+                 team.analysisStatus === 'AI_ANALYZING' ? 'Calculating CQI...' :
+                 team.analysisStatus === 'GIT_DONE' ? 'Waiting for AI analysis' :
+                 'CQI not yet calculated'}
               </p>
             </div>
           </div>

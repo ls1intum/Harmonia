@@ -176,6 +176,173 @@ public class CQICalculatorService {
         return CQIResultDTO.fallback(locScore, filterSummary);
     }
 
+    /**
+     * Calculate only the git-based component scores (no AI/LLM required).
+     * This can be called immediately after git analysis to show partial metrics.
+     * <p>
+     * Calculates:
+     * - LoC Balance (25%): Distribution of lines of code
+     * - Temporal Spread (20%): How work is spread over time
+     * - Ownership Spread (15%): How files are shared among team members
+     * <p>
+     * Effort Balance (40%) requires AI and will be 0.
+     *
+     * @param chunks       Pre-filtered commit chunks (not rated)
+     * @param teamSize     Number of team members
+     * @param projectStart Project start date (optional, uses first commit if null)
+     * @param projectEnd   Project end date (optional, uses last commit if null)
+     * @return Component scores with only git-based metrics filled in
+     */
+    public ComponentScoresDTO calculateGitOnlyComponents(
+            List<CommitChunkDTO> chunks,
+            int teamSize,
+            LocalDateTime projectStart,
+            LocalDateTime projectEnd) {
+
+        if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
+            return ComponentScoresDTO.zero();
+        }
+
+        // Aggregate LoC by author
+        Map<Long, Integer> locByAuthor = chunks.stream()
+                .filter(c -> c.authorId() != null)
+                .collect(Collectors.groupingBy(
+                        CommitChunkDTO::authorId,
+                        Collectors.summingInt(CommitChunkDTO::totalLinesChanged)
+                ));
+
+        if (locByAuthor.size() <= 1) {
+            return ComponentScoresDTO.zero();
+        }
+
+        // Calculate LoC balance
+        double locScore = calculateLocBalance(locByAuthor);
+
+        // Determine project boundaries from commits if not provided
+        LocalDateTime effectiveStart = projectStart;
+        LocalDateTime effectiveEnd = projectEnd;
+
+        if (effectiveStart == null || effectiveEnd == null) {
+            List<LocalDateTime> timestamps = chunks.stream()
+                    .map(CommitChunkDTO::timestamp)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .toList();
+
+            if (!timestamps.isEmpty()) {
+                if (effectiveStart == null) {
+                    effectiveStart = timestamps.get(0);
+                }
+                if (effectiveEnd == null) {
+                    effectiveEnd = timestamps.get(timestamps.size() - 1);
+                }
+            }
+        }
+
+        // Calculate temporal spread using raw chunks
+        double temporalScore = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
+
+        // Calculate ownership spread using raw chunks
+        double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
+
+        log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}",
+                String.format("%.1f", locScore),
+                String.format("%.1f", temporalScore),
+                String.format("%.1f", ownershipScore));
+
+        // effortBalance = 0 because it requires AI
+        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore);
+    }
+
+    /**
+     * Calculate temporal spread from raw commit chunks (no AI rating needed).
+     */
+    private double calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
+                                                      LocalDateTime projectStart,
+                                                      LocalDateTime projectEnd) {
+        if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
+            return 50.0; // Neutral score if no temporal data
+        }
+
+        long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
+        if (totalDays <= 0) {
+            return 50.0;
+        }
+
+        // Divide project into weeks
+        int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
+        double[] weeklyLines = new double[numWeeks];
+
+        for (CommitChunkDTO chunk : chunks) {
+            if (chunk.timestamp() == null) {
+                continue;
+            }
+
+            long daysSinceStart = ChronoUnit.DAYS.between(projectStart, chunk.timestamp());
+            int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
+            weekIndex = Math.max(0, weekIndex);
+
+            // Use lines changed as proxy for effort
+            weeklyLines[weekIndex] += chunk.totalLinesChanged();
+        }
+
+        // Calculate coefficient of variation
+        double mean = Arrays.stream(weeklyLines).average().orElse(0);
+        if (mean == 0) {
+            return 50.0;
+        }
+
+        double variance = Arrays.stream(weeklyLines)
+                .map(v -> Math.pow(v - mean, 2))
+                .average().orElse(0);
+        double stdev = Math.sqrt(variance);
+        double cv = stdev / mean;
+
+        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
+        double normalizedCV = Math.min(cv / 2.0, 1.0);
+
+        return 100.0 * (1.0 - normalizedCV);
+    }
+
+    /**
+     * Calculate ownership spread from raw commit chunks (no AI rating needed).
+     */
+    private double calculateOwnershipSpreadFromChunks(List<CommitChunkDTO> chunks, int teamSize) {
+        if (chunks.isEmpty() || teamSize <= 1) {
+            return 0.0;
+        }
+
+        // Map: filename -> set of author IDs
+        Map<String, Set<Long>> fileAuthors = new HashMap<>();
+        Map<String, Integer> fileCommitCounts = new HashMap<>();
+
+        for (CommitChunkDTO chunk : chunks) {
+            if (chunk.files() == null) continue;
+            for (String file : chunk.files()) {
+                fileAuthors.computeIfAbsent(file, k -> new HashSet<>()).add(chunk.authorId());
+                fileCommitCounts.merge(file, 1, Integer::sum);
+            }
+        }
+
+        // Filter to significant files (>= 3 commits)
+        List<String> significantFiles = fileAuthors.keySet().stream()
+                .filter(f -> fileCommitCounts.getOrDefault(f, 0) >= 3)
+                .toList();
+
+        if (significantFiles.isEmpty()) {
+            return 75.0; // Neutral for sparse data
+        }
+
+        // Calculate average author count per file (capped at team size)
+        int effectiveTeamSize = Math.min(teamSize, 4); // Cap to avoid penalizing small teams
+        double totalAuthors = significantFiles.stream()
+                .mapToDouble(f -> Math.min(fileAuthors.get(f).size(), effectiveTeamSize))
+                .sum();
+
+        double maxPossible = significantFiles.size() * effectiveTeamSize;
+        return 100.0 * totalAuthors / maxPossible;
+    }
+
     // ==================== Component Calculations ====================
 
     /**

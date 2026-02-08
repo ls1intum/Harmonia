@@ -101,22 +101,32 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   const teamId = dto.teamId?.toString() || 'unknown';
 
   // Use CQI from server (calculated server-side)
-  // Keep undefined if null - indicates analysis not yet complete
-  const cqi = dto.cqi !== undefined && dto.cqi !== null ? Math.round(dto.cqi) : undefined;
+  // Keep undefined if null, -1, or not set - indicates analysis not yet complete
+  // -1 is used for git-only data where CQI hasn't been calculated yet
+  const rawCqi = dto.cqi;
+  const cqi = rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined;
   const isSuspicious = dto.isSuspicious ?? undefined;
 
   // Extract CQI details from server response
   const serverCqiDetails = dto.cqiDetails as CQIResultDTO | undefined;
 
-  // Generate sub-metrics from CQI details if available, or undefined if CQI not calculated
+  // Check if this is git-only data (effortBalance is 0 and CQI is not calculated or is -1)
+  const isGitOnlyData = serverCqiDetails?.components &&
+                        serverCqiDetails.components.effortBalance === 0 &&
+                        (dto.cqi === undefined || dto.cqi === null || dto.cqi < 0);
+
+  // Generate sub-metrics from CQI details if available
+  // For git-only data, show the available metrics and mark effortBalance as pending
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? [
         {
           name: 'Effort Balance',
-          value: Math.round(serverCqiDetails.components.effortBalance ?? 0),
+          value: isGitOnlyData ? -1 : Math.round(serverCqiDetails.components.effortBalance ?? 0), // -1 indicates pending
           weight: 40,
           description: 'Is effort distributed fairly among team members?',
-          details: 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
+          details: isGitOnlyData
+            ? 'Requires AI analysis. Will be calculated after git analysis completes for all teams.'
+            : 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
         },
         {
           name: 'Lines of Code Balance',
@@ -259,8 +269,13 @@ async function fetchTeamByIdFromServer(teamId: string, exerciseId?: string): Pro
  * The streaming flow is:
  * 1. START - total count of teams
  * 2. INIT - each team with pending status (no CQI)
- * 3. UPDATE - each team with analyzed data (with CQI)
- * 4. DONE - analysis complete
+ * 3. PHASE - phase change notification (GIT_ANALYSIS or AI_ANALYSIS)
+ * 4. GIT_ANALYZING - a team's git analysis is starting
+ * 5. GIT_UPDATE - a team's git analysis is complete (with commits/lines, no CQI)
+ * 6. GIT_DONE - all git analysis complete
+ * 7. AI_ANALYZING - a team's AI analysis is starting
+ * 8. AI_UPDATE - a team's AI analysis is complete (with CQI)
+ * 9. DONE - all analysis complete
  */
 export function loadBasicTeamDataStream(
   exerciseId: string,
@@ -269,6 +284,8 @@ export function loadBasicTeamDataStream(
   onUpdate: (team: Team | Partial<Team>) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
+  onPhaseChange?: (phase: 'GIT_ANALYSIS' | 'AI_ANALYSIS', total: number) => void,
+  onGitDone?: (processed: number) => void,
 ): () => void {
   if (USE_DUMMY_DATA) {
     // Simulate streaming for dummy data
@@ -304,18 +321,65 @@ export function loadBasicTeamDataStream(
       } else if (data.type === 'INIT') {
         // Teams arriving with pending status (no CQI yet)
         onInit(transformToComplexTeamData(data.data));
-      } else if (data.type === 'ANALYZING') {
-        // A specific team is now being analyzed - update its status
-        // Create a partial update with just the status change
+      } else if (data.type === 'PHASE') {
+        // Phase change notification
+        if (onPhaseChange) {
+          onPhaseChange(data.phase, data.total);
+        }
+      } else if (data.type === 'GIT_ANALYZING') {
+        // A specific team's git analysis is starting
         const partialTeam = {
           id: data.teamId?.toString() || 'unknown',
           teamId: data.teamId,
           teamName: data.teamName,
-          analysisStatus: 'ANALYZING',
+          analysisStatus: 'GIT_ANALYZING' as const,
+        };
+        onUpdate(partialTeam as Partial<Team>);
+      } else if (data.type === 'GIT_UPDATE') {
+        // Git analysis complete for this team - has commits/lines but no CQI
+        const team = transformToComplexTeamData(data.data);
+        team.analysisStatus = 'GIT_DONE';
+        onUpdate(team);
+      } else if (data.type === 'GIT_DONE') {
+        // All git analysis complete
+        if (onGitDone) {
+          onGitDone(data.processed);
+        }
+      } else if (data.type === 'AI_ANALYZING') {
+        // A specific team's AI analysis is starting
+        const partialTeam = {
+          id: data.teamId?.toString() || 'unknown',
+          teamId: data.teamId,
+          teamName: data.teamName,
+          analysisStatus: 'AI_ANALYZING' as const,
+        };
+        onUpdate(partialTeam as Partial<Team>);
+      } else if (data.type === 'AI_UPDATE') {
+        // AI analysis complete for this team - has CQI
+        const team = transformToComplexTeamData(data.data);
+        team.analysisStatus = 'DONE';
+        onUpdate(team);
+      } else if (data.type === 'AI_ERROR') {
+        // AI analysis failed for this team - keep git data
+        const partialTeam = {
+          id: data.teamId?.toString() || 'unknown',
+          teamId: data.teamId,
+          teamName: data.teamName,
+          analysisStatus: 'GIT_DONE' as const, // Revert to GIT_DONE, CQI unavailable
+          cqi: undefined,
+        };
+        onUpdate(partialTeam as Partial<Team>);
+      } else if (data.type === 'ANALYZING') {
+        // Legacy: A specific team is now being analyzed - update its status
+        const partialTeam = {
+          id: data.teamId?.toString() || 'unknown',
+          teamId: data.teamId,
+          teamName: data.teamName,
+          analysisStatus: 'ANALYZING' as const,
         };
         onUpdate(partialTeam as Partial<Team>);
       } else if (data.type === 'UPDATE') {
-        // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
+        // Legacy: Server sends ClientResponseDTO with CQI and isSuspicious
         onUpdate(transformToComplexTeamData(data.data));
       } else if (data.type === 'DONE') {
         eventSource.close();
@@ -326,10 +390,8 @@ export function loadBasicTeamDataStream(
         onComplete();
       } else if (data.type === 'ALREADY_RUNNING') {
         // Analysis is already running (started by another user or before refresh)
-        // Close this stream - the client will poll status and DB for updates
         console.log('Analysis already running, switching to polling mode');
         eventSource.close();
-        // Throw a special error so the caller knows this is not a failure
         onError(new Error('ALREADY_RUNNING'));
       }
     } catch (e) {

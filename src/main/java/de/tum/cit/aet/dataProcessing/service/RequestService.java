@@ -277,7 +277,268 @@ public class RequestService {
     }
 
     /**
+     * Saves git analysis results (commits, lines of code) WITHOUT AI/CQI analysis.
+     * This is Phase 2 of the phased analysis flow.
+     *
+     * @param repo             Repository data to save
+     * @param contributionData Contribution data by student ID
+     * @param exerciseId       The Artemis exercise ID for this analysis
+     * @return Client response DTO with git metrics (no CQI)
+     */
+    public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
+            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+        // Step 1: Save tutor information
+        Tutor tutor = ensureTutor(repo.participation().team());
+
+        // Step 2: Save team participation
+        ParticipationDTO participation = repo.participation();
+        TeamDTO team = participation.team();
+
+        TeamParticipation teamParticipation = teamParticipationRepository.findByParticipation(participation.id())
+                .orElse(new TeamParticipation(participation.id(), team.id(), tutor, team.name(),
+                        team.shortName(), participation.repositoryUri(), participation.submissionCount()));
+
+        teamParticipation.setExerciseId(exerciseId);
+        teamParticipation.setTutor(tutor);
+        teamParticipation.setSubmissionCount(participation.submissionCount());
+        teamParticipation.setAnalysisStatus(AnalysisStatus.GIT_DONE);
+        teamParticipationRepository.save(teamParticipation);
+
+        // Step 3: Save students with their contribution metrics
+        List<Student> students = new ArrayList<>();
+        List<StudentAnalysisDTO> studentAnalysisDTOS = new ArrayList<>();
+
+        // Delete existing students for this team (avoid duplicates)
+        studentRepository.deleteAllByTeam(teamParticipation);
+
+        for (ParticipantDTO student : repo.participation().team().students()) {
+            AuthorContributionDTO contributionDTO = contributionData.get(student.id());
+
+            if (contributionDTO == null) {
+                contributionDTO = new AuthorContributionDTO(0, 0, 0);
+            }
+
+            students.add(new Student(student.id(), student.login(), student.name(), student.email(), teamParticipation,
+                    contributionDTO.commitCount(), contributionDTO.linesAdded(), contributionDTO.linesDeleted(),
+                    contributionDTO.linesAdded() + contributionDTO.linesDeleted()));
+
+            studentAnalysisDTOS.add(new StudentAnalysisDTO(
+                    student.name(),
+                    contributionDTO.commitCount(),
+                    contributionDTO.linesAdded(),
+                    contributionDTO.linesDeleted(),
+                    contributionDTO.linesAdded() + contributionDTO.linesDeleted()));
+        }
+        studentRepository.saveAll(students);
+
+        // Step 4: Save team repository with VCS logs
+        TeamRepository teamRepo = new TeamRepository(teamParticipation, null, repo.localPath(), repo.isCloned(),
+                repo.error());
+
+        List<VCSLog> vcsLogs = repo.vcsLogs().stream().map(log -> new VCSLog(teamRepo, log.commitHash(), log.email()))
+                .toList();
+
+        teamRepo.setVcsLogs(vcsLogs);
+        teamRepositoryRepository.save(teamRepo);
+
+        // Step 5: Calculate git-only CQI components (no AI needed)
+        CQIResultDTO gitCqiDetails = null;
+        try {
+            // Get commit chunks for git-based metrics
+            Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
+            List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
+
+            // Apply pre-filter to remove trivial commits
+            CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+
+            // Calculate git-only components (locBalance, temporalSpread, ownershipSpread)
+            var gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
+                    filterResult.chunksToAnalyze(),
+                    students.size(),
+                    null,  // projectStart - will be determined from commits
+                    null   // projectEnd - will be determined from commits
+            );
+
+            // Store git-based components
+            if (gitComponents != null) {
+                teamParticipation.setCqiLocBalance(gitComponents.locBalance());
+                teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
+                teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
+                teamParticipationRepository.save(teamParticipation);
+
+                // Create partial CQI details with git-only components
+                gitCqiDetails = CQIResultDTO.gitOnly(gitComponents, filterResult.summary());
+
+                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}",
+                        team.name(), gitComponents.locBalance(), gitComponents.temporalSpread(), gitComponents.ownershipSpread());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to calculate git-only metrics for team {}: {}", team.name(), e.getMessage());
+        }
+
+        log.info("Git analysis complete for team: {} (commits={}, students={})",
+                team.name(), participation.submissionCount(), students.size());
+
+        // Return DTO with git metrics and git-only CQI components
+        return new ClientResponseDTO(
+                tutor != null ? tutor.getName() : "Unassigned",
+                participation.team().id(),
+                participation.team().name(),
+                participation.submissionCount(),
+                studentAnalysisDTOS,
+                null,  // CQI - will be calculated in Phase 3
+                null,  // isSuspicious - will be calculated in Phase 3
+                AnalysisStatus.GIT_DONE,
+                gitCqiDetails,  // Partial CQI details with git-only components
+                null,  // analysisHistory - will be populated in Phase 3
+                null); // orphanCommits
+    }
+
+    /**
+     * Performs AI analysis (CQI calculation) for a team.
+     * This is Phase 3 of the phased analysis flow.
+     *
+     * @param repo       Repository data
+     * @param exerciseId The Artemis exercise ID
+     * @return Client response DTO with CQI and AI metrics
+     */
+    public ClientResponseDTO saveAIAnalysisResult(TeamRepositoryDTO repo, Long exerciseId) {
+        ParticipationDTO participation = repo.participation();
+        TeamDTO team = participation.team();
+
+        TeamParticipation teamParticipation = teamParticipationRepository.findByParticipation(participation.id())
+                .orElseThrow(() -> new IllegalStateException("Team participation not found for AI analysis"));
+
+        // Set status to AI_ANALYZING
+        teamParticipation.setAnalysisStatus(AnalysisStatus.AI_ANALYZING);
+        teamParticipationRepository.save(teamParticipation);
+
+        List<Student> students = studentRepository.findAllByTeam(teamParticipation);
+
+        // Calculate CQI using effort-based fairness analysis
+        Double cqi = null;
+        boolean isSuspicious = false;
+        List<AnalyzedChunkDTO> analysisHistory = null;
+        List<OrphanCommitDTO> orphanCommits = null;
+        CQIResultDTO cqiDetails = null;
+
+        // Step 1: Detect orphan commits
+        try {
+            RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
+                    .analyzeRepositoryWithOrphans(repo);
+            orphanCommits = analysisResult.orphanCommits();
+            if (orphanCommits != null && !orphanCommits.isEmpty()) {
+                log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
+        }
+
+        // Step 2: Try effort-based fairness analysis (primary method)
+        boolean fairnessAnalysisSucceeded = false;
+        try {
+            FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
+            boolean isErrorReport = fairnessReport.flags() != null &&
+                    fairnessReport.flags().contains(de.tum.cit.aet.ai.domain.FairnessFlag.ANALYSIS_ERROR);
+            if (!isErrorReport) {
+                cqi = fairnessReport.balanceScore();
+                isSuspicious = fairnessReport.requiresManualReview();
+                analysisHistory = fairnessReport.analyzedChunks();
+                cqiDetails = fairnessReport.cqiResult();
+                fairnessAnalysisSucceeded = true;
+                log.debug("Fairness analysis complete for team {}: score={}, suspicious={}",
+                        team.name(), cqi, isSuspicious);
+
+                if (analysisHistory != null && !analysisHistory.isEmpty()) {
+                    saveAnalyzedChunks(teamParticipation, analysisHistory);
+                }
+            } else {
+                log.warn("Fairness analysis returned error for team {}", team.name());
+            }
+        } catch (Exception e) {
+            log.warn("Fairness analysis failed for team {}, falling back: {}", team.name(), e.getMessage());
+        }
+
+        // Step 3: Fallback to CQI calculator if fairness analysis failed
+        if (!fairnessAnalysisSucceeded) {
+            try {
+                if (repo.localPath() != null) {
+                    Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
+                    List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(),
+                            commitToAuthor);
+
+                    CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+
+                    CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
+                            filterResult.chunksToAnalyze(),
+                            students.size(),
+                            filterResult.summary());
+
+                    cqi = cqiResult.cqi();
+                    cqiDetails = cqiResult;
+                    log.debug("Fallback CQI for team {}: {}", team.name(), cqi);
+                }
+            } catch (Exception e) {
+                log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
+            }
+
+            // Step 4: Last resort - simple commit-count based balance
+            if (cqi == null || cqi == 0.0) {
+                Map<String, Integer> commitCounts = new HashMap<>();
+                students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+                if (!commitCounts.isEmpty()) {
+                    cqi = balanceCalculator.calculate(commitCounts);
+                }
+            }
+        }
+
+        // Step 5: Update TeamParticipation with CQI
+        teamParticipation.setCqi(cqi);
+        teamParticipation.setIsSuspicious(isSuspicious);
+
+        if (cqiDetails != null && cqiDetails.components() != null) {
+            teamParticipation.setCqiEffortBalance(cqiDetails.components().effortBalance());
+            teamParticipation.setCqiLocBalance(cqiDetails.components().locBalance());
+            teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
+            teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
+            teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
+            teamParticipation.setCqiPenaltyMultiplier(cqiDetails.penaltyMultiplier());
+            if (cqiDetails.penalties() != null) {
+                teamParticipation.setCqiPenalties(serializePenalties(cqiDetails.penalties()));
+            }
+        }
+
+        teamParticipation.setAnalysisStatus(AnalysisStatus.DONE);
+        teamParticipationRepository.save(teamParticipation);
+
+        // Build student DTOs from persisted data
+        List<StudentAnalysisDTO> studentAnalysisDTOS = students.stream()
+                .map(s -> new StudentAnalysisDTO(s.getName(), s.getCommitCount(), s.getLinesAdded(),
+                        s.getLinesDeleted(), s.getLinesChanged()))
+                .toList();
+
+        Tutor tutor = teamParticipation.getTutor();
+
+        log.info("AI analysis complete for team: {} (CQI={})", team.name(), cqi);
+
+        return new ClientResponseDTO(
+                tutor != null ? tutor.getName() : "Unassigned",
+                participation.team().id(),
+                participation.team().name(),
+                participation.submissionCount(),
+                studentAnalysisDTOS,
+                cqi,
+                isSuspicious,
+                AnalysisStatus.DONE,
+                cqiDetails,
+                analysisHistory,
+                orphanCommits);
+    }
+
+    /**
      * Saves a single repository analysis result to the database.
+     * LEGACY METHOD - kept for backwards compatibility.
+     * For new code, use saveGitAnalysisResult + saveAIAnalysisResult.
      *
      * @param repo             Repository data to save
      * @param contributionData Contribution data by student ID
@@ -474,9 +735,10 @@ public class RequestService {
 
     /**
      * Fetches, analyzes, and saves repositories with streaming updates.
-     * Tracks progress via AnalysisStateService and skips already-analyzed teams.
-     * Uses interruptible ExecutorService instead of parallelStream for proper
-     * cancellation.
+     * Uses a 3-phase approach:
+     * - Phase 1: Download all repositories (parallel)
+     * - Phase 2: Git analysis (commits, lines of code) with immediate updates
+     * - Phase 3: AI analysis (CQI calculation) after all git analysis is complete
      *
      * @param credentials  Artemis credentials
      * @param exerciseId   Exercise ID to fetch repositories for
@@ -487,9 +749,6 @@ public class RequestService {
         ExecutorService executor = null;
         try {
             // Step 0: Clear all existing data for this exercise to ensure clean state
-            // This prevents issues with stale data from previous analyses
-            // Use transactionTemplate because @Transactional doesn't work on
-            // self-invocation
             log.info("Clearing existing data for exercise {} before starting analysis", exerciseId);
             transactionTemplate.executeWithoutResult(status -> {
                 clearDatabaseForExerciseInternal(exerciseId);
@@ -504,25 +763,23 @@ public class RequestService {
                     .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
                     .toList();
 
-            // All teams need analysis since we just cleared the database
             int totalToProcess = validParticipations.size();
             log.info("Found {} teams to analyze", totalToProcess);
 
-            // Always start fresh
+            // Start fresh analysis state
             analysisStateService.startAnalysis(exerciseId, totalToProcess);
 
             // Emit total count
             eventEmitter.accept(Map.of("type", "START", "total", validParticipations.size()));
 
-            // Step 4: Persist PENDING state to database immediately
+            // Step 3: Persist PENDING state to database immediately
             initializePendingTeams(validParticipations, exerciseId, false);
 
-            // Emit all teams as PENDING - we cleared the DB so all teams need analysis
+            // Emit all teams as PENDING
             for (ParticipationDTO participation : validParticipations) {
                 if (participation.team() != null) {
                     TeamDTO team = participation.team();
 
-                    // Build a minimal ClientResponseDTO with just basic info (no CQI)
                     Map<String, Object> pendingTeam = new HashMap<>();
                     pendingTeam.put("teamId", team.id());
                     pendingTeam.put("teamName", team.name());
@@ -530,19 +787,17 @@ public class RequestService {
                     pendingTeam.put("repositoryUri", participation.repositoryUri());
                     pendingTeam.put("submissionCount", participation.submissionCount());
                     pendingTeam.put("tutor", team.owner() != null ? team.owner().name() : "Unassigned");
-                    // Students with basic info
+
                     List<Map<String, Object>> students = new java.util.ArrayList<>();
                     if (team.students() != null) {
                         for (ParticipantDTO student : team.students()) {
                             Map<String, Object> studentData = new HashMap<>();
                             studentData.put("name", student.name());
                             studentData.put("login", student.login());
-                            // No commit counts yet - those come after analysis
                             students.add(studentData);
                         }
                     }
                     pendingTeam.put("students", students);
-                    // No CQI yet - indicates pending status
                     pendingTeam.put("cqi", null);
                     pendingTeam.put("isSuspicious", null);
                     pendingTeam.put("analysisStatus", "PENDING");
@@ -551,7 +806,6 @@ public class RequestService {
                 }
             }
 
-            // If no teams to analyze, complete immediately
             if (validParticipations.isEmpty()) {
                 log.info("No teams to analyze for exercise {}", exerciseId);
                 analysisStateService.completeAnalysis(exerciseId);
@@ -560,11 +814,14 @@ public class RequestService {
             }
 
             // ============================================================
-            // PHASE 1: DOWNLOAD ALL REPOSITORIES IN PARALLEL
+            // PHASE 1+2: DOWNLOAD AND GIT ANALYSIS IN PARALLEL
+            // Each team is analyzed immediately after download
             // ============================================================
-            log.info("Phase 1: Downloading {} repositories in parallel", validParticipations.size());
+            log.info("Phase 1+2: Downloading and analyzing {} repositories in parallel", validParticipations.size());
 
-            // Store cloned repos for Phase 2
+            // Emit phase change event
+            eventEmitter.accept(Map.of("type", "PHASE", "phase", "GIT_ANALYSIS", "total", validParticipations.size()));
+
             Map<Long, TeamRepositoryDTO> clonedRepos = new java.util.concurrent.ConcurrentHashMap<>();
 
             int threadCount = Math.max(1, Math.min(validParticipations.size(),
@@ -572,9 +829,8 @@ public class RequestService {
             executor = Executors.newFixedThreadPool(threadCount);
             activeExecutors.put(exerciseId, executor);
 
-            CountDownLatch downloadLatch = new CountDownLatch(validParticipations.size());
-            java.util.concurrent.atomic.AtomicInteger downloadedCount = new java.util.concurrent.atomic.AtomicInteger(
-                    0);
+            CountDownLatch downloadAndAnalyzeLatch = new CountDownLatch(validParticipations.size());
+            java.util.concurrent.atomic.AtomicInteger gitAnalyzedCount = new java.util.concurrent.atomic.AtomicInteger(0);
 
             for (ParticipationDTO participation : validParticipations) {
                 executor.submit(() -> {
@@ -585,67 +841,113 @@ public class RequestService {
 
                         String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
-                        // Update status to DOWNLOADING for this team
-                        analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", downloadedCount.get());
+                        // Step 1: Download
+                        analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", gitAnalyzedCount.get());
 
-                        // Clone the repository
                         TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(
                                 participation, credentials, exerciseId);
 
-                        if (repo != null) {
-                            clonedRepos.put(participation.id(), repo);
+                        if (repo == null) {
+                            log.warn("Failed to clone repository for team {}", teamName);
+                            markTeamAsFailed(participation, exerciseId);
+                            synchronized (eventEmitter) {
+                                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                            }
+                            return;
                         }
 
-                        int downloaded = downloadedCount.incrementAndGet();
-                        log.debug("Downloaded {}/{}: {}", downloaded, validParticipations.size(), teamName);
+                        clonedRepos.put(participation.id(), repo);
+
+                        // Step 2: Git Analysis immediately after download
+                        analysisStateService.updateProgress(exerciseId, teamName, "GIT_ANALYZING", gitAnalyzedCount.get());
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of(
+                                    "type", "GIT_ANALYZING",
+                                    "teamId", participation.team().id(),
+                                    "teamName", teamName));
+                        }
+
+                        // Analyze git contributions (commits, lines of code)
+                        Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+
+                        // Save git analysis results (no CQI yet)
+                        final TeamRepositoryDTO finalRepo = repo;
+                        ClientResponseDTO gitDto = transactionTemplate
+                                .execute(status -> saveGitAnalysisResult(finalRepo, contributions, exerciseId));
+
+                        int currentProcessed = gitAnalyzedCount.incrementAndGet();
+                        analysisStateService.updateProgress(exerciseId, teamName, "GIT_DONE", currentProcessed);
+
+                        // Emit git analysis complete - client can now show commits and lines
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of("type", "GIT_UPDATE", "data", gitDto));
+                        }
+
+                        log.debug("Download + Git analysis {}/{}: {}", currentProcessed, validParticipations.size(), teamName);
 
                     } catch (Exception e) {
-                        log.error("Failed to download repo for team {}",
-                                participation.team() != null ? participation.team().name() : participation.id(), e);
-                        // Mark as failed but continue with other downloads
-                        markTeamAsFailed(participation, exerciseId);
-                        synchronized (eventEmitter) {
-                            eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                        // Check if this was an interrupt (analysis cancelled) vs a real error
+                        boolean isInterrupt = Thread.currentThread().isInterrupted() ||
+                                              e.getCause() instanceof InterruptedException ||
+                                              (e.getCause() != null && e.getCause().getCause() instanceof java.nio.channels.ClosedByInterruptException);
+
+                        if (isInterrupt) {
+                            log.info("Download/analysis interrupted for team {} (analysis likely cancelled)",
+                                    participation.team() != null ? participation.team().name() : participation.id());
+                            // Don't mark as failed - just leave as PENDING or mark as CANCELLED
+                        } else {
+                            log.error("Failed to download/analyze repo for team {}",
+                                    participation.team() != null ? participation.team().name() : participation.id(), e);
+                            markTeamAsFailed(participation, exerciseId);
+                            synchronized (eventEmitter) {
+                                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                            }
                         }
+                        gitAnalyzedCount.incrementAndGet();
                     } finally {
-                        downloadLatch.countDown();
+                        downloadAndAnalyzeLatch.countDown();
                     }
                 });
             }
 
-            // Wait for all downloads to complete
             try {
-                downloadLatch.await();
+                downloadAndAnalyzeLatch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                log.info("Download phase interrupted");
+                log.info("Download+Analysis phase interrupted");
             }
 
-            // Shutdown download executor
             executor.shutdown();
 
-            log.info("Phase 1 complete: Downloaded {} of {} repositories", clonedRepos.size(),
+            log.info("Phase 1+2 complete: Downloaded and analyzed {} of {} repositories", clonedRepos.size(),
                     validParticipations.size());
 
-            // Check if cancelled
+            // Emit git phase complete
+            eventEmitter.accept(Map.of("type", "GIT_DONE", "processed", gitAnalyzedCount.get()));
+
             if (!analysisStateService.isRunning(exerciseId)) {
-                log.info("Analysis cancelled after download phase");
+                log.info("Analysis cancelled after git analysis phase");
                 markPendingTeamsAsCancelled(exerciseId);
-                eventEmitter.accept(Map.of("type", "CANCELLED", "processed", 0, "total", totalToProcess));
+                eventEmitter.accept(Map.of("type", "CANCELLED",
+                        "processed", gitAnalyzedCount.get(),
+                        "total", totalToProcess));
                 return;
             }
 
             // ============================================================
-            // PHASE 2: ANALYZE TEAMS SEQUENTIALLY (ONE BY ONE)
+            // PHASE 3: AI ANALYSIS - Calculate CQI scores
+            // This runs AFTER all git analysis is complete
             // ============================================================
-            log.info("Phase 2: Analyzing {} teams sequentially", clonedRepos.size());
+            log.info("Phase 3: AI analysis (CQI calculation) for {} teams", clonedRepos.size());
 
-            java.util.concurrent.atomic.AtomicInteger analyzedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+            // Emit phase change event
+            eventEmitter.accept(Map.of("type", "PHASE", "phase", "AI_ANALYSIS", "total", clonedRepos.size()));
+
+            java.util.concurrent.atomic.AtomicInteger aiAnalyzedCount = new java.util.concurrent.atomic.AtomicInteger(0);
 
             for (ParticipationDTO participation : validParticipations) {
-                // Check if cancelled
                 if (!analysisStateService.isRunning(exerciseId)) {
-                    log.info("Analysis cancelled during analysis phase");
+                    log.info("Analysis cancelled during AI analysis phase");
                     break;
                 }
 
@@ -653,62 +955,61 @@ public class RequestService {
                 String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
                 if (repo == null) {
-                    // This team failed to download, already marked as failed
-                    analyzedCount.incrementAndGet();
+                    aiAnalyzedCount.incrementAndGet();
                     continue;
                 }
 
                 try {
-                    // Update status to ANALYZING for this team
-                    analysisStateService.updateProgress(exerciseId, teamName, "ANALYZING", analyzedCount.get());
-
-                    // Emit event to notify frontend this team is now being analyzed
+                    // Notify frontend this team's AI analysis is starting
+                    analysisStateService.updateProgress(exerciseId, teamName, "AI_ANALYZING", aiAnalyzedCount.get());
                     synchronized (eventEmitter) {
                         eventEmitter.accept(Map.of(
-                                "type", "ANALYZING",
+                                "type", "AI_ANALYZING",
                                 "teamId", participation.team().id(),
                                 "teamName", teamName));
                     }
 
-                    // Analyze the repository
-                    Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
-
-                    // Save results (wrap in transaction for delete/save operations)
+                    // Perform AI analysis (CQI calculation)
                     final TeamRepositoryDTO finalRepo = repo;
-                    ClientResponseDTO dto = transactionTemplate
-                            .execute(status -> saveSingleResult(finalRepo, contributions, exerciseId));
+                    ClientResponseDTO aiDto = transactionTemplate
+                            .execute(status -> saveAIAnalysisResult(finalRepo, exerciseId));
 
-                    int currentProcessed = analyzedCount.incrementAndGet();
-
-                    // Update state with DONE
+                    int currentProcessed = aiAnalyzedCount.incrementAndGet();
                     analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
 
-                    // Emit result
+                    // Emit AI analysis complete - client can now show CQI
                     synchronized (eventEmitter) {
-                        eventEmitter.accept(Map.of("type", "UPDATE", "data", dto));
+                        eventEmitter.accept(Map.of("type", "AI_UPDATE", "data", aiDto));
                     }
 
-                    log.debug("Analyzed {}/{}: {}", currentProcessed, clonedRepos.size(), teamName);
+                    log.debug("AI analysis {}/{}: {} (CQI={})", currentProcessed, clonedRepos.size(),
+                            teamName, aiDto != null ? aiDto.cqi() : "N/A");
 
                 } catch (Exception e) {
-                    log.error("Error analyzing team {}", teamName, e);
-                    markTeamAsFailed(participation, exerciseId);
-                    analyzedCount.incrementAndGet();
-                    analysisStateService.updateProgress(exerciseId, teamName, "ERROR", analyzedCount.get());
+                    log.error("Error in AI analysis for team {}", teamName, e);
+                    // Don't fail the team - git data is still valid
+                    aiAnalyzedCount.incrementAndGet();
+                    analysisStateService.updateProgress(exerciseId, teamName, "AI_ERROR", aiAnalyzedCount.get());
                     synchronized (eventEmitter) {
-                        eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                        eventEmitter.accept(Map.of(
+                                "type", "AI_ERROR",
+                                "teamId", participation.team().id(),
+                                "teamName", teamName,
+                                "error", e.getMessage()));
                     }
                 }
             }
 
-            // Complete or mark as cancelled
+            log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
+
+            // Complete analysis
             if (analysisStateService.isRunning(exerciseId)) {
                 analysisStateService.completeAnalysis(exerciseId);
                 eventEmitter.accept(Map.of("type", "DONE"));
             } else {
                 markPendingTeamsAsCancelled(exerciseId);
                 eventEmitter.accept(Map.of("type", "CANCELLED",
-                        "processed", analyzedCount.get(),
+                        "processed", aiAnalyzedCount.get(),
                         "total", totalToProcess));
             }
 

@@ -272,7 +272,8 @@ components:
           items: {$ref: '#/components/schemas/AnalyzedChunkDTO'}
         analysisStatus:
           type: string
-          enum: [PENDING, ANALYZING, DONE, ERROR, CANCELLED]
+          enum: [PENDING, DOWNLOADING, GIT_ANALYZING, GIT_DONE, AI_ANALYZING, ANALYZING,
+            DONE, ERROR, CANCELLED]
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isSuspicious: {type: boolean}
