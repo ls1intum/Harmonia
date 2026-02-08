@@ -67,13 +67,19 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
           queryClient.setQueryData(['teams', exercise], [...streamedTeams]);
         }
       },
-      // onUpdate: Replace with analyzed team data
-      team => {
-        const index = streamedTeams.findIndex(t => t.id === team.id);
+      // onUpdate: Replace or merge with analyzed team data
+      teamUpdate => {
+        // Handle both full Team and Partial<Team> updates
+        const teamId = teamUpdate.id;
+        if (!teamId) return; // Skip if no id (shouldn't happen)
+
+        const index = streamedTeams.findIndex(t => t.id === teamId);
         if (index !== -1) {
-          streamedTeams[index] = team;
-        } else {
-          streamedTeams.push(team);
+          // Merge: keep existing data, override with new data
+          streamedTeams[index] = { ...streamedTeams[index], ...teamUpdate };
+        } else if ('teamName' in teamUpdate && 'students' in teamUpdate) {
+          // Only add if it's a full team object
+          streamedTeams.push(teamUpdate as Team);
         }
         if (mounted) {
           setProcessedRepos(prev => prev + 1);
