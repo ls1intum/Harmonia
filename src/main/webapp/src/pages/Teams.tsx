@@ -25,7 +25,7 @@ export default function Teams() {
   // Fetch teams from database on load
   // During analysis, this shows already-analyzed teams
   const isAnalysisRunning = status.state === 'RUNNING';
-  const { data: teams = [], refetch: refetchTeams } = useQuery<Team[]>({
+  const { data: teams = []} = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
       // Fetch already-analyzed teams from database (filtered by exerciseId)
@@ -61,36 +61,36 @@ export default function Teams() {
       // Step 2: Start streaming (backend will clear data before starting)
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
-          exercise,
-          () => {}, // onTotal
-          // onInit: Add team with pending status
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const exists = old.some(t => t.id === (team as unknown as Team).id);
-              if (exists) return old;
-              return [...old, team as unknown as Team];
-            });
-          },
-          // onUpdate: Update existing team with new data (merge for partial updates like ANALYZING)
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const teamData = team as unknown as Team;
-              const existingTeam = old.find(t => t.id === teamData.id);
-              if (existingTeam) {
-                // Merge: keep existing data, override with new data
-                // This handles partial updates (ANALYZING) and full updates (UPDATE)
-                return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
-              }
-              return [...old, teamData];
-            });
-          },
-          () => {
-            refetchStatus();
-            resolve();
-          },
-          error => {
-            reject(error);
-          },
+            exercise,
+            () => {}, // onTotal
+            // onInit: Add team with pending status
+            team => {
+              queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+                const exists = old.some(t => t.id === (team as unknown as Team).id);
+                if (exists) return old;
+                return [...old, team as unknown as Team];
+              });
+            },
+            // onUpdate: Update existing team with new data (merge for partial updates like ANALYZING)
+            team => {
+              queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+                const teamData = team as unknown as Team;
+                const existingTeam = old.find(t => t.id === teamData.id);
+                if (existingTeam) {
+                  // Merge: keep existing data, override with new data
+                  // This handles partial updates (ANALYZING) and full updates (UPDATE)
+                  return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
+                }
+                return [...old, teamData];
+              });
+            },
+            () => {
+              refetchStatus();
+              resolve();
+            },
+            error => {
+              reject(error);
+            },
         );
       });
     },
@@ -155,33 +155,33 @@ export default function Teams() {
       // Step 2: Start streaming (backend will clear data before starting)
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
-          exercise,
-          () => {},
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const exists = old.some(t => t.id === (team as unknown as Team).id);
-              if (exists) return old;
-              return [...old, team as unknown as Team];
-            });
-          },
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const teamData = team as unknown as Team;
-              const existingTeam = old.find(t => t.id === teamData.id);
-              if (existingTeam) {
-                // Merge: keep existing data, override with new data
-                return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
-              }
-              return [...old, teamData];
-            });
-          },
-          () => {
-            refetchStatus();
-            resolve();
-          },
-          error => {
-            reject(error);
-          },
+            exercise,
+            () => {},
+            team => {
+              queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+                const exists = old.some(t => t.id === (team as unknown as Team).id);
+                if (exists) return old;
+                return [...old, team as unknown as Team];
+              });
+            },
+            team => {
+              queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
+                const teamData = team as unknown as Team;
+                const existingTeam = old.find(t => t.id === teamData.id);
+                if (existingTeam) {
+                  // Merge: keep existing data, override with new data
+                  return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
+                }
+                return [...old, teamData];
+              });
+            },
+            () => {
+              refetchStatus();
+              resolve();
+            },
+            error => {
+              reject(error);
+            },
         );
       });
     },
@@ -231,18 +231,18 @@ export default function Teams() {
   };
 
   return (
-    <TeamsList
-      teams={teams}
-      onTeamSelect={handleTeamSelect}
-      onBackToHome={() => navigate('/')}
-      onStart={() => startMutation.mutate()}
-      onCancel={() => cancelMutation.mutate()}
-      onRecompute={() => recomputeMutation.mutate()}
-      onClear={type => clearMutation.mutate(type)}
-      course={course}
-      exercise={exercise}
-      analysisStatus={status}
-      isLoading={isStatusLoading}
-    />
+      <TeamsList
+          teams={teams}
+          onTeamSelect={handleTeamSelect}
+          onBackToHome={() => navigate('/')}
+          onStart={() => startMutation.mutate()}
+          onCancel={() => cancelMutation.mutate()}
+          onRecompute={() => recomputeMutation.mutate()}
+          onClear={type => clearMutation.mutate(type)}
+          course={course}
+          exercise={exercise}
+          analysisStatus={status}
+          isLoading={isStatusLoading}
+      />
   );
 }
