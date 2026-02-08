@@ -317,7 +317,9 @@ public class CQICalculatorService {
         Map<String, Integer> fileCommitCounts = new HashMap<>();
 
         for (CommitChunkDTO chunk : chunks) {
-            if (chunk.files() == null) continue;
+            if (chunk.files() == null) {
+                continue;
+            }
             for (String file : chunk.files()) {
                 fileAuthors.computeIfAbsent(file, k -> new HashSet<>()).add(chunk.authorId());
                 fileCommitCounts.merge(file, 1, Integer::sum);

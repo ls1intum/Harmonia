@@ -138,7 +138,9 @@ public class GitOperationsService {
      */
     private boolean isRetryableError(GitOperationException e) {
         String message = e.getMessage();
-        if (message == null) return false;
+        if (message == null) {
+            return false;
+        }
 
         // Check for common transient HTTP errors
         return message.contains("503") ||  // Service Unavailable
