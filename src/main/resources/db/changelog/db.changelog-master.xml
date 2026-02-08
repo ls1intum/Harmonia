@@ -6,6 +6,5 @@
                    objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
 
     <include file="db/changelog/001-changelog.xml"/>
-    <include file="db/changelog/002-add-analysis-status.xml"/>
 
 </databaseChangeLog>
