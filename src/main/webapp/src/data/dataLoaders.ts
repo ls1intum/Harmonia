@@ -110,7 +110,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
 
   // Generate sub-metrics from CQI details if available, or undefined if CQI not calculated
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
-      ? [
+    ? [
         {
           name: 'Effort Balance',
           value: Math.round(serverCqiDetails.components.effortBalance ?? 0),
@@ -140,31 +140,31 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
       ]
-      : cqi !== undefined
-          ? [
-            {
-              name: 'Contribution Balance',
-              value: cqi,
-              weight: 40,
-              description: 'Are teammates contributing at similar levels?',
-              details: 'Calculated from commit distribution.',
-            },
-            {
-              name: 'Ownership Distribution',
-              value: 0,
-              weight: 30,
-              description: 'Are key files shared rather than monopolized?',
-              details: 'Calculated from git blame analysis.',
-            },
-            {
-              name: 'Pairing Signals',
-              value: 0,
-              weight: 30,
-              description: 'Did teammates actually work together?',
-              details: 'Not yet implemented.',
-            },
-          ]
-          : undefined;
+    : cqi !== undefined
+      ? [
+          {
+            name: 'Contribution Balance',
+            value: cqi,
+            weight: 40,
+            description: 'Are teammates contributing at similar levels?',
+            details: 'Calculated from commit distribution.',
+          },
+          {
+            name: 'Ownership Distribution',
+            value: 0,
+            weight: 30,
+            description: 'Are key files shared rather than monopolized?',
+            details: 'Calculated from git blame analysis.',
+          },
+          {
+            name: 'Pairing Signals',
+            value: 0,
+            weight: 30,
+            description: 'Did teammates actually work together?',
+            details: 'Not yet implemented.',
+          },
+        ]
+      : undefined;
 
   // Use analysis history directly from server (already in correct DTO format)
   const analysisHistory = dto.analysisHistory;
@@ -263,12 +263,12 @@ async function fetchTeamByIdFromServer(teamId: string, exerciseId?: string): Pro
  * 4. DONE - analysis complete
  */
 export function loadBasicTeamDataStream(
-    exerciseId: string,
-    onStart: (total: number) => void,
-    onInit: (team: Team) => void,
-    onUpdate: (team: Team | Partial<Team>) => void,
-    onComplete: () => void,
-    onError: (error: unknown) => void,
+  exerciseId: string,
+  onStart: (total: number) => void,
+  onInit: (team: Team) => void,
+  onUpdate: (team: Team | Partial<Team>) => void,
+  onComplete: () => void,
+  onError: (error: unknown) => void,
 ): () => void {
   if (USE_DUMMY_DATA) {
     // Simulate streaming for dummy data
@@ -376,11 +376,11 @@ export async function loadComplexTeamData(_course: string, exercise: string): Pr
  * Returns a callback-based system for progressive updates
  */
 export async function loadTeamDataProgressive(
-    course: string,
-    exercise: string,
-    onBasicLoaded: (teams: BasicTeamData[]) => void,
-    onComplexLoaded: (teams: Team[]) => void,
-    onError: (error: Error) => void,
+  course: string,
+  exercise: string,
+  onBasicLoaded: (teams: BasicTeamData[]) => void,
+  onComplexLoaded: (teams: Team[]) => void,
+  onError: (error: Error) => void,
 ): Promise<void> {
   try {
     // Start both requests simultaneously
