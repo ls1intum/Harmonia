@@ -13,5 +13,5 @@ spring:
       chat:
         completions-path: /v1/chat/completions
         options:
-          model: openai/gpt-oss-20b
+          model: google/gemma-3-1b
           temperature: 0.7

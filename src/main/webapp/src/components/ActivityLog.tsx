@@ -1,11 +1,9 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2, CheckCircle, XCircle, Download, Search } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, Ban } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export interface AnalysisStatus {
-  state: 'IDLE' | 'RUNNING' | 'PAUSED' | 'DONE' | 'ERROR';
+  state: 'IDLE' | 'RUNNING' | 'CANCELLED' | 'DONE' | 'ERROR';
   totalTeams: number;
   processedTeams: number;
   currentTeamName?: string;
@@ -22,8 +20,6 @@ interface ActivityLogProps {
  * Shows current team being analyzed and stage (downloading/analyzing).
  */
 export function ActivityLog({ status }: ActivityLogProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   // Don't show anything if idle
   if (status.state === 'IDLE') {
     return null;
@@ -33,8 +29,8 @@ export function ActivityLog({ status }: ActivityLogProps) {
     switch (status.state) {
       case 'RUNNING':
         return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-      case 'PAUSED':
-        return <Loader2 className="h-4 w-4 text-muted-foreground" />;
+      case 'CANCELLED':
+        return <Ban className="h-4 w-4 text-muted-foreground" />;
       case 'DONE':
         return <CheckCircle className="h-4 w-4 text-success" />;
       case 'ERROR':
@@ -44,23 +40,12 @@ export function ActivityLog({ status }: ActivityLogProps) {
     }
   };
 
-  const getStageIcon = () => {
-    switch (status.currentStage) {
-      case 'DOWNLOADING':
-        return <Download className="h-3 w-3" />;
-      case 'ANALYZING':
-        return <Search className="h-3 w-3" />;
-      default:
-        return null;
-    }
-  };
-
   const getStatusText = () => {
     switch (status.state) {
       case 'RUNNING':
         return `Analyzing ${status.processedTeams} / ${status.totalTeams} teams`;
-      case 'PAUSED':
-        return `Paused: ${status.processedTeams} / ${status.totalTeams} teams processed`;
+      case 'CANCELLED':
+        return `Cancelled: ${status.processedTeams} / ${status.totalTeams} teams processed`;
       case 'DONE':
         return `Completed: ${status.processedTeams} teams analyzed`;
       case 'ERROR':
@@ -73,45 +58,46 @@ export function ActivityLog({ status }: ActivityLogProps) {
   const progress = status.totalTeams > 0 ? Math.round((status.processedTeams / status.totalTeams) * 100) : 0;
 
   return (
-    <Card className="mb-4 overflow-hidden">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          {getStatusIcon()}
-          <span className="text-sm font-medium">{getStatusText()}</span>
-          {(status.state === 'RUNNING' || status.state === 'PAUSED') && (
-            <Badge variant="secondary" className="text-xs">
-              {progress}%
-            </Badge>
-          )}
-        </div>
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
-      </button>
-
-      {isExpanded && status.state === 'RUNNING' && status.currentTeamName && (
-        <div className="px-3 pb-3 pt-0 border-t">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-            {getStageIcon()}
-            <span>
-              {status.currentStage === 'DOWNLOADING' ? 'Downloading' : 'Analyzing'}:{' '}
-              <span className="font-medium text-foreground">{status.currentTeamName}</span>
-            </span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-1.5 mt-2">
-            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+    <Card className="mb-4 overflow-hidden p-4">
+      <div className="flex flex-col gap-4">
+        {/* Header Row: Icon | Status Text | Badge */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {getStatusIcon()}
+            <span className="text-sm font-medium">{getStatusText()}</span>
+            {status.state === 'RUNNING' && (
+              <Badge variant="secondary" className="text-xs">
+                {progress}%
+              </Badge>
+            )}
           </div>
         </div>
-      )}
 
-      {isExpanded && status.state === 'ERROR' && (
-        <div className="px-3 pb-3 pt-0 border-t">
-          <p className="text-sm text-destructive mt-2">{status.errorMessage}</p>
-        </div>
-      )}
+        {/* Current Team Info Row - Only visible when running */}
+        {status.state === 'RUNNING' && (
+          <div className="space-y-2">
+            {status.currentTeamName && (
+              <div className="flex items-center gap-2 text-sm text-foreground/80">
+                <Search className="h-3 w-3" />
+                <span>
+                  {status.currentStage === 'DOWNLOADING' ? 'Downloading' : 'Analyzing'}:{' '}
+                  <span className="font-medium text-foreground">{status.currentTeamName}</span>
+                </span>
+              </div>
+            )}
+
+            {/* Progress Bar */}
+            <div className="w-full bg-muted rounded-full h-2">
+              <div className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {status.state === 'ERROR' && (
+          <div className="px-3 py-2 bg-destructive/10 rounded text-sm text-destructive">{status.errorMessage}</div>
+        )}
+      </div>
     </Card>
   );
 }

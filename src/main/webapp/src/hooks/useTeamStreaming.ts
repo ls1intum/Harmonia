@@ -59,12 +59,32 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
           setTotalRepos(total);
         }
       },
+      // onInit: Add team with pending status (no CQI yet)
       team => {
         streamedTeams.push(team);
         if (mounted) {
-          setProcessedRepos(streamedTeams.length);
-          // Update React Query cache in real-time
-          queryClient.setQueryData(['teams', exercise], streamedTeams);
+          // Update React Query cache with pending teams
+          queryClient.setQueryData(['teams', exercise], [...streamedTeams]);
+        }
+      },
+      // onUpdate: Replace or merge with analyzed team data
+      teamUpdate => {
+        // Handle both full Team and Partial<Team> updates
+        const teamId = teamUpdate.id;
+        if (!teamId) return; // Skip if no id (shouldn't happen)
+
+        const index = streamedTeams.findIndex(t => t.id === teamId);
+        if (index !== -1) {
+          // Merge: keep existing data, override with new data
+          streamedTeams[index] = { ...streamedTeams[index], ...teamUpdate };
+        } else if ('teamName' in teamUpdate && 'students' in teamUpdate) {
+          // Only add if it's a full team object
+          streamedTeams.push(teamUpdate as Team);
+        }
+        if (mounted) {
+          setProcessedRepos(prev => prev + 1);
+          // Update React Query cache with analyzed data
+          queryClient.setQueryData(['teams', exercise], [...streamedTeams]);
         }
       },
       () => {
@@ -72,7 +92,7 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
           setIsStreaming(false);
         }
       },
-      error => {
+      (error: unknown) => {
         if (mounted) {
           setIsStreaming(false);
           toast({

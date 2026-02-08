@@ -22,8 +22,7 @@ const apiConfig = new Configuration({
     withCredentials: true, // Important: Send cookies (JWT, etc.) with requests
   },
 });
-const requestApi = new RequestResourceApi(apiConfig);
-
+new RequestResourceApi(apiConfig);
 // ============================================================
 // TYPES
 // ============================================================
@@ -181,6 +180,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
     subMetrics,
     analysisHistory,
     orphanCommits,
+    analysisStatus: (dto as ClientResponseDTO).analysisStatus,
   };
 
   // Cache the transformed team
@@ -195,8 +195,12 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
 // TODO: Use course and exercise parameters when server supports them
 async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData[]> {
   try {
-    const response = await requestApi.fetchData(parseInt(exerciseId));
-    const teamRepos = response.data;
+    const response = await fetch(`/api/requestResource/${exerciseId}/getData`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`Failed to fetch teams: ${response.statusText}`);
+    const teamRepos: ClientResponseDTO[] = await response.json();
 
     // Transform DTOs to BasicTeamData
     return teamRepos.map(transformToBasicTeamData);
@@ -209,8 +213,12 @@ async function fetchBasicTeamsFromAPI(exerciseId: string): Promise<BasicTeamData
 // TODO: Use course and exercise parameters when server supports them
 async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
   try {
-    const response = await requestApi.fetchData(parseInt(exerciseId));
-    const teamRepos = response.data;
+    const response = await fetch(`/api/requestResource/${exerciseId}/getData`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(`Failed to fetch teams: ${response.statusText}`);
+    const teamRepos: ClientResponseDTO[] = await response.json();
 
     // Transform DTOs to Team with mocked analysis
     return teamRepos.map(transformToComplexTeamData);
@@ -223,10 +231,18 @@ async function fetchComplexTeamsFromAPI(exerciseId: string): Promise<Team[]> {
 /**
  * Fetch a single team by ID from server
  */
-async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
+async function fetchTeamByIdFromServer(teamId: string, exerciseId?: string): Promise<Team | null> {
   try {
-    const response = await requestApi.getData();
-    const teamRepo = response.data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
+    // Use exercise-specific endpoint if exerciseId is provided
+    const url = exerciseId ? `/api/requestResource/${exerciseId}/getData` : `/api/requestResource/getData`;
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const data: ClientResponseDTO[] = await response.json();
+    const teamRepo = data.find((repo: ClientResponseDTO) => repo.teamId?.toString() === teamId);
     return teamRepo ? transformToComplexTeamData(teamRepo) : null;
   } catch (error) {
     console.error('Error fetching team by ID from server:', error);
@@ -240,11 +256,17 @@ async function fetchTeamByIdFromServer(teamId: string): Promise<Team | null> {
 
 /**
  * Stream team data from server via SSE
+ * The streaming flow is:
+ * 1. START - total count of teams
+ * 2. INIT - each team with pending status (no CQI)
+ * 3. UPDATE - each team with analyzed data (with CQI)
+ * 4. DONE - analysis complete
  */
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
-  onUpdate: (team: Team) => void,
+  onInit: (team: Team) => void,
+  onUpdate: (team: Team | Partial<Team>) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
 ): () => void {
@@ -252,6 +274,11 @@ export function loadBasicTeamDataStream(
     // Simulate streaming for dummy data
     const teams = getComplexDummyTeams();
     onStart(teams.length);
+    // First send all as pending
+    for (const team of teams) {
+      onInit({ ...team, cqi: undefined, isSuspicious: undefined });
+    }
+    // Then simulate analysis updates
     let i = 0;
     const interval = setInterval(() => {
       if (i < teams.length) {
@@ -274,12 +301,36 @@ export function loadBasicTeamDataStream(
       const data = JSON.parse(event.data);
       if (data.type === 'START') {
         onStart(data.total);
+      } else if (data.type === 'INIT') {
+        // Teams arriving with pending status (no CQI yet)
+        onInit(transformToComplexTeamData(data.data));
+      } else if (data.type === 'ANALYZING') {
+        // A specific team is now being analyzed - update its status
+        // Create a partial update with just the status change
+        const partialTeam = {
+          id: data.teamId?.toString() || 'unknown',
+          teamId: data.teamId,
+          teamName: data.teamName,
+          analysisStatus: 'ANALYZING',
+        };
+        onUpdate(partialTeam as Partial<Team>);
       } else if (data.type === 'UPDATE') {
         // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
         onUpdate(transformToComplexTeamData(data.data));
       } else if (data.type === 'DONE') {
         eventSource.close();
         onComplete();
+      } else if (data.type === 'CANCELLED') {
+        // Analysis was cancelled - close stream and notify completion
+        eventSource.close();
+        onComplete();
+      } else if (data.type === 'ALREADY_RUNNING') {
+        // Analysis is already running (started by another user or before refresh)
+        // Close this stream - the client will poll status and DB for updates
+        console.log('Analysis already running, switching to polling mode');
+        eventSource.close();
+        // Throw a special error so the caller knows this is not a failure
+        onError(new Error('ALREADY_RUNNING'));
       }
     } catch (e) {
       console.error('Error parsing SSE event:', e);

@@ -8,5 +8,5 @@ public enum AnalysisState {
     RUNNING, // Currently analyzing
     DONE, // Completed successfully
     ERROR, // Failed with error
-    PAUSED
+    CANCELLED // Analysis was cancelled by user
 }

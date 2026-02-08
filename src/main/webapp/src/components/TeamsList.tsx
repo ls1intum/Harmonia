@@ -8,6 +8,7 @@ import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TeamsListProps {
   teams: Team[];
@@ -20,6 +21,7 @@ interface TeamsListProps {
   course: string;
   exercise: string;
   analysisStatus: AnalysisStatus;
+  isLoading?: boolean;
 }
 
 const TeamsList = ({
@@ -33,6 +35,7 @@ const TeamsList = ({
   course,
   exercise,
   analysisStatus,
+  isLoading = false,
 }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -63,9 +66,34 @@ const TeamsList = ({
     }
   };
 
-  // Helper to determine if a team is 'failed' (any student with commitCount < 10)
+  // Helper to determine if a team is 'failed' (any student with <10 commits)
   const isTeamFailed = (team: Team) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
+  };
+
+  // Get tooltip text explaining why a team failed
+  const getFailedReason = (team: Team) => {
+    const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
+    if (failedStudents.length === 0) return '';
+    return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
+  };
+
+  // Get priority for analysis status (lower = shown first)
+  const getStatusPriority = (status: string | undefined): number => {
+    switch (status) {
+      case 'ANALYZING':
+        return 0; // Currently being analyzed - show first
+      case 'PENDING':
+        return 1; // Waiting to be analyzed
+      case 'DONE':
+        return 2; // Completed
+      case 'ERROR':
+        return 3; // Failed
+      case 'CANCELLED':
+        return 4; // Cancelled
+      default:
+        return 5; // Unknown
+    }
   };
 
   const sortedAndFilteredTeams = useMemo(() => {
@@ -82,24 +110,55 @@ const TeamsList = ({
       }
     }
 
-    // Apply sorting
+    // First, sort by analysis status priority (ANALYZING > PENDING > DONE)
+    filtered.sort((a, b) => {
+      const aPriority = getStatusPriority(a.analysisStatus);
+      const bPriority = getStatusPriority(b.analysisStatus);
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      // If same priority, maintain original order or apply column sort
+      return 0;
+    });
+
+    // Then apply column sorting within each status group
     if (sortColumn) {
-      filtered.sort((a, b) => {
-        let comparison = 0;
-
-        if (sortColumn === 'name') {
-          comparison = a.teamName.localeCompare(b.teamName);
-        } else if (sortColumn === 'commitCount') {
-          const aCommits = a.basicMetrics?.totalCommits || 0;
-          const bCommits = b.basicMetrics?.totalCommits || 0;
-          comparison = aCommits - bCommits;
-        } else if (sortColumn === 'cqi') {
-          const aCqi = a.cqi || 0;
-          const bCqi = b.cqi || 0;
-          comparison = aCqi - bCqi;
+      // Create a stable sort that preserves status priority
+      const statusGroups = new Map<number, Team[]>();
+      filtered.forEach(team => {
+        const priority = getStatusPriority(team.analysisStatus);
+        if (!statusGroups.has(priority)) {
+          statusGroups.set(priority, []);
         }
+        statusGroups.get(priority)!.push(team);
+      });
 
-        return sortDirection === 'asc' ? comparison : -comparison;
+      // Sort within each group
+      statusGroups.forEach(group => {
+        group.sort((a, b) => {
+          let comparison = 0;
+          if (sortColumn === 'name') {
+            comparison = a.teamName.localeCompare(b.teamName);
+          } else if (sortColumn === 'commitCount') {
+            const aCommits = a.basicMetrics?.totalCommits || 0;
+            const bCommits = b.basicMetrics?.totalCommits || 0;
+            comparison = aCommits - bCommits;
+          } else if (sortColumn === 'cqi') {
+            const aCqi = a.cqi || 0;
+            const bCqi = b.cqi || 0;
+            comparison = aCqi - bCqi;
+          }
+          return sortDirection === 'asc' ? comparison : -comparison;
+        });
+      });
+
+      // Reconstruct filtered array in priority order
+      filtered = [];
+      [0, 1, 2, 3, 4, 5].forEach(priority => {
+        const group = statusGroups.get(priority);
+        if (group) {
+          filtered.push(...group);
+        }
       });
     }
 
@@ -127,8 +186,18 @@ const TeamsList = ({
   }, [teams]);
 
   const renderActionButton = () => {
+    if (isLoading) {
+      return (
+        <Button disabled variant="outline">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          Loading...
+        </Button>
+      );
+    }
+
     switch (analysisStatus.state) {
       case 'IDLE':
+      case 'CANCELLED':
         return (
           <Button onClick={onStart}>
             <Play className="h-4 w-4" />
@@ -140,13 +209,6 @@ const TeamsList = ({
           <Button variant="destructive" onClick={onCancel}>
             <Square className="h-4 w-4" />
             Cancel
-          </Button>
-        );
-      case 'PAUSED':
-        return (
-          <Button onClick={onStart}>
-            <Play className="h-4 w-4" />
-            Resume Analysis
           </Button>
         );
       case 'DONE':
@@ -167,7 +229,7 @@ const TeamsList = ({
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
-      <Button variant="ghost" onClick={onBackToHome} className="mb-4 hover:bg-muted">
+      <Button variant="ghost" onClick={onBackToHome} className="mb-4 text-muted-foreground hover:text-accent-foreground hover:bg-accent">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Home
       </Button>
@@ -203,32 +265,59 @@ const TeamsList = ({
 
       {courseAverages && (
         <Card className="p-6 shadow-card">
-          <h3 className="text-lg font-semibold mb-4">Course Averages</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Course Averages</h3>
+            {courseAverages.analyzedTeams < courseAverages.totalTeams && (
+              <span className="text-sm text-muted-foreground">
+                {courseAverages.analyzedTeams} of {courseAverages.totalTeams} teams analyzed
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Average CQI</p>
               <div className="flex items-baseline gap-2">
-                <p className={`text-3xl font-bold ${getCQIColor(courseAverages.avgCQI)}`}>{courseAverages.avgCQI}</p>
-                <span className="text-sm text-muted-foreground">/ 100</span>
+                {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                  <p className="text-2xl font-bold text-amber-500">Pending</p>
+                ) : (
+                  <>
+                    <p className={`text-3xl font-bold ${getCQIColor(courseAverages.avgCQI)}`}>{courseAverages.avgCQI}</p>
+                    <span className="text-sm text-muted-foreground">/ 100</span>
+                  </>
+                )}
               </div>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Average Commits</p>
-              <p className="text-3xl font-bold text-foreground">{courseAverages.avgCommits}</p>
+              {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                <p className="text-2xl font-bold text-amber-500">Pending</p>
+              ) : (
+                <p className="text-3xl font-bold text-foreground">{courseAverages.avgCommits}</p>
+              )}
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Average Lines</p>
-              <p className="text-3xl font-bold text-foreground">{courseAverages.avgLines.toLocaleString()}</p>
+              {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                <p className="text-2xl font-bold text-amber-500">Pending</p>
+              ) : (
+                <p className="text-3xl font-bold text-foreground">{courseAverages.avgLines.toLocaleString()}</p>
+              )}
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Suspicious Teams</p>
               <div className="flex items-baseline gap-2">
-                <p className={`text-3xl font-bold ${courseAverages.suspiciousPercentage > 30 ? 'text-destructive' : 'text-success'}`}>
-                  {courseAverages.suspiciousPercentage}%
-                </p>
-                <span className="text-sm text-muted-foreground">
-                  ({teams.filter(t => t.isSuspicious).length} of {courseAverages.totalTeams})
-                </span>
+                {courseAverages.analyzedTeams < courseAverages.totalTeams ? (
+                  <p className="text-2xl font-bold text-amber-500">Pending</p>
+                ) : (
+                  <>
+                    <p className={`text-3xl font-bold ${courseAverages.suspiciousPercentage > 30 ? 'text-destructive' : 'text-success'}`}>
+                      {courseAverages.suspiciousPercentage}%
+                    </p>
+                    <span className="text-sm text-muted-foreground">
+                      ({teams.filter(t => t.isSuspicious).length} of {courseAverages.totalTeams})
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -286,56 +375,101 @@ const TeamsList = ({
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       {team.students.map((student, idx) => (
-                        <p key={idx} className={`text-sm ${(student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
-                          {student.name} {student.commitCount !== undefined && `(${student.commitCount} commits)`}
+                        <p
+                          key={idx}
+                          className={`text-sm ${team.analysisStatus === 'DONE' && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
+                        >
+                          {student.name}
+                          {team.analysisStatus === 'DONE' && student.commitCount !== undefined && (
+                            <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                              {' '}
+                              ({student.commitCount} commits)
+                            </span>
+                          )}
                         </p>
                       ))}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    {team.basicMetrics && (
+                    {team.analysisStatus === 'DONE' && team.basicMetrics ? (
                       <div className="space-y-1">
                         <p className="font-medium">{team.basicMetrics.totalCommits}</p>
                         <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
                       </div>
+                    ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'ANALYZING' ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span className="text-sm">Pending</span>
+                      </div>
+                    ) : team.analysisStatus === 'ERROR' ? (
+                      <span className="text-sm text-destructive">—</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    {team.cqi !== undefined ? (
+                    {team.analysisStatus === 'DONE' && team.cqi !== undefined ? (
                       <div className="flex items-center gap-3">
                         <div className={`flex items-center justify-center w-16 h-16 rounded-lg ${getCQIBgColor(team.cqi)}`}>
                           <span className={`text-2xl font-bold ${getCQIColor(team.cqi)}`}>{team.cqi}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">out of 100</div>
                       </div>
+                    ) : team.analysisStatus === 'ERROR' ? (
+                      <span className="text-sm text-destructive">Analysis Failed</span>
+                    ) : team.analysisStatus === 'CANCELLED' ? (
+                      <span className="text-sm text-muted-foreground">Cancelled</span>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Analyzing...</span>
+                        <span className="text-sm">{team.analysisStatus === 'PENDING' ? 'Pending' : 'Analyzing...'}</span>
                       </div>
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    {team.isSuspicious !== undefined ? (
+                    {team.analysisStatus === 'DONE' && team.isSuspicious !== undefined ? (
                       isTeamFailed(team) ? (
-                        <Badge variant="destructive" className="gap-1.5">
-                          <AlertTriangle className="h-3 w-3" />
-                          Failed
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="gap-1.5 cursor-help">
+                                <AlertTriangle className="h-3 w-3" />
+                                Failed
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>{getFailedReason(team)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       ) : team.isSuspicious ? (
-                        <Badge variant="destructive" className="gap-1.5">
-                          <AlertTriangle className="h-3 w-3" />
-                          Suspicious
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="gap-1.5 cursor-help">
+                                <AlertTriangle className="h-3 w-3" />
+                                Suspicious
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Suspicious collaboration patterns detected during analysis</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       ) : (
                         <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
                           Normal
                         </Badge>
                       )
-                    ) : (
+                    ) : team.analysisStatus === 'ERROR' ? (
+                      <Badge variant="destructive" className="gap-1.5">
+                        Error
+                      </Badge>
+                    ) : team.analysisStatus === 'CANCELLED' ? (
                       <Badge variant="outline" className="gap-1.5 text-muted-foreground">
-                        <RefreshCw className="h-3 w-3 animate-spin" />
-                        Analyzing
+                        Cancelled
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                        {team.analysisStatus === 'PENDING' ? 'Pending' : 'Analyzing'}
                       </Badge>
                     )}
                   </td>

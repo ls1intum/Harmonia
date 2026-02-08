@@ -314,50 +314,9 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd) {
 
-        List<CQIPenaltyDTO> penalties = new ArrayList<>();
-
-        // Check effort distribution for solo/imbalance
-        double totalEffort = effortByAuthor.values().stream().mapToDouble(Double::doubleValue).sum();
-        if (totalEffort > 0) {
-            double maxShare = effortByAuthor.values().stream()
-                    .mapToDouble(e -> e / totalEffort)
-                    .max().orElse(0);
-
-            if (maxShare > SOLO_DEV_THRESHOLD) {
-                penalties.add(CQIPenaltyDTO.soloDevelopment(maxShare));
-            } else if (maxShare > SEVERE_IMBALANCE_THRESHOLD) {
-                penalties.add(CQIPenaltyDTO.severeImbalance(maxShare));
-            }
-        }
-
-        // Check trivial ratio
-        if (commitsByType != null && !commitsByType.isEmpty()) {
-            int total = commitsByType.values().stream().mapToInt(Integer::intValue).sum();
-            int trivial = commitsByType.getOrDefault(CommitLabel.TRIVIAL, 0);
-            double trivialRatio = total > 0 ? (double) trivial / total : 0;
-
-            if (trivialRatio > HIGH_TRIVIAL_THRESHOLD) {
-                penalties.add(CQIPenaltyDTO.highTrivialRatio(trivialRatio));
-            }
-        }
-
-        // Check confidence level
-        long lowConfCount = chunks.stream()
-                .filter(rc -> rc.rating() != null && rc.rating().confidence() < LOW_CONFIDENCE_VALUE)
-                .count();
-        double lowConfRatio = chunks.isEmpty() ? 0 : (double) lowConfCount / chunks.size();
-
-        if (lowConfRatio > LOW_CONFIDENCE_THRESHOLD) {
-            penalties.add(CQIPenaltyDTO.lowConfidence(lowConfRatio));
-        }
-
-        // Check for late work concentration
-        double lateWorkRatio = calculateLateWorkRatio(chunks, projectStart, projectEnd);
-        if (lateWorkRatio > LATE_WORK_THRESHOLD) {
-            penalties.add(CQIPenaltyDTO.lateWork(lateWorkRatio));
-        }
-
-        return penalties;
+        // Penalties are disabled - return empty list
+        // The CQI score is now purely based on the component scores
+        return new ArrayList<>();
     }
 
     /**

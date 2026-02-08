@@ -42,7 +42,7 @@ class CommitEffortRaterServiceTest {
     }
 
     @Test
-    void rateChunk_aiDisabled_returnsDisabledDTO() {
+    void rateChunk_aiDisabled_returnsDisabledDTO() throws InterruptedException {
         when(aiProperties.isEnabled()).thenReturn(false);
 
         EffortRatingDTO result = raterService.rateChunk(createDummyChunk());
@@ -53,7 +53,7 @@ class CommitEffortRaterServiceTest {
     }
 
     @Test
-    void rateChunk_classifierDisabled_returnsDisabledDTO() {
+    void rateChunk_classifierDisabled_returnsDisabledDTO() throws InterruptedException {
         when(aiProperties.isEnabled()).thenReturn(true);
         when(aiProperties.getCommitClassifier()).thenReturn(commitClassifierProperties);
         when(commitClassifierProperties.isEnabled()).thenReturn(false);

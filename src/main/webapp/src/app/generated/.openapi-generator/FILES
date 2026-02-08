@@ -5,7 +5,6 @@ apis/analysis-resource-api.ts
 apis/auth-resource-api.ts
 apis/config-resource-api.ts
 apis/request-resource-api.ts
-apis/stream-resource-api.ts
 base.ts
 common.ts
 configuration.ts
@@ -24,7 +23,6 @@ docs/OrphanCommitDTO.md
 docs/Project.md
 docs/RequestResourceApi.md
 docs/SseEmitter.md
-docs/StreamResourceApi.md
 docs/StudentAnalysisDTO.md
 git_push.sh
 index.ts
