@@ -81,18 +81,18 @@ const TeamsList = ({
   // Get priority for analysis status (lower = shown first)
   const getStatusPriority = (status: string | undefined): number => {
     switch (status) {
-      case 'GIT_DONE':
-        return 0; // Git analysis done - show first
-      case 'GIT_ANALYZING':
-        return 1; // Currently git analyzing
+      case 'DONE':
+        return 0; // Fully completed - show first
       case 'AI_ANALYZING':
+        return 1; // AI analysis in progress
+      case 'GIT_DONE':
+        return 2; // Git analysis done, waiting for AI
+      case 'GIT_ANALYZING':
       case 'ANALYZING':
-        return 2; // AI analysis in progress
+        return 3; // Currently analyzing
       case 'PENDING':
       case 'DOWNLOADING':
-        return 3; // Waiting to be analyzed
-      case 'DONE':
-        return 4; // Completed
+        return 4; // Waiting to be analyzed
       case 'ERROR':
         return 5; // Failed
       case 'CANCELLED':
@@ -453,22 +453,23 @@ const TeamsList = ({
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    {team.analysisStatus === 'DONE' && team.isSuspicious !== undefined ? (
-                      isTeamFailed(team) ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="destructive" className="gap-1.5 cursor-help">
-                                <AlertTriangle className="h-3 w-3" />
-                                Failed
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p>{getFailedReason(team)}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : team.isSuspicious ? (
+                    {/* Show Failed badge if any student has <10 commits (after git analysis) */}
+                    {(team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') && isTeamFailed(team) ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="destructive" className="gap-1.5 cursor-help">
+                              <AlertTriangle className="h-3 w-3" />
+                              Failed
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>{getFailedReason(team)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : team.analysisStatus === 'DONE' && team.isSuspicious !== undefined ? (
+                      team.isSuspicious ? (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>

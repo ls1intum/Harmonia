@@ -100,20 +100,29 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   const basicData = transformToBasicTeamData(dto);
   const teamId = dto.teamId?.toString() || 'unknown';
 
+  // Get the analysis status first
+  const analysisStatus = (dto as ClientResponseDTO).analysisStatus;
+
+  // Check if analysis is not fully complete (GIT_DONE or AI_ANALYZING means no CQI yet)
+  const isNotFullyAnalyzed = analysisStatus === 'GIT_DONE' || analysisStatus === 'AI_ANALYZING';
+
   // Use CQI from server (calculated server-side)
-  // Keep undefined if null, -1, or not set - indicates analysis not yet complete
-  // -1 is used for git-only data where CQI hasn't been calculated yet
+  // Keep undefined if:
+  // 1. Status is GIT_DONE or AI_ANALYZING (not fully analyzed)
+  // 2. Value is null, undefined, or negative
   const rawCqi = dto.cqi;
-  const cqi = rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined;
-  const isSuspicious = dto.isSuspicious ?? undefined;
+  const cqi = isNotFullyAnalyzed ? undefined :
+              (rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined);
+
+  // isSuspicious is also only valid when fully analyzed
+  const isSuspicious = isNotFullyAnalyzed ? undefined : (dto.isSuspicious ?? undefined);
 
   // Extract CQI details from server response
   const serverCqiDetails = dto.cqiDetails as CQIResultDTO | undefined;
 
-  // Check if this is git-only data (effortBalance is 0 and CQI is not calculated or is -1)
-  const isGitOnlyData = serverCqiDetails?.components &&
-                        serverCqiDetails.components.effortBalance === 0 &&
-                        (dto.cqi === undefined || dto.cqi === null || dto.cqi < 0);
+  // isGitOnlyData means AI hasn't analyzed this team yet
+  // Use isNotFullyAnalyzed which is already defined above based on analysisStatus
+  const isGitOnlyData = isNotFullyAnalyzed;
 
   // Generate sub-metrics from CQI details if available
   // For git-only data, show the available metrics and mark effortBalance as pending
@@ -339,6 +348,9 @@ export function loadBasicTeamDataStream(
         // Git analysis complete for this team - has commits/lines but no CQI
         const team = transformToComplexTeamData(data.data);
         team.analysisStatus = 'GIT_DONE';
+        // Ensure CQI is undefined for git-only teams
+        team.cqi = undefined;
+        team.isSuspicious = undefined;
         onUpdate(team);
       } else if (data.type === 'GIT_DONE') {
         // All git analysis complete
@@ -347,11 +359,14 @@ export function loadBasicTeamDataStream(
         }
       } else if (data.type === 'AI_ANALYZING') {
         // A specific team's AI analysis is starting
+        // Keep CQI as undefined - it's not calculated yet
         const partialTeam = {
           id: data.teamId?.toString() || 'unknown',
           teamId: data.teamId,
           teamName: data.teamName,
           analysisStatus: 'AI_ANALYZING' as const,
+          cqi: undefined,  // Explicitly keep undefined
+          isSuspicious: undefined,  // Explicitly keep undefined
         };
         onUpdate(partialTeam as Partial<Team>);
       } else if (data.type === 'AI_UPDATE') {

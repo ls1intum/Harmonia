@@ -83,7 +83,33 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
         const index = streamedTeams.findIndex(t => t.id === teamId);
         if (index !== -1) {
           // Merge: keep existing data, override with new data
-          streamedTeams[index] = { ...streamedTeams[index], ...teamUpdate };
+          // Important: explicitly handle undefined values that should override existing values
+          const merged = { ...streamedTeams[index], ...teamUpdate };
+
+          // If the update explicitly sets cqi or isSuspicious to undefined, keep it undefined
+          if ('cqi' in teamUpdate) {
+            merged.cqi = teamUpdate.cqi;
+          }
+          if ('isSuspicious' in teamUpdate) {
+            merged.isSuspicious = teamUpdate.isSuspicious;
+          }
+
+          // If status changes to GIT_DONE or AI_ANALYZING, ensure CQI is undefined
+          // and subMetrics Effort Balance is marked as pending (-1)
+          if (teamUpdate.analysisStatus === 'GIT_DONE' || teamUpdate.analysisStatus === 'AI_ANALYZING') {
+            merged.cqi = undefined;
+            merged.isSuspicious = undefined;
+            // Update Effort Balance to pending if subMetrics exist
+            if (merged.subMetrics && merged.subMetrics.length > 0) {
+              merged.subMetrics = merged.subMetrics.map(metric =>
+                metric.name === 'Effort Balance'
+                  ? { ...metric, value: -1, details: 'Requires AI analysis. Will be calculated after git analysis completes for all teams.' }
+                  : metric
+              );
+            }
+          }
+
+          streamedTeams[index] = merged;
         } else if ('teamName' in teamUpdate && 'students' in teamUpdate) {
           // Only add if it's a full team object
           streamedTeams.push(teamUpdate as Team);
