@@ -7,7 +7,7 @@
         objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
 
     <!-- initial-schema-a: core tables (participations + all participation columns consolidated) -->
-    <changeSet id="initial-schema-a" author="migration">
+    <changeSet id="initial-schema-a" author="Cathy">
         <createTable tableName="participations">
             <column name="team_participation_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_participations"/>
@@ -42,7 +42,7 @@
     </changeSet>
 
     <!-- initial-schema-b: students table -->
-    <changeSet id="initial-schema-b" author="migration">
+    <changeSet id="initial-schema-b" author="Cathy">
         <createTable tableName="students">
             <column name="student_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_students"/>
@@ -60,7 +60,7 @@
     </changeSet>
 
     <!-- initial-schema-c: teamanalysis table (reserved) -->
-    <changeSet id="initial-schema-c" author="migration">
+    <changeSet id="initial-schema-c" author="Cathy">
         <createTable tableName="teamanalysis">
             <column name="team_analysis_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_teamanalysis"/>
@@ -69,7 +69,7 @@
     </changeSet>
 
     <!-- initial-schema-d: teamrepository table and constraint -->
-    <changeSet id="initial-schema-d" author="migration">
+    <changeSet id="initial-schema-d" author="Cathy">
         <createTable tableName="teamrepository">
             <column name="team_repository_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_teamrepository"/>
@@ -86,7 +86,7 @@
     </changeSet>
 
     <!-- initial-schema-e: tutors table -->
-    <changeSet id="initial-schema-e" author="migration">
+    <changeSet id="initial-schema-e" author="Cathy">
         <createTable tableName="tutors">
             <column name="tutor_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_tutors"/>
@@ -98,8 +98,8 @@
         </createTable>
     </changeSet>
 
-    <!-- initial-schema-f: user table (placeholder) -->
-    <changeSet id="initial-schema-f" author="migration">
+    <!-- initial-schema-f: user table -->
+    <changeSet id="initial-schema-f" author="Cathy">
         <createTable tableName="user">
             <column name="user_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_user"/>
@@ -108,7 +108,7 @@
     </changeSet>
 
     <!-- initial-schema-g: vcslogs table and fk -->
-    <changeSet id="initial-schema-g" author="migration">
+    <changeSet id="initial-schema-g" author="Cathy">
         <createTable tableName="vcslogs">
             <column name="vcs_log_id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_vcslogs"/>
@@ -125,7 +125,7 @@
     </changeSet>
 
     <!-- initial-schema-h: foreign keys between participations, students and teamrepository -->
-    <changeSet id="initial-schema-h" author="migration">
+    <changeSet id="initial-schema-h" author="Cathy">
         <addForeignKeyConstraint baseColumnNames="tutor_id" baseTableName="participations"
                                  constraintName="FK_PARTICIPATIONS_ON_TUTOR" referencedColumnNames="tutor_id"
                                  referencedTableName="tutors"/>
@@ -138,7 +138,7 @@
     </changeSet>
 
     <!-- initial-schema-i: analysis_status table -->
-    <changeSet id="initial-schema-i" author="migration">
+    <changeSet id="initial-schema-i" author="Cathy">
         <createTable tableName="analysis_status">
             <column name="exercise_id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_analysis_status"/>
@@ -157,7 +157,7 @@
     </changeSet>
 
     <!-- initial-schema-j: analyzed_chunks + index and fk -->
-    <changeSet id="initial-schema-j" author="migration">
+    <changeSet id="initial-schema-j" author="Liam">
         <preConditions onFail="MARK_RAN">
             <not>
                 <tableExists tableName="analyzed_chunks"/>
