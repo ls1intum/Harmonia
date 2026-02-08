@@ -99,7 +99,10 @@ export function ActivityLog({ status }: ActivityLogProps) {
             {getStatusIcon()}
             <span className="text-sm font-medium">{getStatusText()}</span>
             {status.state === 'RUNNING' && status.currentPhase && (
-              <Badge variant="outline" className={`text-xs gap-1 ${status.currentPhase === 'GIT_ANALYSIS' ? 'border-blue-500/50 text-blue-500' : 'border-purple-500/50 text-purple-500'}`}>
+              <Badge
+                variant="outline"
+                className={`text-xs gap-1 ${status.currentPhase === 'GIT_ANALYSIS' ? 'border-blue-500/50 text-blue-500' : 'border-purple-500/50 text-purple-500'}`}
+              >
                 {getPhaseIcon()}
                 {getPhaseLabel()}
               </Badge>
@@ -119,8 +122,7 @@ export function ActivityLog({ status }: ActivityLogProps) {
               <div className="flex items-center gap-2 text-sm text-foreground/80">
                 <Search className="h-3 w-3" />
                 <span>
-                  {getStageLabel()}:{' '}
-                  <span className="font-medium text-foreground">{status.currentTeamName}</span>
+                  {getStageLabel()}: <span className="font-medium text-foreground">{status.currentTeamName}</span>
                 </span>
               </div>
             )}

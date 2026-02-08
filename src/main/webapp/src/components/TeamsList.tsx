@@ -179,10 +179,8 @@ const TeamsList = ({
     const totalCQI = teamsWithCQI.reduce((sum, team) => sum + (team.cqi ?? 0), 0);
 
     // Include teams with git metrics (GIT_DONE, AI_ANALYZING, or DONE) in commit/line averages
-    const teamsWithGitMetrics = teams.filter(team =>
-      team.analysisStatus === 'GIT_DONE' ||
-      team.analysisStatus === 'AI_ANALYZING' ||
-      team.analysisStatus === 'DONE'
+    const teamsWithGitMetrics = teams.filter(
+      team => team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE',
     );
     const totalCommits = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalCommits || 0), 0);
     const totalLines = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalLines || 0), 0);
@@ -397,23 +395,30 @@ const TeamsList = ({
                           className={`text-sm ${(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
                         >
                           {student.name}
-                          {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') && student.commitCount !== undefined && (
-                            <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
-                              {' '}
-                              ({student.commitCount} commits)
-                            </span>
-                          )}
+                          {(team.analysisStatus === 'DONE' ||
+                            team.analysisStatus === 'GIT_DONE' ||
+                            team.analysisStatus === 'AI_ANALYZING') &&
+                            student.commitCount !== undefined && (
+                              <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                                {' '}
+                                ({student.commitCount} commits)
+                              </span>
+                            )}
                         </p>
                       ))}
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') && team.basicMetrics ? (
+                    {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') &&
+                    team.basicMetrics ? (
                       <div className="space-y-1">
                         <p className="font-medium">{team.basicMetrics.totalCommits}</p>
                         <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
                       </div>
-                    ) : team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING' || team.analysisStatus === 'GIT_ANALYZING' || team.analysisStatus === 'ANALYZING' ? (
+                    ) : team.analysisStatus === 'PENDING' ||
+                      team.analysisStatus === 'DOWNLOADING' ||
+                      team.analysisStatus === 'GIT_ANALYZING' ||
+                      team.analysisStatus === 'ANALYZING' ? (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Analyzing...' : 'Pending'}</span>
                       </div>
@@ -446,15 +451,19 @@ const TeamsList = ({
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <span className="text-sm">
-                          {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING' ? 'Pending' :
-                           team.analysisStatus === 'GIT_ANALYZING' ? 'Git Analysis...' : 'Analyzing...'}
+                          {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
+                            ? 'Pending'
+                            : team.analysisStatus === 'GIT_ANALYZING'
+                              ? 'Git Analysis...'
+                              : 'Analyzing...'}
                         </span>
                       </div>
                     )}
                   </td>
                   <td className="py-4 px-6">
                     {/* Show Failed badge if any student has <10 commits (after git analysis) */}
-                    {(team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') && isTeamFailed(team) ? (
+                    {(team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') &&
+                    isTeamFailed(team) ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -502,8 +511,11 @@ const TeamsList = ({
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-                        {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING' ? 'Pending' :
-                         team.analysisStatus === 'GIT_ANALYZING' ? 'Git Analysis' : 'Analyzing'}
+                        {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
+                          ? 'Pending'
+                          : team.analysisStatus === 'GIT_ANALYZING'
+                            ? 'Git Analysis'
+                            : 'Analyzing'}
                       </Badge>
                     )}
                   </td>

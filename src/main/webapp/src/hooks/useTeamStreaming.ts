@@ -103,8 +103,12 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
             if (merged.subMetrics && merged.subMetrics.length > 0) {
               merged.subMetrics = merged.subMetrics.map(metric =>
                 metric.name === 'Effort Balance'
-                  ? { ...metric, value: -1, details: 'Requires AI analysis. Will be calculated after git analysis completes for all teams.' }
-                  : metric
+                  ? {
+                      ...metric,
+                      value: -1,
+                      details: 'Requires AI analysis. Will be calculated after git analysis completes for all teams.',
+                    }
+                  : metric,
               );
             }
           }
@@ -169,11 +173,12 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
   }, [exercise, course, queryClient, enabled]);
 
   // Calculate progress based on current phase
-  const progress = totalRepos > 0
-    ? (currentPhase === 'AI_ANALYSIS'
+  const progress =
+    totalRepos > 0
+      ? currentPhase === 'AI_ANALYSIS'
         ? Math.round((processedRepos / totalRepos) * 100)
-        : Math.round((gitProcessedRepos / totalRepos) * 100))
-    : 0;
+        : Math.round((gitProcessedRepos / totalRepos) * 100)
+      : 0;
 
   return {
     totalRepos,

@@ -111,8 +111,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   // 1. Status is GIT_DONE or AI_ANALYZING (not fully analyzed)
   // 2. Value is null, undefined, or negative
   const rawCqi = dto.cqi;
-  const cqi = isNotFullyAnalyzed ? undefined :
-              (rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined);
+  const cqi = isNotFullyAnalyzed ? undefined : rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined;
 
   // isSuspicious is also only valid when fully analyzed
   const isSuspicious = isNotFullyAnalyzed ? undefined : (dto.isSuspicious ?? undefined);
@@ -365,8 +364,8 @@ export function loadBasicTeamDataStream(
           teamId: data.teamId,
           teamName: data.teamName,
           analysisStatus: 'AI_ANALYZING' as const,
-          cqi: undefined,  // Explicitly keep undefined
-          isSuspicious: undefined,  // Explicitly keep undefined
+          cqi: undefined, // Explicitly keep undefined
+          isSuspicious: undefined, // Explicitly keep undefined
         };
         onUpdate(partialTeam as Partial<Team>);
       } else if (data.type === 'AI_UPDATE') {

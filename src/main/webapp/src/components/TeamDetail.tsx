@@ -34,9 +34,8 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
   const isAnalysisComplete = team.analysisStatus === 'DONE';
 
   // Check if git analysis is complete (git metrics available)
-  const isGitAnalysisComplete = team.analysisStatus === 'GIT_DONE' ||
-                                 team.analysisStatus === 'AI_ANALYZING' ||
-                                 team.analysisStatus === 'DONE';
+  const isGitAnalysisComplete =
+    team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE';
 
   // Team is 'failed' if any student has <10 commits (only check if git analysis is complete)
   const isTeamFailed = (team: Team) => {
@@ -186,10 +185,13 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 </div>
               )}
               <p className="text-sm text-muted-foreground text-center md:text-right">
-                {team.cqi !== undefined ? 'Collaboration Quality Index' :
-                 team.analysisStatus === 'AI_ANALYZING' ? 'Calculating CQI...' :
-                 team.analysisStatus === 'GIT_DONE' ? 'Waiting for AI analysis' :
-                 'CQI not yet calculated'}
+                {team.cqi !== undefined
+                  ? 'Collaboration Quality Index'
+                  : team.analysisStatus === 'AI_ANALYZING'
+                    ? 'Calculating CQI...'
+                    : team.analysisStatus === 'GIT_DONE'
+                      ? 'Waiting for AI analysis'
+                      : 'CQI not yet calculated'}
               </p>
             </div>
           </div>
