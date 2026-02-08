@@ -81,18 +81,12 @@ const TeamsList = ({
   // Get priority for analysis status (lower = shown first)
   const getStatusPriority = (status: string | undefined): number => {
     switch (status) {
-      case 'ANALYZING':
-        return 0; // Currently being analyzed - show first
-      case 'PENDING':
-        return 1; // Waiting to be analyzed
-      case 'DONE':
-        return 2; // Completed
-      case 'ERROR':
-        return 3; // Failed
-      case 'CANCELLED':
-        return 4; // Cancelled
-      default:
-        return 5; // Unknown
+      case 'ANALYZING': return 0; // Currently being analyzed - show first
+      case 'PENDING': return 1;   // Waiting to be analyzed
+      case 'DONE': return 2;      // Completed
+      case 'ERROR': return 3;     // Failed
+      case 'CANCELLED': return 4; // Cancelled
+      default: return 5;          // Unknown
     }
   };
 

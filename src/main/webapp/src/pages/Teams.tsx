@@ -25,7 +25,7 @@ export default function Teams() {
   // Fetch teams from database on load
   // During analysis, this shows already-analyzed teams
   const isAnalysisRunning = status.state === 'RUNNING';
-  const { data: teams = []} = useQuery<Team[]>({
+  const { data: teams = [], refetch: refetchTeams } = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
       // Fetch already-analyzed teams from database (filtered by exerciseId)
