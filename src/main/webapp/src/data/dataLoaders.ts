@@ -22,8 +22,7 @@ const apiConfig = new Configuration({
     withCredentials: true, // Important: Send cookies (JWT, etc.) with requests
   },
 });
-const requestApi = new RequestResourceApi(apiConfig);
-
+new RequestResourceApi(apiConfig);
 // ============================================================
 // TYPES
 // ============================================================
@@ -181,7 +180,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
     subMetrics,
     analysisHistory,
     orphanCommits,
-    analysisStatus: (dto as any).analysisStatus,
+    analysisStatus: (dto as ClientResponseDTO).analysisStatus,
   };
 
   // Cache the transformed team
@@ -267,7 +266,7 @@ export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
   onInit: (team: Team) => void,
-  onUpdate: (team: Team) => void,
+  onUpdate: (team: Team | Partial<Team>) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
 ): () => void {
@@ -314,7 +313,7 @@ export function loadBasicTeamDataStream(
           teamName: data.teamName,
           analysisStatus: 'ANALYZING',
         };
-        onUpdate(partialTeam as any);
+        onUpdate(partialTeam as Partial<Team>);
       } else if (data.type === 'UPDATE') {
         // Server sends ClientResponseDTO with CQI and isSuspicious, so transform to Team
         onUpdate(transformToComplexTeamData(data.data));
