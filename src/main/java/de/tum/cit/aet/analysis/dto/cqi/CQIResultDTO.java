@@ -58,4 +58,20 @@ public record CQIResultDTO(
                 1.0,
                 filterSummary);
     }
+
+    /**
+     * Create result for git-only analysis (before AI analysis).
+     * Contains only git-based component scores (locBalance, temporalSpread, ownershipSpread).
+     * effortBalance is 0 because it requires AI.
+     * CQI is set to -1 to indicate it's not calculated yet.
+     */
+    public static CQIResultDTO gitOnly(ComponentScoresDTO gitComponents, FilterSummaryDTO filterSummary) {
+        return new CQIResultDTO(
+                -1.0,  // CQI not calculated yet - client can check for this
+                gitComponents,
+                List.of(),
+                0.0,
+                1.0,
+                filterSummary);
+    }
 }

@@ -15,17 +15,22 @@ interface UseTeamStreamingReturn {
   processedRepos: number;
   isStreaming: boolean;
   progress: number;
+  currentPhase: 'GIT_ANALYSIS' | 'AI_ANALYSIS' | null;
+  gitProcessedRepos: number;
 }
 
 /**
  * Custom hook for streaming team data via SSE
  * Encapsulates the streaming logic and integrates with React Query cache
+ * Supports phased analysis: Git Analysis → AI Analysis
  */
 export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamStreamingProps): UseTeamStreamingReturn {
   const queryClient = useQueryClient();
   const [totalRepos, setTotalRepos] = useState(0);
   const [processedRepos, setProcessedRepos] = useState(0);
+  const [gitProcessedRepos, setGitProcessedRepos] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<'GIT_ANALYSIS' | 'AI_ANALYSIS' | null>(null);
 
   useEffect(() => {
     if (!enabled || !course || !exercise) return;
@@ -48,7 +53,9 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
       if (mounted) {
         setTotalRepos(0);
         setProcessedRepos(0);
+        setGitProcessedRepos(0);
         setIsStreaming(true);
+        setCurrentPhase(null);
       }
     });
 
@@ -76,13 +83,50 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
         const index = streamedTeams.findIndex(t => t.id === teamId);
         if (index !== -1) {
           // Merge: keep existing data, override with new data
-          streamedTeams[index] = { ...streamedTeams[index], ...teamUpdate };
+          // Important: explicitly handle undefined values that should override existing values
+          const merged = { ...streamedTeams[index], ...teamUpdate };
+
+          // If the update explicitly sets cqi or isSuspicious to undefined, keep it undefined
+          if ('cqi' in teamUpdate) {
+            merged.cqi = teamUpdate.cqi;
+          }
+          if ('isSuspicious' in teamUpdate) {
+            merged.isSuspicious = teamUpdate.isSuspicious;
+          }
+
+          // If status changes to GIT_DONE or AI_ANALYZING, ensure CQI is undefined
+          // and subMetrics Effort Balance is marked as pending (-1)
+          if (teamUpdate.analysisStatus === 'GIT_DONE' || teamUpdate.analysisStatus === 'AI_ANALYZING') {
+            merged.cqi = undefined;
+            merged.isSuspicious = undefined;
+            // Update Effort Balance to pending if subMetrics exist
+            if (merged.subMetrics && merged.subMetrics.length > 0) {
+              merged.subMetrics = merged.subMetrics.map(metric =>
+                metric.name === 'Effort Balance'
+                  ? {
+                      ...metric,
+                      value: -1,
+                      details: 'Requires AI analysis. Will be calculated after git analysis completes for all teams.',
+                    }
+                  : metric,
+              );
+            }
+          }
+
+          streamedTeams[index] = merged;
         } else if ('teamName' in teamUpdate && 'students' in teamUpdate) {
           // Only add if it's a full team object
           streamedTeams.push(teamUpdate as Team);
         }
         if (mounted) {
-          setProcessedRepos(prev => prev + 1);
+          // Only increment processedRepos for GIT_UPDATE (git done) and AI_UPDATE (fully done)
+          // GIT_ANALYZING and AI_ANALYZING are status updates, not completions
+          const status = teamUpdate.analysisStatus;
+          if (status === 'GIT_DONE') {
+            setGitProcessedRepos(prev => prev + 1);
+          } else if (status === 'DONE') {
+            setProcessedRepos(prev => prev + 1);
+          }
           // Update React Query cache with analyzed data
           queryClient.setQueryData(['teams', exercise], [...streamedTeams]);
         }
@@ -90,16 +134,34 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
       () => {
         if (mounted) {
           setIsStreaming(false);
+          setCurrentPhase(null);
         }
       },
       (error: unknown) => {
         if (mounted) {
           setIsStreaming(false);
+          setCurrentPhase(null);
           toast({
             variant: 'destructive',
             title: 'Error loading teams',
             description: error instanceof Error ? error.message : 'Connection lost or failed.',
           });
+        }
+      },
+      // onPhaseChange: Update current phase
+      (phase, _total) => {
+        if (mounted) {
+          setCurrentPhase(phase);
+          // Reset processed count when switching to AI phase
+          if (phase === 'AI_ANALYSIS') {
+            setProcessedRepos(0);
+          }
+        }
+      },
+      // onGitDone: All git analysis complete
+      processed => {
+        if (mounted) {
+          setGitProcessedRepos(processed);
         }
       },
     );
@@ -110,13 +172,20 @@ export function useTeamStreaming({ course, exercise, enabled = true }: UseTeamSt
     };
   }, [exercise, course, queryClient, enabled]);
 
-  // Calculate progress
-  const progress = totalRepos > 0 ? Math.round((processedRepos / totalRepos) * 100) : 0;
+  // Calculate progress based on current phase
+  const progress =
+    totalRepos > 0
+      ? currentPhase === 'AI_ANALYSIS'
+        ? Math.round((processedRepos / totalRepos) * 100)
+        : Math.round((gitProcessedRepos / totalRepos) * 100)
+      : 0;
 
   return {
     totalRepos,
     processedRepos,
     isStreaming,
     progress,
+    currentPhase,
+    gitProcessedRepos,
   };
 }

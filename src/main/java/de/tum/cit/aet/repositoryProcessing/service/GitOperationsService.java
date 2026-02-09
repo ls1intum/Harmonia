@@ -18,11 +18,14 @@ import java.nio.file.Paths;
 
 /**
  * Service for Git operations using JGit library.
- * Handles cloning and pulling repositories.
+ * Handles cloning and pulling repositories with retry logic.
  */
 @Service
 @Slf4j
 public class GitOperationsService {
+
+    private static final int MAX_RETRIES = 3;
+    private static final long INITIAL_RETRY_DELAY_MS = 2000; // 2 seconds
 
     @SuppressWarnings("unused")
     private final ArtemisConfig artemisConfig;
@@ -56,13 +59,116 @@ public class GitOperationsService {
 
         if (repoDir.exists() && new File(repoDir, ".git").exists()) {
             log.info("Repository {} already exists, performing git pull", repoName);
-            pullRepository(localPath, credentialsProvider);
+            pullRepositoryWithRetry(localPath, credentialsProvider, repoName);
         } else {
             log.info("Cloning repository {} for team {}", repoName, teamName);
-            cloneRepository(repositoryUri, localPath, credentialsProvider);
+            cloneRepositoryWithRetry(repositoryUri, localPath, credentialsProvider, repoName);
         }
 
         return localPath.toString();
+    }
+
+    /**
+     * Clones a repository with retry logic for transient errors.
+     */
+    private void cloneRepositoryWithRetry(String repositoryUri, Path localPath,
+            UsernamePasswordCredentialsProvider credentialsProvider, String repoName) {
+        int attempt = 0;
+        long delayMs = INITIAL_RETRY_DELAY_MS;
+
+        while (attempt < MAX_RETRIES) {
+            try {
+                cloneRepository(repositoryUri, localPath, credentialsProvider);
+                return; // Success
+            } catch (GitOperationException e) {
+                attempt++;
+                if (isRetryableError(e) && attempt < MAX_RETRIES) {
+                    log.warn("Clone attempt {} failed for {} with retryable error, retrying in {}ms: {}",
+                            attempt, repoName, delayMs, e.getMessage());
+                    try {
+                        Thread.sleep(delayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new GitOperationException("Clone interrupted", ie);
+                    }
+                    delayMs *= 2; // Exponential backoff
+
+                    // Clean up failed clone attempt
+                    deleteDirectory(localPath.toFile());
+                } else {
+                    throw e; // Non-retryable or max retries exceeded
+                }
+            }
+        }
+    }
+
+    /**
+     * Pulls a repository with retry logic for transient errors.
+     */
+    private void pullRepositoryWithRetry(Path localPath,
+            UsernamePasswordCredentialsProvider credentialsProvider, String repoName) {
+        int attempt = 0;
+        long delayMs = INITIAL_RETRY_DELAY_MS;
+
+        while (attempt < MAX_RETRIES) {
+            try {
+                pullRepository(localPath, credentialsProvider);
+                return; // Success
+            } catch (GitOperationException e) {
+                attempt++;
+                if (isRetryableError(e) && attempt < MAX_RETRIES) {
+                    log.warn("Pull attempt {} failed for {} with retryable error, retrying in {}ms: {}",
+                            attempt, repoName, delayMs, e.getMessage());
+                    try {
+                        Thread.sleep(delayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new GitOperationException("Pull interrupted", ie);
+                    }
+                    delayMs *= 2; // Exponential backoff
+                } else {
+                    throw e; // Non-retryable or max retries exceeded
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if the error is retryable (transient network/server issues).
+     */
+    private boolean isRetryableError(GitOperationException e) {
+        String message = e.getMessage();
+        if (message == null) {
+            return false;
+        }
+
+        // Check for common transient HTTP errors
+        return message.contains("503") ||  // Service Unavailable
+               message.contains("502") ||  // Bad Gateway
+               message.contains("504") ||  // Gateway Timeout
+               message.contains("Connection reset") ||
+               message.contains("Connection refused") ||
+               message.contains("Read timed out") ||
+               message.contains("Temporary failure");
+    }
+
+    /**
+     * Delete a directory recursively.
+     */
+    private void deleteDirectory(File directory) {
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        file.delete();
+                    }
+                }
+            }
+            directory.delete();
+        }
     }
 
     /**

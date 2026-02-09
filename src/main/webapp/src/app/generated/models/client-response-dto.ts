@@ -41,6 +41,10 @@ export interface ClientResponseDTO {
 
 export const ClientResponseDTOAnalysisStatusEnum = {
   Pending: 'PENDING',
+  Downloading: 'DOWNLOADING',
+  GitAnalyzing: 'GIT_ANALYZING',
+  GitDone: 'GIT_DONE',
+  AiAnalyzing: 'AI_ANALYZING',
   Analyzing: 'ANALYZING',
   Done: 'DONE',
   Error: 'ERROR',
