@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX } from 'lucide-react';
+import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX, Info } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AnalyzedChunkDTO } from '@/app/generated';
 
 interface AnalysisFeedProps {
@@ -23,9 +24,9 @@ const badgeColors: Record<string, string> = {
 
 // Distinct colors for differentiating authors in the analysis history
 const authorPalette = [
-  { dot: 'bg-violet-500', border: 'border-l-violet-500' },
-  { dot: 'bg-pink-500', border: 'border-l-pink-500' },
-  { dot: 'bg-cyan-500', border: 'border-l-cyan-500' },
+  { dot: 'bg-violet-500', border: 'border-l-violet-500', hex: '#8b5cf6' },
+  { dot: 'bg-pink-500', border: 'border-l-pink-500', hex: '#ec4899' },
+  { dot: 'bg-cyan-500', border: 'border-l-cyan-500', hex: '#06b6d4' },
 ];
 
 // Returns an HSL color string for effort score: 0 = red, 5 = amber, 10 = green
@@ -33,8 +34,34 @@ const getEffortColor = (score: number): string => {
   const clamped = Math.max(0, Math.min(10, score));
   // Hue: 0 (red) -> 45 (amber) -> 120 (green)
   const hue = (clamped / 10) * 120;
-  return `hsl(${hue}, 80%, 40%)`;
+  return `hsl(${hue}, 85%, 32%)`;
 };
+
+// Metric tooltip descriptions
+const metricInfo = {
+  effort:
+    'Measures the meaningful work in a commit. Higher = more substantial contribution. Range: 0–10. Look for: ≥5 is solid, <3 may indicate trivial/low-effort commits.',
+  complexity:
+    'Measures the technical difficulty of the code changes. Higher = more complex logic, algorithms, or architecture. Range: 0–10.',
+  novelty: 'Measures how much new/original code was introduced vs. boilerplate or copy-paste. Higher = more original work. Range: 0–10.',
+  confidence: 'How confident the AI is in its assessment. Higher = more reliable rating.',
+};
+
+const MetricLabel = ({ label, tooltip }: { label: string; tooltip: string }) => (
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <p className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1 cursor-help">
+          {label}
+          <Info className="h-3 w-3 text-muted-foreground/60" />
+        </p>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
 
 const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
@@ -99,29 +126,6 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Effort Distribution */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Effort Distribution</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
-            {Object.entries(authorSummary).map(([email, data]) => {
-              const percentage = totalEffort > 0 ? Math.round((data.effort / totalEffort) * 100) : 0;
-              return (
-                <div key={email} className="flex items-center gap-2">
-                  <div className="h-3 rounded-full bg-primary" style={{ width: `${Math.max(20, percentage)}px` }} />
-                  <span className="text-sm font-medium">{data.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {percentage}% ({data.count} chunks)
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Per-Person Average Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Object.entries(authorSummary).map(([email, data]) => {
@@ -138,20 +142,21 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
               <CardContent>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">Avg. Effort</p>
+                    <MetricLabel label="Avg. Effort" tooltip={metricInfo.effort} />
                     <p className="text-2xl font-bold" style={{ color: getEffortColor(avgEffort) }}>
                       {avgEffort.toFixed(1)}
+                      <span className="text-sm text-muted-foreground font-normal">/10</span>
                     </p>
                   </div>
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">Avg. Complexity</p>
+                    <MetricLabel label="Avg. Complexity" tooltip={metricInfo.complexity} />
                     <p className="text-2xl font-bold">
                       {avgComplexity.toFixed(1)}
                       <span className="text-sm text-muted-foreground font-normal">/10</span>
                     </p>
                   </div>
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">Avg. Novelty</p>
+                    <MetricLabel label="Avg. Novelty" tooltip={metricInfo.novelty} />
                     <p className="text-2xl font-bold">
                       {avgNovelty.toFixed(1)}
                       <span className="text-sm text-muted-foreground font-normal">/10</span>
@@ -163,6 +168,42 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
           );
         })}
       </div>
+
+      {/* Effort Distribution - Stacked Bar */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Effort Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full h-6 rounded-full overflow-hidden flex" style={{ backgroundColor: '#e5e7eb' }}>
+            {Object.entries(authorSummary).map(([email, data]) => {
+              const percentage = totalEffort > 0 ? (data.effort / totalEffort) * 100 : 0;
+              return (
+                <div
+                  key={email}
+                  style={{ width: `${percentage}%`, backgroundColor: authorColorMap[email]?.hex ?? '#9ca3af' }}
+                  title={`${data.name}: ${Math.round(percentage)}%`}
+                />
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+            {Object.entries(authorSummary).map(([email, data]) => {
+              const percentage = totalEffort > 0 ? Math.round((data.effort / totalEffort) * 100) : 0;
+              return (
+                <div key={email} className="flex items-center gap-1.5 text-sm">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: authorColorMap[email]?.hex ?? '#9ca3af' }}
+                  />
+                  <span className="font-medium">{data.name}</span>
+                  <span className="text-muted-foreground">{percentage}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Analysis Feed - Team Members */}
       <div className="space-y-3">
@@ -249,21 +290,21 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                       {/* Effort breakdown */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-1">Effort Score</p>
+                          <MetricLabel label="Effort Score" tooltip={metricInfo.effort} />
                           <p className="text-lg font-bold" style={{ color: getEffortColor(chunk.effortScore ?? 0) }}>
-                            {(chunk.effortScore ?? 0).toFixed(1)}
+                            {(chunk.effortScore ?? 0).toFixed(1)}/10
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-1">Complexity</p>
+                          <MetricLabel label="Complexity" tooltip={metricInfo.complexity} />
                           <p className="text-lg font-bold">{(chunk.complexity ?? 0).toFixed(1)}/10</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-1">Novelty</p>
+                          <MetricLabel label="Novelty" tooltip={metricInfo.novelty} />
                           <p className="text-lg font-bold">{(chunk.novelty ?? 0).toFixed(1)}/10</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                          <MetricLabel label="Confidence" tooltip={metricInfo.confidence} />
                           <p className="text-lg font-bold">{Math.round((chunk.confidence ?? 0) * 100)}%</p>
                         </div>
                       </div>
@@ -341,7 +382,7 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                   return (
                     <Card
                       key={chunkId}
-                      className={`overflow-hidden transition-colors border-amber-200/50 bg-white dark:bg-background border dark:border-gray-700`}
+                      className={`overflow-hidden transition-colors border-amber-200/50 bg-white dark:bg-background border border-gray-200 dark:border-gray-700`}
                     >
                       <div
                         className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
