@@ -138,7 +138,9 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
                   )}
                   {isDevMode && (
                     <div className="hidden sm:flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">{(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}</span>
+                      <span className="text-sm font-semibold text-foreground">
+                        {(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}
+                      </span>
                       <span className="text-xs text-muted-foreground">tokens</span>
                     </div>
                   )}
@@ -331,7 +333,9 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
                                 </div>
                                 <div>
                                   <p className="text-xs text-muted-foreground mb-1">Usage</p>
-                                  <p className="text-sm font-semibold">{chunk.llmTokenUsage?.usageAvailable ? 'Provided' : 'Unavailable'}</p>
+                                  <p className="text-sm font-semibold">
+                                    {chunk.llmTokenUsage?.usageAvailable ? 'Provided' : 'Unavailable'}
+                                  </p>
                                 </div>
                               </div>
                               {!chunk.llmTokenUsage?.usageAvailable && (
