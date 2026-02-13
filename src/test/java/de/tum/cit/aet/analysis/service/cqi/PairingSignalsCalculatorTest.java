@@ -3,8 +3,12 @@ package de.tum.cit.aet.analysis.service.cqi;
 import de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -14,15 +18,21 @@ import static org.junit.jupiter.api.Assertions.*;
  * Test class for PairingSignalsCalculator using mock commit data.
  * All commit information and team member names are simulated for testing purposes only.
  */
+@ExtendWith(MockitoExtension.class)
 class PairingSignalsCalculatorTest {
 
-    private PairingSignalsCalculator calculator;
-    private LocalDateTime baseTime;
+    @Mock TeamScheduleService teamScheduleService;
+    PairingSignalsCalculator calculator;
+    private OffsetDateTime baseTime;
 
     @BeforeEach
     void setUp() {
-        calculator = new PairingSignalsCalculator();
-        baseTime = LocalDateTime.of(2024, 1, 1, 10, 0);
+        calculator = new PairingSignalsCalculator(teamScheduleService);
+        baseTime = OffsetDateTime.of(
+                2024, 1, 1,
+                10, 0, 0, 0,
+                ZoneOffset.ofHours(1)
+        );
     }
 
     @Test

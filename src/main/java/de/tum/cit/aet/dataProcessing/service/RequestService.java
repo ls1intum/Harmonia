@@ -4,8 +4,6 @@ import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisService;
-import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
-import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
@@ -20,20 +18,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
-
-import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
-import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
-import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
-import de.tum.cit.aet.ai.dto.CommitChunkDTO;
-import de.tum.cit.aet.ai.dto.FairnessReportDTO;
-import de.tum.cit.aet.ai.service.CommitChunkerService;
-import de.tum.cit.aet.ai.service.ContributionFairnessService;
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
-import de.tum.cit.aet.analysis.service.AnalysisStateService;
 
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -754,9 +738,11 @@ public class RequestService {
                     if (email != null) {
                         email = email.toLowerCase().trim();
                     }
-                    java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
-                            java.time.Instant.ofEpochSecond(commit.getCommitTime()),
-                            java.time.ZoneId.systemDefault());
+                    java.time.OffsetDateTime timestamp =
+                            java.time.OffsetDateTime.ofInstant(
+                                    java.time.Instant.ofEpochSecond(commit.getCommitTime()),
+                                    java.time.ZoneId.of("Europe/Berlin")
+                            );
 
                     // Get modified files
                     java.util.Set<String> modifiedFiles = new java.util.HashSet<>();
