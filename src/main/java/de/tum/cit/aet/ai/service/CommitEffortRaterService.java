@@ -2,10 +2,15 @@ package de.tum.cit.aet.ai.service;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
+import de.tum.cit.aet.ai.dto.LlmTokenUsage;
 import de.tum.cit.aet.core.config.AiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.EmptyUsage;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,6 +26,16 @@ public class CommitEffortRaterService {
     private final AiProperties aiProperties;
 
     private static final double DEFAULT_CONFIDENCE_THRESHOLD = 0.7;
+    private static final String LLM_USAGE_LOG_PREFIX = "LLM_USAGE";
+
+    /**
+     * Combined result containing effort rating plus token usage.
+     *
+     * @param rating     parsed effort rating
+     * @param tokenUsage usage metadata for this call
+     */
+    public record RatingWithUsage(EffortRatingDTO rating, LlmTokenUsage tokenUsage) {
+    }
 
     /**
      * Rates the effort of a specific commit chunk.
@@ -30,13 +45,27 @@ public class CommitEffortRaterService {
      * @throws InterruptedException if the thread is interrupted (analysis cancelled)
      */
     public EffortRatingDTO rateChunk(CommitChunkDTO chunk) throws InterruptedException {
+        return rateChunkWithUsage(chunk).rating();
+    }
+
+    /**
+     * Rates a chunk and returns both the rating and provider token usage metadata.
+     *
+     * @param chunk The commit chunk to analyze
+     * @return combined rating and token usage for this chunk
+     * @throws InterruptedException if the thread is interrupted (analysis cancelled)
+     */
+    public RatingWithUsage rateChunkWithUsage(CommitChunkDTO chunk) throws InterruptedException {
+        AiProperties.CommitClassifier commitClassifierConfig = aiProperties.getCommitClassifier();
+
         // Check if cancelled before starting
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Analysis cancelled before rating chunk");
         }
 
-        if (!aiProperties.isEnabled() || !aiProperties.getCommitClassifier().isEnabled()) {
-            return EffortRatingDTO.disabled();
+        if (!aiProperties.isEnabled() || commitClassifierConfig == null || !commitClassifierConfig.isEnabled()) {
+            return new RatingWithUsage(EffortRatingDTO.disabled(),
+                    LlmTokenUsage.unavailable(resolveConfiguredModel()));
         }
 
         try {
@@ -80,18 +109,31 @@ public class CommitEffortRaterService {
                 throw new InterruptedException("Analysis cancelled before LLM call");
             }
 
-            // Get raw response instead of using entity() to handle truncated JSON
-            String rawResponse = chatClient.prompt()
+            ChatResponse chatResponse = chatClient.prompt()
                     .user(promptText)
                     .options(org.springframework.ai.openai.OpenAiChatOptions.builder()
-                            .model(aiProperties.getCommitClassifier().getModelName())
+                            .model(commitClassifierConfig.getModelName())
                             .build())
                     .call()
-                    .content();
+                    .chatResponse();
+
+            LlmTokenUsage tokenUsage = extractTokenUsage(chatResponse);
+            log.info("{} chunk commit={} chunk={}/{} model={} usageAvailable={} promptTokens={} completionTokens={} totalTokens={}",
+                    LLM_USAGE_LOG_PREFIX,
+                    chunk.commitSha(),
+                    chunk.chunkIndex() + 1,
+                    chunk.totalChunks(),
+                    tokenUsage.model(),
+                    tokenUsage.usageAvailable(),
+                    tokenUsage.promptTokens(),
+                    tokenUsage.completionTokens(),
+                    tokenUsage.totalTokens());
+
+            String rawResponse = extractResponseContent(chatResponse);
 
             if (rawResponse == null || rawResponse.isBlank()) {
                 log.warn("Received empty response from LLM for commit {}", chunk.commitSha());
-                return EffortRatingDTO.trivial("Empty AI response");
+                return new RatingWithUsage(EffortRatingDTO.trivial("Empty AI response"), tokenUsage);
             }
 
             // Try to parse, with repair if needed
@@ -103,7 +145,7 @@ public class CommitEffortRaterService {
                         rating.confidence(), chunk.commitSha(), rating.reasoning());
             }
 
-            return rating;
+            return new RatingWithUsage(rating, tokenUsage);
 
         } catch (InterruptedException e) {
             // Re-throw InterruptedException to allow cancellation
@@ -111,8 +153,63 @@ public class CommitEffortRaterService {
             throw e;
         } catch (Exception e) {
             log.error("Error rating commit chunk {}: {}", chunk.commitSha(), e.getMessage());
-            return EffortRatingDTO.trivial("Error during AI analysis: " + e.getMessage());
+            return new RatingWithUsage(
+                    EffortRatingDTO.trivial("Error during AI analysis: " + e.getMessage()),
+                    LlmTokenUsage.unavailable(resolveConfiguredModel()));
         }
+    }
+
+    private String extractResponseContent(ChatResponse chatResponse) {
+        if (chatResponse == null) {
+            return null;
+        }
+        Generation result = chatResponse.getResult();
+        if (result == null || result.getOutput() == null) {
+            return null;
+        }
+        return result.getOutput().getText();
+    }
+
+    private LlmTokenUsage extractTokenUsage(ChatResponse chatResponse) {
+        String model = resolveConfiguredModel();
+        if (chatResponse == null || chatResponse.getMetadata() == null) {
+            return LlmTokenUsage.unavailable(model);
+        }
+
+        String providerModel = chatResponse.getMetadata().getModel();
+        if (providerModel != null && !providerModel.isBlank()) {
+            model = providerModel;
+        }
+
+        Usage usage = chatResponse.getMetadata().getUsage();
+        if (usage == null) {
+            return LlmTokenUsage.unavailable(model);
+        }
+
+        long promptTokens = usage.getPromptTokens() != null ? usage.getPromptTokens() : 0;
+        long completionTokens = usage.getCompletionTokens() != null ? usage.getCompletionTokens() : 0;
+        long totalTokens = usage.getTotalTokens() != null ? usage.getTotalTokens() : promptTokens + completionTokens;
+        boolean hasNonEmptyNativeUsage = false;
+        if (usage.getNativeUsage() instanceof java.util.Map<?, ?> nativeMap) {
+            hasNonEmptyNativeUsage = !nativeMap.isEmpty();
+        } else if (usage.getNativeUsage() != null) {
+            hasNonEmptyNativeUsage = true;
+        }
+        boolean usageAvailable = !(usage instanceof EmptyUsage)
+                && (hasNonEmptyNativeUsage || promptTokens > 0 || completionTokens > 0 || totalTokens > 0);
+
+        return new LlmTokenUsage(model, promptTokens, completionTokens, totalTokens, usageAvailable);
+    }
+
+    private String resolveConfiguredModel() {
+        if (aiProperties == null || aiProperties.getCommitClassifier() == null) {
+            return "unknown";
+        }
+        String configuredModel = aiProperties.getCommitClassifier().getModelName();
+        if (configuredModel != null && !configuredModel.isBlank()) {
+            return configuredModel;
+        }
+        return "unknown";
     }
 
     /**

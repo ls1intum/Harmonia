@@ -9,6 +9,7 @@ import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { readDevModeFromStorage } from '@/lib/devMode';
 
 interface TeamDetailProps {
   team: Team;
@@ -18,6 +19,8 @@ interface TeamDetailProps {
 }
 
 const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
+  const isDevMode = readDevModeFromStorage();
+
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
     if (cqi >= 60) return 'text-warning';
@@ -111,6 +114,33 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 <ClipboardCheck className="h-5 w-5 text-primary" />
                 <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
               </div>
+              {isDevMode && (
+                <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Dev Mode: Team LLM Tokens</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs">LLM Calls</p>
+                      <p className="font-medium">{(team.llmTokenTotals?.llmCalls ?? 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Calls w/ Usage</p>
+                      <p className="font-medium">{(team.llmTokenTotals?.callsWithUsage ?? 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Prompt</p>
+                      <p className="font-medium">{(team.llmTokenTotals?.promptTokens ?? 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Completion</p>
+                      <p className="font-medium">{(team.llmTokenTotals?.completionTokens ?? 0).toLocaleString()}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground text-xs">Total</p>
+                      <p className="font-semibold">{(team.llmTokenTotals?.totalTokens ?? 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="pt-2">
                 {isTeamFailed(team) ? (
                   <TooltipProvider>
@@ -312,7 +342,7 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
 
             <OrphanCommitsPanel commits={team.orphanCommits || []} />
 
-            <AnalysisFeed chunks={team.analysisHistory || []} />
+            <AnalysisFeed chunks={team.analysisHistory || []} isDevMode={isDevMode} />
           </>
         ) : (
           <Card className="p-8 flex items-center justify-center">

@@ -42,13 +42,26 @@ public class ContributionFairnessService {
      * @return a FairnessReportDTO containing the analysis results
      */
     public FairnessReportDTO analyzeFairness(TeamRepositoryDTO repositoryDTO) {
+        return analyzeFairnessWithUsage(repositoryDTO).report();
+    }
+
+    /**
+     * Analyzes a repository and returns both fairness report and team token totals.
+     *
+     * @param repositoryDTO the repository data transfer object to analyze
+     * @return fairness report plus aggregated LLM token usage for this team
+     */
+    public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         int teamSize = repositoryDTO.participation().team().students().size();
         List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
+        LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
 
         if (repoPath == null) {
-            return FairnessReportDTO.error(teamName, "Repository not cloned locally");
+            return new FairnessReportWithUsage(
+                    FairnessReportDTO.error(teamName, "Repository not cloned locally"),
+                    teamTokenTotals);
         }
 
         long startTime = System.currentTimeMillis();
@@ -58,7 +71,9 @@ public class ContributionFairnessService {
             AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO.vcsLogs(), teamMembers);
 
             if (authorMapping.teamMemberCommits.isEmpty()) {
-                return FairnessReportDTO.error(teamName, "No commits found from team members in VCS logs");
+                return new FairnessReportWithUsage(
+                        FairnessReportDTO.error(teamName, "No commits found from team members in VCS logs"),
+                        teamTokenTotals);
             }
 
             if (!authorMapping.externalCommitEmails.isEmpty()) {
@@ -80,7 +95,9 @@ public class ContributionFairnessService {
             }
 
             if (allChunks.isEmpty()) {
-                return FairnessReportDTO.error(teamName, "No analyzable code changes found");
+                return new FairnessReportWithUsage(
+                        FairnessReportDTO.error(teamName, "No analyzable code changes found"),
+                        teamTokenTotals);
             }
 
             // 3. PRE-FILTER: Remove trivial commits BEFORE LLM analysis (saves API costs)
@@ -93,11 +110,15 @@ public class ContributionFairnessService {
                     String.format("%.0f", filterSummary.getFilteredPercentage()));
 
             if (chunksToAnalyze.isEmpty()) {
-                return FairnessReportDTO.error(teamName, "All commits were filtered as non-productive");
+                return new FairnessReportWithUsage(
+                        FairnessReportDTO.error(teamName, "All commits were filtered as non-productive"),
+                        teamTokenTotals);
             }
 
             // 4. Rate effort for each chunk with LLM (only non-trivial commits)
-            List<RatedChunk> ratedChunks = rateChunks(chunksToAnalyze);
+            RatedChunksWithUsage ratedChunksWithUsage = rateChunks(chunksToAnalyze);
+            List<RatedChunk> ratedChunks = ratedChunksWithUsage.ratedChunks();
+            teamTokenTotals = ratedChunksWithUsage.tokenTotals();
 
             // 5. Calculate CQI using the 4-component formula
             LocalDateTime projectStart = chunksToAnalyze.stream()
@@ -141,7 +162,10 @@ public class ContributionFairnessService {
 
             // 7b. Rate external chunks with trivial rating (for display only)
             List<RatedChunk> externalRatedChunks = externalChunks.stream()
-                    .map(chunk -> new RatedChunk(chunk, EffortRatingDTO.trivial("External contributor")))
+                    .map(chunk -> new RatedChunk(
+                            chunk,
+                            EffortRatingDTO.trivial("External contributor"),
+                            LlmTokenUsage.unavailable("external")))
                     .toList();
 
             // 8. Build report
@@ -150,7 +174,7 @@ public class ContributionFairnessService {
                     teamName, String.format("%.1f", balanceScore), chunksToAnalyze.size(),
                     filterSummary.getTotalFiltered(), externalChunks.size(), duration);
 
-            return buildReport(
+            FairnessReportDTO report = buildReport(
                     teamName,
                     balanceScore,
                     authorStats,
@@ -161,14 +185,20 @@ public class ContributionFairnessService {
                     externalRatedChunks,
                     duration,
                     cqiResult);
+            logTeamUsage(teamName, teamTokenTotals);
+            return new FairnessReportWithUsage(report, teamTokenTotals);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Preserve interrupt status
             log.info("Fairness analysis cancelled for team {}", teamName);
-            return FairnessReportDTO.error(teamName, "Analysis cancelled");
+            logTeamUsage(teamName, teamTokenTotals);
+            return new FairnessReportWithUsage(FairnessReportDTO.error(teamName, "Analysis cancelled"), teamTokenTotals);
         } catch (Exception e) {
             log.error("Fairness analysis failed for team {}: {}", teamName, e.getMessage(), e);
-            return FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage());
+            logTeamUsage(teamName, teamTokenTotals);
+            return new FairnessReportWithUsage(
+                    FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage()),
+                    teamTokenTotals);
         }
     }
 
@@ -193,6 +223,16 @@ public class ContributionFairnessService {
 
         // Deduplicate flags
         return new ArrayList<>(new LinkedHashSet<>(flags));
+    }
+
+    private void logTeamUsage(String teamName, LlmTokenTotals tokenTotals) {
+        log.info("LLM_USAGE team team={} llmCalls={} callsWithUsage={} promptTokens={} completionTokens={} totalTokens={}",
+                teamName,
+                tokenTotals.llmCalls(),
+                tokenTotals.callsWithUsage(),
+                tokenTotals.promptTokens(),
+                tokenTotals.completionTokens(),
+                tokenTotals.totalTokens());
     }
 
     /**
@@ -266,16 +306,19 @@ public class ContributionFairnessService {
         return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails, commitToEmail);
     }
 
-    private List<RatedChunk> rateChunks(List<CommitChunkDTO> chunks) throws InterruptedException {
+    private RatedChunksWithUsage rateChunks(List<CommitChunkDTO> chunks) throws InterruptedException {
         List<RatedChunk> ratedChunks = new ArrayList<>();
+        LlmTokenTotals tokenTotals = LlmTokenTotals.empty();
         for (CommitChunkDTO chunk : chunks) {
             // Check if cancelled
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException("Analysis cancelled during chunk rating");
             }
-            ratedChunks.add(new RatedChunk(chunk, commitEffortRaterService.rateChunk(chunk)));
+            CommitEffortRaterService.RatingWithUsage ratingWithUsage = commitEffortRaterService.rateChunkWithUsage(chunk);
+            ratedChunks.add(new RatedChunk(chunk, ratingWithUsage.rating(), ratingWithUsage.tokenUsage()));
+            tokenTotals = tokenTotals.addUsage(ratingWithUsage.tokenUsage());
         }
-        return ratedChunks;
+        return new RatedChunksWithUsage(ratedChunks, tokenTotals);
     }
 
     private Map<Long, AuthorStats> aggregateStats(List<RatedChunk> ratedChunks) {
@@ -366,7 +409,8 @@ public class ContributionFairnessService {
                         rc.chunk.totalChunks(),
                         rc.rating.isError(),
                         rc.rating.errorMessage(),
-                        false)) // isExternalContributor = false
+                        false,
+                        rc.tokenUsage)) // isExternalContributor = false
                 .collect(Collectors.toList());
 
         // Add external contributor chunks (marked with isExternalContributor = true)
@@ -387,7 +431,8 @@ public class ContributionFairnessService {
                         rc.chunk.chunkIndex(),
                         rc.chunk.totalChunks(),
                         false, null,
-                        true)) // isExternalContributor = true
+                        true,
+                        rc.tokenUsage)) // isExternalContributor = true
                 .toList();
 
         // Combine team member and external chunks
@@ -417,6 +462,18 @@ public class ContributionFairnessService {
         Map<CommitLabel, Integer> commitsByType = new HashMap<>();
     }
 
-    private record RatedChunk(CommitChunkDTO chunk, EffortRatingDTO rating) {
+    /**
+     * Fairness report plus aggregated token totals for one team.
+     *
+     * @param report      fairness report payload
+     * @param tokenTotals token totals for all LLM calls of this team
+     */
+    public record FairnessReportWithUsage(FairnessReportDTO report, LlmTokenTotals tokenTotals) {
+    }
+
+    private record RatedChunk(CommitChunkDTO chunk, EffortRatingDTO rating, LlmTokenUsage tokenUsage) {
+    }
+
+    private record RatedChunksWithUsage(List<RatedChunk> ratedChunks, LlmTokenTotals tokenTotals) {
     }
 }

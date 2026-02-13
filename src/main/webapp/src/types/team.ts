@@ -1,4 +1,4 @@
-import type { StudentAnalysisDTO, CQIResultDTO, AnalyzedChunkDTO, OrphanCommitDTO } from '@/app/generated';
+import type { StudentAnalysisDTO, CQIResultDTO, AnalyzedChunkDTO, OrphanCommitDTO, LlmTokenTotals } from '@/app/generated';
 
 export interface SubMetric {
   name: string;
@@ -31,6 +31,7 @@ export interface Team {
   cqi?: number;
   isSuspicious?: boolean;
   cqiDetails?: CQIResultDTO;
+  llmTokenTotals?: LlmTokenTotals;
   subMetrics?: SubMetric[];
   basicMetrics?: BasicMetrics;
   analysisHistory?: AnalyzedChunkDTO[];

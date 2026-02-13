@@ -83,6 +83,21 @@ public class AnalyzedChunk {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "llm_model")
+    private String llmModel;
+
+    @Column(name = "llm_prompt_tokens")
+    private Long llmPromptTokens;
+
+    @Column(name = "llm_completion_tokens")
+    private Long llmCompletionTokens;
+
+    @Column(name = "llm_total_tokens")
+    private Long llmTotalTokens;
+
+    @Column(name = "llm_usage_available")
+    private Boolean llmUsageAvailable;
+
     /**
      * Transient field to mark chunks from external contributors (not persisted).
      * External chunks are shown in UI but not included in CQI calculation.
@@ -98,7 +113,12 @@ public class AnalyzedChunk {
             Integer linesChanged, Boolean isBundled,
             Integer chunkIndex, Integer totalChunks,
             Boolean isError, String errorMessage,
-            Boolean isExternalContributor) {
+            Boolean isExternalContributor,
+            String llmModel,
+            Long llmPromptTokens,
+            Long llmCompletionTokens,
+            Long llmTotalTokens,
+            Boolean llmUsageAvailable) {
         this.participation = participation;
         this.chunkIdentifier = chunkIdentifier;
         this.authorEmail = authorEmail;
@@ -119,6 +139,11 @@ public class AnalyzedChunk {
         this.isError = isError;
         this.errorMessage = errorMessage;
         this.isExternalContributor = isExternalContributor;
+        this.llmModel = llmModel;
+        this.llmPromptTokens = llmPromptTokens;
+        this.llmCompletionTokens = llmCompletionTokens;
+        this.llmTotalTokens = llmTotalTokens;
+        this.llmUsageAvailable = llmUsageAvailable;
     }
 
     /**
@@ -135,6 +160,6 @@ public class AnalyzedChunk {
         this(participation, chunkIdentifier, authorEmail, authorName, classification,
                 effortScore, complexity, novelty, confidence, reasoning, commitShas,
                 commitMessages, timestamp, linesChanged, isBundled, chunkIndex, totalChunks,
-                isError, errorMessage, false);
+                isError, errorMessage, false, null, null, null, null, null);
     }
 }

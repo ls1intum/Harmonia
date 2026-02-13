@@ -14,10 +14,11 @@
 
 
 
-export interface LoginRequestDTO {
-    'courseId': string;
-    'password': string;
-    'serverUrl': string;
-    'username': string;
+export interface LlmTokenUsage {
+    'completionTokens'?: number;
+    'model'?: string;
+    'promptTokens'?: number;
+    'totalTokens'?: number;
+    'usageAvailable'?: boolean;
 }
 
