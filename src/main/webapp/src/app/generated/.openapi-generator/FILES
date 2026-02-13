@@ -2,6 +2,7 @@
 .npmignore
 api.ts
 apis/analysis-resource-api.ts
+apis/attendance-resource-api.ts
 apis/auth-resource-api.ts
 apis/config-resource-api.ts
 apis/request-resource-api.ts
@@ -12,6 +13,7 @@ configuration.ts
 docs/AnalysisResourceApi.md
 docs/AnalysisStatusDTO.md
 docs/AnalyzedChunkDTO.md
+docs/AttendanceResourceApi.md
 docs/AuthResourceApi.md
 docs/CQIPenaltyDTO.md
 docs/CQIResultDTO.md
@@ -24,6 +26,8 @@ docs/RequestResourceApi.md
 docs/SseEmitter.md
 docs/StreamResourceApi.md
 docs/StudentAnalysisDTO.md
+docs/TeamAttendanceDTO.md
+docs/TeamsScheduleDTO.md
 git_push.sh
 index.ts
 models/analysis-status-dto.ts
@@ -39,3 +43,5 @@ models/orphan-commit-dto.ts
 models/project.ts
 models/sse-emitter.ts
 models/student-analysis-dto.ts
+models/team-attendance-dto.ts
+models/teams-schedule-dto.ts

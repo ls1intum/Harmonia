@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlayCircle, Loader2, RefreshCw, Cpu } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { fetchProjectProfiles } from '@/data/configLoader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import FileUpload from '@/components/FileUpload.tsx';
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username: string, password: string) => void;
@@ -20,7 +20,6 @@ interface LLMModel {
 
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   const queryClient = useQueryClient();
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -53,28 +52,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
     },
   });
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: fetchProjectProfiles,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    meta: {
-      onError: () => {
-        toast({
-          variant: 'destructive',
-          title: 'Failed to load projects',
-          description: 'Could not fetch project profiles from server.',
-        });
-      },
-    },
-  });
-
-  useEffect(() => {
-    if (projects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(projects[0].id);
-    }
-  }, [projects, selectedProjectId]);
-
-  // Set initial model from backend
+  // Set initial model from server
   useEffect(() => {
     if (currentModelData?.model && !selectedModel) {
       setSelectedModel(currentModelData.model);
@@ -112,39 +90,71 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
     }
   };
 
-  const handleStart = async () => {
-    const selectedProject = projects.find(p => p.id === selectedProjectId);
-    if (selectedProject && username && password && exerciseUrl) {
-      setIsLoading(true);
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ username, password, serverUrl: exerciseUrl }),
-        });
-
-        if (response.ok) {
-          onStart(selectedProject.courseName, selectedProject.exerciseId.toString(), username, password);
-        } else {
-          toast({
-            variant: 'destructive',
-            title: 'Login failed',
-            description: 'Please check your credentials and server URL.',
-          });
-        }
-      } catch {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'An error occurred during login.',
-        });
-      } finally {
-        setIsLoading(false);
-      }
+  // helper: parse exercise URL -> { baseUrl, courseId, exerciseId }
+  const parseExerciseUrl = (urlString: string) => {
+    try {
+      const url = new URL(urlString);
+      const baseUrl = `${url.protocol}//${url.host}`;
+      const path = url.pathname; // e.g. /courses/30/exercises/282
+      const regex = /\/courses\/(\d+)\/exercises\/(\d+)/i;
+      const match = path.match(regex);
+      if (!match) return null;
+      return { baseUrl, courseId: match[1], exerciseId: match[2] };
+    } catch {
+      return null;
     }
   };
+
+  const handleStart = async () => {
+    const parsed = parseExerciseUrl(exerciseUrl.trim());
+    if (!parsed) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid URL',
+        description: 'Please provide a valid Artemis exercise URL like https://.../courses/30/exercises/282',
+      });
+      return;
+    }
+
+    const { baseUrl, courseId, exerciseId } = parsed;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, serverUrl: baseUrl, courseId }),
+      });
+
+      if (response.ok) {
+        onStart(courseId, exerciseId, username, password);
+      } else if (response.status === 403) {
+        toast({
+          variant: 'destructive',
+          title: 'Access denied',
+          description: 'Your user is not listed as an instructor for the specified course.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: 'Please check your credentials and try again.',
+        });
+      }
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An error occurred during login.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const parsedCourseId = parseExerciseUrl(exerciseUrl.trim())?.courseId;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
@@ -212,26 +222,15 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="project">Project</Label>
-          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-            <SelectTrigger id="project">
-              <SelectValue placeholder="Select a project" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map(project => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.courseName} - {project.semester} (Exercise ID: {project.exerciseId})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="my-6 border-t border-border" />
+
+        {/* Pair Programming Attendance Upload */}
+        <FileUpload courseId={parsedCourseId} />
 
         <Button
           size="lg"
           onClick={handleStart}
-          disabled={!selectedProjectId || !username || !password || !exerciseUrl || isLoading}
+          disabled={!exerciseUrl || !username || !password || isLoading}
           className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
