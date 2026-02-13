@@ -122,8 +122,7 @@ public class ContributionFairnessService {
                     teamSize,
                     projectStart,
                     projectEnd,
-                    filterSummary
-            );
+                    filterSummary);
 
             double balanceScore = cqiResult.cqi();
             log.info("CQI calculated for team {}: {} (base={}, penalty={})",
@@ -146,9 +145,18 @@ public class ContributionFairnessService {
 
             // 8. Build report
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Fairness analysis completed for team {}: CQI={}, chunks={}, filtered={}, external={}, duration={}ms",
+            log.info(
+                    "Fairness analysis completed for team {}: CQI={}, chunks={}, filtered={}, external={}, duration={}ms",
                     teamName, String.format("%.1f", balanceScore), chunksToAnalyze.size(),
                     filterSummary.getTotalFiltered(), externalChunks.size(), duration);
+
+            // Build email → real name lookup from team members
+            Map<String, String> emailToName = new HashMap<>();
+            for (ParticipantDTO member : teamMembers) {
+                if (member.email() != null && member.name() != null) {
+                    emailToName.put(member.email().toLowerCase(), member.name());
+                }
+            }
 
             return buildReport(
                     teamName,
@@ -160,7 +168,8 @@ public class ContributionFairnessService {
                     ratedChunks,
                     externalRatedChunks,
                     duration,
-                    cqiResult);
+                    cqiResult,
+                    emailToName);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Preserve interrupt status
@@ -196,7 +205,8 @@ public class ContributionFairnessService {
     }
 
     /**
-     * Result of author mapping, separating team member commits from external commits.
+     * Result of author mapping, separating team member commits from external
+     * commits.
      * Also includes a map of commit hash to VCS email for overriding Git emails.
      */
     private record AuthorMappingResult(
@@ -204,15 +214,20 @@ public class ContributionFairnessService {
             Map<String, Long> externalCommits,
             Set<String> externalCommitEmails,
             Map<String, String> commitToEmail // Maps commit hash to VCS email (from Artemis)
-    ) {}
+    ) {
+    }
 
     /**
-     * Maps commits to authors, separating team member commits from external contributor commits.
-     * Only commits from registered team members are included in the main mapping for CQI calculation.
+     * Maps commits to authors, separating team member commits from external
+     * contributor commits.
+     * Only commits from registered team members are included in the main mapping
+     * for CQI calculation.
      * Also builds a map of commit hashes to VCS emails for use in chunking.
      *
-     * VCS emails from Artemis are used directly (no normalization needed) since both
-     * VCS logs and team member emails come from Artemis and are guaranteed to match.
+     * VCS emails from Artemis are used directly (no normalization needed) since
+     * both
+     * VCS logs and team member emails come from Artemis and are guaranteed to
+     * match.
      */
     private AuthorMappingResult mapCommitsToAuthors(List<VCSLogDTO> logs, List<ParticipantDTO> teamMembers) {
         Map<String, Long> teamMemberCommits = new HashMap<>();
@@ -318,7 +333,8 @@ public class ContributionFairnessService {
             List<RatedChunk> ratedChunks,
             List<RatedChunk> externalRatedChunks,
             long duration,
-            CQIResultDTO cqiResult) {
+            CQIResultDTO cqiResult,
+            Map<String, String> emailToName) {
         List<FairnessReportDTO.AuthorDetailDTO> details = new ArrayList<>();
 
         stats.forEach((id, stat) -> {
@@ -350,7 +366,7 @@ public class ContributionFairnessService {
                 .map(rc -> new AnalyzedChunkDTO(
                         rc.chunk.commitSha(),
                         rc.chunk.authorEmail(),
-                        rc.chunk.authorEmail(), // Use email as name placeholder
+                        emailToName.getOrDefault(rc.chunk.authorEmail().toLowerCase(), rc.chunk.authorEmail()),
                         rc.rating.type().name(),
                         rc.rating.weightedEffort(),
                         rc.rating.complexity(),
@@ -374,7 +390,7 @@ public class ContributionFairnessService {
                 .map(rc -> new AnalyzedChunkDTO(
                         rc.chunk.commitSha(),
                         rc.chunk.authorEmail(),
-                        rc.chunk.authorEmail(),
+                        emailToName.getOrDefault(rc.chunk.authorEmail().toLowerCase(), rc.chunk.authorEmail()),
                         "EXTERNAL",
                         0.0, // No effort contribution to CQI
                         0.0, 0.0, 0.0,
