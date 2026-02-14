@@ -25,6 +25,9 @@ public class TeamParticipation {
     @Column(name = "artemis_team_id")
     private Long team;
 
+    @Column(name = "exercise_id")
+    private Long exerciseId;
+
     @ManyToOne
     @JoinColumn(name = "tutor_id")
     private Tutor tutor;
@@ -47,6 +50,10 @@ public class TeamParticipation {
     @Column(name = "is_suspicious")
     private Boolean isSuspicious;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "analysis_status")
+    private AnalysisStatus analysisStatus;
+
     // CQI component fields for persistence
     @Column(name = "cqi_effort_balance")
     private Double cqiEffortBalance;
@@ -68,6 +75,21 @@ public class TeamParticipation {
 
     @Column(name = "cqi_penalties", columnDefinition = "TEXT")
     private String cqiPenalties;
+
+    @Column(name = "llm_calls")
+    private Long llmCalls;
+
+    @Column(name = "llm_calls_with_usage")
+    private Long llmCallsWithUsage;
+
+    @Column(name = "llm_prompt_tokens")
+    private Long llmPromptTokens;
+
+    @Column(name = "llm_completion_tokens")
+    private Long llmCompletionTokens;
+
+    @Column(name = "llm_total_tokens")
+    private Long llmTotalTokens;
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
             String repositoryUrl, Integer submissionCount) {

@@ -79,7 +79,7 @@ class AnalysisStateServiceTest {
         AnalysisStatus running = new AnalysisStatus(123L);
         running.setState(AnalysisState.RUNNING);
         when(statusRepository.findById(123L)).thenReturn(Optional.of(running));
-        when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Note: updateProgress uses direct query updates, not save
 
         AnalysisStatus result = service.updateProgress(123L, "Team A", "DOWNLOADING", 3);
 
@@ -125,7 +125,7 @@ class AnalysisStateServiceTest {
     }
 
     @Test
-    void cancelAnalysis_runningState_transitionsToIdle() {
+    void cancelAnalysis_runningState_transitionsToCancelled() {
         AnalysisStatus running = new AnalysisStatus(123L);
         running.setState(AnalysisState.RUNNING);
         running.setProcessedTeams(5);
@@ -134,8 +134,8 @@ class AnalysisStateServiceTest {
 
         AnalysisStatus result = service.cancelAnalysis(123L);
 
-        assertEquals(AnalysisState.IDLE, result.getState());
-        assertEquals(0, result.getProcessedTeams());
+        assertEquals(AnalysisState.CANCELLED, result.getState());
+        assertEquals(5, result.getProcessedTeams());
     }
 
     @Test

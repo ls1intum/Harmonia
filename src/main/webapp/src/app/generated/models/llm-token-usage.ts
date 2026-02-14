@@ -12,8 +12,10 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/analysis-resource-api';
-export * from './apis/attendance-resource-api';
-export * from './apis/auth-resource-api';
-export * from './apis/config-resource-api';
-export * from './apis/request-resource-api';
+export interface LlmTokenUsage {
+  completionTokens?: number;
+  model?: string;
+  promptTokens?: number;
+  totalTokens?: number;
+  usageAvailable?: boolean;
+}

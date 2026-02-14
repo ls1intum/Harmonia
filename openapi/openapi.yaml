@@ -166,22 +166,25 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/ClientResponseDTO'}
-  /api/requestResource/getData:
+  /api/requestResource/hasData/{exerciseId}:
     get:
       tags: [request-resource]
-      operationId: getData
+      operationId: hasAnalyzedData
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema:
-                type: array
-                items: {$ref: '#/components/schemas/ClientResponseDTO'}
+              schema: {type: boolean}
   /api/requestResource/stream:
     get:
-      tags: [stream-resource]
-      operationId: streamData
+      tags: [request-resource]
+      operationId: streamAnalysis
       parameters:
       - name: exerciseId
         in: query
@@ -209,6 +212,40 @@ paths:
           content:
             text/event-stream:
               schema: {$ref: '#/components/schemas/SseEmitter'}
+  /api/requestResource/teams/{exerciseId}:
+    get:
+      tags: [request-resource]
+      operationId: getTeamsByExercise
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/{exerciseId}/getData:
+    get:
+      tags: [request-resource]
+      operationId: getData
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ClientResponseDTO'}
 components:
   schemas:
     AnalysisStatusDTO:
@@ -245,6 +282,7 @@ components:
         isError: {type: boolean}
         isExternalContributor: {type: boolean}
         linesChanged: {type: integer, format: int32}
+        llmTokenUsage: {$ref: '#/components/schemas/LlmTokenUsage'}
         novelty: {type: number, format: double}
         reasoning: {type: string}
         timestamp: {type: string, format: date-time}
@@ -272,9 +310,14 @@ components:
         analysisHistory:
           type: array
           items: {$ref: '#/components/schemas/AnalyzedChunkDTO'}
+        analysisStatus:
+          type: string
+          enum: [PENDING, DOWNLOADING, GIT_ANALYZING, GIT_DONE, AI_ANALYZING, ANALYZING,
+            DONE, ERROR, CANCELLED]
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isSuspicious: {type: boolean}
+        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotals'}
         orphanCommits:
           type: array
           items: {$ref: '#/components/schemas/OrphanCommitDTO'}
@@ -307,6 +350,22 @@ components:
         totalCommits: {type: integer, format: int32}
         totalFiltered: {type: integer, format: int32}
         trivialCount: {type: integer, format: int32}
+    LlmTokenTotals:
+      type: object
+      properties:
+        callsWithUsage: {type: integer, format: int64}
+        completionTokens: {type: integer, format: int64}
+        llmCalls: {type: integer, format: int64}
+        promptTokens: {type: integer, format: int64}
+        totalTokens: {type: integer, format: int64}
+    LlmTokenUsage:
+      type: object
+      properties:
+        completionTokens: {type: integer, format: int64}
+        model: {type: string}
+        promptTokens: {type: integer, format: int64}
+        totalTokens: {type: integer, format: int64}
+        usageAvailable: {type: boolean}
     LoginRequestDTO:
       type: object
       properties:

@@ -20,6 +20,9 @@ import type { AnalyzedChunkDTO } from './analyzed-chunk-dto';
 import type { CQIResultDTO } from './cqiresult-dto';
 // May contain unused imports in some cases
 // @ts-ignore
+import type { LlmTokenTotals } from './llm-token-totals';
+// May contain unused imports in some cases
+// @ts-ignore
 import type { OrphanCommitDTO } from './orphan-commit-dto';
 // May contain unused imports in some cases
 // @ts-ignore
@@ -27,9 +30,11 @@ import type { StudentAnalysisDTO } from './student-analysis-dto';
 
 export interface ClientResponseDTO {
   analysisHistory?: Array<AnalyzedChunkDTO>;
+  analysisStatus?: ClientResponseDTOAnalysisStatusEnum;
   cqi?: number;
   cqiDetails?: CQIResultDTO;
   isSuspicious?: boolean;
+  llmTokenTotals?: LlmTokenTotals;
   orphanCommits?: Array<OrphanCommitDTO>;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
@@ -37,3 +42,18 @@ export interface ClientResponseDTO {
   teamName?: string;
   tutor?: string;
 }
+
+export const ClientResponseDTOAnalysisStatusEnum = {
+  Pending: 'PENDING',
+  Downloading: 'DOWNLOADING',
+  GitAnalyzing: 'GIT_ANALYZING',
+  GitDone: 'GIT_DONE',
+  AiAnalyzing: 'AI_ANALYZING',
+  Analyzing: 'ANALYZING',
+  Done: 'DONE',
+  Error: 'ERROR',
+  Cancelled: 'CANCELLED',
+} as const;
+
+export type ClientResponseDTOAnalysisStatusEnum =
+  (typeof ClientResponseDTOAnalysisStatusEnum)[keyof typeof ClientResponseDTOAnalysisStatusEnum];

@@ -6,7 +6,6 @@ apis/attendance-resource-api.ts
 apis/auth-resource-api.ts
 apis/config-resource-api.ts
 apis/request-resource-api.ts
-apis/stream-resource-api.ts
 base.ts
 common.ts
 configuration.ts
@@ -21,12 +20,13 @@ docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
 docs/ConfigResourceApi.md
 docs/FilterSummaryDTO.md
+docs/LlmTokenTotals.md
+docs/LlmTokenUsage.md
 docs/LoginRequestDTO.md
 docs/OrphanCommitDTO.md
 docs/Project.md
 docs/RequestResourceApi.md
 docs/SseEmitter.md
-docs/StreamResourceApi.md
 docs/StudentAnalysisDTO.md
 docs/TeamAttendanceDTO.md
 docs/TeamsScheduleDTO.md
@@ -40,6 +40,8 @@ models/cqipenalty-dto.ts
 models/cqiresult-dto.ts
 models/filter-summary-dto.ts
 models/index.ts
+models/llm-token-totals.ts
+models/llm-token-usage.ts
 models/login-request-dto.ts
 models/orphan-commit-dto.ts
 models/project.ts

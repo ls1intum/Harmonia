@@ -25,6 +25,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
@@ -91,11 +92,13 @@ class ContributionFairnessServiceTest {
     }
 
     @Test
-    void testAnalyzeFairness_unevenDistribution() {
+    void testAnalyzeFairness_unevenDistribution() throws InterruptedException {
         List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
-        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
-        when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
-        when(commitEffortRaterService.rateChunk(chunkB)).thenReturn(ratingLow);
+        when(commitChunkerService.processRepository(anyString(), anyMap(), anyMap())).thenReturn(chunks);
+        when(commitEffortRaterService.rateChunkWithUsage(chunkA)).thenReturn(
+                ratingWithUsage(ratingHigh, LlmTokenUsage.unavailable("test-model")));
+        when(commitEffortRaterService.rateChunkWithUsage(chunkB)).thenReturn(
+                ratingWithUsage(ratingLow, LlmTokenUsage.unavailable("test-model")));
         setupDefaultMocks(chunks);
 
         // Mock CQI result with uneven distribution penalty
@@ -119,11 +122,13 @@ class ContributionFairnessServiceTest {
     }
 
     @Test
-    void testAnalyzeFairness_balanced() {
+    void testAnalyzeFairness_balanced() throws InterruptedException {
         List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
-        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
-        when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
-        when(commitEffortRaterService.rateChunk(chunkB)).thenReturn(ratingHigh);
+        when(commitChunkerService.processRepository(anyString(), anyMap(), anyMap())).thenReturn(chunks);
+        when(commitEffortRaterService.rateChunkWithUsage(chunkA)).thenReturn(
+                ratingWithUsage(ratingHigh, LlmTokenUsage.unavailable("test-model")));
+        when(commitEffortRaterService.rateChunkWithUsage(chunkB)).thenReturn(
+                ratingWithUsage(ratingHigh, LlmTokenUsage.unavailable("test-model")));
         setupDefaultMocks(chunks);
 
         // Mock CQI result with balanced scores
@@ -145,10 +150,11 @@ class ContributionFairnessServiceTest {
     }
 
     @Test
-    void testAnalyzeFairness_soloContributor() {
+    void testAnalyzeFairness_soloContributor() throws InterruptedException {
         List<CommitChunkDTO> chunks = List.of(chunkA);
-        when(commitChunkerService.processRepository(anyString(), any())).thenReturn(chunks);
-        when(commitEffortRaterService.rateChunk(chunkA)).thenReturn(ratingHigh);
+        when(commitChunkerService.processRepository(anyString(), anyMap(), anyMap())).thenReturn(chunks);
+        when(commitEffortRaterService.rateChunkWithUsage(chunkA)).thenReturn(
+                ratingWithUsage(ratingHigh, LlmTokenUsage.unavailable("test-model")));
         setupDefaultMocks(chunks);
 
         // Mock CQI result with solo contributor penalty
@@ -166,5 +172,44 @@ class ContributionFairnessServiceTest {
 
         assertTrue(report.flags().contains(FairnessFlag.SOLO_CONTRIBUTOR));
         assertEquals(0.0, report.balanceScore());
+    }
+
+    @Test
+    void testAnalyzeFairnessWithUsage_aggregatesTeamTokens() throws InterruptedException {
+        List<CommitChunkDTO> chunks = List.of(chunkA, chunkB);
+        when(commitChunkerService.processRepository(anyString(), anyMap(), anyMap())).thenReturn(chunks);
+        when(commitEffortRaterService.rateChunkWithUsage(chunkA)).thenReturn(
+                ratingWithUsage(ratingHigh, new LlmTokenUsage("model-a", 100, 20, 120, true)));
+        when(commitEffortRaterService.rateChunkWithUsage(chunkB)).thenReturn(
+                ratingWithUsage(ratingLow, LlmTokenUsage.unavailable("model-a")));
+        setupDefaultMocks(chunks);
+
+        CQIResultDTO cqiResult = new CQIResultDTO(
+                70.0,
+                new ComponentScoresDTO(70.0, 70.0, 70.0, 70.0),
+                List.of(),
+                70.0,
+                1.0,
+                null
+        );
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any())).thenReturn(cqiResult);
+
+        ContributionFairnessService.FairnessReportWithUsage reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo);
+
+        assertEquals(2, reportWithUsage.tokenTotals().llmCalls());
+        assertEquals(1, reportWithUsage.tokenTotals().callsWithUsage());
+        assertEquals(100, reportWithUsage.tokenTotals().promptTokens());
+        assertEquals(20, reportWithUsage.tokenTotals().completionTokens());
+        assertEquals(120, reportWithUsage.tokenTotals().totalTokens());
+        assertNotNull(reportWithUsage.report());
+        assertNotNull(reportWithUsage.report().analyzedChunks());
+        assertEquals(2, reportWithUsage.report().analyzedChunks().size());
+        assertNotNull(reportWithUsage.report().analyzedChunks().get(0).llmTokenUsage());
+        assertEquals(120, reportWithUsage.report().analyzedChunks().get(0).llmTokenUsage().totalTokens());
+        assertFalse(reportWithUsage.report().analyzedChunks().get(1).llmTokenUsage().usageAvailable());
+    }
+
+    private CommitEffortRaterService.RatingWithUsage ratingWithUsage(EffortRatingDTO rating, LlmTokenUsage usage) {
+        return new CommitEffortRaterService.RatingWithUsage(rating, usage);
     }
 }

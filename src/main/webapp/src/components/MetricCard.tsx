@@ -7,6 +7,8 @@ interface MetricCardProps {
 }
 
 const MetricCard = ({ metric }: MetricCardProps) => {
+  const isPending = metric.value === -1;
+
   const getProgressColor = (value: number) => {
     if (value >= 80) return 'bg-success';
     if (value >= 60) return 'bg-warning';
@@ -14,7 +16,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
   };
 
   return (
-    <Card className="shadow-card hover:shadow-elevated transition-shadow">
+    <Card className={`shadow-card hover:shadow-elevated transition-shadow ${isPending ? 'opacity-75' : ''}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
@@ -22,8 +24,17 @@ const MetricCard = ({ metric }: MetricCardProps) => {
             <CardDescription className="text-sm">{metric.description}</CardDescription>
           </div>
           <div className="flex flex-col items-end gap-1 ml-4">
-            <span className="text-3xl font-bold">{metric.value}</span>
-            <span className="text-xs text-muted-foreground">{metric.weight}% weight</span>
+            {isPending ? (
+              <>
+                <span className="text-xl font-bold text-amber-500">Pending</span>
+                <span className="text-xs text-amber-500">AI Analysis</span>
+              </>
+            ) : (
+              <>
+                <span className="text-3xl font-bold">{metric.value}</span>
+                <span className="text-xs text-muted-foreground">{metric.weight}% weight</span>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -31,9 +42,19 @@ const MetricCard = ({ metric }: MetricCardProps) => {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Score</span>
-            <span className="font-medium">{metric.value}/100</span>
+            {isPending ? (
+              <span className="font-medium text-amber-500">Waiting for AI</span>
+            ) : (
+              <span className="font-medium">{metric.value}/100</span>
+            )}
           </div>
-          <Progress value={metric.value} className="h-2 bg-muted/50" indicatorClassName={getProgressColor(metric.value)} />
+          {isPending ? (
+            <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+              <div className="h-full bg-amber-500/30 animate-pulse w-full"></div>
+            </div>
+          ) : (
+            <Progress value={metric.value} className="h-2 bg-muted/50" indicatorClassName={getProgressColor(metric.value)} />
+          )}
         </div>
         <div className="pt-2 border-t">
           <div className="text-sm text-muted-foreground leading-relaxed space-y-1">
