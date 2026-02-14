@@ -250,6 +250,8 @@ public class CQICalculatorService {
 
     /**
      * Build a {@link ComponentWeightsDTO} from the current configuration.
+     *
+     * @return DTO containing the configured weights for all CQI components
      */
     public ComponentWeightsDTO buildWeightsDTO() {
         CQIConfig.Weights w = cqiConfig.getWeights();
