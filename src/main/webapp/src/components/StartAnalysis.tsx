@@ -164,23 +164,33 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       </div>
 
       <div className="w-full max-w-md space-y-4 mt-4">
+        {/* Exercise URL */}
         <div className="space-y-2">
-          <Label htmlFor="exerciseUrl">Artemis Exercise URL</Label>
+          <Label htmlFor="exerciseUrl">Exercise URL</Label>
           <Input
             id="exerciseUrl"
-            placeholder="https://artemis.../courses/30/exercises/282"
+            type="url"
+            placeholder="https://artemis.tum.de/courses/30/exercises/282"
             value={exerciseUrl}
             onChange={e => setExerciseUrl(e.target.value)}
           />
         </div>
 
+        {/* Username */}
         <div className="space-y-2">
-          <Label htmlFor="username">Artemis Username</Label>
-          <Input id="username" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} />
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            type="text"
+            placeholder="Enter your username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+          />
         </div>
 
+        {/* Password */}
         <div className="space-y-2">
-          <Label htmlFor="password">Artemis Password</Label>
+          <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             type="password"

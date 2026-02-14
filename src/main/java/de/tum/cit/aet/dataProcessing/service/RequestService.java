@@ -358,12 +358,13 @@ public class RequestService {
             // Apply pre-filter to remove trivial commits
             CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
 
-            // Calculate git-only components (locBalance, temporalSpread, ownershipSpread)
+            // Calculate git-only components (locBalance, temporalSpread, ownershipSpread, pairProgramming)
             var gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
                     filterResult.chunksToAnalyze(),
                     students.size(),
                     null,  // projectStart - will be determined from commits
-                    null   // projectEnd - will be determined from commits
+                    null,  // projectEnd - will be determined from commits
+                    team.name()  // teamName for pair programming calculation
             );
 
             // Store git-based components
@@ -371,13 +372,20 @@ public class RequestService {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
+                if (gitComponents.pairProgramming() != null) {
+                    teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
+                }
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
                 gitCqiDetails = CQIResultDTO.gitOnly(gitComponents, filterResult.summary());
 
-                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}",
-                        team.name(), gitComponents.locBalance(), gitComponents.temporalSpread(), gitComponents.ownershipSpread());
+                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}, PairProgramming={}",
+                        team.name(),
+                        gitComponents.locBalance(),
+                        gitComponents.temporalSpread(),
+                        gitComponents.ownershipSpread(),
+                        gitComponents.pairProgramming() != null ? String.format("%.1f", gitComponents.pairProgramming()) : "N/A");
             }
         } catch (Exception e) {
             log.warn("Failed to calculate git-only metrics for team {}: {}", team.name(), e.getMessage());
@@ -1467,7 +1475,8 @@ public class RequestService {
                 participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
-                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0);
+                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
+                participation.getCqiPairProgramming());
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
