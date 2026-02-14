@@ -1,5 +1,6 @@
 package de.tum.cit.aet.dataProcessing.service;
 
+import de.tum.cit.aet.analysis.service.cqi.TeamScheduleService;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;

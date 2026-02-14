@@ -115,16 +115,4 @@ public class RequestResource {
         String diagnosis = requestService.diagnoseCQIForTeam(teamId);
         return ResponseEntity.ok(diagnosis);
     }
-
-    /**
-     * Decrypts the encrypted password using the CryptoService.
-     *
-     * @return ResponseEntity containing the list of ClientResponseDTO
-     */
-    @GetMapping("getData")
-    public ResponseEntity<List<ClientResponseDTO>> getData() {
-        log.info("GET request received: getData (from database)");
-        List<ClientResponseDTO> clientResponseDTOS = requestService.getAllRepositoryData();
-        return ResponseEntity.ok(clientResponseDTOS);
-    }
 }
