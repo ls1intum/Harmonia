@@ -9,6 +9,7 @@
 | **cqi**             | **number**                                                   |             | [optional] [default to undefined] |
 | **cqiDetails**      | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
 | **isSuspicious**    | **boolean**                                                  |             | [optional] [default to undefined] |
+| **llmTokenTotals**  | [**LlmTokenTotals**](LlmTokenTotals.md)                      |             | [optional] [default to undefined] |
 | **orphanCommits**   | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
 | **students**        | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
 | **submissionCount** | **number**                                                   |             | [optional] [default to undefined] |
@@ -27,6 +28,7 @@ const instance: ClientResponseDTO = {
   cqi,
   cqiDetails,
   isSuspicious,
+  llmTokenTotals,
   orphanCommits,
   students,
   submissionCount,

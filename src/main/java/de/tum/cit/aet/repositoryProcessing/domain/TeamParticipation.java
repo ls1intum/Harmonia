@@ -76,6 +76,21 @@ public class TeamParticipation {
     @Column(name = "cqi_penalties", columnDefinition = "TEXT")
     private String cqiPenalties;
 
+    @Column(name = "llm_calls")
+    private Long llmCalls;
+
+    @Column(name = "llm_calls_with_usage")
+    private Long llmCallsWithUsage;
+
+    @Column(name = "llm_prompt_tokens")
+    private Long llmPromptTokens;
+
+    @Column(name = "llm_completion_tokens")
+    private Long llmCompletionTokens;
+
+    @Column(name = "llm_total_tokens")
+    private Long llmTotalTokens;
+
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
             String repositoryUrl, Integer submissionCount) {
         this.participation = participation;

@@ -9,6 +9,7 @@ import type { AnalyzedChunkDTO } from '@/app/generated';
 
 interface AnalysisFeedProps {
   chunks: AnalyzedChunkDTO[];
+  isDevMode?: boolean;
 }
 
 // Badge-only colors for classification labels
@@ -63,7 +64,7 @@ const MetricLabel = ({ label, tooltip }: { label: string; tooltip: string }) => 
   </TooltipProvider>
 );
 
-const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
+const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const [externalOpen, setExternalOpen] = useState(false);
 
@@ -264,6 +265,14 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                       <span className="text-xs text-muted-foreground">effort</span>
                     </div>
                   )}
+                  {isDevMode && (
+                    <div className="hidden sm:flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        {(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}
+                      </span>
+                      <span className="text-xs text-muted-foreground">tokens</span>
+                    </div>
+                  )}
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
@@ -304,6 +313,33 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                           <p className="text-lg font-bold">{Math.round((chunk.confidence ?? 0) * 100)}%</p>
                         </div>
                       </div>
+
+                      {isDevMode && (
+                        <div className="p-3 bg-background rounded-lg border">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">LLM Token Usage</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Prompt</p>
+                              <p className="text-sm font-semibold">{(chunk.llmTokenUsage?.promptTokens ?? 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Completion</p>
+                              <p className="text-sm font-semibold">{(chunk.llmTokenUsage?.completionTokens ?? 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Total</p>
+                              <p className="text-sm font-semibold">{(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Usage</p>
+                              <p className="text-sm font-semibold">{chunk.llmTokenUsage?.usageAvailable ? 'Provided' : 'Unavailable'}</p>
+                            </div>
+                          </div>
+                          {!chunk.llmTokenUsage?.usageAvailable && (
+                            <p className="text-xs text-muted-foreground mt-2">Usage not provided by provider for this chunk.</p>
+                          )}
+                        </div>
+                      )}
 
                       {/* AI Reasoning */}
                       <div>
@@ -397,6 +433,14 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
                             <span className="text-sm font-semibold text-muted-foreground">{(chunk.effortScore ?? 0).toFixed(1)}</span>
                             <span className="text-xs text-muted-foreground">effort</span>
                           </div>
+                          {isDevMode && (
+                            <div className="hidden sm:flex items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">
+                                {(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">tokens</span>
+                            </div>
+                          )}
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </Button>
@@ -405,6 +449,35 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
 
                       {isExpanded && (
                         <CardContent className="border-t bg-muted/30 pt-4 space-y-3">
+                          {isDevMode && (
+                            <div className="p-3 bg-background rounded-lg border">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">LLM Token Usage</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Prompt</p>
+                                  <p className="text-sm font-semibold">{(chunk.llmTokenUsage?.promptTokens ?? 0).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Completion</p>
+                                  <p className="text-sm font-semibold">{(chunk.llmTokenUsage?.completionTokens ?? 0).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Total</p>
+                                  <p className="text-sm font-semibold">{(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Usage</p>
+                                  <p className="text-sm font-semibold">
+                                    {chunk.llmTokenUsage?.usageAvailable ? 'Provided' : 'Unavailable'}
+                                  </p>
+                                </div>
+                              </div>
+                              {!chunk.llmTokenUsage?.usageAvailable && (
+                                <p className="text-xs text-muted-foreground mt-2">Usage not provided by provider for this chunk.</p>
+                              )}
+                            </div>
+                          )}
+
                           {/* AI Reasoning */}
                           <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>

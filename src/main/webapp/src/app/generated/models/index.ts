@@ -5,6 +5,8 @@ export * from './cqiresult-dto';
 export * from './client-response-dto';
 export * from './component-scores-dto';
 export * from './filter-summary-dto';
+export * from './llm-token-totals';
+export * from './llm-token-usage';
 export * from './login-request-dto';
 export * from './orphan-commit-dto';
 export * from './project';

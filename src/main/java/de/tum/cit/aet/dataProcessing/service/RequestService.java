@@ -29,8 +29,11 @@ import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
+import de.tum.cit.aet.ai.dto.LlmTokenUsage;
+import de.tum.cit.aet.ai.dto.LlmTokenTotals;
 import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
+import de.tum.cit.aet.ai.service.ContributionFairnessService.FairnessReportWithUsage;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
@@ -188,12 +191,15 @@ public class RequestService {
 
         // Process and save each repository result
         List<ClientResponseDTO> results = new ArrayList<>();
+        LlmTokenTotals runTokenTotals = LlmTokenTotals.empty();
         for (TeamRepositoryDTO repo : repositories) {
-            ClientResponseDTO result = saveSingleResult(repo, contributionData, exerciseId);
-            if (result != null) {
-                results.add(result);
+            ClientResponseWithUsage resultWithUsage = saveSingleResultWithUsage(repo, contributionData, exerciseId);
+            if (resultWithUsage.response() != null) {
+                results.add(resultWithUsage.response());
             }
+            runTokenTotals = runTokenTotals.merge(resultWithUsage.tokenTotals());
         }
+        logTotalUsage("sync", exerciseId, results.size(), runTokenTotals);
         return results;
     }
 
@@ -302,6 +308,7 @@ public class RequestService {
         teamParticipation.setTutor(tutor);
         teamParticipation.setSubmissionCount(participation.submissionCount());
         teamParticipation.setAnalysisStatus(AnalysisStatus.GIT_DONE);
+        persistTeamTokenTotals(teamParticipation, LlmTokenTotals.empty());
         teamParticipationRepository.save(teamParticipation);
 
         // Step 3: Save students with their contribution metrics
@@ -391,7 +398,8 @@ public class RequestService {
                 AnalysisStatus.GIT_DONE,
                 gitCqiDetails,  // Partial CQI details with git-only components
                 null,  // analysisHistory - will be populated in Phase 3
-                null); // orphanCommits
+                null, // orphanCommits
+                readTeamTokenTotals(teamParticipation));
     }
 
     /**
@@ -403,6 +411,10 @@ public class RequestService {
      * @return Client response DTO with CQI and AI metrics
      */
     public ClientResponseDTO saveAIAnalysisResult(TeamRepositoryDTO repo, Long exerciseId) {
+        return saveAIAnalysisResultWithUsage(repo, exerciseId).response();
+    }
+
+    private ClientResponseWithUsage saveAIAnalysisResultWithUsage(TeamRepositoryDTO repo, Long exerciseId) {
         ParticipationDTO participation = repo.participation();
         TeamDTO team = participation.team();
 
@@ -421,6 +433,7 @@ public class RequestService {
         List<AnalyzedChunkDTO> analysisHistory = null;
         List<OrphanCommitDTO> orphanCommits = null;
         CQIResultDTO cqiDetails = null;
+        LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
 
         // Step 1: Detect orphan commits
         try {
@@ -437,7 +450,9 @@ public class RequestService {
         // Step 2: Try effort-based fairness analysis (primary method)
         boolean fairnessAnalysisSucceeded = false;
         try {
-            FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
+            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(repo);
+            FairnessReportDTO fairnessReport = fairnessResult.report();
+            teamTokenTotals = fairnessResult.tokenTotals();
             boolean isErrorReport = fairnessReport.flags() != null &&
                     fairnessReport.flags().contains(de.tum.cit.aet.ai.domain.FairnessFlag.ANALYSIS_ERROR);
             if (!isErrorReport) {
@@ -508,6 +523,7 @@ public class RequestService {
             }
         }
 
+        persistTeamTokenTotals(teamParticipation, teamTokenTotals);
         teamParticipation.setAnalysisStatus(AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
@@ -521,18 +537,21 @@ public class RequestService {
 
         log.info("AI analysis complete for team: {} (CQI={})", team.name(), cqi);
 
-        return new ClientResponseDTO(
-                tutor != null ? tutor.getName() : "Unassigned",
-                participation.team().id(),
-                participation.team().name(),
-                participation.submissionCount(),
-                studentAnalysisDTOS,
-                cqi,
-                isSuspicious,
-                AnalysisStatus.DONE,
-                cqiDetails,
-                analysisHistory,
-                orphanCommits);
+        return new ClientResponseWithUsage(
+                new ClientResponseDTO(
+                        tutor != null ? tutor.getName() : "Unassigned",
+                        participation.team().id(),
+                        participation.team().name(),
+                        participation.submissionCount(),
+                        studentAnalysisDTOS,
+                        cqi,
+                        isSuspicious,
+                        AnalysisStatus.DONE,
+                        cqiDetails,
+                        analysisHistory,
+                        orphanCommits,
+                        teamTokenTotals),
+                teamTokenTotals);
     }
 
     /**
@@ -546,6 +565,11 @@ public class RequestService {
      * @return Client response DTO with calculated metrics
      */
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo,
+            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+        return saveSingleResultWithUsage(repo, contributionData, exerciseId).response();
+    }
+
+    private ClientResponseWithUsage saveSingleResultWithUsage(TeamRepositoryDTO repo,
             Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         // Step 1: Save tutor information
         Tutor tutor = ensureTutor(repo.participation().team());
@@ -564,6 +588,7 @@ public class RequestService {
         teamParticipation.setTutor(tutor);
         teamParticipation.setSubmissionCount(participation.submissionCount());
         teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.ANALYZING);
+        persistTeamTokenTotals(teamParticipation, LlmTokenTotals.empty());
         teamParticipationRepository.save(teamParticipation);
 
         // Step 3: Save students with their contribution metrics
@@ -611,6 +636,7 @@ public class RequestService {
         boolean isSuspicious = false;
         List<AnalyzedChunkDTO> analysisHistory = null;
         List<OrphanCommitDTO> orphanCommits = null;
+        LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
 
         // Step 5a: Detect orphan commits first
         try {
@@ -629,7 +655,9 @@ public class RequestService {
         // Step 5b: Try effort-based fairness analysis (primary method)
         boolean fairnessAnalysisSucceeded = false;
         try {
-            FairnessReportDTO fairnessReport = fairnessService.analyzeFairness(repo);
+            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(repo);
+            FairnessReportDTO fairnessReport = fairnessResult.report();
+            teamTokenTotals = fairnessResult.tokenTotals();
             // Check if this is an error report (has ANALYSIS_ERROR flag) or a valid
             // analysis
             boolean isErrorReport = fairnessReport.flags() != null &&
@@ -715,22 +743,26 @@ public class RequestService {
 
         // Step 6b: NOW set status to DONE - after all data is populated
         // This prevents race conditions where status=DONE but CQI is still null
+        persistTeamTokenTotals(teamParticipation, teamTokenTotals);
         teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
         // Step 7: Return the assembled client response DTO
-        return new ClientResponseDTO(
-                tutor != null ? tutor.getName() : "Unassigned",
-                participation.team().id(),
-                participation.team().name(),
-                participation.submissionCount(),
-                studentAnalysisDTOS,
-                cqi,
-                isSuspicious,
-                teamParticipation.getAnalysisStatus(),
-                cqiDetails,
-                analysisHistory,
-                orphanCommits);
+        return new ClientResponseWithUsage(
+                new ClientResponseDTO(
+                        tutor != null ? tutor.getName() : "Unassigned",
+                        participation.team().id(),
+                        participation.team().name(),
+                        participation.submissionCount(),
+                        studentAnalysisDTOS,
+                        cqi,
+                        isSuspicious,
+                        teamParticipation.getAnalysisStatus(),
+                        cqiDetails,
+                        analysisHistory,
+                        orphanCommits,
+                        teamTokenTotals),
+                teamTokenTotals);
     }
 
     /**
@@ -944,6 +976,7 @@ public class RequestService {
             eventEmitter.accept(Map.of("type", "PHASE", "phase", "AI_ANALYSIS", "total", clonedRepos.size()));
 
             java.util.concurrent.atomic.AtomicInteger aiAnalyzedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+            LlmTokenTotals runTokenTotals = LlmTokenTotals.empty();
 
             for (ParticipationDTO participation : validParticipations) {
                 if (!analysisStateService.isRunning(exerciseId)) {
@@ -971,8 +1004,12 @@ public class RequestService {
 
                     // Perform AI analysis (CQI calculation)
                     final TeamRepositoryDTO finalRepo = repo;
-                    ClientResponseDTO aiDto = transactionTemplate
-                            .execute(status -> saveAIAnalysisResult(finalRepo, exerciseId));
+                    ClientResponseWithUsage aiResult = transactionTemplate
+                            .execute(status -> saveAIAnalysisResultWithUsage(finalRepo, exerciseId));
+                    ClientResponseDTO aiDto = aiResult != null ? aiResult.response() : null;
+                    if (aiResult != null) {
+                        runTokenTotals = runTokenTotals.merge(aiResult.tokenTotals());
+                    }
 
                     int currentProcessed = aiAnalyzedCount.incrementAndGet();
                     analysisStateService.updateProgress(exerciseId, teamName, "DONE", currentProcessed);
@@ -1001,6 +1038,7 @@ public class RequestService {
             }
 
             log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
+            logTotalUsage("stream", exerciseId, aiAnalyzedCount.get(), runTokenTotals);
 
             // Complete analysis
             if (analysisStateService.isRunning(exerciseId)) {
@@ -1035,6 +1073,64 @@ public class RequestService {
                 }
             }
         }
+    }
+
+    private void logTotalUsage(String scope, Long exerciseId, int analyzedTeams, LlmTokenTotals tokenTotals) {
+        log.info(
+                "LLM_USAGE total scope={} exerciseId={} analyzedTeams={} llmCalls={} callsWithUsage={} promptTokens={} completionTokens={} totalTokens={}",
+                scope,
+                exerciseId,
+                analyzedTeams,
+                tokenTotals.llmCalls(),
+                tokenTotals.callsWithUsage(),
+                tokenTotals.promptTokens(),
+                tokenTotals.completionTokens(),
+                tokenTotals.totalTokens());
+    }
+
+    private void persistTeamTokenTotals(TeamParticipation teamParticipation, LlmTokenTotals tokenTotals) {
+        if (tokenTotals == null) {
+            teamParticipation.setLlmCalls(null);
+            teamParticipation.setLlmCallsWithUsage(null);
+            teamParticipation.setLlmPromptTokens(null);
+            teamParticipation.setLlmCompletionTokens(null);
+            teamParticipation.setLlmTotalTokens(null);
+            return;
+        }
+
+        teamParticipation.setLlmCalls(tokenTotals.llmCalls());
+        teamParticipation.setLlmCallsWithUsage(tokenTotals.callsWithUsage());
+        teamParticipation.setLlmPromptTokens(tokenTotals.promptTokens());
+        teamParticipation.setLlmCompletionTokens(tokenTotals.completionTokens());
+        teamParticipation.setLlmTotalTokens(tokenTotals.totalTokens());
+    }
+
+    private LlmTokenTotals readTeamTokenTotals(TeamParticipation teamParticipation) {
+        if (teamParticipation.getLlmCalls() == null
+                && teamParticipation.getLlmCallsWithUsage() == null
+                && teamParticipation.getLlmPromptTokens() == null
+                && teamParticipation.getLlmCompletionTokens() == null
+                && teamParticipation.getLlmTotalTokens() == null) {
+            return null;
+        }
+
+        long promptTokens = teamParticipation.getLlmPromptTokens() != null ? teamParticipation.getLlmPromptTokens() : 0L;
+        long completionTokens = teamParticipation.getLlmCompletionTokens() != null
+                ? teamParticipation.getLlmCompletionTokens()
+                : 0L;
+        long totalTokens = teamParticipation.getLlmTotalTokens() != null
+                ? teamParticipation.getLlmTotalTokens()
+                : promptTokens + completionTokens;
+
+        return new LlmTokenTotals(
+                teamParticipation.getLlmCalls() != null ? teamParticipation.getLlmCalls() : 0L,
+                teamParticipation.getLlmCallsWithUsage() != null ? teamParticipation.getLlmCallsWithUsage() : 0L,
+                promptTokens,
+                completionTokens,
+                totalTokens);
+    }
+
+    private record ClientResponseWithUsage(ClientResponseDTO response, LlmTokenTotals tokenTotals) {
     }
 
     /**
@@ -1110,7 +1206,8 @@ public class RequestService {
                             participation.getAnalysisStatus(),
                             cqiDetails,
                             loadAnalyzedChunks(participation),
-                            null); // Orphan commits are not persisted, only shown during live analysis
+                            null, // Orphan commits are not persisted, only shown during live analysis
+                            readTeamTokenTotals(participation));
                 })
                 .toList();
 
@@ -1213,7 +1310,8 @@ public class RequestService {
                 participation.getAnalysisStatus(),
                 cqiDetails,
                 loadAnalyzedChunks(participation),
-                null); // Orphan commits are not persisted
+                null, // Orphan commits are not persisted
+                readTeamTokenTotals(participation));
     }
 
     /**
@@ -1222,26 +1320,35 @@ public class RequestService {
     private void saveAnalyzedChunks(TeamParticipation participation, List<AnalyzedChunkDTO> chunks) {
         try {
             List<AnalyzedChunk> entities = chunks.stream()
-                    .map(dto -> new AnalyzedChunk(
-                            participation,
-                            dto.id(),
-                            dto.authorEmail(),
-                            dto.authorName(),
-                            dto.classification(),
-                            dto.effortScore(),
-                            dto.complexity(),
-                            dto.novelty(),
-                            dto.confidence(),
-                            dto.reasoning(),
-                            String.join(",", dto.commitShas()),
-                            serializeCommitMessages(dto.commitMessages()),
-                            dto.timestamp(),
-                            dto.linesChanged(),
-                            dto.isBundled(),
-                            dto.chunkIndex(),
-                            dto.totalChunks(),
-                            dto.isError(),
-                            dto.errorMessage()))
+                    .map(dto -> {
+                        LlmTokenUsage usage = dto.llmTokenUsage();
+                        return new AnalyzedChunk(
+                                participation,
+                                dto.id(),
+                                dto.authorEmail(),
+                                dto.authorName(),
+                                dto.classification(),
+                                dto.effortScore(),
+                                dto.complexity(),
+                                dto.novelty(),
+                                dto.confidence(),
+                                dto.reasoning(),
+                                String.join(",", dto.commitShas()),
+                                serializeCommitMessages(dto.commitMessages()),
+                                dto.timestamp(),
+                                dto.linesChanged(),
+                                dto.isBundled(),
+                                dto.chunkIndex(),
+                                dto.totalChunks(),
+                                dto.isError(),
+                                dto.errorMessage(),
+                                dto.isExternalContributor(),
+                                usage != null ? usage.model() : null,
+                                usage != null ? usage.promptTokens() : null,
+                                usage != null ? usage.completionTokens() : null,
+                                usage != null ? usage.totalTokens() : null,
+                                usage != null ? usage.usageAvailable() : null);
+                    })
                     .toList();
             analyzedChunkRepository.saveAll(entities);
             log.debug("Saved {} analyzed chunks for team {}", entities.size(), participation.getName());
@@ -1278,7 +1385,17 @@ public class RequestService {
                             chunk.getChunkIndex() != null ? chunk.getChunkIndex() : 0,
                             chunk.getTotalChunks() != null ? chunk.getTotalChunks() : 1,
                             Boolean.TRUE.equals(chunk.getIsError()),
-                            chunk.getErrorMessage()))
+                            chunk.getErrorMessage(),
+                            Boolean.TRUE.equals(chunk.getIsExternalContributor()),
+                            new LlmTokenUsage(
+                                    chunk.getLlmModel() != null ? chunk.getLlmModel() : "unknown",
+                                    chunk.getLlmPromptTokens() != null ? chunk.getLlmPromptTokens() : 0L,
+                                    chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L,
+                                    chunk.getLlmTotalTokens() != null
+                                            ? chunk.getLlmTotalTokens()
+                                            : (chunk.getLlmPromptTokens() != null ? chunk.getLlmPromptTokens() : 0L)
+                                                    + (chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L),
+                                    Boolean.TRUE.equals(chunk.getLlmUsageAvailable()))))
                     .toList();
         } catch (Exception e) {
             log.warn("Failed to load analyzed chunks for team {}: {}", participation.getName(), e.getMessage());

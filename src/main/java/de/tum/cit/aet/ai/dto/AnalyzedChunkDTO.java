@@ -29,7 +29,8 @@ public record AnalyzedChunkDTO(
                 int totalChunks,
                 boolean isError,
                 String errorMessage,
-                boolean isExternalContributor) {
+                boolean isExternalContributor,
+                LlmTokenUsage llmTokenUsage) {
 
         /**
          * Constructor for backward compatibility without isExternalContributor.
@@ -44,7 +45,23 @@ public record AnalyzedChunkDTO(
                         boolean isError, String errorMessage) {
                 this(id, authorEmail, authorName, classification, effortScore, complexity, novelty,
                         confidence, reasoning, commitShas, commitMessages, timestamp, linesChanged,
-                        isBundled, chunkIndex, totalChunks, isError, errorMessage, false);
+                        isBundled, chunkIndex, totalChunks, isError, errorMessage, false, null);
+        }
+
+        /**
+         * Constructor for backward compatibility without llmTokenUsage.
+         */
+        public AnalyzedChunkDTO(
+                        String id, String authorEmail, String authorName,
+                        String classification, double effortScore, double complexity, double novelty,
+                        double confidence, String reasoning,
+                        List<String> commitShas, List<String> commitMessages,
+                        LocalDateTime timestamp, int linesChanged,
+                        boolean isBundled, int chunkIndex, int totalChunks,
+                        boolean isError, String errorMessage, boolean isExternalContributor) {
+                this(id, authorEmail, authorName, classification, effortScore, complexity, novelty,
+                        confidence, reasoning, commitShas, commitMessages, timestamp, linesChanged,
+                        isBundled, chunkIndex, totalChunks, isError, errorMessage, isExternalContributor, null);
         }
 
         /**
@@ -58,7 +75,7 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 sha, authorEmail, authorName, classification, effort, complexity, novelty, confidence, reasoning,
                                 List.of(sha), List.of(message), timestamp, linesChanged,
-                                false, 0, 1, false, null, false);
+                                false, 0, 1, false, null, false, null);
         }
 
         /**
@@ -73,7 +90,7 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 id, authorEmail, authorName, classification, effort, complexity, novelty, confidence, reasoning,
                                 shas, messages, timestamp, linesChanged,
-                                true, 0, 1, false, null, false);
+                                true, 0, 1, false, null, false, null);
         }
 
         /**
@@ -86,7 +103,7 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 sha, authorEmail, authorName, "ERROR", 0.0, 0.0, 0.0, 0.0, errorMessage,
                                 List.of(sha), List.of(message), timestamp, linesChanged,
-                                false, 0, 1, true, errorMessage, false);
+                                false, 0, 1, true, errorMessage, false, null);
         }
 
         /**
@@ -96,6 +113,6 @@ public record AnalyzedChunkDTO(
                 return new AnalyzedChunkDTO(
                                 id, authorEmail, authorName, classification, effortScore, complexity, novelty, confidence, reasoning,
                                 commitShas, commitMessages, timestamp, linesChanged,
-                                isBundled, chunkIndex, totalChunks, isError, errorMessage, isExternal);
+                                isBundled, chunkIndex, totalChunks, isError, errorMessage, isExternal, llmTokenUsage);
         }
 }

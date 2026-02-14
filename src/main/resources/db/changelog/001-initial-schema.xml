@@ -35,6 +35,13 @@
             <column name="cqi_penalty_multiplier" type="DOUBLE"/>
             <column name="cqi_penalties" type="TEXT"/>
 
+            <!-- LLM token usage aggregate columns -->
+            <column name="llm_calls" type="BIGINT"/>
+            <column name="llm_calls_with_usage" type="BIGINT"/>
+            <column name="llm_prompt_tokens" type="BIGINT"/>
+            <column name="llm_completion_tokens" type="BIGINT"/>
+            <column name="llm_total_tokens" type="BIGINT"/>
+
             <!-- meta columns -->
             <column name="exercise_id" type="BIGINT"/>
             <column name="analysis_status" type="VARCHAR(255)"/>
@@ -188,6 +195,11 @@
             <column name="total_chunks" type="INT"/>
             <column name="is_error" type="BOOLEAN"/>
             <column name="error_message" type="TEXT"/>
+            <column name="llm_model" type="VARCHAR(255)"/>
+            <column name="llm_prompt_tokens" type="BIGINT"/>
+            <column name="llm_completion_tokens" type="BIGINT"/>
+            <column name="llm_total_tokens" type="BIGINT"/>
+            <column name="llm_usage_available" type="BOOLEAN"/>
         </createTable>
         <addForeignKeyConstraint
             baseTableName="analyzed_chunks"

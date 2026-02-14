@@ -195,6 +195,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
     cqi,
     isSuspicious,
     cqiDetails: serverCqiDetails,
+    llmTokenTotals: dto.llmTokenTotals,
     subMetrics,
     analysisHistory,
     orphanCommits,

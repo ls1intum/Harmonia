@@ -243,6 +243,7 @@ components:
         isError: {type: boolean}
         isExternalContributor: {type: boolean}
         linesChanged: {type: integer, format: int32}
+        llmTokenUsage: {$ref: '#/components/schemas/LlmTokenUsage'}
         novelty: {type: number, format: double}
         reasoning: {type: string}
         timestamp: {type: string, format: date-time}
@@ -277,6 +278,7 @@ components:
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isSuspicious: {type: boolean}
+        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotals'}
         orphanCommits:
           type: array
           items: {$ref: '#/components/schemas/OrphanCommitDTO'}
@@ -309,6 +311,22 @@ components:
         totalCommits: {type: integer, format: int32}
         totalFiltered: {type: integer, format: int32}
         trivialCount: {type: integer, format: int32}
+    LlmTokenTotals:
+      type: object
+      properties:
+        callsWithUsage: {type: integer, format: int64}
+        completionTokens: {type: integer, format: int64}
+        llmCalls: {type: integer, format: int64}
+        promptTokens: {type: integer, format: int64}
+        totalTokens: {type: integer, format: int64}
+    LlmTokenUsage:
+      type: object
+      properties:
+        completionTokens: {type: integer, format: int64}
+        model: {type: string}
+        promptTokens: {type: integer, format: int64}
+        totalTokens: {type: integer, format: int64}
+        usageAvailable: {type: boolean}
     LoginRequestDTO:
       type: object
       properties:

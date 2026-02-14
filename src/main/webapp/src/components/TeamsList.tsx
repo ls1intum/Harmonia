@@ -2,13 +2,14 @@ import type { Team } from '@/types/team';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 
 interface TeamsListProps {
   teams: Team[];
@@ -42,6 +43,7 @@ const TeamsList = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
+  const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -239,6 +241,39 @@ const TeamsList = ({
     setClearDialogOpen(true);
   };
 
+  const toggleDevMode = () => {
+    const next = !isDevMode;
+    setIsDevMode(next);
+    writeDevModeToStorage(next);
+  };
+
+  const overallTokenTotals = useMemo(
+    () =>
+      teams.reduce(
+        (acc, team) => {
+          const totals = team.llmTokenTotals;
+          if (!totals) {
+            return acc;
+          }
+          return {
+            llmCalls: acc.llmCalls + (totals.llmCalls ?? 0),
+            callsWithUsage: acc.callsWithUsage + (totals.callsWithUsage ?? 0),
+            promptTokens: acc.promptTokens + (totals.promptTokens ?? 0),
+            completionTokens: acc.completionTokens + (totals.completionTokens ?? 0),
+            totalTokens: acc.totalTokens + (totals.totalTokens ?? 0),
+          };
+        },
+        {
+          llmCalls: 0,
+          callsWithUsage: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        },
+      ),
+    [teams],
+  );
+
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
       <Button variant="ghost" onClick={onBackToHome} className="mb-4 text-muted-foreground hover:text-accent-foreground hover:bg-accent">
@@ -255,6 +290,25 @@ const TeamsList = ({
           <p className="text-muted-foreground text-sm">Click on any team to view detailed collaboration metrics</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={toggleDevMode}
+            aria-pressed={isDevMode}
+            aria-label={isDevMode ? 'Disable dev mode' : 'Enable dev mode'}
+            title="Dev Mode"
+            className={`group gap-0 ${isDevMode ? 'bg-accent text-accent-foreground hover:bg-accent/80' : ''}`}
+          >
+            <CodeXml className="h-4 w-4" />
+            <span
+              className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
+                isDevMode
+                  ? 'max-w-24 opacity-100 ml-2'
+                  : 'max-w-0 opacity-0 ml-0 group-hover:max-w-24 group-hover:opacity-100 group-hover:ml-2 group-focus-visible:max-w-24 group-focus-visible:opacity-100 group-focus-visible:ml-2'
+              }`}
+            >
+              Dev Mode
+            </span>
+          </Button>
           {renderActionButton()}
           <Button variant="outline" onClick={() => handleClearClick('both')} disabled={analysisStatus.state === 'RUNNING'}>
             <Trash2 className="h-4 w-4" />
@@ -339,6 +393,37 @@ const TeamsList = ({
         </Card>
       )}
 
+      {isDevMode && (
+        <Card className="p-6 shadow-card border-primary/20">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">LLM Tokens (Overall)</h3>
+            <p className="text-sm text-muted-foreground">Aggregated over all teams in this exercise</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">LLM Calls</p>
+              <p className="text-xl font-semibold">{overallTokenTotals.llmCalls.toLocaleString()}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Calls w/ Usage</p>
+              <p className="text-xl font-semibold">{overallTokenTotals.callsWithUsage.toLocaleString()}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Prompt</p>
+              <p className="text-xl font-semibold">{overallTokenTotals.promptTokens.toLocaleString()}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Completion</p>
+              <p className="text-xl font-semibold">{overallTokenTotals.completionTokens.toLocaleString()}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-xl font-semibold">{overallTokenTotals.totalTokens.toLocaleString()}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className="overflow-hidden shadow-card">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -372,6 +457,7 @@ const TeamsList = ({
                     handleHeaderClick={handleHeaderClick}
                   />
                 </th>
+                {isDevMode && <th className="text-left py-4 px-6 font-semibold text-sm">LLM Tokens</th>}
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <StatusFilterButton statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                 </th>
@@ -460,6 +546,22 @@ const TeamsList = ({
                       </div>
                     )}
                   </td>
+                  {isDevMode && (
+                    <td className="py-4 px-6">
+                      {team.llmTokenTotals ? (
+                        <div className="space-y-1">
+                          <p className="font-medium">{(team.llmTokenTotals.totalTokens ?? 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">
+                            in {(team.llmTokenTotals.llmCalls ?? 0).toLocaleString()} calls
+                            {(team.llmTokenTotals.callsWithUsage ?? 0) < (team.llmTokenTotals.llmCalls ?? 0) &&
+                              ` (${(team.llmTokenTotals.callsWithUsage ?? 0).toLocaleString()} with usage)`}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="py-4 px-6">
                     {/* Show Failed badge if any student has <10 commits (after git analysis) */}
                     {(team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') &&
