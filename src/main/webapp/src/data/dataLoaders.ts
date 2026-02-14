@@ -130,7 +130,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
         {
           name: 'Effort Balance',
           value: isGitOnlyData ? -1 : Math.round(serverCqiDetails.components.effortBalance ?? 0), // -1 indicates pending
-          weight: 40,
+          weight: 55,
           description: 'Is effort distributed fairly among team members?',
           details: isGitOnlyData
             ? 'Requires AI analysis. Will be calculated after git analysis completes for all teams.'
@@ -146,7 +146,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
         {
           name: 'Temporal Spread',
           value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
-          weight: 20,
+          weight: 5,
           description: 'Is work spread over time or crammed at deadline?',
           details: 'Higher scores mean work was spread consistently throughout the project period.',
         },

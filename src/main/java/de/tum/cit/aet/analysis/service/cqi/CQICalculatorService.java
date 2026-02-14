@@ -21,9 +21,9 @@ import java.util.stream.Collectors;
  * BASE_SCORE = w1·S_effort + w2·S_loc + w3·S_temporal + w4·S_ownership
  * <p>
  * Components:
- * - Effort Balance (40%): Distribution of LLM-weighted effort
+ * - Effort Balance (55%): Distribution of LLM-weighted effort
  * - LoC Balance (25%): Distribution of lines of code
- * - Temporal Spread (20%): How work is spread over time
+ * - Temporal Spread (5%): How work is spread over time
  * - Ownership Spread (15%): How files are shared among team members
  * <p>
  * This service works with LLM-rated commits directly.
@@ -35,9 +35,9 @@ import java.util.stream.Collectors;
 public class CQICalculatorService {
 
     // Component weights (must sum to 1.0)
-    private static final double W_EFFORT = 0.40;
+    private static final double W_EFFORT = 0.55;
     private static final double W_LOC = 0.25;
-    private static final double W_TEMPORAL = 0.20;
+    private static final double W_TEMPORAL = 0.05;
     private static final double W_OWNERSHIP = 0.15;
 
     // Penalty thresholds
