@@ -334,8 +334,8 @@ components:
         effortBalance: {type: number, format: double}
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
+        pairProgramming: {type: number, format: double}
         temporalSpread: {type: number, format: double}
-        pairProgramming: {type: number, format: double, nullable: true}
     FilterSummaryDTO:
       type: object
       properties:
