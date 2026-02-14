@@ -159,13 +159,18 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
-        ...(hasPairProgramming ? [{
-          name: 'Pair Programming',
-          value: Math.round(serverCqiDetails.components.pairProgramming ?? 0),
-          weight: 10,
-          description: 'Did both students commit during pair programming sessions?',
-          details: 'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.',
-        }] : []),
+        ...(hasPairProgramming
+          ? [
+              {
+                name: 'Pair Programming',
+                value: Math.round(serverCqiDetails.components.pairProgramming ?? 0),
+                weight: 10,
+                description: 'Did both students commit during pair programming sessions?',
+                details:
+                  'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.',
+              },
+            ]
+          : []),
       ]
     : cqi !== undefined
       ? [

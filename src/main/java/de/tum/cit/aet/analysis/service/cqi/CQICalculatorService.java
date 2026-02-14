@@ -307,6 +307,12 @@ public class CQICalculatorService {
     /**
      * Backward compatible overload for calculateGitOnlyComponents without teamName.
      * Use the 5-parameter version when pair programming needs to be calculated.
+     *
+     * @param chunks List of raw commit chunks from repository
+     * @param teamSize Number of team members
+     * @param projectStart Start date/time of the project
+     * @param projectEnd End date/time of the project
+     * @return ComponentScoresDTO containing git-based metrics (locBalance, temporalSpread, ownershipSpread)
      */
     public ComponentScoresDTO calculateGitOnlyComponents(
             List<CommitChunkDTO> chunks,
