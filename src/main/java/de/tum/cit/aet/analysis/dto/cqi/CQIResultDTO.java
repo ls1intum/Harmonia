@@ -52,7 +52,7 @@ public record CQIResultDTO(
     public static CQIResultDTO fallback(double locScore, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 locScore,
-                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0),
+                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null),
                 List.of(), // No penalties
                 locScore,
                 1.0,

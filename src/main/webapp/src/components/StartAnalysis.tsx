@@ -97,23 +97,33 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       </div>
 
       <div className="w-full max-w-md space-y-4 mt-4">
+        {/* Exercise URL */}
         <div className="space-y-2">
-          <Label htmlFor="exerciseUrl">Artemis Exercise URL</Label>
+          <Label htmlFor="exerciseUrl">Exercise URL</Label>
           <Input
             id="exerciseUrl"
-            placeholder="https://artemis.../courses/30/exercises/282"
+            type="url"
+            placeholder="https://artemis.tum.de/courses/30/exercises/282"
             value={exerciseUrl}
             onChange={e => setExerciseUrl(e.target.value)}
           />
         </div>
 
+        {/* Username */}
         <div className="space-y-2">
-          <Label htmlFor="username">Artemis Username</Label>
-          <Input id="username" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} />
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            type="text"
+            placeholder="Enter your username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+          />
         </div>
 
+        {/* Password */}
         <div className="space-y-2">
-          <Label htmlFor="password">Artemis Password</Label>
+          <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             type="password"
@@ -123,46 +133,11 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           />
         </div>
 
-<<<<<<< HEAD
-        <div className="my-6 border-t border-border" />
-
-        {/* AI Model Selector */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="model" className="flex items-center gap-2">
-              <Cpu className="h-4 w-4" />
-              AI Model
-            </Label>
-            <Button variant="ghost" size="sm" onClick={() => refetchModels()} disabled={isLoadingModels} className="h-8 px-2">
-              <RefreshCw className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-          <Select value={selectedModel} onValueChange={handleModelChange} disabled={isLoadingModels}>
-            <SelectTrigger id="model">
-              <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
-            </SelectTrigger>
-            <SelectContent>
-              {modelsData?.map(model => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.id}
-                </SelectItem>
-              ))}
-              {(!modelsData || modelsData.length === 0) && !isLoadingModels && (
-                <SelectItem value="none" disabled>
-                  No models available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
         <div className="my-6 border-t border-border" />
 
         {/* Pair Programming Attendance Upload */}
         <FileUpload courseId={parsedCourseId} />
 
-=======
->>>>>>> origin/main
         <Button
           size="lg"
           onClick={handleStart}
