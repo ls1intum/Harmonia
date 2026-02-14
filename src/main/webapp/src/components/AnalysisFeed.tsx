@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,19 +79,9 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
     });
   };
 
-  if (!chunks || chunks.length === 0) {
-    return (
-      <Card className="bg-muted/50">
-        <CardContent className="py-8 text-center text-muted-foreground">
-          No analysis data available. Recompute to see AI analysis details.
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Separate team member chunks from external contributor chunks
-  const teamChunks = chunks.filter(chunk => !chunk.isExternalContributor);
-  const externalChunks = chunks.filter(chunk => chunk.isExternalContributor);
+  const teamChunks = (chunks ?? []).filter(chunk => !chunk.isExternalContributor);
+  const externalChunks = (chunks ?? []).filter(chunk => chunk.isExternalContributor);
 
   // Group by author for summary (filtering out errors and external contributors)
   const authorSummary = teamChunks
@@ -114,15 +104,21 @@ const AnalysisFeed = ({ chunks }: AnalysisFeedProps) => {
 
   const totalEffort = Object.values(authorSummary).reduce((sum, a) => sum + a.effort, 0);
 
-  // Build a stable email -> color mapping
-  const authorColorMap = useMemo(() => {
-    const emails = Object.keys(authorSummary);
-    const map: Record<string, (typeof authorPalette)[0]> = {};
-    emails.forEach((email, idx) => {
-      map[email] = authorPalette[idx % authorPalette.length];
-    });
-    return map;
-  }, [authorSummary]);
+  // Build email -> color mapping
+  const authorColorMap: Record<string, (typeof authorPalette)[0]> = {};
+  Object.keys(authorSummary).forEach((email, idx) => {
+    authorColorMap[email] = authorPalette[idx % authorPalette.length];
+  });
+
+  if (!chunks || chunks.length === 0) {
+    return (
+      <Card className="bg-muted/50">
+        <CardContent className="py-8 text-center text-muted-foreground">
+          No analysis data available. Recompute to see AI analysis details.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
