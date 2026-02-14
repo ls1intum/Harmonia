@@ -48,6 +48,40 @@
    - Runs all client-side tests
    - Must pass before committing
 
+## Pull Request Title Validation
+
+**CRITICAL**: When creating pull requests, the title MUST follow the required format or the PR will fail CI validation.
+
+### Required Format
+
+PR titles must match this pattern:
+```
+`Category`: Description starting with capital letter
+```
+
+**Valid categories:**
+- `Usability` - UI/UX improvements, user-facing changes
+- `Performance` - Optimizations, speed improvements
+- `Development` - New features, refactoring, technical changes
+- `General` - Documentation, configuration, miscellaneous
+
+**Examples:**
+- ✅ `Development`: Adjust CQI weights to improve fairness calculation
+- ✅ `Performance`: Optimize database queries for large teams
+- ✅ `Usability`: Add loading spinner for better user feedback
+- ✅ `General`: Update API documentation and examples
+- ❌ `docs: update readme` (wrong format - missing backticks and capital letter)
+- ❌ `Development: fix bug` (wrong - description must start with capital)
+
+### Validation Check
+
+Before pushing or after creating a PR, verify the title format:
+```bash
+gh pr view --json title
+```
+
+The `validate-pr-title` CI check will automatically verify the format.
+
 ### Workflow
 
 When making code changes:
@@ -57,7 +91,9 @@ When making code changes:
 3. ✅ Run relevant tests to verify functionality
 4. ✅ Fix any violations or test failures
 5. ✅ Re-run checks and tests to confirm they pass
-6. ✅ Only then commit and push
+6. ✅ Commit and push changes
+7. ✅ **When creating a PR**: Ensure the title follows the required format (see PR Title Validation)
+8. ✅ **After creating PR**: Verify `validate-pr-title` check passes with `gh pr checks`
 
 ### Common Style Issues
 
@@ -75,7 +111,8 @@ When making code changes:
 
 ### CI/CD Integration
 
-Style checks and tests run automatically in GitHub Actions:
+The following checks run automatically in GitHub Actions:
+- **validate-pr-title**: Validates PR title format (must match required pattern)
 - **server-style**: Runs `./gradlew checkstyleMain -x webapp`
 - **client-style**: Runs formatting and linting checks
 - **tests**: Runs `./gradlew test` to ensure all tests pass
