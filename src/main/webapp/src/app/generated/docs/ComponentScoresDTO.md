@@ -7,6 +7,7 @@
 | **effortBalance**   | **number** |             | [optional] [default to undefined] |
 | **locBalance**      | **number** |             | [optional] [default to undefined] |
 | **ownershipSpread** | **number** |             | [optional] [default to undefined] |
+| **pairProgramming** | **number** |             | [optional] [default to undefined] |
 | **temporalSpread**  | **number** |             | [optional] [default to undefined] |
 
 ## Example
@@ -18,6 +19,7 @@ const instance: ComponentScoresDTO = {
   effortBalance,
   locBalance,
   ownershipSpread,
+  pairProgramming,
   temporalSpread,
 };
 ```
