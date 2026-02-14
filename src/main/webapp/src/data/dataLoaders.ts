@@ -125,12 +125,13 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
 
   // Generate sub-metrics from CQI details if available
   // For git-only data, show the available metrics and mark effortBalance as pending
+  const weights = serverCqiDetails?.weights;
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? [
         {
           name: 'Effort Balance',
           value: isGitOnlyData ? -1 : Math.round(serverCqiDetails.components.effortBalance ?? 0), // -1 indicates pending
-          weight: 40,
+          weight: Math.round((weights?.effortBalance ?? 0) * 100),
           description: 'Is effort distributed fairly among team members?',
           details: isGitOnlyData
             ? 'Requires AI analysis. Will be calculated after git analysis completes for all teams.'
@@ -139,50 +140,26 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
         {
           name: 'Lines of Code Balance',
           value: Math.round(serverCqiDetails.components.locBalance ?? 0),
-          weight: 25,
+          weight: Math.round((weights?.locBalance ?? 0) * 100),
           description: 'Are code contributions balanced?',
           details: 'Measures the distribution of lines added/deleted across team members.',
         },
         {
           name: 'Temporal Spread',
           value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
-          weight: 20,
+          weight: Math.round((weights?.temporalSpread ?? 0) * 100),
           description: 'Is work spread over time or crammed at deadline?',
           details: 'Higher scores mean work was spread consistently throughout the project period.',
         },
         {
           name: 'File Ownership Spread',
           value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
-          weight: 15,
+          weight: Math.round((weights?.ownershipSpread ?? 0) * 100),
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
       ]
-    : cqi !== undefined
-      ? [
-          {
-            name: 'Contribution Balance',
-            value: cqi,
-            weight: 40,
-            description: 'Are teammates contributing at similar levels?',
-            details: 'Calculated from commit distribution.',
-          },
-          {
-            name: 'Ownership Distribution',
-            value: 0,
-            weight: 30,
-            description: 'Are key files shared rather than monopolized?',
-            details: 'Calculated from git blame analysis.',
-          },
-          {
-            name: 'Pairing Signals',
-            value: 0,
-            weight: 30,
-            description: 'Did teammates actually work together?',
-            details: 'Not yet implemented.',
-          },
-        ]
-      : undefined;
+    : undefined;
 
   // Use analysis history directly from server (already in correct DTO format)
   const analysisHistory = dto.analysisHistory;

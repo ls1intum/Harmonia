@@ -20,11 +20,7 @@ import java.util.stream.Collectors;
  * <p>
  * BASE_SCORE = w1·S_effort + w2·S_loc + w3·S_temporal + w4·S_ownership
  * <p>
- * Components:
- * - Effort Balance (40%): Distribution of LLM-weighted effort
- * - LoC Balance (25%): Distribution of lines of code
- * - Temporal Spread (20%): How work is spread over time
- * - Ownership Spread (15%): How files are shared among team members
+ * Component weights are configurable via {@link CQIConfig}.
  * <p>
  * This service works with LLM-rated commits directly.
  * Commits should be pre-filtered using {@link CommitPreFilterService} before LLM analysis.
@@ -34,11 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CQICalculatorService {
 
-    // Component weights (must sum to 1.0)
-    private static final double W_EFFORT = 0.40;
-    private static final double W_LOC = 0.25;
-    private static final double W_TEMPORAL = 0.20;
-    private static final double W_OWNERSHIP = 0.15;
+    private final CQIConfig cqiConfig;
 
     // Penalty thresholds
     private static final double SOLO_DEV_THRESHOLD = 0.85;          // >85% = solo development
@@ -76,16 +68,18 @@ public class CQICalculatorService {
             LocalDateTime projectEnd,
             FilterSummaryDTO filterSummary) {
 
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+
         // Edge case: single contributor
         if (teamSize <= 1) {
             log.info("Single contributor detected - CQI = 0");
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         // Edge case: no commits to analyze
         if (ratedChunks == null || ratedChunks.isEmpty()) {
             log.warn("No rated commits provided");
-            return CQIResultDTO.noProductiveWork(filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
 
         // Aggregate metrics by author
@@ -96,7 +90,7 @@ public class CQICalculatorService {
         // Check if we have actual contributors
         if (effortByAuthor.size() <= 1) {
             log.info("Only one contributor found in commits - CQI = 0");
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         // Calculate component scores
@@ -111,7 +105,9 @@ public class CQICalculatorService {
         log.debug("Component scores: {}", components.toSummary());
 
         // Calculate base score (weighted sum)
-        double baseScore = components.weightedSum(W_EFFORT, W_LOC, W_TEMPORAL, W_OWNERSHIP);
+        CQIConfig.Weights weights = cqiConfig.getWeights();
+        double baseScore = components.weightedSum(
+                weights.getEffort(), weights.getLoc(), weights.getTemporal(), weights.getOwnership());
 
         // Calculate penalties
         List<CQIPenaltyDTO> penalties = calculatePenalties(
@@ -130,7 +126,7 @@ public class CQICalculatorService {
                 String.format("%.1f", baseScore),
                 String.format("%.2f", penaltyMultiplier));
 
-        return new CQIResultDTO(cqi, components, penalties, baseScore, penaltyMultiplier, filterSummary);
+        return new CQIResultDTO(cqi, components, weightsDTO, penalties, baseScore, penaltyMultiplier, filterSummary);
     }
 
     /**
@@ -149,12 +145,14 @@ public class CQICalculatorService {
             int teamSize,
             FilterSummaryDTO filterSummary) {
 
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         if (chunks == null || chunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
 
         // Aggregate LoC by author from raw chunks
@@ -166,26 +164,22 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         double locScore = calculateLocBalance(locByAuthor);
 
         log.info("Fallback CQI calculated (LoC only): {}", String.format("%.1f", locScore));
 
-        return CQIResultDTO.fallback(locScore, filterSummary);
+        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary);
     }
 
     /**
      * Calculate only the git-based component scores (no AI/LLM required).
      * This can be called immediately after git analysis to show partial metrics.
      * <p>
-     * Calculates:
-     * - LoC Balance (25%): Distribution of lines of code
-     * - Temporal Spread (20%): How work is spread over time
-     * - Ownership Spread (15%): How files are shared among team members
-     * <p>
-     * Effort Balance (40%) requires AI and will be 0.
+     * Calculates: LoC Balance, Temporal Spread, and Ownership Spread.
+     * Effort Balance requires AI and will be 0.
      *
      * @param chunks       Pre-filtered commit chunks (not rated)
      * @param teamSize     Number of team members
@@ -252,6 +246,16 @@ public class CQICalculatorService {
 
         // effortBalance = 0 because it requires AI
         return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore);
+    }
+
+    /**
+     * Build a {@link ComponentWeightsDTO} from the current configuration.
+     *
+     * @return DTO containing the configured weights for all CQI components
+     */
+    public ComponentWeightsDTO buildWeightsDTO() {
+        CQIConfig.Weights w = cqiConfig.getWeights();
+        return new ComponentWeightsDTO(w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership());
     }
 
     /**

@@ -16,6 +16,7 @@ docs/CQIPenaltyDTO.md
 docs/CQIResultDTO.md
 docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
+docs/ComponentWeightsDTO.md
 docs/ConfigResourceApi.md
 docs/FilterSummaryDTO.md
 docs/LlmTokenTotals.md
@@ -32,6 +33,7 @@ models/analysis-status-dto.ts
 models/analyzed-chunk-dto.ts
 models/client-response-dto.ts
 models/component-scores-dto.ts
+models/component-weights-dto.ts
 models/cqipenalty-dto.ts
 models/cqiresult-dto.ts
 models/filter-summary-dto.ts
