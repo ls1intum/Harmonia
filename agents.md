@@ -26,15 +26,38 @@
    - Type-checks the entire codebase
    - Must pass before committing
 
+## Testing
+
+**CRITICAL**: After making changes, run relevant tests to ensure functionality is not broken.
+
+### Running Tests
+
+1. **Server tests (Java/JUnit)**
+   ```bash
+   ./gradlew test
+   ```
+   - Runs all unit and integration tests
+   - Must pass before committing
+   - To run specific tests: `./gradlew test --tests ClassName`
+
+2. **Client tests (TypeScript/Jest)** (if applicable)
+   ```bash
+   cd src/main/webapp
+   npm test
+   ```
+   - Runs all client-side tests
+   - Must pass before committing
+
 ### Workflow
 
 When making code changes:
 
 1. ✅ Make your changes
 2. ✅ Run applicable style checks (server-style for Java, client-style for TypeScript)
-3. ✅ Fix any violations
-4. ✅ Re-run checks to confirm they pass
-5. ✅ Only then commit and push
+3. ✅ Run relevant tests to verify functionality
+4. ✅ Fix any violations or test failures
+5. ✅ Re-run checks and tests to confirm they pass
+6. ✅ Only then commit and push
 
 ### Common Style Issues
 
@@ -52,18 +75,20 @@ When making code changes:
 
 ### CI/CD Integration
 
-Both style checks run automatically in GitHub Actions:
+Style checks and tests run automatically in GitHub Actions:
 - **server-style**: Runs `./gradlew checkstyleMain -x webapp`
 - **client-style**: Runs formatting and linting checks
+- **tests**: Runs `./gradlew test` to ensure all tests pass
 
-Pull requests cannot be merged if either check fails.
+Pull requests cannot be merged if any check fails.
 
 ## Best Practices
 
-1. **Run checks locally** before pushing to avoid CI failures
-2. **Fix style issues immediately** - don't accumulate technical debt
+1. **Run checks and tests locally** before pushing to avoid CI failures
+2. **Fix style issues and test failures immediately** - don't accumulate technical debt
 3. **Understand the violations** - don't just blindly fix them
-4. **Keep documentation up to date** - Javadoc and comments should match the code
+4. **Write tests for new functionality** - ensure code is properly tested
+5. **Keep documentation up to date** - Javadoc and comments should match the code
 
 ---
 
