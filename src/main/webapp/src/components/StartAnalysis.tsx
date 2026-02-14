@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlayCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import FileUpload from '@/components/FileUpload.tsx';
 
 interface StartAnalysisProps {
@@ -112,13 +111,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         {/* Username */}
         <div className="space-y-2">
           <Label htmlFor="username">Username</Label>
-          <Input
-            id="username"
-            type="text"
-            placeholder="Enter your username"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-          />
+          <Input id="username" type="text" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} />
         </div>
 
         {/* Password */}
