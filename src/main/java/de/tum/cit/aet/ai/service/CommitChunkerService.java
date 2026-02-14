@@ -5,12 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.diff.Edit;
+import org.eclipse.jgit.diff.RawTextComparator;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.patch.FileHeader;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -24,7 +26,7 @@ import java.util.stream.Collectors;
 
 /**
  * Service for chunking commits for LLM-based effort analysis.
- *
+ * <p>
  * Responsibilities:
  * - Split large commits (>500 LoC) into smaller chunks
  * - Bundle small commits (≤30 LoC) from the same author within 60 minutes
@@ -47,11 +49,22 @@ public class CommitChunkerService {
             String authorEmail,
             String message,
             LocalDateTime timestamp,
-            List<FileChange> fileChanges) {
+            List<FileChange> fileChanges,
+            boolean renameDetected,
+            boolean formatOnly,
+            boolean massReformatFlag) {
         public int totalLinesChanged() {
             return fileChanges.stream()
                     .mapToInt(f -> f.linesAdded + f.linesDeleted)
                     .sum();
+        }
+
+        /**
+         * Constructor without flags (for backwards compatibility).
+         */
+        public RawCommitData(String sha, Long authorId, String authorEmail, String message,
+                             LocalDateTime timestamp, List<FileChange> fileChanges) {
+            this(sha, authorId, authorEmail, message, timestamp, fileChanges, false, false, false);
         }
     }
 
@@ -62,9 +75,18 @@ public class CommitChunkerService {
             String filePath,
             String diffContent,
             int linesAdded,
-            int linesDeleted) {
+            int linesDeleted,
+            boolean isRename,
+            int whitespaceOnlyLines) {
         public int totalLines() {
             return linesAdded + linesDeleted;
+        }
+
+        /**
+         * Constructor without detection flags (for backwards compatibility).
+         */
+        public FileChange(String filePath, String diffContent, int linesAdded, int linesDeleted) {
+            this(filePath, diffContent, linesAdded, linesDeleted, false, 0);
         }
     }
 
@@ -76,10 +98,24 @@ public class CommitChunkerService {
      * @return List of commit chunks
      */
     public List<CommitChunkDTO> processRepository(String localPath, Map<String, Long> commitToAuthor) {
+        return processRepository(localPath, commitToAuthor, Map.of());
+    }
+
+    /**
+     * Processes a repository and returns chunked commits ready for LLM analysis.
+     * Uses VCS emails from Artemis instead of Git emails when available.
+     *
+     * @param localPath        Path to the cloned repository
+     * @param commitToAuthor   Map of commit SHA to author ID
+     * @param commitToVcsEmail Map of commit SHA to VCS email (from Artemis, overrides Git email)
+     * @return List of commit chunks
+     */
+    public List<CommitChunkDTO> processRepository(String localPath, Map<String, Long> commitToAuthor,
+                                                  Map<String, String> commitToVcsEmail) {
         log.info("Processing repository for chunking: {}", localPath);
 
         try {
-            List<RawCommitData> rawCommits = extractCommitData(localPath, commitToAuthor);
+            List<RawCommitData> rawCommits = extractCommitData(localPath, commitToAuthor, commitToVcsEmail);
             log.info("Extracted {} raw commits", rawCommits.size());
 
             // Sort by timestamp for bundling
@@ -106,9 +142,15 @@ public class CommitChunkerService {
 
     /**
      * Extracts raw commit data from a Git repository.
+     * Includes detection of renames, format-only changes, and mass reformats.
+     * Uses VCS emails from Artemis when available to handle misconfigured Git clients.
+     *
+     * @param localPath        Path to the cloned repository
+     * @param commitToAuthor   Map of commit SHA to author ID
+     * @param commitToVcsEmail Map of commit SHA to VCS email (from Artemis, overrides Git email)
      */
-    private List<RawCommitData> extractCommitData(String localPath, Map<String, Long> commitToAuthor)
-            throws IOException {
+    private List<RawCommitData> extractCommitData(String localPath, Map<String, Long> commitToAuthor,
+                                                  Map<String, String> commitToVcsEmail) throws IOException {
         List<RawCommitData> commits = new ArrayList<>();
         File gitDir = new File(localPath, ".git");
 
@@ -116,11 +158,17 @@ public class CommitChunkerService {
                 .setGitDir(gitDir)
                 .readEnvironment()
                 .build();
-                RevWalk revWalk = new RevWalk(repository);
-                DiffFormatter df = new DiffFormatter(new ByteArrayOutputStream())) {
+             RevWalk revWalk = new RevWalk(repository);
+             DiffFormatter df = new DiffFormatter(new ByteArrayOutputStream());
+             DiffFormatter dfWhitespace = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
 
             df.setRepository(repository);
             df.setDetectRenames(true);
+
+            // Whitespace-ignoring formatter for format-only detection
+            dfWhitespace.setRepository(repository);
+            dfWhitespace.setDetectRenames(true);
+            dfWhitespace.setDiffComparator(RawTextComparator.WS_IGNORE_ALL);
 
             for (Map.Entry<String, Long> entry : commitToAuthor.entrySet()) {
                 String commitHash = entry.getKey();
@@ -137,12 +185,26 @@ public class CommitChunkerService {
                         ? revWalk.parseCommit(commit.getParent(0).getId())
                         : null;
 
-                List<FileChange> fileChanges = extractFileChanges(repository, df, parent, commit);
+                // Extract file changes with rename detection
+                List<FileChange> fileChanges = extractFileChanges(repository, df, dfWhitespace, parent, commit);
 
                 LocalDateTime timestamp = LocalDateTime.ofEpochSecond(
                         commit.getCommitTime(), 0, ZoneOffset.UTC);
 
-                String authorEmail = commit.getAuthorIdent().getEmailAddress();
+                // Use VCS email from Artemis if available, otherwise fall back to Git email
+                // This handles cases where students have misconfigured Git clients
+                String gitEmail = commit.getAuthorIdent().getEmailAddress();
+                String authorEmail = commitToVcsEmail.getOrDefault(commitHash, gitEmail);
+
+                if (!authorEmail.equals(gitEmail)) {
+                    log.debug("Commit {}: Using VCS email '{}' instead of Git email '{}'",
+                            commitHash.substring(0, 7), authorEmail, gitEmail);
+                }
+
+                // Detect commit-level flags
+                boolean renameDetected = fileChanges.stream().anyMatch(FileChange::isRename);
+                boolean formatOnly = isFormatOnlyCommit(fileChanges);
+                boolean massReformat = isMassReformatCommit(fileChanges);
 
                 commits.add(new RawCommitData(
                         commitHash,
@@ -150,7 +212,10 @@ public class CommitChunkerService {
                         authorEmail,
                         commit.getShortMessage(),
                         timestamp,
-                        fileChanges));
+                        fileChanges,
+                        renameDetected,
+                        formatOnly,
+                        massReformat));
             }
         }
 
@@ -158,13 +223,37 @@ public class CommitChunkerService {
     }
 
     /**
-     * Extracts file-level changes for a commit.
+     * Extracts file-level changes for a commit with rename and whitespace detection.
+     *
+     * @param repository   Git repository
+     * @param df           Standard diff formatter
+     * @param dfWhitespace Whitespace-ignoring diff formatter
+     * @param parent       Parent commit (null for initial commit)
+     * @param commit       The commit to analyze
+     * @return List of file changes with detection flags
      */
-    private List<FileChange> extractFileChanges(Repository repository, DiffFormatter df, RevCommit parent,
-            RevCommit commit)
+    private List<FileChange> extractFileChanges(Repository repository, DiffFormatter df,
+                                                DiffFormatter dfWhitespace, RevCommit parent, RevCommit commit)
             throws IOException {
         List<FileChange> changes = new ArrayList<>();
         List<DiffEntry> diffs = df.scan(parent, commit);
+
+        // Get whitespace-ignoring diffs for comparison
+        List<DiffEntry> wsIgnoredDiffs = dfWhitespace.scan(parent, commit);
+        Map<String, Integer> wsIgnoredLines = new HashMap<>();
+        for (DiffEntry wsDiff : wsIgnoredDiffs) {
+            try {
+                FileHeader wsFh = dfWhitespace.toFileHeader(wsDiff);
+                int wsLines = 0;
+                for (Edit edit : wsFh.toEditList()) {
+                    wsLines += edit.getLengthA() + edit.getLengthB();
+                }
+                String path = wsDiff.getNewPath().equals("/dev/null") ? wsDiff.getOldPath() : wsDiff.getNewPath();
+                wsIgnoredLines.put(path, wsLines);
+            } catch (Exception e) {
+                // Ignore errors in whitespace comparison
+            }
+        }
 
         for (DiffEntry diff : diffs) {
             // Skip binary files and very large files
@@ -191,14 +280,61 @@ public class CommitChunkerService {
                     ? diff.getOldPath()
                     : diff.getNewPath();
 
+            // Detect rename (RENAME or COPY change type)
+            boolean isRename = diff.getChangeType() == DiffEntry.ChangeType.RENAME
+                    || diff.getChangeType() == DiffEntry.ChangeType.COPY;
+
+            // Calculate whitespace-only lines
+            // If ws-ignored diff has fewer changes, the difference is whitespace-only
+            int totalLines = linesAdded + linesDeleted;
+            int wsIgnored = wsIgnoredLines.getOrDefault(filePath, totalLines);
+            int whitespaceOnlyLines = Math.max(0, totalLines - wsIgnored);
+
             changes.add(new FileChange(
                     filePath,
                     diffOutput.toString(),
                     linesAdded,
-                    linesDeleted));
+                    linesDeleted,
+                    isRename,
+                    whitespaceOnlyLines));
         }
 
         return changes;
+    }
+
+    /**
+     * Checks if a commit only contains formatting/whitespace changes.
+     * True if >80% of all changes are whitespace-only.
+     */
+    private boolean isFormatOnlyCommit(List<FileChange> changes) {
+        if (changes.isEmpty()) {
+            return false;
+        }
+
+        int totalLines = changes.stream().mapToInt(FileChange::totalLines).sum();
+        int whitespaceLines = changes.stream().mapToInt(FileChange::whitespaceOnlyLines).sum();
+
+        if (totalLines == 0) {
+            return false;
+        }
+
+        // If >80% of changes are whitespace-only, it's a format commit
+        return (double) whitespaceLines / totalLines > 0.8;
+    }
+
+    /**
+     * Checks if a commit is a mass reformat (many files with small uniform changes).
+     * True if ≥10 files and average lines per file <5.
+     */
+    private boolean isMassReformatCommit(List<FileChange> changes) {
+        if (changes.size() < 10) {
+            return false;
+        }
+
+        int totalLines = changes.stream().mapToInt(FileChange::totalLines).sum();
+        double avgLinesPerFile = (double) totalLines / changes.size();
+
+        return avgLinesPerFile < 5.0;
     }
 
     /**
@@ -297,6 +433,11 @@ public class CommitChunkerService {
                 .map(RawCommitData::message)
                 .collect(Collectors.joining(" | "));
 
+        // Merge flags: true if any commit has the flag
+        boolean anyRename = bundle.stream().anyMatch(RawCommitData::renameDetected);
+        boolean anyFormatOnly = bundle.stream().allMatch(RawCommitData::formatOnly); // All must be format-only
+        boolean anyMassReformat = bundle.stream().anyMatch(RawCommitData::massReformatFlag);
+
         log.debug("Bundled {} commits from author {}", bundle.size(), first.authorId());
 
         return new RawCommitData(
@@ -305,7 +446,10 @@ public class CommitChunkerService {
                 first.authorEmail(),
                 combinedMessage,
                 first.timestamp(), // Use earliest timestamp
-                allChanges);
+                allChanges,
+                anyRename,
+                anyFormatOnly,
+                anyMassReformat);
     }
 
     /**
@@ -349,7 +493,8 @@ public class CommitChunkerService {
                 .map(c -> new CommitChunkDTO(
                         c.commitSha(), c.authorId(), c.authorEmail(), c.commitMessage(),
                         c.timestamp(), c.files(), c.diffContent(), c.linesAdded(), c.linesDeleted(),
-                        c.chunkIndex(), totalChunks, c.isBundled(), c.bundledCommits()))
+                        c.chunkIndex(), totalChunks, c.isBundled(), c.bundledCommits(),
+                        c.renameDetected(), c.formatOnly(), c.massReformatFlag()))
                 .collect(Collectors.toList());
     }
 
@@ -386,6 +531,9 @@ public class CommitChunkerService {
                 chunkIndex,
                 totalChunks,
                 isBundled,
-                List.of());
+                List.of(),
+                commit.renameDetected(),
+                commit.formatOnly(),
+                commit.massReformatFlag());
     }
 }

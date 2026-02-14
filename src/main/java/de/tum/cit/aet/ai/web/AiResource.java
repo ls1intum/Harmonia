@@ -8,7 +8,6 @@ import de.tum.cit.aet.ai.service.AnomalyDetectorService;
 import de.tum.cit.aet.ai.service.CommitClassifierService;
 import de.tum.cit.aet.core.config.AiProperties;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;

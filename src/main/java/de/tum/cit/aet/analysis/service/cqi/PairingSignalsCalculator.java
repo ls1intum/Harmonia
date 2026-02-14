@@ -86,6 +86,8 @@ public class PairingSignalsCalculator {
     }
 
     /**
+     * @param commits Student commits
+     * @return Pairing signals score between 0 and 100
      * Overloaded method for backward compatibility (when team name is not available)
      */
     public double calculate(List<CommitInfo> commits) {

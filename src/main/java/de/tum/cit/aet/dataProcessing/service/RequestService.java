@@ -261,16 +261,16 @@ public class RequestService {
         double balanceScore = commitCounts.isEmpty() ? 0.0 : balanceCalculator.calculate(commitCounts);
 
         List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
-        
+
         // Log commit info for debugging
         if (!commitInfos.isEmpty()) {
             java.util.Set<String> uniqueAuthors = commitInfos.stream()
                     .map(de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo::getAuthor)
                     .collect(java.util.stream.Collectors.toSet());
-            log.info("Team {}: extracted {} commits from {} unique authors: {}", 
+            log.info("Team {}: extracted {} commits from {} unique authors: {}",
                     team.name(), commitInfos.size(), uniqueAuthors.size(), uniqueAuthors);
         }
-        
+
         double pairingScore = pairingCalculator.calculate(commitInfos, team.name());
 
         Double cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
@@ -473,7 +473,7 @@ public class RequestService {
                         try {
                             TeamRepositoryDTO repo = buildTeamRepositoryDTO(participation, teamRepo, students);
                             List<de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo> commitInfos = extractCommitInfo(repo);
-                            
+
                             if (commitInfos.isEmpty()) {
                                 log.warn("Team {}: no commit info extracted from repository, pairing score = 0", participation.getName());
                                 pairingScore = 0.0;
@@ -482,11 +482,11 @@ public class RequestService {
                                 java.util.Set<String> uniqueAuthors = commitInfos.stream()
                                         .map(de.tum.cit.aet.analysis.service.cqi.PairingSignalsCalculator.CommitInfo::getAuthor)
                                         .collect(java.util.stream.Collectors.toSet());
-                                log.info("Team {}: extracted {} commits from {} unique authors: {}", 
+                                log.info("Team {}: extracted {} commits from {} unique authors: {}",
                                         participation.getName(), commitInfos.size(), uniqueAuthors.size(), uniqueAuthors);
-                                
+
                                 pairingScore = pairingCalculator.calculate(commitInfos, participation.getName());
-                                log.info("Team {}: calculated pairing score = {} from {} commits", 
+                                log.info("Team {}: calculated pairing score = {} from {} commits",
                                         participation.getName(), pairingScore, commitInfos.size());
                             }
                         } catch (Exception e) {
@@ -501,7 +501,7 @@ public class RequestService {
                     // Always recalculate CQI from current scores to ensure accuracy
                     // This ensures we use the latest calculation logic and team name for pairing
                     cqi = (balanceScore * 0.5) + (pairingScore * 0.5);
-                    log.info("Team {}: balance={}, pairing={}, CQI={} (recalculated)", 
+                    log.info("Team {}: balance={}, pairing={}, CQI={} (recalculated)",
                             participation.getName(), balanceScore, pairingScore, cqi);
 
                     return new ClientResponseDTO(
