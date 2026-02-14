@@ -1,10 +1,11 @@
 # SseEmitter
 
+
 ## Properties
 
-| Name        | Type       | Description | Notes                             |
-| ----------- | ---------- | ----------- | --------------------------------- |
-| **timeout** | **number** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**timeout** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -12,7 +13,7 @@
 import { SseEmitter } from './api';
 
 const instance: SseEmitter = {
-  timeout,
+    timeout,
 };
 ```
 

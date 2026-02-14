@@ -4,6 +4,7 @@ export * from './cqipenalty-dto';
 export * from './cqiresult-dto';
 export * from './client-response-dto';
 export * from './component-scores-dto';
+export * from './component-weights-dto';
 export * from './filter-summary-dto';
 export * from './llm-token-totals';
 export * from './llm-token-usage';

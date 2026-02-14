@@ -1,4 +1,4 @@
-# ComponentScoresDTO
+# ComponentWeightsDTO
 
 
 ## Properties
@@ -13,9 +13,9 @@ Name | Type | Description | Notes
 ## Example
 
 ```typescript
-import { ComponentScoresDTO } from './api';
+import { ComponentWeightsDTO } from './api';
 
-const instance: ComponentScoresDTO = {
+const instance: ComponentWeightsDTO = {
     effortBalance,
     locBalance,
     ownershipSpread,

@@ -265,6 +265,7 @@ components:
           type: array
           items: {$ref: '#/components/schemas/CQIPenaltyDTO'}
         penaltyMultiplier: {type: number, format: double}
+        weights: {$ref: '#/components/schemas/ComponentWeightsDTO'}
     ClientResponseDTO:
       type: object
       properties:
@@ -290,6 +291,13 @@ components:
         teamName: {type: string}
         tutor: {type: string}
     ComponentScoresDTO:
+      type: object
+      properties:
+        effortBalance: {type: number, format: double}
+        locBalance: {type: number, format: double}
+        ownershipSpread: {type: number, format: double}
+        temporalSpread: {type: number, format: double}
+    ComponentWeightsDTO:
       type: object
       properties:
         effortBalance: {type: number, format: double}

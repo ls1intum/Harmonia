@@ -14,10 +14,10 @@
 
 
 
-export interface LoginRequestDTO {
-    'courseId': string;
-    'password': string;
-    'serverUrl': string;
-    'username': string;
+export interface ComponentWeightsDTO {
+    'effortBalance'?: number;
+    'locBalance'?: number;
+    'ownershipSpread'?: number;
+    'temporalSpread'?: number;
 }
 

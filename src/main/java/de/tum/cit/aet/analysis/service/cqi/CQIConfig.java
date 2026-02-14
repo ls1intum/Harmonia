@@ -12,9 +12,9 @@ import org.springframework.context.annotation.Configuration;
  * harmonia:
  *   cqi:
  *     weights:
- *       effort: 0.40
+ *       effort: 0.55
  *       loc: 0.25
- *       temporal: 0.20
+ *       temporal: 0.05
  *       ownership: 0.15
  *     thresholds:
  *       solo-development: 0.85
@@ -76,9 +76,9 @@ public class CQIConfig {
      * Component weights for CQI formula.
      */
     public static class Weights {
-        private double effort = 0.40;
+        private double effort = 0.55;
         private double loc = 0.25;
-        private double temporal = 0.20;
+        private double temporal = 0.05;
         private double ownership = 0.15;
 
         public double getEffort() {
