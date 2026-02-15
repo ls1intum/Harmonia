@@ -80,7 +80,8 @@ public class CQICalculatorService {
             int teamSize,
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
-            FilterSummaryDTO filterSummary) {
+            FilterSummaryDTO filterSummary,
+            String teamName) {
 
         // Edge case: single contributor
         if (teamSize <= 1) {
@@ -92,6 +93,12 @@ public class CQICalculatorService {
         if (ratedChunks == null || ratedChunks.isEmpty()) {
             log.warn("No rated commits provided");
             return CQIResultDTO.noProductiveWork(filterSummary);
+        }
+
+        // Edge case: < 2/3 pair programming sessions were attended
+        if (!teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
+            log.warn("Less then 2/3 pair programming sessions were attended.");
+            return CQIResultDTO.noPairProgramming();
         }
 
         // Aggregate metrics by author

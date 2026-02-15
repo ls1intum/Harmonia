@@ -34,6 +34,20 @@ public record CQIResultDTO(
     }
 
     /**
+     * Create result when < 2/3 pair programming sessions were attended
+     */
+    public static CQIResultDTO noPairProgramming() {
+        return new CQIResultDTO(
+                0.0, // No collaboration
+                ComponentScoresDTO.zero(),
+                List.of(), // No penalties
+                0.0,
+                1.0,
+                null);
+    }
+
+
+    /**
      * Create result when no productive work was found.
      */
     public static CQIResultDTO noProductiveWork(FilterSummaryDTO filterSummary) {
