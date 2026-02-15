@@ -7,6 +7,7 @@ import java.util.List;
  *
  * @param cqi               Final CQI score (0-100)
  * @param components        Individual component scores
+ * @param weights           Component weights used in calculation
  * @param penalties         Applied penalties (empty - penalties are disabled)
  * @param baseScore         Score before penalties
  * @param penaltyMultiplier Combined penalty multiplier (always 1.0)
@@ -15,6 +16,7 @@ import java.util.List;
 public record CQIResultDTO(
         double cqi,
         ComponentScoresDTO components,
+        ComponentWeightsDTO weights,
         List<CQIPenaltyDTO> penalties,
         double baseScore,
         double penaltyMultiplier,
@@ -23,10 +25,11 @@ public record CQIResultDTO(
      * Create result for single contributor (no collaboration possible).
      * Returns 0 since no collaboration is possible.
      */
-    public static CQIResultDTO singleContributor() {
+    public static CQIResultDTO singleContributor(ComponentWeightsDTO weights) {
         return new CQIResultDTO(
                 0.0, // No collaboration possible = 0
                 ComponentScoresDTO.zero(),
+                weights,
                 List.of(), // No penalties
                 0.0,
                 1.0,
@@ -50,10 +53,11 @@ public record CQIResultDTO(
     /**
      * Create result when no productive work was found.
      */
-    public static CQIResultDTO noProductiveWork(FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO noProductiveWork(ComponentWeightsDTO weights, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 0.0,
                 ComponentScoresDTO.zero(),
+                weights,
                 List.of(), // No penalties
                 0.0,
                 1.0,
@@ -63,7 +67,7 @@ public record CQIResultDTO(
     /**
      * Create result for fallback calculation (LoC-based).
      */
-    public static CQIResultDTO fallback(double locScore, FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 locScore,
                 new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null),
@@ -79,10 +83,11 @@ public record CQIResultDTO(
      * effortBalance is 0 because it requires AI.
      * CQI is set to -1 to indicate it's not calculated yet.
      */
-    public static CQIResultDTO gitOnly(ComponentScoresDTO gitComponents, FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO gitOnly(ComponentWeightsDTO weights, ComponentScoresDTO gitComponents, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 -1.0,  // CQI not calculated yet - client can check for this
                 gitComponents,
+                weights,
                 List.of(),
                 0.0,
                 1.0,

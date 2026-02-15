@@ -172,31 +172,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
             ]
           : []),
       ]
-    : cqi !== undefined
-      ? [
-          {
-            name: 'Contribution Balance',
-            value: cqi,
-            weight: 40,
-            description: 'Are teammates contributing at similar levels?',
-            details: 'Calculated from commit distribution.',
-          },
-          {
-            name: 'Ownership Distribution',
-            value: 0,
-            weight: 30,
-            description: 'Are key files shared rather than monopolized?',
-            details: 'Calculated from git blame analysis.',
-          },
-          {
-            name: 'Pairing Signals',
-            value: 0,
-            weight: 30,
-            description: 'Did teammates actually work together?',
-            details: 'Not yet implemented.',
-          },
-        ]
-      : undefined;
+    : undefined;
 
   // Use analysis history directly from server (already in correct DTO format)
   const analysisHistory = dto.analysisHistory;
