@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlayCircle, Loader2, RefreshCw, Cpu } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import FileUpload from '@/components/FileUpload.tsx';
 
 interface StartAnalysisProps {
@@ -214,7 +215,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
               <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
             </SelectTrigger>
             <SelectContent>
-              {modelsData?.map(model => (
+              {modelsData?.map((model: LLMModel) => (
                 <SelectItem key={model.id} value={model.id}>
                   {model.id}
                 </SelectItem>
