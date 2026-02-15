@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -291,6 +292,42 @@ public class ArtemisClientService {
         }
     }
 
+    public OffsetDateTime fetchSubmissionDeadline(
+            String serverUrl,
+            String jwtToken,
+            Long exerciseId
+    ) {
+        log.info("Fetching submission deadline for exercise {} from {}", exerciseId, serverUrl);
+
+        String uri = String.format("/api/exercise/exercises/%d/latest-due-date", exerciseId);
+        try {
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            JsonNode response = dynamicClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (response == null || response.isNull()) {
+                return null;
+            }
+
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(response.asString());
+            ZonedDateTime berlinTime = zonedDateTime.withZoneSameInstant(ZoneId.of("Europe/Berlin"));
+            log.info("Fetched submission deadline for exercise {} - {}", exerciseId, berlinTime);
+
+            return berlinTime.toOffsetDateTime();
+
+
+        } catch (Exception e) {
+            log.error("Error fetching submission deadline for exercise {}", exerciseId, e);
+            throw new ArtemisConnectionException("Failed to fetch tutorial groups", e);
+        }
+    }
+
     /**
      * Fetches tutorial groups and returns a mapping from group name to session start times.
      *
@@ -381,7 +418,7 @@ public class ArtemisClientService {
         for (String fieldName : fieldNames) {
             JsonNode valueNode = node.get(fieldName);
             if (valueNode != null && !valueNode.isNull()) {
-                String value = valueNode.asText();
+                String value = valueNode.asString();
                 if (value != null && !value.isBlank()) {
                     return value;
                 }

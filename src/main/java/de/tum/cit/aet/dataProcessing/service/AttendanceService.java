@@ -58,10 +58,14 @@ public class AttendanceService {
     public TeamsScheduleDTO parseAttendance(
             MultipartFile file,
             ArtemisCredentials credentials,
-            Long courseId
+            Long courseId,
+            Long exerciseId
     ) {
         Map<String, List<OffsetDateTime>> sessionsByGroup = artemisClientService
                 .fetchTutorialGroupSessionStartTimes(credentials.serverUrl(), credentials.jwtToken(), courseId);
+
+        OffsetDateTime submissionDeadline = artemisClientService.fetchSubmissionDeadline(
+                credentials.serverUrl(), credentials.jwtToken(), exerciseId);
 
         Map<String, List<OffsetDateTime>> normalizedSessions = new LinkedHashMap<>();
         sessionsByGroup.forEach((name, sessions) -> normalizedSessions.put(normalizeName(name), sessions));
@@ -82,12 +86,14 @@ public class AttendanceService {
                     log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
                 }
 
+
+
                 long count = sessionTimes.stream()
-                        .filter(session -> session.isBefore(attendanceConfiguration.getSubmissionDeadline()))
+                        .filter(session -> session.isBefore(submissionDeadline))
                         .count();
 
                 List<OffsetDateTime> sortedSessions = sessionTimes.stream()
-                        .filter(session -> session.isBefore(attendanceConfiguration.getSubmissionDeadline()))
+                        .filter(session -> session.isBefore(submissionDeadline))
                         .sorted()
                         .skip(Math.max(0, count - attendanceConfiguration.getNumberProgrammingSessions()))
                         .toList();

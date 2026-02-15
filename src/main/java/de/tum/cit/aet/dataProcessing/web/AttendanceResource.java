@@ -60,6 +60,7 @@ public class AttendanceResource {
     public ResponseEntity<TeamsScheduleDTO> uploadAttendance(
             @RequestParam("file") MultipartFile file,
             @RequestParam("courseId") Long courseId,
+            @RequestParam("exerciseId") Long exerciseId,
             @CookieValue(value = "jwt", required = false) String jwtToken,
             @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
             @CookieValue(value = "artemis_username", required = false) String username,
@@ -87,7 +88,7 @@ public class AttendanceResource {
             }
         }
 
-        TeamsScheduleDTO results = attendanceService.parseAttendance(file, credentials, courseId);
+        TeamsScheduleDTO results = attendanceService.parseAttendance(file, credentials, courseId, exerciseId);
         log.info("AttendanceResource: {}", results);
         return ResponseEntity.ok(results);
     }
