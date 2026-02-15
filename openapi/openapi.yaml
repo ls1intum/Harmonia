@@ -80,6 +80,10 @@ paths:
         in: query
         required: true
         schema: {type: integer, format: int64}
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
       - name: jwt
         in: cookie
         required: false
