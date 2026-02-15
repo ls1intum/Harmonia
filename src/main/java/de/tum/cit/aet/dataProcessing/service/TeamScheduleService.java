@@ -83,6 +83,23 @@ public class TeamScheduleService {
         return attendance != null && attendance.pairedAtLeastTwoOfThree();
     }
 
+    /**
+     * Checks if any attendance data has been uploaded.
+     *
+     * @return true if attendance data exists, false otherwise
+     */
+    public boolean hasAttendanceData() {
+        return !teamsByNormalizedName.isEmpty();
+    }
+
+    /**
+     * Clears all attendance data.
+     * Should be called when clearing analysis data to ensure a fresh start.
+     */
+    public void clear() {
+        teamsByNormalizedName.clear();
+    }
+
     private Map<OffsetDateTime, Boolean> firstNonEmpty(
             Map<OffsetDateTime, Boolean> first,
             Map<OffsetDateTime, Boolean> second

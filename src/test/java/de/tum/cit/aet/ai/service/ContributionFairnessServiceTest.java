@@ -104,7 +104,7 @@ class ContributionFairnessServiceTest {
         // Mock CQI result with uneven distribution penalty
         CQIResultDTO cqiResult = new CQIResultDTO(
                 35.0,
-                new ComponentScoresDTO(35.0, 40.0, 80.0, 50.0, null),
+                new ComponentScoresDTO(35.0, 40.0, 80.0, 50.0, null, null),
                 null,
                 List.of(new CQIPenaltyDTO("SEVERE_IMBALANCE", 0.7, "Severe imbalance detected")),
                 50.0,
@@ -135,7 +135,7 @@ class ContributionFairnessServiceTest {
         // Mock CQI result with balanced scores
         CQIResultDTO cqiResult = new CQIResultDTO(
                 95.0,
-                new ComponentScoresDTO(95.0, 90.0, 85.0, 80.0, null),
+                new ComponentScoresDTO(95.0, 90.0, 85.0, 80.0, null, null),
                 null,
                 List.of(), // No penalties
                 95.0,
@@ -162,7 +162,7 @@ class ContributionFairnessServiceTest {
         // Mock CQI result with solo contributor penalty
         CQIResultDTO cqiResult = new CQIResultDTO(
                 0.0,
-                new ComponentScoresDTO(0.0, 0.0, 50.0, 0.0, null),
+                new ComponentScoresDTO(0.0, 0.0, 50.0, 0.0, null, null),
                 null,
                 List.of(new CQIPenaltyDTO("SOLO_DEVELOPMENT", 0.0, "Solo development detected")),
                 50.0,
@@ -189,7 +189,7 @@ class ContributionFairnessServiceTest {
 
         CQIResultDTO cqiResult = new CQIResultDTO(
                 70.0,
-                new ComponentScoresDTO(70.0, 70.0, 70.0, 70.0, null),
+                new ComponentScoresDTO(70.0, 70.0, 70.0, 70.0, null, null),
                 null,
                 List.of(),
                 70.0,

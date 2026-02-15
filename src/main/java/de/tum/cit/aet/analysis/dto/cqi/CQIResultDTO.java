@@ -71,7 +71,7 @@ public record CQIResultDTO(
     public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 locScore,
-                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null),
+                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, null),
                 weights,
                 List.of(), // No penalties
                 locScore,

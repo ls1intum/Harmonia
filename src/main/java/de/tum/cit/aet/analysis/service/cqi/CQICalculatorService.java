@@ -126,7 +126,7 @@ public class CQICalculatorService {
         double ownershipScore = calculateOwnershipSpread(ratedChunks, teamSize);
 
         ComponentScoresDTO components = new ComponentScoresDTO(
-                effortScore, locScore, temporalScore, ownershipScore, null);
+                effortScore, locScore, temporalScore, ownershipScore, null, null);
 
         log.debug("Component scores: {}", components.toSummary());
 
@@ -274,9 +274,13 @@ public class CQICalculatorService {
 
         // Calculate pair programming score if team name is provided
         Double pairProgrammingScore = null;
+        String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = team in Excel, "NOT_FOUND" = Excel uploaded but team missing
         log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
         if (teamName != null && teamSize == 2) {
             try {
+                // Check if attendance data was uploaded at all
+                boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
+
                 Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
                 Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
 
@@ -284,19 +288,27 @@ public class CQICalculatorService {
                 log.info("=== Pair Programming Session Dates for team '{}' ===", teamName);
                 log.info("Total sessions: {}", allSessions.size());
                 allSessions.stream().sorted().forEach(date ->
-                    log.info("  All session: {}", date));
+                        log.info("  All session: {}", date));
 
                 log.info("Paired sessions (both students attended): {}", pairedSessions.size());
                 pairedSessions.stream().sorted().forEach(date ->
-                    log.info("  Paired session: {}", date));
+                        log.info("  Paired session: {}", date));
 
                 if (pairedSessions != null && !pairedSessions.isEmpty() && allSessions != null && !allSessions.isEmpty()) {
                     pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
                             pairedSessions, allSessions, chunks, teamSize);
+                    pairProgrammingStatus = "FOUND";
                     log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
                             teamName,
                             pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
                 } else {
+                    // Check if team was not found in Excel vs no Excel uploaded
+                    if (hasAttendanceData) {
+                        pairProgrammingStatus = "NOT_FOUND";
+                        log.info("Team '{}' not found in attendance Excel file", teamName);
+                    } else {
+                        log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
+                    }
                     log.info("No paired sessions or class dates found for team {}: paired={}, all={}",
                             teamName, pairedSessions != null ? pairedSessions.size() : 0,
                             allSessions != null ? allSessions.size() : 0);
@@ -312,14 +324,15 @@ public class CQICalculatorService {
             }
         }
 
-        log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}, PairProgramming={}",
+        log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}, PairProgramming={}, Status={}",
                 String.format("%.1f", locScore),
                 String.format("%.1f", temporalScore),
                 String.format("%.1f", ownershipScore),
-                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "N/A");
+                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "N/A",
+                pairProgrammingStatus);
 
         // effortBalance = 0 because it requires AI
-        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore);
+        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
     }
 
     /**
@@ -354,8 +367,8 @@ public class CQICalculatorService {
      * Calculate temporal spread from raw commit chunks (no AI rating needed).
      */
     private double calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
-                                                      LocalDateTime projectStart,
-                                                      LocalDateTime projectEnd) {
+                                                     LocalDateTime projectStart,
+                                                     LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
             return 50.0; // Neutral score if no temporal data
         }

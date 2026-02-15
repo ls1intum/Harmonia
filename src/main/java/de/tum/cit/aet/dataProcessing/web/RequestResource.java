@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * REST controller for repository analysis requests.
@@ -31,8 +33,6 @@ public class RequestResource {
     private final ArtemisConfig artemisConfig;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    // Track running tasks per exercise ID so they can be cancelled
-    private final ConcurrentHashMap<Long, Future<?>> runningTasks = new ConcurrentHashMap<>();
 
     @Autowired
     public RequestResource(RequestService requestService, CryptoService cryptoService, ArtemisConfig artemisConfig) {
@@ -103,8 +103,7 @@ public class RequestResource {
         }
 
         // Check if analysis is already running for this exercise
-        Future<?> existingTask = runningTasks.get(exerciseId);
-        if (existingTask != null && !existingTask.isDone()) {
+        if (requestService.isTaskRunning(exerciseId)) {
             log.info("Analysis already running for exercise {}, client can poll status", exerciseId);
             // Send a message that analysis is already running, then complete
             // The client should poll the status endpoint instead
@@ -152,29 +151,16 @@ public class RequestResource {
                 }
             } finally {
                 // Remove from tracking when done
-                runningTasks.remove(exerciseId);
+                requestService.unregisterRunningTask(exerciseId);
             }
         });
 
-        // Track this task
-        runningTasks.put(exerciseId, future);
+        // Track this task in RequestService
+        requestService.registerRunningTask(exerciseId, future);
 
         return emitter;
     }
 
-    /**
-     * Cancel a running analysis task for the given exercise.
-     * This will interrupt the thread pool workers.
-     *
-     * @param exerciseId the ID of the exercise
-     */
-    public void cancelRunningTask(Long exerciseId) {
-        Future<?> task = runningTasks.remove(exerciseId);
-        if (task != null && !task.isDone()) {
-            log.info("Cancelling running task for exercise {}", exerciseId);
-            task.cancel(true); // true = interrupt if running
-        }
-    }
 
     /**
      * GET endpoint to fetch, analyze, and save repository data (synchronous).

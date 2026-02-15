@@ -5,6 +5,7 @@ import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,11 +26,14 @@ class AnalysisResourceTest {
     @Mock
     private RequestService requestService;
 
+    @Mock
+    private TeamScheduleService teamScheduleService;
+
     private AnalysisResource resource;
 
     @BeforeEach
     void setUp() {
-        resource = new AnalysisResource(stateService, requestService);
+        resource = new AnalysisResource(stateService, requestService, teamScheduleService);
     }
 
     @Test
@@ -66,6 +70,8 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "db");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
+        verify(teamScheduleService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
     }
@@ -75,6 +81,8 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "files");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
+        verify(teamScheduleService).clear();  // Always clears attendance data
         verify(requestService, never()).clearDatabaseForExercise(any());
         verify(stateService, never()).resetStatus(any());
     }
@@ -84,6 +92,8 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "both");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
+        verify(teamScheduleService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
     }

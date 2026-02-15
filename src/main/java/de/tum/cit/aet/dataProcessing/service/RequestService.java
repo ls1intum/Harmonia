@@ -69,6 +69,9 @@ public class RequestService {
     // Track running stream analysis tasks by exerciseId for cancellation
     private final Map<Long, Thread> runningStreamTasks = new ConcurrentHashMap<>();
 
+    // Track running Future tasks by exerciseId (used by RequestResource)
+    private final Map<Long, Future<?>> runningFutures = new ConcurrentHashMap<>();
+
     @Autowired
     public RequestService(
             RepositoryFetchingService repositoryFetchingService,
@@ -215,6 +218,13 @@ public class RequestService {
     public void stopAnalysis(Long exerciseId) {
         log.info("Stopping analysis for exercise {}", exerciseId);
 
+        // Cancel the running Future task (from RequestResource)
+        Future<?> future = runningFutures.remove(exerciseId);
+        if (future != null && !future.isDone()) {
+            log.info("Cancelling running future for exercise {}", exerciseId);
+            future.cancel(true);
+        }
+
         // Stop the download/git analysis executor
         ExecutorService executor = activeExecutors.remove(exerciseId);
         if (executor != null) {
@@ -236,6 +246,36 @@ public class RequestService {
             log.info("Interrupting stream analysis thread for exercise {}", exerciseId);
             streamThread.interrupt();
         }
+    }
+
+    /**
+     * Check if an analysis task is currently running for the given exercise.
+     *
+     * @param exerciseId the exercise ID to check
+     * @return true if a task is running, false otherwise
+     */
+    public boolean isTaskRunning(Long exerciseId) {
+        Future<?> future = runningFutures.get(exerciseId);
+        return future != null && !future.isDone();
+    }
+
+    /**
+     * Register a running task for tracking and cancellation.
+     *
+     * @param exerciseId the exercise ID
+     * @param future the Future representing the running task
+     */
+    public void registerRunningTask(Long exerciseId, Future<?> future) {
+        runningFutures.put(exerciseId, future);
+    }
+
+    /**
+     * Unregister a completed task.
+     *
+     * @param exerciseId the exercise ID
+     */
+    public void unregisterRunningTask(Long exerciseId) {
+        runningFutures.remove(exerciseId);
     }
 
     /**
@@ -300,10 +340,16 @@ public class RequestService {
      * @param repo             Repository data to save
      * @param contributionData Contribution data by student ID
      * @param exerciseId       The Artemis exercise ID for this analysis
-     * @return Client response DTO with git metrics (no CQI)
+     * @return Client response DTO with git metrics (no CQI), or null if analysis was cancelled
      */
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
                                                    Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+        // Check if analysis was cancelled before saving
+        if (!analysisStateService.isRunning(exerciseId)) {
+            log.info("Analysis cancelled, skipping save for team {}", repo.participation().team().name());
+            return null;
+        }
+
         // Step 1: Save tutor information
         Tutor tutor = ensureTutor(repo.participation().team());
 
@@ -386,17 +432,20 @@ public class RequestService {
                 if (gitComponents.pairProgramming() != null) {
                     teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
                 }
+                // Always set the status (FOUND, NOT_FOUND, or null)
+                teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
                 gitCqiDetails = CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
 
-                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}, PairProgramming={}",
+                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}, PairProgramming={}, Status={}",
                         team.name(),
                         gitComponents.locBalance(),
                         gitComponents.temporalSpread(),
                         gitComponents.ownershipSpread(),
-                        gitComponents.pairProgramming() != null ? String.format("%.1f", gitComponents.pairProgramming()) : "N/A");
+                        gitComponents.pairProgramming() != null ? String.format("%.1f", gitComponents.pairProgramming()) : "N/A",
+                        gitComponents.pairProgrammingStatus());
             }
         } catch (Exception e) {
             log.warn("Failed to calculate git-only metrics for team {}: {}", team.name(), e.getMessage());
@@ -925,9 +974,16 @@ public class RequestService {
                         Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
 
                         // Save git analysis results (no CQI yet)
+                        // Returns null if analysis was cancelled during save
                         final TeamRepositoryDTO finalRepo = repo;
                         ClientResponseDTO gitDto = transactionTemplate
                                 .execute(status -> saveGitAnalysisResult(finalRepo, contributions, exerciseId));
+
+                        // If save was skipped due to cancellation, don't emit update
+                        if (gitDto == null) {
+                            log.info("Git analysis save skipped for team {} (analysis cancelled)", teamName);
+                            return;
+                        }
 
                         int currentProcessed = gitAnalyzedCount.incrementAndGet();
                         analysisStateService.updateProgress(exerciseId, teamName, "GIT_DONE", currentProcessed);
@@ -1492,7 +1548,8 @@ public class RequestService {
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
-                participation.getCqiPairProgramming());
+                participation.getCqiPairProgramming(),
+                participation.getCqiPairProgrammingStatus());
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
@@ -1618,6 +1675,8 @@ public class RequestService {
 
     /**
      * Marks all pending teams as CANCELLED when analysis is cancelled.
+     * Only marks teams that haven't started analysis yet (PENDING status).
+     * Teams that completed git analysis (GIT_DONE) keep their data.
      */
     private void markPendingTeamsAsCancelled(Long exerciseId) {
         try {
