@@ -178,6 +178,7 @@ import type { AnalysisStatusDTO } from '@/app/generated';
 ```bash
 ./gradlew bootRun                     # Run Spring Boot server (port 8080)
 ./gradlew test                        # Run unit tests (excludes integration/e2e)
+./gradlew test --tests ClassName      # Run specific test class
 ./gradlew integrationTest             # Run integration tests (requires external services)
 ./gradlew spotlessApply               # Auto-format Java code
 ./gradlew spotlessCheck               # Check Java formatting
@@ -217,14 +218,22 @@ Valid categories: `Usability`, `Performance`, `Development`, `General`
 Examples:
 - `` `Development`: Add commit pre-filter pipeline ``
 - `` `General`: Fix analysis status race condition ``
+- `` `Performance`: Optimize database queries for large teams ``
+- `` `Usability`: Add loading spinner for better user feedback ``
+
+Common mistakes:
+- `docs: update readme` — wrong format, missing backticks and capital letter
+- `Development: fix bug` — missing backticks around category, description must start with capital letter
 
 ### GitHub Actions Checks
 
 | Job | What it checks | Must pass |
 |-----|---------------|-----------|
+| `validate-pr-title` | PR title format (see above) | Yes |
 | `server-style` | `spotlessCheck` + `checkstyleMain` | Yes |
 | `client-style` | `prettier:check` + `lint` | Yes |
 | `client-compilation` | `tsc --noEmit` | Yes |
+| `tests` | `./gradlew test` | Yes |
 
 **All checks must pass before merging.**
 
@@ -275,7 +284,19 @@ npm run compile:ts
 2. Reference it in `db.changelog-master.xml`
 3. Use `validate` DDL strategy — schema changes must go through Liquibase
 
-## 10. Do's and Don'ts
+## 10. Common Style Issues
+
+### Java (Checkstyle)
+- Missing or incomplete JavaDoc comments (missing `@return`, `@param` tags)
+- Single-line `if`/`else`/`for`/`while` without braces
+- Wrong modifier order
+
+### TypeScript (ESLint/Prettier)
+- Unused imports or variables
+- Inconsistent formatting (run `npm run prettier:format` to auto-fix)
+- Type errors from stale generated code (regenerate with `./gradlew openApiGenerate`)
+
+## 11. Do's and Don'ts
 
 ### Do
 
@@ -301,3 +322,4 @@ npm run compile:ts
 - Never hardcode config values — use `application.yml`
 - Never use single-line `if`/`else` without braces
 - Never modify generated TypeScript client manually
+- Never blindly fix style violations — understand why the rule exists before fixing
