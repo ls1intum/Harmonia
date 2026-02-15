@@ -56,6 +56,7 @@ export default function FileUpload({ courseId, exerciseId }: FileUploadProps) {
           title: 'Upload failed',
           description: 'Could not process the attendance file. Please try again.',
         });
+        e.target.value = '';
       } finally {
         setIsUploading(false);
       }
