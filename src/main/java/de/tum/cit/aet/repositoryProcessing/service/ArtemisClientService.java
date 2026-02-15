@@ -292,6 +292,14 @@ public class ArtemisClientService {
         }
     }
 
+    /**
+     * Fetches the submission deadline for a given exercise
+     *
+     * @param serverUrl The base Artemis server URL (scheme+host)
+     * @param jwtToken  The JWT token used as cookie (without the "jwt=" prefix)
+     * @param exerciseId  The numeric exerciseId id to check
+     * @return The deadline of the exercise we're checking
+     */
     public OffsetDateTime fetchSubmissionDeadline(
             String serverUrl,
             String jwtToken,

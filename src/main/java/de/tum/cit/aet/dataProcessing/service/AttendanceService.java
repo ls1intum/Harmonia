@@ -53,6 +53,7 @@ public class AttendanceService {
      * @param file the Excel file to parse
      * @param credentials the Artemis credentials
      * @param courseId the course ID
+     * @param exerciseId the exercise ID
      * @return the teams schedule DTO
      */
     public TeamsScheduleDTO parseAttendance(

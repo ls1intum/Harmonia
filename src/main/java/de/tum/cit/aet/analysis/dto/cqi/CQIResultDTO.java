@@ -39,10 +39,11 @@ public record CQIResultDTO(
     /**
      * Create result when < 2/3 pair programming sessions were attended
      */
-    public static CQIResultDTO noPairProgramming() {
+    public static CQIResultDTO noPairProgramming(ComponentWeightsDTO weights) {
         return new CQIResultDTO(
                 0.0, // No collaboration
                 ComponentScoresDTO.zero(),
+                weights,
                 List.of(), // No penalties
                 0.0,
                 1.0,
@@ -71,6 +72,7 @@ public record CQIResultDTO(
         return new CQIResultDTO(
                 locScore,
                 new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null),
+                weights,
                 List.of(), // No penalties
                 locScore,
                 1.0,

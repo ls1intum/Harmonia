@@ -54,6 +54,7 @@ public class AttendanceResource {
      * @param serverUrl the Artemis server URL from cookies
      * @param username the username from cookies
      * @param encryptedPassword the encrypted password from cookies
+     * @param exerciseId the exercise ID
      * @return the teams schedule DTO
      */
     @PostMapping(value = "upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CQICalculatorService {
 
+    private final CQIConfig cqiConfig;
     private final TeamScheduleService teamScheduleService;
     private final PairProgrammingCalculator pairProgrammingCalculator;
 
@@ -73,6 +74,7 @@ public class CQICalculatorService {
      * @param projectStart  Project start date
      * @param projectEnd    Project end date
      * @param filterSummary Summary from pre-filtering (optional)
+     * @param teamName      The team name
      * @return CQI result with component scores and penalties
      */
     public CQIResultDTO calculate(
@@ -100,7 +102,7 @@ public class CQICalculatorService {
         // Edge case: < 2/3 pair programming sessions were attended
         if (!teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
             log.warn("Less then 2/3 pair programming sessions were attended.");
-            return CQIResultDTO.noPairProgramming();
+            return CQIResultDTO.noPairProgramming(weightsDTO);
         }
 
         // Aggregate metrics by author
