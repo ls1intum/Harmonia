@@ -41,6 +41,7 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
     /**
      *
      * @param {number} courseId
+     * @param {number} exerciseId
      * @param {File} file
      * @param {string} [jwt]
      * @param {string} [artemisServerUrl]
@@ -51,6 +52,7 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
      */
     uploadAttendance: async (
       courseId: number,
+      exerciseId: number,
       file: File,
       jwt?: string,
       artemisServerUrl?: string,
@@ -60,6 +62,8 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
     ): Promise<RequestArgs> => {
       // verify required parameter 'courseId' is not null or undefined
       assertParamExists('uploadAttendance', 'courseId', courseId);
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('uploadAttendance', 'exerciseId', exerciseId);
       // verify required parameter 'file' is not null or undefined
       assertParamExists('uploadAttendance', 'file', file);
       const localVarPath = `/api/attendance/upload`;
@@ -77,6 +81,10 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
 
       if (courseId !== undefined) {
         localVarQueryParameter['courseId'] = courseId;
+      }
+
+      if (exerciseId !== undefined) {
+        localVarQueryParameter['exerciseId'] = exerciseId;
       }
 
       if (file !== undefined) {
@@ -107,6 +115,7 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
     /**
      *
      * @param {number} courseId
+     * @param {number} exerciseId
      * @param {File} file
      * @param {string} [jwt]
      * @param {string} [artemisServerUrl]
@@ -117,6 +126,7 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
      */
     async uploadAttendance(
       courseId: number,
+      exerciseId: number,
       file: File,
       jwt?: string,
       artemisServerUrl?: string,
@@ -126,6 +136,7 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TeamsScheduleDTO>> {
       const localVarAxiosArgs = await localVarAxiosParamCreator.uploadAttendance(
         courseId,
+        exerciseId,
         file,
         jwt,
         artemisServerUrl,
@@ -151,6 +162,7 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
     /**
      *
      * @param {number} courseId
+     * @param {number} exerciseId
      * @param {File} file
      * @param {string} [jwt]
      * @param {string} [artemisServerUrl]
@@ -161,6 +173,7 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
      */
     uploadAttendance(
       courseId: number,
+      exerciseId: number,
       file: File,
       jwt?: string,
       artemisServerUrl?: string,
@@ -169,7 +182,7 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<TeamsScheduleDTO> {
       return localVarFp
-        .uploadAttendance(courseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+        .uploadAttendance(courseId, exerciseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
         .then(request => request(axios, basePath));
     },
   };
@@ -182,6 +195,7 @@ export class AttendanceResourceApi extends BaseAPI {
   /**
    *
    * @param {number} courseId
+   * @param {number} exerciseId
    * @param {File} file
    * @param {string} [jwt]
    * @param {string} [artemisServerUrl]
@@ -192,6 +206,7 @@ export class AttendanceResourceApi extends BaseAPI {
    */
   public uploadAttendance(
     courseId: number,
+    exerciseId: number,
     file: File,
     jwt?: string,
     artemisServerUrl?: string,
@@ -200,7 +215,7 @@ export class AttendanceResourceApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return AttendanceResourceApiFp(this.configuration)
-      .uploadAttendance(courseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+      .uploadAttendance(courseId, exerciseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
       .then(request => request(this.axios, this.basePath));
   }
 }

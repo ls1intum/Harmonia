@@ -19,13 +19,22 @@ const configuration = new Configuration();
 const apiInstance = new AttendanceResourceApi(configuration);
 
 let courseId: number; // (default to undefined)
+let exerciseId: number; // (default to undefined)
 let file: File; // (default to undefined)
 let jwt: string; // (optional) (default to undefined)
 let artemisServerUrl: string; // (optional) (default to undefined)
 let artemisUsername: string; // (optional) (default to undefined)
 let artemisPassword: string; // (optional) (default to undefined)
 
-const { status, data } = await apiInstance.uploadAttendance(courseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword);
+const { status, data } = await apiInstance.uploadAttendance(
+  courseId,
+  exerciseId,
+  file,
+  jwt,
+  artemisServerUrl,
+  artemisUsername,
+  artemisPassword,
+);
 ```
 
 ### Parameters
@@ -33,6 +42,7 @@ const { status, data } = await apiInstance.uploadAttendance(courseId, file, jwt,
 | Name                 | Type         | Description | Notes                            |
 | -------------------- | ------------ | ----------- | -------------------------------- |
 | **courseId**         | [**number**] |             | defaults to undefined            |
+| **exerciseId**       | [**number**] |             | defaults to undefined            |
 | **file**             | [**File**]   |             | defaults to undefined            |
 | **jwt**              | [**string**] |             | (optional) defaults to undefined |
 | **artemisServerUrl** | [**string**] |             | (optional) defaults to undefined |
