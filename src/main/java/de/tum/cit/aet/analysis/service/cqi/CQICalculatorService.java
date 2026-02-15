@@ -100,7 +100,7 @@ public class CQICalculatorService {
         }
 
         // Edge case: < 2/3 pair programming sessions were attended
-        if (!teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
+        if (teamName != null && !teamName.isEmpty() && !teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
             log.warn("Less then 2/3 pair programming sessions were attended.");
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }
