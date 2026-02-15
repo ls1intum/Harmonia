@@ -64,7 +64,6 @@ harmonia:
     team-name-column: 0
     student1-columns: [ 4, 8, 12 ]
     student2-columns: [ 5, 9, 13 ]
-    submission-deadline: 2026-01-28T13:00:00+01:00
     number-programming-sessions: 3
   projects:
     - id: itp-2526

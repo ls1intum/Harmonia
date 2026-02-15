@@ -7,9 +7,10 @@ import { toast } from '@/hooks/use-toast';
 
 interface FileUploadProps {
   courseId?: string;
+  exerciseId?: string;
 }
 
-export default function FileUpload({ courseId }: FileUploadProps) {
+export default function FileUpload({ courseId, exerciseId }: FileUploadProps) {
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
@@ -36,7 +37,7 @@ export default function FileUpload({ courseId }: FileUploadProps) {
 
       setIsUploading(true);
       try {
-        const response = await fetch(`/api/attendance/upload?courseId=${courseId}`, {
+        const response = await fetch(`/api/attendance/upload?courseId=${courseId}&exerciseId=${exerciseId}`, {
           method: 'POST',
           body: formData,
         });

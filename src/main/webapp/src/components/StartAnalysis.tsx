@@ -87,6 +87,9 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   };
 
   const parsedCourseId = parseExerciseUrl(exerciseUrl.trim())?.courseId;
+  const parsedExerciseId = parseExerciseUrl(exerciseUrl.trim())?.exerciseId;
+  console.log("parsedCourseId", parsedCourseId)
+  console.log("parsedExerciseId", parsedExerciseId)
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
@@ -129,7 +132,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         <div className="my-6 border-t border-border" />
 
         {/* Pair Programming Attendance Upload */}
-        <FileUpload courseId={parsedCourseId} />
+        <FileUpload courseId={parsedCourseId} exerciseId={parsedExerciseId}/>
 
         <Button
           size="lg"
