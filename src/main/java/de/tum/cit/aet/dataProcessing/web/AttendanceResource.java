@@ -6,9 +6,11 @@ import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.AttendanceService;
 import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
+import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +29,7 @@ public class AttendanceResource {
     private final AttendanceService attendanceService;
     private final CryptoService cryptoService;
     private final ArtemisConfig artemisConfig;
+    private final ArtemisClientService artemisClientService;
 
     /**
      * Constructs the AttendanceResource with required dependencies.
@@ -34,15 +37,18 @@ public class AttendanceResource {
      * @param attendanceService the attendance service
      * @param cryptoService the crypto service
      * @param artemisConfig the Artemis configuration
+     * @param artemisClientService the Artemis client service
      */
     public AttendanceResource(
             AttendanceService attendanceService,
             CryptoService cryptoService,
-            ArtemisConfig artemisConfig
+            ArtemisConfig artemisConfig,
+            ArtemisClientService artemisClientService
     ) {
         this.attendanceService = attendanceService;
         this.cryptoService = cryptoService;
         this.artemisConfig = artemisConfig;
+        this.artemisClientService = artemisClientService;
     }
 
     /**
@@ -54,6 +60,9 @@ public class AttendanceResource {
      * @param serverUrl the Artemis server URL from cookies
      * @param username the username from cookies
      * @param encryptedPassword the encrypted password from cookies
+     * @param requestServerUrl optional Artemis server URL passed in the request
+     * @param requestUsername optional Artemis username passed in the request
+     * @param requestPassword optional Artemis password passed in the request
      * @param exerciseId the exercise ID
      * @return the teams schedule DTO
      */
@@ -65,7 +74,10 @@ public class AttendanceResource {
             @CookieValue(value = "jwt", required = false) String jwtToken,
             @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
             @CookieValue(value = "artemis_username", required = false) String username,
-            @CookieValue(value = "artemis_password", required = false) String encryptedPassword
+            @CookieValue(value = "artemis_password", required = false) String encryptedPassword,
+            @RequestParam(value = "serverUrl", required = false) String requestServerUrl,
+            @RequestParam(value = "username", required = false) String requestUsername,
+            @RequestParam(value = "password", required = false) String requestPassword
     ) {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().build();
@@ -75,7 +87,19 @@ public class AttendanceResource {
         ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
 
         if (!credentials.isValid()) {
-            log.info("No credentials in cookies, using config values");
+            if (StringUtils.hasText(requestServerUrl) && StringUtils.hasText(requestUsername) && StringUtils.hasText(requestPassword)) {
+                log.info("No credentials in cookies, trying request credentials");
+                try {
+                    String requestJwt = artemisClientService.authenticate(requestServerUrl, requestUsername, requestPassword);
+                    credentials = new ArtemisCredentials(requestServerUrl, requestJwt, requestUsername, requestPassword);
+                } catch (Exception e) {
+                    log.warn("Request credential authentication failed. Falling back to config values.");
+                }
+            }
+        }
+
+        if (!credentials.isValid()) {
+            log.info("No valid cookie/request credentials, using config values");
             credentials = new ArtemisCredentials(
                     artemisConfig.getBaseUrl(),
                     artemisConfig.getJwtToken(),

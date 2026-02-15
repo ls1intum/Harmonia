@@ -8,9 +8,12 @@ import { toast } from '@/hooks/use-toast';
 interface FileUploadProps {
   courseId?: string;
   exerciseId?: string;
+  serverUrl?: string;
+  username?: string;
+  password?: string;
 }
 
-export default function FileUpload({ courseId, exerciseId }: FileUploadProps) {
+export default function FileUpload({ courseId, exerciseId, serverUrl, username, password }: FileUploadProps) {
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
@@ -29,11 +32,25 @@ export default function FileUpload({ courseId, exerciseId }: FileUploadProps) {
         e.target.value = '';
         return;
       }
+      if (!serverUrl || !username || !password) {
+        setError('Please enter exercise URL, username, and password before uploading.');
+        e.target.value = '';
+        return;
+      }
 
       setError('');
 
       const formData = new FormData();
       formData.append('file', file);
+      if (serverUrl) {
+        formData.append('serverUrl', serverUrl);
+      }
+      if (username) {
+        formData.append('username', username);
+      }
+      if (password) {
+        formData.append('password', password);
+      }
 
       setIsUploading(true);
       try {

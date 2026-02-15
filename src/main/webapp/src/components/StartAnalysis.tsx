@@ -156,6 +156,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
   const parsedCourseId = parseExerciseUrl(exerciseUrl.trim())?.courseId;
   const parsedExerciseId = parseExerciseUrl(exerciseUrl.trim())?.exerciseId;
+  const parsedServerUrl = parseExerciseUrl(exerciseUrl.trim())?.baseUrl;
   console.log('parsedCourseId', parsedCourseId);
   console.log('parsedExerciseId', parsedExerciseId);
 
@@ -232,7 +233,13 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         <div className="my-6 border-t border-border" />
 
         {/* Pair Programming Attendance Upload */}
-        <FileUpload courseId={parsedCourseId} exerciseId={parsedExerciseId} />
+        <FileUpload
+          courseId={parsedCourseId}
+          exerciseId={parsedExerciseId}
+          serverUrl={parsedServerUrl}
+          username={username}
+          password={password}
+        />
 
         <Button
           size="lg"
