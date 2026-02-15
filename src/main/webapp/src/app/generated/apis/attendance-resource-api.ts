@@ -47,6 +47,9 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
      * @param {string} [artemisServerUrl]
      * @param {string} [artemisUsername]
      * @param {string} [artemisPassword]
+     * @param {string} [serverUrl]
+     * @param {string} [username]
+     * @param {string} [password]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -58,6 +61,9 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
       artemisServerUrl?: string,
       artemisUsername?: string,
       artemisPassword?: string,
+      serverUrl?: string,
+      username?: string,
+      password?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'courseId' is not null or undefined
@@ -85,6 +91,18 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
 
       if (exerciseId !== undefined) {
         localVarQueryParameter['exerciseId'] = exerciseId;
+      }
+
+      if (serverUrl !== undefined) {
+        localVarQueryParameter['serverUrl'] = serverUrl;
+      }
+
+      if (username !== undefined) {
+        localVarQueryParameter['username'] = username;
+      }
+
+      if (password !== undefined) {
+        localVarQueryParameter['password'] = password;
       }
 
       if (file !== undefined) {
@@ -121,6 +139,9 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
      * @param {string} [artemisServerUrl]
      * @param {string} [artemisUsername]
      * @param {string} [artemisPassword]
+     * @param {string} [serverUrl]
+     * @param {string} [username]
+     * @param {string} [password]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -132,6 +153,9 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
       artemisServerUrl?: string,
       artemisUsername?: string,
       artemisPassword?: string,
+      serverUrl?: string,
+      username?: string,
+      password?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TeamsScheduleDTO>> {
       const localVarAxiosArgs = await localVarAxiosParamCreator.uploadAttendance(
@@ -142,6 +166,9 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
         artemisServerUrl,
         artemisUsername,
         artemisPassword,
+        serverUrl,
+        username,
+        password,
         options,
       );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -168,6 +195,9 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
      * @param {string} [artemisServerUrl]
      * @param {string} [artemisUsername]
      * @param {string} [artemisPassword]
+     * @param {string} [serverUrl]
+     * @param {string} [username]
+     * @param {string} [password]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -179,10 +209,25 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
       artemisServerUrl?: string,
       artemisUsername?: string,
       artemisPassword?: string,
+      serverUrl?: string,
+      username?: string,
+      password?: string,
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<TeamsScheduleDTO> {
       return localVarFp
-        .uploadAttendance(courseId, exerciseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+        .uploadAttendance(
+          courseId,
+          exerciseId,
+          file,
+          jwt,
+          artemisServerUrl,
+          artemisUsername,
+          artemisPassword,
+          serverUrl,
+          username,
+          password,
+          options,
+        )
         .then(request => request(axios, basePath));
     },
   };
@@ -201,6 +246,9 @@ export class AttendanceResourceApi extends BaseAPI {
    * @param {string} [artemisServerUrl]
    * @param {string} [artemisUsername]
    * @param {string} [artemisPassword]
+   * @param {string} [serverUrl]
+   * @param {string} [username]
+   * @param {string} [password]
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
@@ -212,10 +260,25 @@ export class AttendanceResourceApi extends BaseAPI {
     artemisServerUrl?: string,
     artemisUsername?: string,
     artemisPassword?: string,
+    serverUrl?: string,
+    username?: string,
+    password?: string,
     options?: RawAxiosRequestConfig,
   ) {
     return AttendanceResourceApiFp(this.configuration)
-      .uploadAttendance(courseId, exerciseId, file, jwt, artemisServerUrl, artemisUsername, artemisPassword, options)
+      .uploadAttendance(
+        courseId,
+        exerciseId,
+        file,
+        jwt,
+        artemisServerUrl,
+        artemisUsername,
+        artemisPassword,
+        serverUrl,
+        username,
+        password,
+        options,
+      )
       .then(request => request(this.axios, this.basePath));
   }
 }

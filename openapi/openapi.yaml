@@ -100,6 +100,18 @@ paths:
         in: cookie
         required: false
         schema: {type: string}
+      - name: serverUrl
+        in: query
+        required: false
+        schema: {type: string}
+      - name: username
+        in: query
+        required: false
+        schema: {type: string}
+      - name: password
+        in: query
+        required: false
+        schema: {type: string}
       requestBody:
         content:
           multipart/form-data:

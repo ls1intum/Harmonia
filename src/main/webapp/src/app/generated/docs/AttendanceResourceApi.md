@@ -25,6 +25,9 @@ let jwt: string; // (optional) (default to undefined)
 let artemisServerUrl: string; // (optional) (default to undefined)
 let artemisUsername: string; // (optional) (default to undefined)
 let artemisPassword: string; // (optional) (default to undefined)
+let serverUrl: string; // (optional) (default to undefined)
+let username: string; // (optional) (default to undefined)
+let password: string; // (optional) (default to undefined)
 
 const { status, data } = await apiInstance.uploadAttendance(
   courseId,
@@ -34,6 +37,9 @@ const { status, data } = await apiInstance.uploadAttendance(
   artemisServerUrl,
   artemisUsername,
   artemisPassword,
+  serverUrl,
+  username,
+  password,
 );
 ```
 
@@ -48,6 +54,9 @@ const { status, data } = await apiInstance.uploadAttendance(
 | **artemisServerUrl** | [**string**] |             | (optional) defaults to undefined |
 | **artemisUsername**  | [**string**] |             | (optional) defaults to undefined |
 | **artemisPassword**  | [**string**] |             | (optional) defaults to undefined |
+| **serverUrl**        | [**string**] |             | (optional) defaults to undefined |
+| **username**         | [**string**] |             | (optional) defaults to undefined |
+| **password**         | [**string**] |             | (optional) defaults to undefined |
 
 ### Return type
 
