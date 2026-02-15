@@ -100,7 +100,10 @@ public class CQICalculatorService {
         }
 
         // Edge case: < 2/3 pair programming sessions were attended
-        if (teamName != null && !teamName.isEmpty() && !teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
+        // Only check this if pair programming attendance data was actually uploaded
+        if (teamName != null && !teamName.isEmpty()
+                && teamScheduleService.getTeamAttendance(teamName) != null
+                && !teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
             log.warn("Less then 2/3 pair programming sessions were attended.");
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }

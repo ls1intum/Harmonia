@@ -83,22 +83,31 @@ public class AttendanceResource {
             return ResponseEntity.badRequest().build();
         }
 
-        String password = CredentialUtils.decryptPassword(cryptoService, encryptedPassword);
-        ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
+        ArtemisCredentials credentials = null;
 
-        if (!credentials.isValid()) {
-            if (StringUtils.hasText(requestServerUrl) && StringUtils.hasText(requestUsername) && StringUtils.hasText(requestPassword)) {
-                log.info("No credentials in cookies, trying request credentials");
-                try {
-                    String requestJwt = artemisClientService.authenticate(requestServerUrl, requestUsername, requestPassword);
-                    credentials = new ArtemisCredentials(requestServerUrl, requestJwt, requestUsername, requestPassword);
-                } catch (Exception e) {
-                    log.warn("Request credential authentication failed. Falling back to config values.");
-                }
+        // Priority 1: Request credentials (most current - user just entered these)
+        if (StringUtils.hasText(requestServerUrl) && StringUtils.hasText(requestUsername) && StringUtils.hasText(requestPassword)) {
+            log.info("Using request credentials for attendance upload");
+            try {
+                String requestJwt = artemisClientService.authenticate(requestServerUrl, requestUsername, requestPassword);
+                credentials = new ArtemisCredentials(requestServerUrl, requestJwt, requestUsername, requestPassword);
+            } catch (Exception e) {
+                log.warn("Request credential authentication failed: {}", e.getMessage());
             }
         }
 
-        if (!credentials.isValid()) {
+        // Priority 2: Cookie credentials (may be stale or for different course)
+        if (credentials == null || !credentials.isValid()) {
+            String password = CredentialUtils.decryptPassword(cryptoService, encryptedPassword);
+            ArtemisCredentials cookieCredentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
+            if (cookieCredentials.isValid()) {
+                log.info("Using cookie credentials for attendance upload");
+                credentials = cookieCredentials;
+            }
+        }
+
+        // Priority 3: Config values (fallback)
+        if (credentials == null || !credentials.isValid()) {
             log.info("No valid cookie/request credentials, using config values");
             credentials = new ArtemisCredentials(
                     artemisConfig.getBaseUrl(),

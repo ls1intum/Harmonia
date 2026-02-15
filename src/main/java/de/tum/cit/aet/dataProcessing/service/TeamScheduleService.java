@@ -80,7 +80,7 @@ public class TeamScheduleService {
 
     public boolean isPairedAtLeastTwoOfThree(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
-        return attendance == null || attendance.pairedAtLeastTwoOfThree();
+        return attendance != null && attendance.pairedAtLeastTwoOfThree();
     }
 
     private Map<OffsetDateTime, Boolean> firstNonEmpty(

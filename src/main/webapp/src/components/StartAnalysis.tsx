@@ -1,101 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlayCircle, Loader2, RefreshCw, Cpu } from 'lucide-react';
+import { PlayCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { AttendanceResourceApi, Configuration } from '@/app/generated';
 import FileUpload from '@/components/FileUpload.tsx';
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username: string, password: string) => void;
 }
 
-interface LLMModel {
-  id: string;
-  object: string;
-  owned_by: string;
-}
+// Initialize API client for attendance upload
+const apiConfig = new Configuration({
+  basePath: window.location.origin,
+  baseOptions: {
+    withCredentials: true,
+  },
+});
+const attendanceApi = new AttendanceResourceApi(apiConfig);
 
+/**
+ * Login form component for starting repository analysis.
+ * Step 1: User enters Artemis credentials and exercise URL.
+ * Step 2: Upon successful login, uploads attendance file if provided.
+ * Step 3: Triggers navigation to Teams page.
+ */
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
-  const queryClient = useQueryClient();
-  const [selectedModel, setSelectedModel] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [exerciseUrl, setExerciseUrl] = useState('https://artemis.tum.de/courses/478/exercises/18806');
-  const [isLoading, setIsLoading] = useState(false);
+  const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
 
-  // Fetch available models from LLM server
-  const {
-    data: modelsData,
-    isLoading: isLoadingModels,
-    refetch: refetchModels,
-  } = useQuery({
-    queryKey: ['llm-models'],
-    queryFn: async () => {
-      const response = await fetch('/api/ai/models');
-      if (!response.ok) throw new Error('Failed to fetch models');
-      const data = await response.json();
-      return data.data as LLMModel[];
-    },
-    staleTime: 30 * 1000, // 30 seconds
-  });
-
-  // Fetch current model selection
-  const { data: currentModelData } = useQuery({
-    queryKey: ['current-model'],
-    queryFn: async () => {
-      const response = await fetch('/api/ai/model');
-      if (!response.ok) throw new Error('Failed to fetch current model');
-      return response.json();
-    },
-  });
-
-  // Set initial model from server
-  useEffect(() => {
-    if (currentModelData?.model && !selectedModel) {
-      setSelectedModel(currentModelData.model);
-    }
-  }, [currentModelData, selectedModel]);
-
-  // Auto-select first model if none selected
-  useEffect(() => {
-    if (modelsData && modelsData.length > 0 && !selectedModel) {
-      setSelectedModel(modelsData[0].id);
-    }
-  }, [modelsData, selectedModel]);
-
-  const handleModelChange = async (modelId: string) => {
-    setSelectedModel(modelId);
-    try {
-      const response = await fetch('/api/ai/model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: modelId }),
-      });
-      if (response.ok) {
-        toast({
-          title: 'Model updated',
-          description: `Now using ${modelId} for analysis.`,
-        });
-        queryClient.invalidateQueries({ queryKey: ['current-model'] });
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to update model',
-        description: 'Could not change the AI model.',
-      });
-    }
-  };
-
-  // helper: parse exercise URL -> { baseUrl, courseId, exerciseId }
+  // Parse exercise URL to extract baseUrl, courseId, and exerciseId
   const parseExerciseUrl = (urlString: string) => {
     try {
       const url = new URL(urlString);
       const baseUrl = `${url.protocol}//${url.host}`;
-      const path = url.pathname; // e.g. /courses/30/exercises/282
+      const path = url.pathname;
       const regex = /\/courses\/(\d+)\/exercises\/(\d+)/i;
       const match = path.match(regex);
       if (!match) return null;
@@ -104,6 +47,56 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       return null;
     }
   };
+
+  // Mutation for uploading attendance file
+  const attendanceUploadMutation = useMutation({
+    mutationFn: async (params: {
+      courseId: number;
+      exerciseId: number;
+      file: File;
+      serverUrl: string;
+      username: string;
+      password: string;
+    }) => {
+      return attendanceApi.uploadAttendance(
+        params.courseId,
+        params.exerciseId,
+        params.file,
+        undefined, // jwt (cookie)
+        undefined, // artemisServerUrl (cookie)
+        undefined, // artemisUsername (cookie)
+        undefined, // artemisPassword (cookie)
+        params.serverUrl,
+        params.username,
+        params.password,
+      );
+    },
+    onError: () => {
+      toast({
+        variant: 'destructive',
+        title: 'Attendance upload failed',
+        description: 'Could not process the attendance file. Analysis will continue without it.',
+      });
+    },
+  });
+
+  // Mutation for login
+  const loginMutation = useMutation({
+    mutationFn: async (params: { username: string; password: string; serverUrl: string; courseId: string }) => {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const error = new Error('Login failed');
+        (error as Error & { status: number }).status = response.status;
+        throw error;
+      }
+      return response;
+    },
+  });
 
   const handleStart = async () => {
     const parsed = parseExerciseUrl(exerciseUrl.trim());
@@ -118,19 +111,40 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
     const { baseUrl, courseId, exerciseId } = parsed;
 
-    setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, serverUrl: baseUrl, courseId }),
+      // Step 1: Login
+      await loginMutation.mutateAsync({
+        username,
+        password,
+        serverUrl: baseUrl,
+        courseId,
       });
 
-      if (response.ok) {
-        onStart(courseId, exerciseId, username, password);
-      } else if (response.status === 403) {
+      // Step 2: Upload attendance file if provided (after successful login)
+      if (attendanceFile) {
+        try {
+          await attendanceUploadMutation.mutateAsync({
+            courseId: parseInt(courseId),
+            exerciseId: parseInt(exerciseId),
+            file: attendanceFile,
+            serverUrl: baseUrl,
+            username,
+            password,
+          });
+          toast({
+            title: 'Attendance uploaded',
+            description: 'Pair programming attendance data was successfully processed.',
+          });
+        } catch {
+          // Error already handled in mutation onError, continue with analysis
+        }
+      }
+
+      // Step 3: Navigate to analysis
+      onStart(courseId, exerciseId, username, password);
+    } catch (error) {
+      const status = (error as Error & { status?: number }).status;
+      if (status === 403) {
         toast({
           variant: 'destructive',
           title: 'Access denied',
@@ -143,22 +157,10 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           description: 'Please check your credentials and try again.',
         });
       }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'An error occurred during login.',
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const parsedCourseId = parseExerciseUrl(exerciseUrl.trim())?.courseId;
-  const parsedExerciseId = parseExerciseUrl(exerciseUrl.trim())?.exerciseId;
-  const parsedServerUrl = parseExerciseUrl(exerciseUrl.trim())?.baseUrl;
-  console.log('parsedCourseId', parsedCourseId);
-  console.log('parsedExerciseId', parsedExerciseId);
+  const isLoading = loginMutation.isPending || attendanceUploadMutation.isPending;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
@@ -168,87 +170,53 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       </div>
 
       <div className="w-full max-w-md space-y-4 mt-4">
-        {/* Exercise URL */}
         <div className="space-y-2">
-          <Label htmlFor="exerciseUrl">Exercise URL</Label>
+          <Label htmlFor="exerciseUrl">Artemis Exercise URL</Label>
           <Input
             id="exerciseUrl"
-            type="url"
-            placeholder="https://artemis.tum.de/courses/30/exercises/282"
+            placeholder="https://artemis.../courses/30/exercises/282"
             value={exerciseUrl}
             onChange={e => setExerciseUrl(e.target.value)}
+            disabled={isLoading}
           />
         </div>
 
-        {/* Username */}
         <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
-          <Input id="username" type="text" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} />
+          <Label htmlFor="username">Artemis Username</Label>
+          <Input
+            id="username"
+            placeholder="Enter your username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            disabled={isLoading}
+          />
         </div>
 
-        {/* Password */}
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">Artemis Password</Label>
           <Input
             id="password"
             type="password"
             placeholder="Enter your password"
             value={password}
             onChange={e => setPassword(e.target.value)}
+            disabled={isLoading}
           />
         </div>
 
         <div className="my-6 border-t border-border" />
 
-        {/* AI Model Selector */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="model" className="flex items-center gap-2">
-              <Cpu className="h-4 w-4" />
-              AI Model
-            </Label>
-            <Button variant="ghost" size="sm" onClick={() => refetchModels()} disabled={isLoadingModels} className="h-8 px-2">
-              <RefreshCw className={`h-4 w-4 ${isLoadingModels ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-          <Select value={selectedModel} onValueChange={handleModelChange} disabled={isLoadingModels}>
-            <SelectTrigger id="model">
-              <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
-            </SelectTrigger>
-            <SelectContent>
-              {modelsData?.map((model: LLMModel) => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.id}
-                </SelectItem>
-              ))}
-              {(!modelsData || modelsData.length === 0) && !isLoadingModels && (
-                <SelectItem value="none" disabled>
-                  No models available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="my-6 border-t border-border" />
-
         {/* Pair Programming Attendance Upload */}
-        <FileUpload
-          courseId={parsedCourseId}
-          exerciseId={parsedExerciseId}
-          serverUrl={parsedServerUrl}
-          username={username}
-          password={password}
-        />
+        <FileUpload onFileSelect={setAttendanceFile} disabled={isLoading} />
 
         <Button
           size="lg"
           onClick={handleStart}
           disabled={!exerciseUrl || !username || !password || isLoading}
-          className="w-full mt-4 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
+          className="w-full mt-6 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
-          Login
+          {attendanceUploadMutation.isPending ? 'Uploading Attendance...' : loginMutation.isPending ? 'Logging in...' : 'Login'}
         </Button>
       </div>
     </div>
