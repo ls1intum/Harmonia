@@ -12,10 +12,9 @@
  * Do not edit the class manually.
  */
 
-export interface ComponentScoresDTO {
-  effortBalance?: number;
-  locBalance?: number;
-  ownershipSpread?: number;
-  pairProgramming?: number;
-  temporalSpread?: number;
+export interface TeamAttendanceDTO {
+  pairedAtLeastTwoOfThree?: boolean;
+  pairedSessions?: Array<string>;
+  student1Attendance?: { [key: string]: boolean };
+  student2Attendance?: { [key: string]: boolean };
 }

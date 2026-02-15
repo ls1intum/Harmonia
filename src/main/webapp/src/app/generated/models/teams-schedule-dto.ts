@@ -12,10 +12,10 @@
  * Do not edit the class manually.
  */
 
-export interface ComponentScoresDTO {
-  effortBalance?: number;
-  locBalance?: number;
-  ownershipSpread?: number;
-  pairProgramming?: number;
-  temporalSpread?: number;
+// May contain unused imports in some cases
+// @ts-ignore
+import type { TeamAttendanceDTO } from './team-attendance-dto';
+
+export interface TeamsScheduleDTO {
+  teams?: { [key: string]: TeamAttendanceDTO };
 }

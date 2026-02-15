@@ -58,6 +58,13 @@ harmonia:
       confidence-threshold: 0.7
     file-clustering:
       enabled: false
+  attendance:
+    start-row-index: 4
+    row-step: 3
+    team-name-column: 0
+    student1-columns: [ 4, 8, 12 ]
+    student2-columns: [ 5, 9, 13 ]
+    number-programming-sessions: 3
   projects:
     - id: itp-2526
       courseName: ITP

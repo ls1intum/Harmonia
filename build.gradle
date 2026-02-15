@@ -76,6 +76,9 @@ dependencies {
     // JGit
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.5.0.202512021534-r'
 
+    // Excel parsing
+    implementation 'org.apache.poi:poi-ooxml:5.4.0'
+
     // Uses patched netty version to resolve vulnerability in Spring AI
     implementation 'io.netty:netty-codec-http:4.2.9.Final'
     // Spring AI for LLM interaction
@@ -181,4 +184,3 @@ tasks.register('integrationTest', Test) {
 // 4) Apply Java code formatter:                    ./gradlew spotlessApply
 // 5) Check JavaDoc:                                ./gradlew checkstyleMain
 // 6) Find dependency updates:                      ./gradlew dependencyUpdates -Drevision=release
-

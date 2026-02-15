@@ -63,8 +63,11 @@ public class RequestService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Track active executors by exerciseId for cancellation
+    // Track active executors by exerciseId for cancellation (download/git phase)
     private final Map<Long, ExecutorService> activeExecutors = new ConcurrentHashMap<>();
+
+    // Track running stream analysis tasks by exerciseId for cancellation
+    private final Map<Long, Thread> runningStreamTasks = new ConcurrentHashMap<>();
 
     @Autowired
     public RequestService(
@@ -122,7 +125,7 @@ public class RequestService {
      * @return List of ClientResponseDTO with analysis results
      */
     public List<ClientResponseDTO> fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId,
-            int maxTeams) {
+                                                                   int maxTeams) {
         log.info("=== Starting Analysis Pipeline ===");
         log.info("Exercise ID: {}", exerciseId);
         log.info("Max teams to analyze: {}", maxTeams == Integer.MAX_VALUE ? "ALL" : maxTeams);
@@ -184,7 +187,7 @@ public class RequestService {
      * @return List of ClientResponseDTO with saved results
      */
     public List<ClientResponseDTO> saveResults(List<TeamRepositoryDTO> repositories,
-            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+                                               Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         // Note: We no longer clear the database here since we have exercise-specific
         // filtering. Users can manually clear data using the "Clear Data" button which
         // calls clearDatabaseForExercise(exerciseId).
@@ -204,15 +207,18 @@ public class RequestService {
     }
 
     /**
-     * Stops a running analysis by interrupting its executor.
+     * Stops a running analysis by interrupting its executor and stream thread.
      * This should be called when the user cancels an analysis.
      *
      * @param exerciseId the exercise ID to stop analysis for
      */
     public void stopAnalysis(Long exerciseId) {
+        log.info("Stopping analysis for exercise {}", exerciseId);
+
+        // Stop the download/git analysis executor
         ExecutorService executor = activeExecutors.remove(exerciseId);
         if (executor != null) {
-            log.info("Stopping active analysis for exercise {}", exerciseId);
+            log.info("Shutting down executor for exercise {}", exerciseId);
             executor.shutdownNow();
             try {
                 if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
@@ -222,8 +228,13 @@ public class RequestService {
                 Thread.currentThread().interrupt();
                 log.warn("Interrupted while stopping executor for exercise {}", exerciseId);
             }
-        } else {
-            log.debug("No active executor found for exercise {}", exerciseId);
+        }
+
+        // Interrupt the main stream analysis thread (this stops AI analysis phase)
+        Thread streamThread = runningStreamTasks.remove(exerciseId);
+        if (streamThread != null && streamThread.isAlive()) {
+            log.info("Interrupting stream analysis thread for exercise {}", exerciseId);
+            streamThread.interrupt();
         }
     }
 
@@ -292,7 +303,7 @@ public class RequestService {
      * @return Client response DTO with git metrics (no CQI)
      */
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
-            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+                                                   Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         // Step 1: Save tutor information
         Tutor tutor = ensureTutor(repo.participation().team());
 
@@ -358,12 +369,13 @@ public class RequestService {
             // Apply pre-filter to remove trivial commits
             CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
 
-            // Calculate git-only components (locBalance, temporalSpread, ownershipSpread)
+            // Calculate git-only components (locBalance, temporalSpread, ownershipSpread, pairProgramming)
             var gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
                     filterResult.chunksToAnalyze(),
                     students.size(),
                     null,  // projectStart - will be determined from commits
-                    null   // projectEnd - will be determined from commits
+                    null,  // projectEnd - will be determined from commits
+                    team.name()  // teamName for pair programming calculation
             );
 
             // Store git-based components
@@ -371,13 +383,20 @@ public class RequestService {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
+                if (gitComponents.pairProgramming() != null) {
+                    teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
+                }
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
                 gitCqiDetails = CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
 
-                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}",
-                        team.name(), gitComponents.locBalance(), gitComponents.temporalSpread(), gitComponents.ownershipSpread());
+                log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}, PairProgramming={}",
+                        team.name(),
+                        gitComponents.locBalance(),
+                        gitComponents.temporalSpread(),
+                        gitComponents.ownershipSpread(),
+                        gitComponents.pairProgramming() != null ? String.format("%.1f", gitComponents.pairProgramming()) : "N/A");
             }
         } catch (Exception e) {
             log.warn("Failed to calculate git-only metrics for team {}: {}", team.name(), e.getMessage());
@@ -565,12 +584,12 @@ public class RequestService {
      * @return Client response DTO with calculated metrics
      */
     public ClientResponseDTO saveSingleResult(TeamRepositoryDTO repo,
-            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+                                              Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         return saveSingleResultWithUsage(repo, contributionData, exerciseId).response();
     }
 
     private ClientResponseWithUsage saveSingleResultWithUsage(TeamRepositoryDTO repo,
-            Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
+                                                              Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         // Step 1: Save tutor information
         Tutor tutor = ensureTutor(repo.participation().team());
 
@@ -777,7 +796,10 @@ public class RequestService {
      * @param eventEmitter Consumer to emit progress events
      */
     public void fetchAnalyzeAndSaveRepositoriesStream(ArtemisCredentials credentials, Long exerciseId,
-            java.util.function.Consumer<Object> eventEmitter) {
+                                                      java.util.function.Consumer<Object> eventEmitter) {
+        // Track this thread for cancellation
+        runningStreamTasks.put(exerciseId, Thread.currentThread());
+
         ExecutorService executor = null;
         try {
             // Step 0: Clear all existing data for this exercise to ensure clean state
@@ -920,8 +942,8 @@ public class RequestService {
                     } catch (Exception e) {
                         // Check if this was an interrupt (analysis cancelled) vs a real error
                         boolean isInterrupt = Thread.currentThread().isInterrupted() ||
-                                              e.getCause() instanceof InterruptedException ||
-                                              (e.getCause() != null && e.getCause().getCause() instanceof java.nio.channels.ClosedByInterruptException);
+                                e.getCause() instanceof InterruptedException ||
+                                (e.getCause() != null && e.getCause().getCause() instanceof java.nio.channels.ClosedByInterruptException);
 
                         if (isInterrupt) {
                             log.info("Download/analysis interrupted for team {} (analysis likely cancelled)",
@@ -979,7 +1001,8 @@ public class RequestService {
             LlmTokenTotals runTokenTotals = LlmTokenTotals.empty();
 
             for (ParticipationDTO participation : validParticipations) {
-                if (!analysisStateService.isRunning(exerciseId)) {
+                // Check for cancellation (both state-based and interrupt-based)
+                if (!analysisStateService.isRunning(exerciseId) || Thread.currentThread().isInterrupted()) {
                     log.info("Analysis cancelled during AI analysis phase");
                     break;
                 }
@@ -1056,8 +1079,9 @@ public class RequestService {
             analysisStateService.failAnalysis(exerciseId, e.getMessage());
             eventEmitter.accept(Map.of("type", "ERROR", "message", e.getMessage()));
         } finally {
-            // Remove from active executors
+            // Remove from tracking maps
             activeExecutors.remove(exerciseId);
+            runningStreamTasks.remove(exerciseId);
 
             // Shutdown executor if still running
             if (executor != null && !executor.isShutdown()) {
@@ -1394,7 +1418,7 @@ public class RequestService {
                                     chunk.getLlmTotalTokens() != null
                                             ? chunk.getLlmTotalTokens()
                                             : (chunk.getLlmPromptTokens() != null ? chunk.getLlmPromptTokens() : 0L)
-                                                    + (chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L),
+                                            + (chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L),
                                     Boolean.TRUE.equals(chunk.getLlmUsageAvailable()))))
                     .toList();
         } catch (Exception e) {
@@ -1467,7 +1491,8 @@ public class RequestService {
                 participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
-                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0);
+                participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
+                participation.getCqiPairProgramming());
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
