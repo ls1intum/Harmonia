@@ -83,16 +83,18 @@ public class CQICalculatorService {
             FilterSummaryDTO filterSummary,
             String teamName) {
 
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+
         // Edge case: single contributor
         if (teamSize <= 1) {
             log.info("Single contributor detected - CQI = 0");
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         // Edge case: no commits to analyze
         if (ratedChunks == null || ratedChunks.isEmpty()) {
             log.warn("No rated commits provided");
-            return CQIResultDTO.noProductiveWork(filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
 
         // Edge case: < 2/3 pair programming sessions were attended
@@ -109,7 +111,7 @@ public class CQICalculatorService {
         // Check if we have actual contributors
         if (effortByAuthor.size() <= 1) {
             log.info("Only one contributor found in commits - CQI = 0");
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         // Calculate component scores
@@ -124,7 +126,9 @@ public class CQICalculatorService {
         log.debug("Component scores: {}", components.toSummary());
 
         // Calculate base score (weighted sum)
-        double baseScore = components.weightedSum(W_EFFORT, W_LOC, W_TEMPORAL, W_OWNERSHIP);
+        CQIConfig.Weights weights = cqiConfig.getWeights();
+        double baseScore = components.weightedSum(
+                weights.getEffort(), weights.getLoc(), weights.getTemporal(), weights.getOwnership());
 
         // Calculate penalties
         List<CQIPenaltyDTO> penalties = calculatePenalties(
@@ -143,7 +147,7 @@ public class CQICalculatorService {
                 String.format("%.1f", baseScore),
                 String.format("%.2f", penaltyMultiplier));
 
-        return new CQIResultDTO(cqi, components, penalties, baseScore, penaltyMultiplier, filterSummary);
+        return new CQIResultDTO(cqi, components, weightsDTO, penalties, baseScore, penaltyMultiplier, filterSummary);
     }
 
     /**
@@ -162,12 +166,14 @@ public class CQICalculatorService {
             int teamSize,
             FilterSummaryDTO filterSummary) {
 
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         if (chunks == null || chunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
 
         // Aggregate LoC by author from raw chunks
@@ -179,14 +185,14 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor();
+            return CQIResultDTO.singleContributor(weightsDTO);
         }
 
         double locScore = calculateLocBalance(locByAuthor);
 
         log.info("Fallback CQI calculated (LoC only): {}", String.format("%.1f", locScore));
 
-        return CQIResultDTO.fallback(locScore, filterSummary);
+        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary);
     }
 
     /**
@@ -327,6 +333,16 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd) {
         return calculateGitOnlyComponents(chunks, teamSize, projectStart, projectEnd, null);
+    }
+
+    /**
+     * Build a {@link ComponentWeightsDTO} from the current configuration.
+     *
+     * @return DTO containing the configured weights for all CQI components
+     */
+    public ComponentWeightsDTO buildWeightsDTO() {
+        CQIConfig.Weights w = cqiConfig.getWeights();
+        return new ComponentWeightsDTO(w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership());
     }
 
     /**

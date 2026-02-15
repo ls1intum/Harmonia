@@ -20,6 +20,9 @@ import type { CQIPenaltyDTO } from './cqipenalty-dto';
 import type { ComponentScoresDTO } from './component-scores-dto';
 // May contain unused imports in some cases
 // @ts-ignore
+import type { ComponentWeightsDTO } from './component-weights-dto';
+// May contain unused imports in some cases
+// @ts-ignore
 import type { FilterSummaryDTO } from './filter-summary-dto';
 
 export interface CQIResultDTO {
@@ -29,4 +32,5 @@ export interface CQIResultDTO {
   filterSummary?: FilterSummaryDTO;
   penalties?: Array<CQIPenaltyDTO>;
   penaltyMultiplier?: number;
+  weights?: ComponentWeightsDTO;
 }

@@ -10,6 +10,7 @@
 | **filterSummary**     | [**FilterSummaryDTO**](FilterSummaryDTO.md)        |             | [optional] [default to undefined] |
 | **penalties**         | [**Array&lt;CQIPenaltyDTO&gt;**](CQIPenaltyDTO.md) |             | [optional] [default to undefined] |
 | **penaltyMultiplier** | **number**                                         |             | [optional] [default to undefined] |
+| **weights**           | [**ComponentWeightsDTO**](ComponentWeightsDTO.md)  |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -23,6 +24,7 @@ const instance: CQIResultDTO = {
   filterSummary,
   penalties,
   penaltyMultiplier,
+  weights,
 };
 ```
 

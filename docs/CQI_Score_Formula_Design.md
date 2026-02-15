@@ -27,14 +27,14 @@ $$
 
 Where:
 $$
-\text{BASE\_SCORE} = 0.40 \cdot S_{\text{effort}} + 0.25 \cdot S_{\text{loc}} + 0.20 \cdot S_{\text{temporal}} + 0.15 \cdot S_{\text{ownership}}
+\text{BASE\_SCORE} = 0.55 \cdot S_{\text{effort}} + 0.25 \cdot S_{\text{loc}} + 0.05 \cdot S_{\text{temporal}} + 0.15 \cdot S_{\text{ownership}}
 $$
 
 | Component | Weight | What it measures |
 |-----------|--------|------------------|
-| **Effort Balance** | 40% | LLM-weighted effort distribution (quality-aware) |
+| **Effort Balance** | 55% | LLM-weighted effort distribution (quality-aware) |
 | **LoC Balance** | 25% | Raw lines of code distribution |
-| **Temporal Spread** | 20% | Work spread over project duration |
+| **Temporal Spread** | 5% | Work spread over project duration |
 | **Ownership Spread** | 15% | Files shared among team members |
 
 ### 1.2 Penalty Multipliers
@@ -162,7 +162,7 @@ After LLM analysis, **no additional filtering is applied**:
 
 ## 3. CQI Components
 
-### 3.1 Effort Balance Score ($S_{\text{effort}}$) — Weight: 40%
+### 3.1 Effort Balance Score ($S_{\text{effort}}$) — Weight: 55%
 
 **Input:** Filtered commits with LLM effort ratings
 
@@ -250,7 +250,7 @@ public double calculateLocBalance(Map<Long, Integer> locByAuthor) {
 
 ---
 
-### 3.3 Temporal Spread Score ($S_{\text{temporal}}$) — Weight: 20%
+### 3.3 Temporal Spread Score ($S_{\text{temporal}}$) — Weight: 5%
 
 **Input:** Commit timestamps from filtered chunks
 
@@ -433,9 +433,9 @@ All weights, thresholds, and penalties are configurable via `application.yml`:
 harmonia:
   cqi:
     weights:
-      effort: 0.40
+      effort: 0.55
       loc: 0.25
-      temporal: 0.20
+      temporal: 0.05
       ownership: 0.15
     thresholds:
       solo-development: 0.85
@@ -484,7 +484,7 @@ cqi = result.cqi();
 | RequestService Integration | 🔜 TODO | Connect to existing pipeline |
 
 **Components:**
-- 4 components: Effort (40%), LoC (25%), Temporal (20%), Ownership (15%)
+- 4 components: Effort (55%), LoC (25%), Temporal (5%), Ownership (15%)
 - 5 penalties: Solo, Imbalance, Trivial, Confidence, Late Work
 - Pre-filtering: Empty, Merge, Auto-gen, Copy-paste, Trivial
 
