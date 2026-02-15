@@ -374,7 +374,7 @@ public class RequestService {
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
-                gitCqiDetails = CQIResultDTO.gitOnly(gitComponents, filterResult.summary());
+                gitCqiDetails = CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
 
                 log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}",
                         team.name(), gitComponents.locBalance(), gitComponents.temporalSpread(), gitComponents.ownershipSpread());
@@ -1476,6 +1476,7 @@ public class RequestService {
         return new CQIResultDTO(
                 participation.getCqi() != null ? participation.getCqi() : 0.0,
                 components,
+                cqiCalculatorService.buildWeightsDTO(),
                 penalties,
                 participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
                 participation.getCqiPenaltyMultiplier() != null ? participation.getCqiPenaltyMultiplier() : 1.0,
