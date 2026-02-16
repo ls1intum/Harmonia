@@ -1,6 +1,7 @@
 import type { SubMetric } from '@/types/team';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { AlertTriangle } from 'lucide-react';
 
 interface MetricCardProps {
   metric: SubMetric;
@@ -8,6 +9,7 @@ interface MetricCardProps {
 
 const MetricCard = ({ metric }: MetricCardProps) => {
   const isPending = metric.value === -1;
+  const isNotFound = metric.value === -2 || metric.status === 'NOT_FOUND';
 
   const getProgressColor = (value: number) => {
     if (value >= 80) return 'bg-success';
@@ -16,7 +18,9 @@ const MetricCard = ({ metric }: MetricCardProps) => {
   };
 
   return (
-    <Card className={`shadow-card hover:shadow-elevated transition-shadow ${isPending ? 'opacity-75' : ''}`}>
+    <Card
+      className={`shadow-card hover:shadow-elevated transition-shadow ${isPending ? 'opacity-75' : ''} ${isNotFound ? 'border-amber-500/50' : ''}`}
+    >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
@@ -24,7 +28,15 @@ const MetricCard = ({ metric }: MetricCardProps) => {
             <CardDescription className="text-sm">{metric.description}</CardDescription>
           </div>
           <div className="flex flex-col items-end gap-1 ml-4">
-            {isPending ? (
+            {isNotFound ? (
+              <>
+                <span className="text-xl font-bold text-amber-500 flex items-center gap-1">
+                  <AlertTriangle className="h-5 w-5" />
+                  Not Found
+                </span>
+                <span className="text-xs text-amber-500">Check Excel</span>
+              </>
+            ) : isPending ? (
               <>
                 <span className="text-xl font-bold text-amber-500">Pending</span>
                 <span className="text-xs text-amber-500">AI Analysis</span>
@@ -42,13 +54,19 @@ const MetricCard = ({ metric }: MetricCardProps) => {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Score</span>
-            {isPending ? (
+            {isNotFound ? (
+              <span className="font-medium text-amber-500">Team not in Excel</span>
+            ) : isPending ? (
               <span className="font-medium text-amber-500">Waiting for AI</span>
             ) : (
               <span className="font-medium">{metric.value}/100</span>
             )}
           </div>
-          {isPending ? (
+          {isNotFound ? (
+            <div className="h-2 bg-amber-500/20 rounded-full overflow-hidden">
+              <div className="h-full bg-amber-500/50 w-full"></div>
+            </div>
+          ) : isPending ? (
             <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
               <div className="h-full bg-amber-500/30 animate-pulse w-full"></div>
             </div>
@@ -63,7 +81,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
               .filter(s => s.trim())
               .map((sentence, idx) => (
                 <p key={idx} className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
+                  <span className={isNotFound ? 'text-amber-500 mt-0.5' : 'text-primary mt-0.5'}>•</span>
                   <span>{sentence.trim()}</span>
                 </p>
               ))}

@@ -13,3 +13,5 @@ export * from './orphan-commit-dto';
 export * from './project';
 export * from './sse-emitter';
 export * from './student-analysis-dto';
+export * from './team-attendance-dto';
+export * from './teams-schedule-dto';

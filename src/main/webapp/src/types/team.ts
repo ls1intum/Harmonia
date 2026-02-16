@@ -6,6 +6,7 @@ export interface SubMetric {
   weight: number;
   description: string;
   details: string;
+  status?: 'FOUND' | 'NOT_FOUND' | null; // For pair programming: FOUND = team in Excel, NOT_FOUND = Excel uploaded but team missing
 }
 
 export interface BasicMetrics {

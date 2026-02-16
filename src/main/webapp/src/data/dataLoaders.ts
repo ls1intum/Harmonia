@@ -125,7 +125,11 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
 
   // Generate sub-metrics from CQI details if available
   // For git-only data, show the available metrics and mark effortBalance as pending
+  // Pair programming: show card if status is FOUND or NOT_FOUND (Excel was uploaded)
   const weights = serverCqiDetails?.weights;
+  const pairProgrammingStatus = serverCqiDetails?.components?.pairProgrammingStatus;
+  const showPairProgramming = pairProgrammingStatus === 'FOUND' || pairProgrammingStatus === 'NOT_FOUND';
+
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? [
         {
@@ -158,6 +162,21 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
+        ...(showPairProgramming
+          ? [
+              {
+                name: 'Pair Programming',
+                value: pairProgrammingStatus === 'FOUND' ? Math.round(serverCqiDetails.components.pairProgramming ?? 0) : -2, // -2 indicates NOT_FOUND
+                weight: 0,
+                description: 'Did both students commit during pair programming sessions?',
+                details:
+                  pairProgrammingStatus === 'FOUND'
+                    ? 'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.'
+                    : 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
+                status: pairProgrammingStatus as 'FOUND' | 'NOT_FOUND',
+              },
+            ]
+          : []),
       ]
     : undefined;
 

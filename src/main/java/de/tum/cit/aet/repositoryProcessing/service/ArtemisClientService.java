@@ -4,6 +4,7 @@ import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.exceptions.ArtemisConnectionException;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
+import tools.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
@@ -12,7 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -284,5 +290,158 @@ public class ArtemisClientService {
             log.info("Error while verifying instructor membership", e);
             return false;
         }
+    }
+
+    /**
+     * Fetches the submission deadline for a given exercise
+     *
+     * @param serverUrl The base Artemis server URL (scheme+host)
+     * @param jwtToken  The JWT token used as cookie (without the "jwt=" prefix)
+     * @param exerciseId  The numeric exerciseId id to check
+     * @return The deadline of the exercise we're checking
+     */
+    public OffsetDateTime fetchSubmissionDeadline(
+            String serverUrl,
+            String jwtToken,
+            Long exerciseId
+    ) {
+        log.info("Fetching submission deadline for exercise {} from {}", exerciseId, serverUrl);
+
+        String uri = String.format("/api/exercise/exercises/%d/latest-due-date", exerciseId);
+        try {
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            JsonNode response = dynamicClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (response == null || response.isNull()) {
+                return null;
+            }
+
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(response.asString());
+            ZonedDateTime berlinTime = zonedDateTime.withZoneSameInstant(ZoneId.of("Europe/Berlin"));
+            log.info("Fetched submission deadline for exercise {} - {}", exerciseId, berlinTime);
+
+            return berlinTime.toOffsetDateTime();
+
+
+        } catch (Exception e) {
+            log.error("Error fetching submission deadline for exercise {}", exerciseId, e);
+            throw new ArtemisConnectionException("Failed to fetch tutorial groups", e);
+        }
+    }
+
+    /**
+     * Fetches tutorial groups and returns a mapping from group name to session start times.
+     *
+     * @param serverUrl The Artemis server URL
+     * @param jwtToken  The JWT token for authentication
+     * @param courseId  The course ID to fetch tutorial groups for
+     * @return Map of tutorial group name to list of session start times
+     */
+    public Map<String, List<OffsetDateTime>> fetchTutorialGroupSessionStartTimes(
+            String serverUrl,
+            String jwtToken,
+            Long courseId
+    ) {
+        log.info("Fetching tutorial groups for course {} from {}", courseId, serverUrl);
+
+        String uri = String.format("/api/tutorialgroup/courses/%d/tutorial-groups", courseId);
+        try {
+            RestClient dynamicClient = RestClient.builder()
+                    .baseUrl(serverUrl)
+                    .defaultHeader("Cookie", "jwt=" + jwtToken)
+                    .build();
+
+            JsonNode response = dynamicClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (response == null || !response.isArray()) {
+                log.warn("Unexpected tutorial group response shape");
+                return Map.of();
+            }
+
+            Map<String, List<OffsetDateTime>> result = new HashMap<>();
+            for (JsonNode groupNode : response) {
+                String groupName = firstNonBlank(groupNode, "title", "name", "tutorialGroupName");
+                if (groupName == null || groupName.isBlank()) {
+                    continue;
+                }
+
+                List<OffsetDateTime> sessions = extractSessionStartTimes(groupNode);
+                result.put(groupName, sessions);
+            }
+
+            log.info("Fetched {} tutorial groups", result.size());
+            return result;
+        } catch (Exception e) {
+            log.error("Error fetching tutorial groups for course {}", courseId, e);
+            throw new ArtemisConnectionException("Failed to fetch tutorial groups", e);
+        }
+    }
+
+    private List<OffsetDateTime> extractSessionStartTimes(JsonNode groupNode) {
+        List<OffsetDateTime> sessions = new ArrayList<>();
+
+        JsonNode sessionsNode = groupNode.get("tutorialGroupSessions");
+        if (sessionsNode == null || !sessionsNode.isArray()) {
+            sessionsNode = groupNode.get("sessions");
+        }
+        if ((sessionsNode == null || !sessionsNode.isArray())) {
+            JsonNode scheduleNode = groupNode.get("tutorialGroupSchedule");
+            if (scheduleNode != null && !scheduleNode.isNull()) {
+                sessionsNode = scheduleNode.get("tutorialGroupSessions");
+                if (sessionsNode == null || !sessionsNode.isArray()) {
+                    sessionsNode = scheduleNode.get("sessions");
+                }
+            }
+        }
+
+        if (sessionsNode == null || !sessionsNode.isArray()) {
+            return sessions;
+        }
+
+        for (JsonNode sessionNode : sessionsNode) {
+            String startValue = firstNonBlank(sessionNode, "start", "session_start");
+            if (startValue == null || startValue.isBlank()) {
+                continue;
+            }
+            OffsetDateTime parsed = parseOffsetDateTime(startValue);
+            if (parsed != null) {
+                sessions.add(parsed);
+            }
+        }
+
+        return sessions;
+    }
+
+    private String firstNonBlank(JsonNode node, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            JsonNode valueNode = node.get(fieldName);
+            if (valueNode != null && !valueNode.isNull()) {
+                String value = valueNode.asString();
+                if (value != null && !value.isBlank()) {
+                    return value;
+                }
+            }
+        }
+        return null;
+    }
+
+    private OffsetDateTime parseOffsetDateTime(String value) {
+        try {
+            OffsetDateTime parsed = OffsetDateTime.parse(value);
+            return parsed.atZoneSameInstant(ZoneId.of("Europe/Berlin")).toOffsetDateTime();
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+
     }
 }

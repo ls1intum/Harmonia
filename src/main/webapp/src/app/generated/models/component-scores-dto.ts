@@ -16,5 +16,7 @@ export interface ComponentScoresDTO {
   effortBalance?: number;
   locBalance?: number;
   ownershipSpread?: number;
+  pairProgramming?: number;
+  pairProgrammingStatus?: string;
   temporalSpread?: number;
 }

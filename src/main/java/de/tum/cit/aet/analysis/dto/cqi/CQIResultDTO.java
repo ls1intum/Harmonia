@@ -37,6 +37,21 @@ public record CQIResultDTO(
     }
 
     /**
+     * Create result when < 2/3 pair programming sessions were attended
+     */
+    public static CQIResultDTO noPairProgramming(ComponentWeightsDTO weights) {
+        return new CQIResultDTO(
+                0.0, // No collaboration
+                ComponentScoresDTO.zero(),
+                weights,
+                List.of(), // No penalties
+                0.0,
+                1.0,
+                null);
+    }
+
+
+    /**
      * Create result when no productive work was found.
      */
     public static CQIResultDTO noProductiveWork(ComponentWeightsDTO weights, FilterSummaryDTO filterSummary) {
@@ -56,7 +71,7 @@ public record CQIResultDTO(
     public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary) {
         return new CQIResultDTO(
                 locScore,
-                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0),
+                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, null),
                 weights,
                 List.of(), // No penalties
                 locScore,

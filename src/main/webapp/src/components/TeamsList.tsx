@@ -23,6 +23,10 @@ interface TeamsListProps {
   exercise: string;
   analysisStatus: AnalysisStatus;
   isLoading?: boolean;
+  isStarting?: boolean;
+  isCancelling?: boolean;
+  isRecomputing?: boolean;
+  isClearing?: boolean;
 }
 
 const TeamsList = ({
@@ -37,6 +41,10 @@ const TeamsList = ({
   exercise,
   analysisStatus,
   isLoading = false,
+  isStarting = false,
+  isCancelling = false,
+  isRecomputing = false,
+  isClearing = false,
 }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -213,24 +221,24 @@ const TeamsList = ({
       case 'IDLE':
       case 'CANCELLED':
         return (
-          <Button onClick={onStart}>
-            <Play className="h-4 w-4" />
-            Start Analysis
+          <Button onClick={onStart} disabled={isStarting || isClearing}>
+            {isStarting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {isStarting ? 'Starting...' : 'Start Analysis'}
           </Button>
         );
       case 'RUNNING':
         return (
-          <Button variant="destructive" onClick={onCancel}>
-            <Square className="h-4 w-4" />
-            Cancel
+          <Button variant="destructive" onClick={onCancel} disabled={isCancelling}>
+            {isCancelling ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+            {isCancelling ? 'Cancelling...' : 'Cancel'}
           </Button>
         );
       case 'DONE':
       case 'ERROR':
         return (
-          <Button variant="secondary" onClick={onRecompute}>
-            <RefreshCw className="h-4 w-4" />
-            Force Recompute
+          <Button variant="secondary" onClick={onRecompute} disabled={isRecomputing || isClearing}>
+            <RefreshCw className={`h-4 w-4 ${isRecomputing ? 'animate-spin' : ''}`} />
+            {isRecomputing ? 'Recomputing...' : 'Force Recompute'}
           </Button>
         );
     }
@@ -310,9 +318,13 @@ const TeamsList = ({
             </span>
           </Button>
           {renderActionButton()}
-          <Button variant="outline" onClick={() => handleClearClick('both')} disabled={analysisStatus.state === 'RUNNING'}>
-            <Trash2 className="h-4 w-4" />
-            Clear Data
+          <Button
+            variant="outline"
+            onClick={() => handleClearClick('both')}
+            disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}
+          >
+            {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {isClearing ? 'Clearing...' : 'Clear Data'}
           </Button>
         </div>
       </div>

@@ -4,11 +4,13 @@ import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
+import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,16 +33,8 @@ import java.util.stream.Collectors;
 public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
-
-    // Penalty thresholds
-    private static final double SOLO_DEV_THRESHOLD = 0.85;          // >85% = solo development
-    private static final double SEVERE_IMBALANCE_THRESHOLD = 0.70;  // >70% = severe imbalance
-    private static final double HIGH_TRIVIAL_THRESHOLD = 0.50;      // >50% trivial commits
-    private static final double LOW_CONFIDENCE_THRESHOLD = 0.40;    // >40% low confidence
-    private static final double LATE_WORK_THRESHOLD = 0.50;         // >50% work in final 20%
-
-    // Confidence threshold
-    private static final double LOW_CONFIDENCE_VALUE = 0.6;
+    private final TeamScheduleService teamScheduleService;
+    private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
      * Input for CQI calculation: rated commit chunk.
@@ -59,6 +53,7 @@ public class CQICalculatorService {
      * @param projectStart  Project start date
      * @param projectEnd    Project end date
      * @param filterSummary Summary from pre-filtering (optional)
+     * @param teamName      The team name
      * @return CQI result with component scores and penalties
      */
     public CQIResultDTO calculate(
@@ -66,7 +61,8 @@ public class CQICalculatorService {
             int teamSize,
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
-            FilterSummaryDTO filterSummary) {
+            FilterSummaryDTO filterSummary,
+            String teamName) {
 
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
 
@@ -80,6 +76,15 @@ public class CQICalculatorService {
         if (ratedChunks == null || ratedChunks.isEmpty()) {
             log.warn("No rated commits provided");
             return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+        }
+
+        // Edge case: < 2/3 pair programming sessions were attended
+        // Only check this if pair programming attendance data was actually uploaded
+        if (teamName != null && !teamName.isEmpty()
+                && teamScheduleService.getTeamAttendance(teamName) != null
+                && !teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
+            log.warn("Less then 2/3 pair programming sessions were attended.");
+            return CQIResultDTO.noPairProgramming(weightsDTO);
         }
 
         // Aggregate metrics by author
@@ -100,7 +105,7 @@ public class CQICalculatorService {
         double ownershipScore = calculateOwnershipSpread(ratedChunks, teamSize);
 
         ComponentScoresDTO components = new ComponentScoresDTO(
-                effortScore, locScore, temporalScore, ownershipScore);
+                effortScore, locScore, temporalScore, ownershipScore, null, null);
 
         log.debug("Component scores: {}", components.toSummary());
 
@@ -178,20 +183,27 @@ public class CQICalculatorService {
      * Calculate only the git-based component scores (no AI/LLM required).
      * This can be called immediately after git analysis to show partial metrics.
      * <p>
-     * Calculates: LoC Balance, Temporal Spread, and Ownership Spread.
-     * Effort Balance requires AI and will be 0.
+     * Calculates:
+     * - LoC Balance (25%): Distribution of lines of code
+     * - Temporal Spread (20%): How work is spread over time
+     * - Ownership Spread (15%): How files are shared among team members
+     * - Pair Programming (10%, optional): Collaboration during paired sessions
+     * <p>
+     * Effort Balance (40%) requires AI and will be 0.
      *
      * @param chunks       Pre-filtered commit chunks (not rated)
      * @param teamSize     Number of team members
      * @param projectStart Project start date (optional, uses first commit if null)
      * @param projectEnd   Project end date (optional, uses last commit if null)
+     * @param teamName     Team name for retrieving paired session data (optional)
      * @return Component scores with only git-based metrics filled in
      */
     public ComponentScoresDTO calculateGitOnlyComponents(
             List<CommitChunkDTO> chunks,
             int teamSize,
             LocalDateTime projectStart,
-            LocalDateTime projectEnd) {
+            LocalDateTime projectEnd,
+            String teamName) {
 
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
             return ComponentScoresDTO.zero();
@@ -239,13 +251,85 @@ public class CQICalculatorService {
         // Calculate ownership spread using raw chunks
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
-        log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}",
+        // Calculate pair programming score if team name is provided
+        Double pairProgrammingScore = null;
+        String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = team in Excel, "NOT_FOUND" = Excel uploaded but team missing
+        log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
+        if (teamName != null && teamSize == 2) {
+            try {
+                // Check if attendance data was uploaded at all
+                boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
+
+                Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
+                Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
+
+                // Log all session dates for verification
+                log.info("=== Pair Programming Session Dates for team '{}' ===", teamName);
+                log.info("Total sessions: {}", allSessions.size());
+                allSessions.stream().sorted().forEach(date ->
+                        log.info("  All session: {}", date));
+
+                log.info("Paired sessions (both students attended): {}", pairedSessions.size());
+                pairedSessions.stream().sorted().forEach(date ->
+                        log.info("  Paired session: {}", date));
+
+                if (pairedSessions != null && !pairedSessions.isEmpty() && allSessions != null && !allSessions.isEmpty()) {
+                    pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
+                            pairedSessions, allSessions, chunks, teamSize);
+                    pairProgrammingStatus = "FOUND";
+                    log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
+                            teamName,
+                            pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
+                } else {
+                    // Check if team was not found in Excel vs no Excel uploaded
+                    if (hasAttendanceData) {
+                        pairProgrammingStatus = "NOT_FOUND";
+                        log.info("Team '{}' not found in attendance Excel file", teamName);
+                    } else {
+                        log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
+                    }
+                    log.info("No paired sessions or class dates found for team {}: paired={}, all={}",
+                            teamName, pairedSessions != null ? pairedSessions.size() : 0,
+                            allSessions != null ? allSessions.size() : 0);
+                }
+            } catch (Exception e) {
+                log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
+            }
+        } else {
+            if (teamName == null) {
+                log.info("calculateGitOnlyComponents: teamName is null, skipping pair programming calculation");
+            } else if (teamSize != 2) {
+                log.info("calculateGitOnlyComponents: teamSize={} (not 2), skipping pair programming calculation", teamSize);
+            }
+        }
+
+        log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}, PairProgramming={}, Status={}",
                 String.format("%.1f", locScore),
                 String.format("%.1f", temporalScore),
-                String.format("%.1f", ownershipScore));
+                String.format("%.1f", ownershipScore),
+                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "N/A",
+                pairProgrammingStatus);
 
         // effortBalance = 0 because it requires AI
-        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore);
+        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
+    }
+
+    /**
+     * Backward compatible overload for calculateGitOnlyComponents without teamName.
+     * Use the 5-parameter version when pair programming needs to be calculated.
+     *
+     * @param chunks List of raw commit chunks from repository
+     * @param teamSize Number of team members
+     * @param projectStart Start date/time of the project
+     * @param projectEnd End date/time of the project
+     * @return ComponentScoresDTO containing git-based metrics (locBalance, temporalSpread, ownershipSpread)
+     */
+    public ComponentScoresDTO calculateGitOnlyComponents(
+            List<CommitChunkDTO> chunks,
+            int teamSize,
+            LocalDateTime projectStart,
+            LocalDateTime projectEnd) {
+        return calculateGitOnlyComponents(chunks, teamSize, projectStart, projectEnd, null);
     }
 
     /**
@@ -262,8 +346,8 @@ public class CQICalculatorService {
      * Calculate temporal spread from raw commit chunks (no AI rating needed).
      */
     private double calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
-                                                      LocalDateTime projectStart,
-                                                      LocalDateTime projectEnd) {
+                                                     LocalDateTime projectStart,
+                                                     LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
             return 50.0; // Neutral score if no temporal data
         }

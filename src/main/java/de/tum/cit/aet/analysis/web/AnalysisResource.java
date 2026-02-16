@@ -4,6 +4,7 @@ import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,10 +23,12 @@ public class AnalysisResource {
 
     private final AnalysisStateService stateService;
     private final RequestService requestService;
+    private final TeamScheduleService teamScheduleService;
 
-    public AnalysisResource(AnalysisStateService stateService, RequestService requestService) {
+    public AnalysisResource(AnalysisStateService stateService, RequestService requestService, TeamScheduleService teamScheduleService) {
         this.stateService = stateService;
         this.requestService = requestService;
+        this.teamScheduleService = teamScheduleService;
     }
 
     /**
@@ -73,6 +76,14 @@ public class AnalysisResource {
         log.info("Clear requested for exercise: {}, type: {}", exerciseId, type);
 
         try {
+            // First, stop any running analysis task to prevent it from continuing
+            requestService.stopAnalysis(exerciseId);
+
+            // Clear attendance data so pair programming metric won't show on next analysis
+            // unless a new Excel file is uploaded
+            teamScheduleService.clear();
+            log.info("Attendance data cleared");
+
             if ("db".equals(type) || "both".equals(type)) {
                 requestService.clearDatabaseForExercise(exerciseId);
                 stateService.resetStatus(exerciseId);

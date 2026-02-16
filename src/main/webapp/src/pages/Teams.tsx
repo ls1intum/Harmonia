@@ -243,6 +243,10 @@ export default function Teams() {
       exercise={exercise}
       analysisStatus={status}
       isLoading={isStatusLoading}
+      isStarting={startMutation.isPending}
+      isCancelling={cancelMutation.isPending}
+      isRecomputing={recomputeMutation.isPending}
+      isClearing={clearMutation.isPending}
     />
   );
 }

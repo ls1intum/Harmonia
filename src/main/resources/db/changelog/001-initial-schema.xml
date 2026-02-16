@@ -31,6 +31,8 @@
             <column name="cqi_loc_balance" type="DOUBLE"/>
             <column name="cqi_temporal_spread" type="DOUBLE"/>
             <column name="cqi_ownership_spread" type="DOUBLE"/>
+            <column name="cqi_pair_programming" type="DOUBLE"/>
+            <column name="cqi_pair_programming_status" type="VARCHAR(255)"/>
             <column name="cqi_base_score" type="DOUBLE"/>
             <column name="cqi_penalty_multiplier" type="DOUBLE"/>
             <column name="cqi_penalties" type="TEXT"/>
@@ -202,11 +204,11 @@
             <column name="llm_usage_available" type="BOOLEAN"/>
         </createTable>
         <addForeignKeyConstraint
-            baseTableName="analyzed_chunks"
-            baseColumnNames="participation_id"
-            constraintName="fk_analyzed_chunks_participation"
-            referencedTableName="participations"
-            referencedColumnNames="team_participation_id"/>
+                baseTableName="analyzed_chunks"
+                baseColumnNames="participation_id"
+                constraintName="fk_analyzed_chunks_participation"
+                referencedTableName="participations"
+                referencedColumnNames="team_participation_id"/>
         <createIndex tableName="analyzed_chunks" indexName="idx_analyzed_chunks_participation">
             <column name="participation_id"/>
         </createIndex>
