@@ -20,14 +20,9 @@ import java.util.stream.Collectors;
  * <p>
  * Formula: CQI = BASE_SCORE × PENALTY_MULTIPLIER
  * <p>
- * BASE_SCORE = w1·S_effort + w2·S_loc + w3·S_temporal + w4·S_ownership + w5·S_pairProgramming
+ * BASE_SCORE = w1·S_effort + w2·S_loc + w3·S_temporal + w4·S_ownership
  * <p>
- * Components:
- * - Effort Balance (40%): Distribution of LLM-weighted effort
- * - LoC Balance (25%): Distribution of lines of code
- * - Temporal Spread (20%): How work is spread over time
- * - Ownership Spread (15%): How files are shared among team members
- * - Pair Programming (10%, optional): Verification of collaboration during paired sessions
+ * Component weights are configurable via {@link CQIConfig}.
  * <p>
  * This service works with LLM-rated commits directly.
  * Commits should be pre-filtered using {@link CommitPreFilterService} before LLM analysis.
@@ -40,22 +35,6 @@ public class CQICalculatorService {
     private final CQIConfig cqiConfig;
     private final TeamScheduleService teamScheduleService;
     private final PairProgrammingCalculator pairProgrammingCalculator;
-
-    // Component weights (must sum to 1.0)
-    private static final double W_EFFORT = 0.40;
-    private static final double W_LOC = 0.25;
-    private static final double W_TEMPORAL = 0.20;
-    private static final double W_OWNERSHIP = 0.15;
-
-    // Penalty thresholds
-    private static final double SOLO_DEV_THRESHOLD = 0.85;          // >85% = solo development
-    private static final double SEVERE_IMBALANCE_THRESHOLD = 0.70;  // >70% = severe imbalance
-    private static final double HIGH_TRIVIAL_THRESHOLD = 0.50;      // >50% trivial commits
-    private static final double LOW_CONFIDENCE_THRESHOLD = 0.40;    // >40% low confidence
-    private static final double LATE_WORK_THRESHOLD = 0.50;         // >50% work in final 20%
-
-    // Confidence threshold
-    private static final double LOW_CONFIDENCE_VALUE = 0.6;
 
     /**
      * Input for CQI calculation: rated commit chunk.

@@ -126,6 +126,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   // Generate sub-metrics from CQI details if available
   // For git-only data, show the available metrics and mark effortBalance as pending
   // Pair programming: show card if status is FOUND or NOT_FOUND (Excel was uploaded)
+  const weights = serverCqiDetails?.weights;
   const pairProgrammingStatus = serverCqiDetails?.components?.pairProgrammingStatus;
   const showPairProgramming = pairProgrammingStatus === 'FOUND' || pairProgrammingStatus === 'NOT_FOUND';
 
@@ -134,7 +135,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
         {
           name: 'Effort Balance',
           value: isGitOnlyData ? -1 : Math.round(serverCqiDetails.components.effortBalance ?? 0), // -1 indicates pending
-          weight: showPairProgramming ? 36 : 40,
+          weight: Math.round((weights?.effortBalance ?? 0) * 100),
           description: 'Is effort distributed fairly among team members?',
           details: isGitOnlyData
             ? 'Requires AI analysis. Will be calculated after git analysis completes for all teams.'
@@ -143,21 +144,21 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
         {
           name: 'Lines of Code Balance',
           value: Math.round(serverCqiDetails.components.locBalance ?? 0),
-          weight: showPairProgramming ? 22.5 : 25,
+          weight: Math.round((weights?.locBalance ?? 0) * 100),
           description: 'Are code contributions balanced?',
           details: 'Measures the distribution of lines added/deleted across team members.',
         },
         {
           name: 'Temporal Spread',
           value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
-          weight: showPairProgramming ? 18 : 20,
+          weight: Math.round((weights?.temporalSpread ?? 0) * 100),
           description: 'Is work spread over time or crammed at deadline?',
           details: 'Higher scores mean work was spread consistently throughout the project period.',
         },
         {
           name: 'File Ownership Spread',
           value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
-          weight: showPairProgramming ? 13.5 : 15,
+          weight: Math.round((weights?.ownershipSpread ?? 0) * 100),
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
@@ -165,7 +166,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           ? [
               {
                 name: 'Pair Programming',
-                value: pairProgrammingStatus === 'FOUND' ? Math.round(serverCqiDetails.components.pairProgramming ?? 0) : -2, // -2 indicates NOT_FOUND
+                value: pairProgrammingStatus === 'FOUND' ? 0 : -2, // -2 indicates NOT_FOUND
                 weight: 10,
                 description: 'Did both students commit during pair programming sessions?',
                 details:
