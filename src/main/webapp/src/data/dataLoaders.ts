@@ -166,8 +166,8 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           ? [
               {
                 name: 'Pair Programming',
-                value: pairProgrammingStatus === 'FOUND' ? 0 : -2, // -2 indicates NOT_FOUND
-                weight: 10,
+                value: pairProgrammingStatus === 'FOUND' ? Math.round(serverCqiDetails.components.pairProgramming ?? 0) : -2, // -2 indicates NOT_FOUND
+                weight: 0,
                 description: 'Did both students commit during pair programming sessions?',
                 details:
                   pairProgrammingStatus === 'FOUND'
