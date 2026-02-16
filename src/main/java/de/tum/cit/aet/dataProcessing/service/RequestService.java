@@ -1072,7 +1072,7 @@ public class RequestService {
                 }
 
                 try {
-                    // Notify frontend this team's AI analysis is starting
+                    // Notify client this team's AI analysis is starting
                     analysisStateService.updateProgress(exerciseId, teamName, "AI_ANALYZING", aiAnalyzedCount.get());
                     synchronized (eventEmitter) {
                         eventEmitter.accept(Map.of(
@@ -1315,7 +1315,7 @@ public class RequestService {
 
         // Step 1b: Map all participations to DTOs
         // DONE teams will have full data, PENDING/ANALYZING will have null CQI
-        // The status field tells the frontend what state each team is in
+        // The status field tells the client what state each team is in
         List<ClientResponseDTO> responseDTOs = participations.stream()
                 .map(this::mapParticipationToClientResponse)
                 .toList();

@@ -58,7 +58,7 @@ export default function Teams() {
 
       toast({ title: 'Starting analysis...' });
 
-      // Step 2: Start streaming (backend will clear data before starting)
+      // Step 2: Start streaming (server will clear data before starting)
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
@@ -137,7 +137,7 @@ export default function Teams() {
     },
   });
 
-  // Mutation for recompute (force) - same as start since backend clears data first
+  // Mutation for recompute (force) - same as start since server clears data first
   const recomputeMutation = useMutation({
     mutationFn: async () => {
       // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
@@ -152,7 +152,7 @@ export default function Teams() {
 
       toast({ title: 'Forcing reanalysis...' });
 
-      // Step 2: Start streaming (backend will clear data before starting)
+      // Step 2: Start streaming (server will clear data before starting)
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
