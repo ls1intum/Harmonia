@@ -26,6 +26,7 @@ interface TeamsListProps {
   pairProgrammingEnabled: boolean;
   attendanceFile: File | null;
   uploadedAttendanceFileName: string | null;
+  pairProgrammingAttendanceByTeamName: Record<string, boolean>;
   onAttendanceFileSelect: (file: File | null) => void;
   onAttendanceUpload: () => void;
   onRemoveUploadedAttendanceFile: () => void;
@@ -52,6 +53,7 @@ const TeamsList = ({
   pairProgrammingEnabled,
   attendanceFile,
   uploadedAttendanceFileName,
+  pairProgrammingAttendanceByTeamName,
   onAttendanceFileSelect,
   onAttendanceUpload,
   onRemoveUploadedAttendanceFile,
@@ -72,6 +74,8 @@ const TeamsList = ({
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
+  const hasPairProgrammingAttendanceMapEntries = Object.keys(pairProgrammingAttendanceByTeamName).length > 0;
+  const normalizeTeamName = (teamName: string): string => teamName.trim().toLowerCase();
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -106,6 +110,144 @@ const TeamsList = ({
     const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
     if (failedStudents.length === 0) return '';
     return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
+  };
+
+  const renderPairProgrammingBadge = (team: Team) => {
+    if (!pairProgrammingEnabled || !hasUploadedAttendanceDocument || !hasPairProgrammingAttendanceMapEntries) {
+      return null;
+    }
+
+    const normalizedTeamName = normalizeTeamName(team.teamName);
+    const hasAttendanceEntry = Object.prototype.hasOwnProperty.call(pairProgrammingAttendanceByTeamName, normalizedTeamName);
+
+    if (!hasAttendanceEntry) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="gap-1.5 cursor-help text-warning border-warning/50 bg-warning/10">
+                Pair Programming Warning
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Not Found. Check Excel.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    if (pairProgrammingAttendanceByTeamName[normalizedTeamName]) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="gap-1.5 cursor-help bg-success/10 text-success hover:bg-success/20">
+                Pair Programming Pass
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p>Team was found in Excel and attended at least 2 of 3 pair-programming sessions.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="destructive" className="gap-1.5 cursor-help">
+              Pair Programming Fail
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>Team was found in Excel but attended fewer than 2 of 3 pair-programming sessions.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  const renderAnalysisStatusBadge = (team: Team) => {
+    if ((team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') && isTeamFailed(team)) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="destructive" className="gap-1.5 cursor-help">
+                <AlertTriangle className="h-3 w-3" />
+                Failed
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p>{getFailedReason(team)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    if (team.analysisStatus === 'DONE' && team.isSuspicious !== undefined) {
+      if (team.isSuspicious) {
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="destructive" className="gap-1.5 cursor-help">
+                  <AlertTriangle className="h-3 w-3" />
+                  Suspicious
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Suspicious collaboration patterns detected during analysis</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      }
+
+      return (
+        <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
+          Normal
+        </Badge>
+      );
+    }
+
+    if (team.analysisStatus === 'ERROR') {
+      return (
+        <Badge variant="destructive" className="gap-1.5">
+          Error
+        </Badge>
+      );
+    }
+
+    if (team.analysisStatus === 'CANCELLED') {
+      return (
+        <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+          Cancelled
+        </Badge>
+      );
+    }
+
+    if (team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') {
+      return (
+        <Badge variant="outline" className="gap-1.5 text-blue-500 border-blue-500/50 bg-blue-500/10">
+          {team.analysisStatus === 'AI_ANALYZING' ? 'AI Analysis' : 'Git Done'}
+        </Badge>
+      );
+    }
+
+    return (
+      <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
+        {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
+          ? 'Pending'
+          : team.analysisStatus === 'GIT_ANALYZING'
+            ? 'Git Analysis'
+            : 'Analyzing'}
+      </Badge>
+    );
   };
 
   // Get priority for analysis status (lower = shown first)
@@ -664,63 +806,10 @@ const TeamsList = ({
                     </td>
                   )}
                   <td className="py-4 px-6">
-                    {/* Show Failed badge if any student has <10 commits (after git analysis) */}
-                    {(team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') &&
-                    isTeamFailed(team) ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="destructive" className="gap-1.5 cursor-help">
-                              <AlertTriangle className="h-3 w-3" />
-                              Failed
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>{getFailedReason(team)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : team.analysisStatus === 'DONE' && team.isSuspicious !== undefined ? (
-                      team.isSuspicious ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="destructive" className="gap-1.5 cursor-help">
-                                <AlertTriangle className="h-3 w-3" />
-                                Suspicious
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Suspicious collaboration patterns detected during analysis</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
-                        <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
-                          Normal
-                        </Badge>
-                      )
-                    ) : team.analysisStatus === 'ERROR' ? (
-                      <Badge variant="destructive" className="gap-1.5">
-                        Error
-                      </Badge>
-                    ) : team.analysisStatus === 'CANCELLED' ? (
-                      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
-                        Cancelled
-                      </Badge>
-                    ) : team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' ? (
-                      <Badge variant="outline" className="gap-1.5 text-blue-500 border-blue-500/50 bg-blue-500/10">
-                        {team.analysisStatus === 'AI_ANALYZING' ? 'AI Analysis' : 'Git Done'}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-                        {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
-                          ? 'Pending'
-                          : team.analysisStatus === 'GIT_ANALYZING'
-                            ? 'Git Analysis'
-                            : 'Analyzing'}
-                      </Badge>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {renderAnalysisStatusBadge(team)}
+                      {renderPairProgrammingBadge(team)}
+                    </div>
                   </td>
                 </tr>
               ))}
