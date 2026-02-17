@@ -3,6 +3,8 @@ package de.tum.cit.aet.dataProcessing.web;
 import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.security.CryptoService;
+import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.AttendanceService;
 import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
@@ -12,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +30,8 @@ public class AttendanceResource {
      */
 
     private final AttendanceService attendanceService;
+    private final RequestService requestService;
+    private final TeamScheduleService teamScheduleService;
     private final CryptoService cryptoService;
     private final ArtemisConfig artemisConfig;
     private final ArtemisClientService artemisClientService;
@@ -35,17 +40,23 @@ public class AttendanceResource {
      * Constructs the AttendanceResource with required dependencies.
      *
      * @param attendanceService the attendance service
+     * @param requestService the request service
+     * @param teamScheduleService the team schedule service
      * @param cryptoService the crypto service
      * @param artemisConfig the Artemis configuration
      * @param artemisClientService the Artemis client service
      */
     public AttendanceResource(
             AttendanceService attendanceService,
+            RequestService requestService,
+            TeamScheduleService teamScheduleService,
             CryptoService cryptoService,
             ArtemisConfig artemisConfig,
             ArtemisClientService artemisClientService
     ) {
         this.attendanceService = attendanceService;
+        this.requestService = requestService;
+        this.teamScheduleService = teamScheduleService;
         this.cryptoService = cryptoService;
         this.artemisConfig = artemisConfig;
         this.artemisClientService = artemisClientService;
@@ -123,7 +134,43 @@ public class AttendanceResource {
         }
 
         TeamsScheduleDTO results = attendanceService.parseAttendance(file, credentials, courseId, exerciseId);
+        try {
+            int updatedTeams = requestService.recomputePairProgrammingForExercise(exerciseId);
+            log.info("Recomputed pair programming metrics for {} teams after attendance upload", updatedTeams);
+        } catch (Exception e) {
+            log.warn("Attendance uploaded, but pair programming recomputation failed: {}", e.getMessage());
+        }
         log.info("AttendanceResource: {}", results);
         return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Clears uploaded attendance data and removes pair programming metrics for an exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return a success response
+     */
+    @DeleteMapping("clear")
+    public ResponseEntity<String> clearAttendance(@RequestParam("exerciseId") Long exerciseId) {
+        return clearAttendanceInternal(exerciseId);
+    }
+
+    /**
+     * Clears uploaded attendance data and removes pair programming metrics for an exercise.
+     * Supports POST in addition to DELETE for environments where DELETE is restricted.
+     *
+     * @param exerciseId the exercise ID
+     * @return a success response
+     */
+    @PostMapping("clear")
+    public ResponseEntity<String> clearAttendancePost(@RequestParam("exerciseId") Long exerciseId) {
+        return clearAttendanceInternal(exerciseId);
+    }
+
+    private ResponseEntity<String> clearAttendanceInternal(Long exerciseId) {
+        teamScheduleService.clear();
+        int updatedTeams = requestService.clearPairProgrammingForExercise(exerciseId);
+        log.info("Cleared attendance data and pair programming metrics for exercise {} (updated teams: {})", exerciseId, updatedTeams);
+        return ResponseEntity.ok("Attendance cleared successfully");
     }
 }

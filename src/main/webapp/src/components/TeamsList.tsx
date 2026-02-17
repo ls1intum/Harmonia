@@ -10,6 +10,7 @@ import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
+import FileUpload from '@/components/FileUpload';
 
 interface TeamsListProps {
   teams: Team[];
@@ -22,11 +23,19 @@ interface TeamsListProps {
   course: string;
   exercise: string;
   analysisStatus: AnalysisStatus;
+  pairProgrammingEnabled: boolean;
+  attendanceFile: File | null;
+  uploadedAttendanceFileName: string | null;
+  onAttendanceFileSelect: (file: File | null) => void;
+  onAttendanceUpload: () => void;
+  onRemoveUploadedAttendanceFile: () => void;
   isLoading?: boolean;
   isStarting?: boolean;
   isCancelling?: boolean;
   isRecomputing?: boolean;
   isClearing?: boolean;
+  isAttendanceUploading?: boolean;
+  isAttendanceClearing?: boolean;
 }
 
 const TeamsList = ({
@@ -40,18 +49,29 @@ const TeamsList = ({
   course,
   exercise,
   analysisStatus,
+  pairProgrammingEnabled,
+  attendanceFile,
+  uploadedAttendanceFileName,
+  onAttendanceFileSelect,
+  onAttendanceUpload,
+  onRemoveUploadedAttendanceFile,
   isLoading = false,
   isStarting = false,
   isCancelling = false,
   isRecomputing = false,
   isClearing = false,
+  isAttendanceUploading = false,
+  isAttendanceClearing = false,
 }: TeamsListProps) => {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
+  const [removeAttendanceDialogOpen, setRemoveAttendanceDialogOpen] = useState(false);
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
+  const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
+  const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -221,7 +241,7 @@ const TeamsList = ({
       case 'IDLE':
       case 'CANCELLED':
         return (
-          <Button onClick={onStart} disabled={isStarting || isClearing}>
+          <Button onClick={handleStartClick} disabled={isStarting || isClearing}>
             {isStarting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {isStarting ? 'Starting...' : 'Start Analysis'}
           </Button>
@@ -253,6 +273,14 @@ const TeamsList = ({
     const next = !isDevMode;
     setIsDevMode(next);
     writeDevModeToStorage(next);
+  };
+
+  const handleStartClick = () => {
+    if (pairProgrammingEnabled && !hasUploadedAttendanceDocument) {
+      setStartWithoutAttendanceDialogOpen(true);
+      return;
+    }
+    onStart();
   };
 
   const overallTokenTotals = useMemo(
@@ -329,6 +357,48 @@ const TeamsList = ({
         </div>
       </div>
 
+      {pairProgrammingEnabled && (
+        <Card className="p-6 shadow-card">
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Pair Programming</h3>
+              <p className="text-sm text-muted-foreground">
+                Upload an XLSX attendance document at any time. Pair programming metrics are calculated independently from AI analysis.
+              </p>
+            </div>
+            <Button variant="outline" onClick={onAttendanceUpload} disabled={!attendanceFile || isAttendanceUploading}>
+              {isAttendanceUploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
+              {isAttendanceUploading ? 'Analyzing...' : 'Upload Document'}
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            <FileUpload
+              file={attendanceFile}
+              onFileSelect={onAttendanceFileSelect}
+              disabled={isAttendanceUploading}
+              inputId="pair-programming-attendance-file"
+            />
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-sm text-muted-foreground">
+                Used file:{' '}
+                <span className="font-medium text-foreground break-all">{isAttendanceUploading ? 'Currently uploading...' : uploadedAttendanceFileName ?? 'Not uploaded yet'}</span>
+              </p>
+              {hasUploadedAttendanceDocument && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setRemoveAttendanceDialogOpen(true)}
+                  disabled={isAttendanceUploading || isAttendanceClearing}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remove File
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       <ActivityLog status={analysisStatus} />
 
       <ConfirmationDialog
@@ -339,6 +409,25 @@ const TeamsList = ({
         confirmLabel="Clear"
         variant="destructive"
         onConfirm={() => onClear(clearType)}
+      />
+
+      <ConfirmationDialog
+        open={startWithoutAttendanceDialogOpen}
+        onOpenChange={setStartWithoutAttendanceDialogOpen}
+        title="Start without pair programming document?"
+        description="Pair programming is enabled, but no attendance document has been uploaded. You can continue now and upload it later."
+        confirmLabel="Start Anyway"
+        onConfirm={onStart}
+      />
+
+      <ConfirmationDialog
+        open={removeAttendanceDialogOpen}
+        onOpenChange={setRemoveAttendanceDialogOpen}
+        title="Remove attendance file?"
+        description="Are you sure you want to remove this file? This will clear the pair programming data."
+        confirmLabel="Remove File"
+        variant="destructive"
+        onConfirm={onRemoveUploadedAttendanceFile}
       />
 
       {courseAverages && (

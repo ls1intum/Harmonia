@@ -1,75 +1,78 @@
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FileSpreadsheet, X } from 'lucide-react';
-import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface FileUploadProps {
+  file: File | null;
   onFileSelect: (file: File | null) => void;
   disabled?: boolean;
+  inputId?: string;
+  label?: string;
+  helperText?: string;
 }
 
-export default function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
+export default function FileUpload({
+  file,
+  onFileSelect,
+  disabled,
+  inputId = 'attendance-file',
+}: FileUploadProps) {
   const [error, setError] = useState('');
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!file && inputRef.current) {
+      inputRef.current.value = '';
+    }
+  }, [file]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
       if (fileExtension !== 'xlsx') {
         setError('Only XLSX files are allowed');
-        setSelectedFileName(null);
         onFileSelect(null);
         e.target.value = '';
         return;
       }
 
       setError('');
-      setSelectedFileName(file.name);
-      onFileSelect(file);
+      onFileSelect(selectedFile);
     } else {
-      setSelectedFileName(null);
       onFileSelect(null);
     }
   };
 
   const handleClear = () => {
-    setSelectedFileName(null);
     setError('');
     onFileSelect(null);
-    // Reset the input
-    const input = document.getElementById('attendance-file') as HTMLInputElement;
-    if (input) {
-      input.value = '';
+    if (inputRef.current) {
+      inputRef.current.value = '';
     }
   };
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="attendance-file" className="flex items-center gap-2">
-        <FileSpreadsheet className="h-4 w-4" />
-        Pair Programming Attendance (optional)
-      </Label>
       <div className="flex gap-2">
         <Input
-          id="attendance-file"
-          name="attendance-file"
+          ref={inputRef}
+          id={inputId}
+          name={inputId}
           type="file"
           accept=".xlsx"
           className="pt-2 flex-1"
           onChange={handleFileChange}
           disabled={disabled}
         />
-        {selectedFileName && (
+        {file && (
           <Button type="button" variant="ghost" size="icon" onClick={handleClear} disabled={disabled}>
             <X className="h-4 w-4" />
           </Button>
         )}
       </div>
-      {selectedFileName && <p className="text-sm text-muted-foreground">Selected: {selectedFileName}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <p className="text-sm text-muted-foreground">Upload an XLSX file with pair programming attendance data.</p>
     </div>
   );
 }

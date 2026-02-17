@@ -17,6 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -331,6 +333,157 @@ public class RequestService {
         studentRepository.deleteAll();
         teamParticipationRepository.deleteAll();
         tutorRepository.deleteAll();
+    }
+
+    /**
+     * Recomputes pair programming metrics for all teams in an exercise.
+     * This uses existing git data and does not depend on AI analysis.
+     *
+     * @param exerciseId the Artemis exercise ID
+     * @return number of teams whose pair programming fields were updated
+     */
+    @Transactional
+    public int recomputePairProgrammingForExercise(Long exerciseId) {
+        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
+        if (participations.isEmpty()) {
+            log.info("No participations found for exercise {}, skipping pair programming recomputation", exerciseId);
+            return 0;
+        }
+
+        int updatedTeams = 0;
+        for (TeamParticipation participation : participations) {
+            if (recomputePairProgrammingForParticipation(participation)) {
+                updatedTeams++;
+            }
+        }
+
+        log.info("Recomputed pair programming metrics for {}/{} teams in exercise {}",
+                updatedTeams, participations.size(), exerciseId);
+        return updatedTeams;
+    }
+
+    /**
+     * Clears pair programming metrics for all teams in an exercise.
+     * This is used when an uploaded attendance file is removed.
+     *
+     * @param exerciseId the Artemis exercise ID
+     * @return number of teams whose pair programming fields were cleared
+     */
+    @Transactional
+    public int clearPairProgrammingForExercise(Long exerciseId) {
+        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
+        if (participations.isEmpty()) {
+            log.info("No participations found for exercise {}, skipping pair programming clear", exerciseId);
+            return 0;
+        }
+
+        int updatedTeams = 0;
+        for (TeamParticipation participation : participations) {
+            if (clearPairProgrammingFields(participation)) {
+                updatedTeams++;
+            }
+        }
+
+        log.info("Cleared pair programming metrics for {}/{} teams in exercise {}",
+                updatedTeams, participations.size(), exerciseId);
+        return updatedTeams;
+    }
+
+    private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
+        List<Student> students = studentRepository.findAllByTeam(participation);
+        if (students.size() != 2) {
+            return clearPairProgrammingFields(participation);
+        }
+
+        var teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
+        if (teamRepositoryOptional.isEmpty()) {
+            log.debug("No team repository found for participation {}, skipping pair programming recomputation",
+                    participation.getParticipation());
+            return false;
+        }
+
+        TeamRepository teamRepository = teamRepositoryOptional.get();
+        String localPath = teamRepository.getLocalPath();
+        if (localPath == null || localPath.isBlank() || !Files.exists(Path.of(localPath, ".git"))) {
+            log.debug("Repository path unavailable for participation {} (path={}), skipping pair programming recomputation",
+                    participation.getParticipation(), localPath);
+            return false;
+        }
+
+        Map<String, Long> commitToAuthor = buildCommitToAuthorMap(teamRepository, students);
+        if (commitToAuthor.isEmpty()) {
+            log.debug("No commit-to-author mapping available for participation {}, skipping pair programming recomputation",
+                    participation.getParticipation());
+            return false;
+        }
+
+        List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
+        CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+        ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
+                filterResult.chunksToAnalyze(),
+                students.size(),
+                null,
+                null,
+                participation.getName());
+
+        Double previousScore = participation.getCqiPairProgramming();
+        String previousStatus = participation.getCqiPairProgrammingStatus();
+        Double nextScore = components.pairProgramming();
+        String nextStatus = components.pairProgrammingStatus();
+
+        boolean changed = !java.util.Objects.equals(previousScore, nextScore)
+                || !java.util.Objects.equals(previousStatus, nextStatus);
+        if (!changed) {
+            return false;
+        }
+
+        participation.setCqiPairProgramming(nextScore);
+        participation.setCqiPairProgrammingStatus(nextStatus);
+        teamParticipationRepository.save(participation);
+        return true;
+    }
+
+    private Map<String, Long> buildCommitToAuthorMap(TeamRepository teamRepository, List<Student> students) {
+        Map<String, Long> emailToAuthor = new HashMap<>();
+        long syntheticId = -1L;
+
+        for (Student student : students) {
+            if (student.getEmail() == null || student.getEmail().isBlank()) {
+                continue;
+            }
+            Long authorId = student.getId();
+            if (authorId == null) {
+                authorId = syntheticId--;
+            }
+            emailToAuthor.put(student.getEmail().toLowerCase(java.util.Locale.ROOT), authorId);
+        }
+
+        Map<String, Long> commitToAuthor = new HashMap<>();
+        if (teamRepository.getVcsLogs() == null) {
+            return commitToAuthor;
+        }
+
+        for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
+            if (vcsLog.getCommitHash() == null || vcsLog.getEmail() == null) {
+                continue;
+            }
+            Long authorId = emailToAuthor.get(vcsLog.getEmail().toLowerCase(java.util.Locale.ROOT));
+            if (authorId != null) {
+                commitToAuthor.put(vcsLog.getCommitHash(), authorId);
+            }
+        }
+
+        return commitToAuthor;
+    }
+
+    private boolean clearPairProgrammingFields(TeamParticipation participation) {
+        if (participation.getCqiPairProgramming() == null && participation.getCqiPairProgrammingStatus() == null) {
+            return false;
+        }
+        participation.setCqiPairProgramming(null);
+        participation.setCqiPairProgrammingStatus(null);
+        teamParticipationRepository.save(participation);
+        return true;
     }
 
     /**
