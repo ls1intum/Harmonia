@@ -11,7 +11,7 @@ import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import FileUpload from '@/components/FileUpload';
-import { normalizeTeamName } from '@/lib/utils';
+import {getFailedReason, normalizeTeamName} from '@/lib/utils';
 
 interface TeamsListProps {
   teams: Team[];
@@ -103,13 +103,6 @@ const TeamsList = ({
   // Helper to determine if a team is 'failed' (any student with <10 commits)
   const isTeamFailed = (team: Team) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
-  };
-
-  // Get tooltip text explaining why a team failed
-  const getFailedReason = (team: Team) => {
-    const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
-    if (failedStudents.length === 0) return '';
-    return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
   };
 
   const renderPairProgrammingBadge = (team: Team) => {

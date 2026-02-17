@@ -10,6 +10,7 @@ import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
+import {getFailedReason} from "@/lib/utils.ts";
 
 interface TeamDetailProps {
   team: Team;
@@ -44,13 +45,6 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
   const isTeamFailed = (team: Team) => {
     if (!isGitAnalysisComplete) return false;
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
-  };
-
-  // Get tooltip text explaining why a team failed
-  const getFailedReason = (team: Team) => {
-    const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
-    if (failedStudents.length === 0) return '';
-    return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
   };
 
   // Check if student metadata is available (show after git analysis is complete)
