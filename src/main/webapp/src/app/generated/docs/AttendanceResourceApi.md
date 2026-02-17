@@ -2,9 +2,99 @@
 
 All URIs are relative to _http://localhost:8080_
 
-| Method                                    | HTTP request                    | Description |
-| ----------------------------------------- | ------------------------------- | ----------- |
-| [**uploadAttendance**](#uploadattendance) | **POST** /api/attendance/upload |             |
+| Method                                          | HTTP request                     | Description |
+| ----------------------------------------------- | -------------------------------- | ----------- |
+| [**clearAttendance**](#clearattendance)         | **DELETE** /api/attendance/clear |             |
+| [**clearAttendancePost**](#clearattendancepost) | **POST** /api/attendance/clear   |             |
+| [**uploadAttendance**](#uploadattendance)       | **POST** /api/attendance/upload  |             |
+
+# **clearAttendance**
+
+> string clearAttendance()
+
+### Example
+
+```typescript
+import { AttendanceResourceApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AttendanceResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+
+const { status, data } = await apiInstance.clearAttendance(exerciseId);
+```
+
+### Parameters
+
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
+
+### Return type
+
+**string**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **clearAttendancePost**
+
+> string clearAttendancePost()
+
+### Example
+
+```typescript
+import { AttendanceResourceApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AttendanceResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+
+const { status, data } = await apiInstance.clearAttendancePost(exerciseId);
+```
+
+### Parameters
+
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
+
+### Return type
+
+**string**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **uploadAttendance**
 
