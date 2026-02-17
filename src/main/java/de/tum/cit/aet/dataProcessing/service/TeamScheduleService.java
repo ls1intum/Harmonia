@@ -3,6 +3,7 @@ package de.tum.cit.aet.dataProcessing.service;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import org.springframework.stereotype.Service;
+import static de.tum.cit.aet.dataProcessing.util.AttendanceUtils.normalize;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -41,6 +42,19 @@ public class TeamScheduleService {
             return null;
         }
         return teamsByNormalizedName.get(normalize(teamName));
+    }
+
+    /**
+     * Checks if attendance data exists for a specific team.
+     *
+     * @param teamName the team name to look up
+     * @return true if the team exists in uploaded attendance data, false otherwise
+     */
+    public boolean hasTeamAttendance(String teamName) {
+        if (teamName == null) {
+            return false;
+        }
+        return teamsByNormalizedName.containsKey(normalize(teamName));
     }
 
     /**
@@ -111,9 +125,5 @@ public class TeamScheduleService {
             return second;
         }
         return Map.of();
-    }
-
-    private String normalize(String teamName) {
-        return teamName == null ? "" : teamName.trim().toLowerCase(Locale.ROOT);
     }
 }

@@ -259,6 +259,7 @@ public class CQICalculatorService {
             try {
                 // Check if attendance data was uploaded at all
                 boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
+                boolean hasTeamAttendance = teamScheduleService.hasTeamAttendance(teamName);
 
                 Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
                 Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
@@ -273,25 +274,30 @@ public class CQICalculatorService {
                 pairedSessions.stream().sorted().forEach(date ->
                         log.info("  Paired session: {}", date));
 
-                if (pairedSessions != null && !pairedSessions.isEmpty() && allSessions != null && !allSessions.isEmpty()) {
-                    pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
-                            pairedSessions, allSessions, chunks, teamSize);
+                if (hasTeamAttendance) {
                     pairProgrammingStatus = "FOUND";
-                    log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
-                            teamName,
-                            pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
-                } else {
-                    // Check if team was not found in Excel vs no Excel uploaded
-                    if (hasAttendanceData) {
-                        pairProgrammingStatus = "NOT_FOUND";
-                        log.info("Team '{}' not found in attendance Excel file", teamName);
+                    if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
+                        pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
+                                pairedSessions, allSessions, chunks, teamSize);
+                        log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
+                                teamName,
+                                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
                     } else {
-                        log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
+                        pairProgrammingScore = 0.0;
+                        if (allSessions.isEmpty()) {
+                            log.info("Team '{}' found in attendance Excel file but has no mapped tutorial sessions; treating as failed (score 0)", teamName);
+                        } else {
+                            log.info("Team '{}' found in attendance Excel file but has no paired sessions; treating as failed (score 0)", teamName);
+                        }
                     }
-                    log.info("No paired sessions or class dates found for team {}: paired={}, all={}",
-                            teamName, pairedSessions != null ? pairedSessions.size() : 0,
-                            allSessions != null ? allSessions.size() : 0);
+                } else if (hasAttendanceData) {
+                    pairProgrammingStatus = "NOT_FOUND";
+                    log.info("Team '{}' not found in attendance Excel file", teamName);
+                } else {
+                    log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
                 }
+                log.info("Session availability for team {}: paired={}, all={}, hasTeamAttendance={}",
+                        teamName, pairedSessions.size(), allSessions.size(), hasTeamAttendance);
             } catch (Exception e) {
                 log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
             }

@@ -7,6 +7,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
 import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
 import { AttendanceResourceApi, Configuration, type TeamsScheduleDTO } from '@/app/generated';
+import { normalizeTeamName } from '@/lib/utils';
 
 const apiConfig = new Configuration({
   basePath: window.location.origin,
@@ -16,7 +17,6 @@ const apiConfig = new Configuration({
 });
 const attendanceApi = new AttendanceResourceApi(apiConfig);
 
-const normalizeTeamName = (teamName: string): string => teamName.trim().toLowerCase();
 
 const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): Record<string, boolean> => {
   const teams = schedule?.teams;

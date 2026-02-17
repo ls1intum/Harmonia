@@ -23,6 +23,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static de.tum.cit.aet.dataProcessing.util.AttendanceUtils.normalize;
+
 @Service
 @Slf4j
 public class AttendanceService {
@@ -69,7 +71,7 @@ public class AttendanceService {
                 credentials.serverUrl(), credentials.jwtToken(), exerciseId);
 
         Map<String, List<OffsetDateTime>> normalizedSessions = new LinkedHashMap<>();
-        sessionsByGroup.forEach((name, sessions) -> normalizedSessions.put(normalizeName(name), sessions));
+        sessionsByGroup.forEach((name, sessions) -> normalizedSessions.put(normalize(name), sessions));
 
         Map<String, TeamAttendanceDTO> teams = new LinkedHashMap<>();
         Set<String> normalizedTeamNames = new HashSet<>();
@@ -81,7 +83,7 @@ public class AttendanceService {
             for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
                 Sheet sheet = workbook.getSheetAt(sheetIndex);
                 String sheetName = sheet.getSheetName();
-                List<OffsetDateTime> sessionTimes = normalizedSessions.getOrDefault(normalizeName(sheetName), List.of());
+                List<OffsetDateTime> sessionTimes = normalizedSessions.getOrDefault(normalize(sheetName), List.of());
 
                 if (sessionTimes.isEmpty()) {
                     log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
@@ -103,7 +105,7 @@ public class AttendanceService {
                 for (Map.Entry<String, TeamAttendanceDTO> entry : parsedTeams.entrySet()) {
                     String teamName = entry.getKey();
                     TeamAttendanceDTO teamAttendance = entry.getValue();
-                    String normalizedName = normalizeName(teamName);
+                    String normalizedName = normalize(teamName);
                     if (normalizedTeamNames.contains(normalizedName)) {
                         log.warn("Duplicate team name '{}' found in sheet '{}'; keeping first entry",
                                 teamName, sheetName);
@@ -206,9 +208,5 @@ public class AttendanceService {
                 || normalized.equals("yes")
                 || normalized.equals("y")
                 || normalized.equals("1");
-    }
-
-    private String normalizeName(String name) {
-        return name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
     }
 }

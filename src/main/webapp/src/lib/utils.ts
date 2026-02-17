@@ -31,3 +31,14 @@ export const buttonVariants = cva(
     },
   },
 );
+
+
+export const normalizeTeamName = (teamName: string): string =>
+    teamName
+      .normalize('NFKC')
+      .replace(/\u00A0/g, ' ')
+      .replace(/\u202F/g, ' ')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();

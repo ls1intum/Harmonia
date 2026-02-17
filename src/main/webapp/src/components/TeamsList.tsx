@@ -11,6 +11,7 @@ import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import FileUpload from '@/components/FileUpload';
+import { normalizeTeamName } from '@/lib/utils';
 
 interface TeamsListProps {
   teams: Team[];
@@ -75,7 +76,6 @@ const TeamsList = ({
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
   const hasPairProgrammingAttendanceMapEntries = Object.keys(pairProgrammingAttendanceByTeamName).length > 0;
-  const normalizeTeamName = (teamName: string): string => teamName.trim().toLowerCase();
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -130,7 +130,7 @@ const TeamsList = ({
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Not Found. Check Excel.</p>
+              <p>Team not found. Verify the name matches Excel exactly.</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -524,7 +524,9 @@ const TeamsList = ({
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <p className="text-sm text-muted-foreground">
                 Used file:{' '}
-                <span className="font-medium text-foreground break-all">{isAttendanceUploading ? 'Currently uploading...' : uploadedAttendanceFileName ?? 'Not uploaded yet'}</span>
+                <span className="font-medium text-foreground break-all">
+                  {isAttendanceUploading ? 'Currently processing...(Please don\'t refresh or leave the page)' : (uploadedAttendanceFileName ?? 'Not uploaded yet')}
+                </span>
               </p>
               {hasUploadedAttendanceDocument && (
                 <Button
