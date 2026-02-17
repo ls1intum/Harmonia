@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { cva } from 'class-variance-authority';
-import type {Team} from "@/types/team.ts";
+import type { Team } from '@/types/team.ts';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,16 +33,15 @@ export const buttonVariants = cva(
   },
 );
 
-
 export const normalizeTeamName = (teamName: string): string =>
-    teamName
-      .normalize('NFKC')
-      .replace(/\u00A0/g, ' ')
-      .replace(/\u202F/g, ' ')
-      .replace(/[\u200B-\u200D\uFEFF]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
+  teamName
+    .normalize('NFKC')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\u202F/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
 export const getFailedReason = (team: Team) => {
   const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);

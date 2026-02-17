@@ -10,7 +10,7 @@ import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
-import {getFailedReason} from "@/lib/utils.ts";
+import { getFailedReason } from '@/lib/utils.ts';
 
 interface TeamDetailProps {
   team: Team;

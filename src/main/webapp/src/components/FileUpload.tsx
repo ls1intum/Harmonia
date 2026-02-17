@@ -12,12 +12,7 @@ interface FileUploadProps {
   helperText?: string;
 }
 
-export default function FileUpload({
-  file,
-  onFileSelect,
-  disabled,
-  inputId = 'attendance-file',
-}: FileUploadProps) {
+export default function FileUpload({ file, onFileSelect, disabled, inputId = 'attendance-file' }: FileUploadProps) {
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 

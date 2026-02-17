@@ -11,7 +11,7 @@ import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import FileUpload from '@/components/FileUpload';
-import {getFailedReason, normalizeTeamName} from '@/lib/utils';
+import { getFailedReason, normalizeTeamName } from '@/lib/utils';
 
 interface TeamsListProps {
   teams: Team[];
@@ -164,7 +164,10 @@ const TeamsList = ({
   };
 
   const renderAnalysisStatusBadge = (team: Team) => {
-    if ((team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') && isTeamFailed(team)) {
+    if (
+      (team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') &&
+      isTeamFailed(team)
+    ) {
       return (
         <TooltipProvider>
           <Tooltip>
@@ -518,7 +521,9 @@ const TeamsList = ({
               <p className="text-sm text-muted-foreground">
                 Used file:{' '}
                 <span className="font-medium text-foreground break-all">
-                  {isAttendanceUploading ? 'Currently processing...(Please don\'t refresh or leave the page)' : (uploadedAttendanceFileName ?? 'Not uploaded yet')}
+                  {isAttendanceUploading
+                    ? "Currently processing...(Please don't refresh or leave the page)"
+                    : (uploadedAttendanceFileName ?? 'Not uploaded yet')}
                 </span>
               </p>
               {hasUploadedAttendanceDocument && (

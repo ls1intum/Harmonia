@@ -17,7 +17,6 @@ const apiConfig = new Configuration({
 });
 const attendanceApi = new AttendanceResourceApi(apiConfig);
 
-
 const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): Record<string, boolean> => {
   const teams = schedule?.teams;
   if (!teams) {
@@ -60,7 +59,11 @@ export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { course, exercise, pairProgrammingEnabled = true } = (location.state || {}) as {
+  const {
+    course,
+    exercise,
+    pairProgrammingEnabled = true,
+  } = (location.state || {}) as {
     course: string;
     exercise: string;
     pairProgrammingEnabled?: boolean;
@@ -68,8 +71,8 @@ export default function Teams() {
   const attendanceStorageKey = `pair-programming-attendance-file:${exercise}`;
   const pairProgrammingAttendanceMapStorageKey = `pair-programming-attendance-status:${exercise}`;
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
-  const [uploadedAttendanceFileName, setUploadedAttendanceFileName] = useState<string | null>(
-    () => window.sessionStorage.getItem(`pair-programming-attendance-file:${exercise}`),
+  const [uploadedAttendanceFileName, setUploadedAttendanceFileName] = useState<string | null>(() =>
+    window.sessionStorage.getItem(`pair-programming-attendance-file:${exercise}`),
   );
   const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<Record<string, boolean>>(() =>
     readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
