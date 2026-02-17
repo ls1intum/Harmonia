@@ -11,15 +11,18 @@ import OrphanCommitsPanel from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
 import { getFailedReason } from '@/lib/utils.ts';
+import PairProgrammingBadge from '@/components/PairProgrammingBadge';
+import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface TeamDetailProps {
   team: Team;
   onBack: () => void;
-  course: string;
-  exercise: string;
+  course?: string;
+  exercise?: string;
+  pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
 }
 
-const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
+const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus = null }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
 
   const getCQIColor = (cqi: number) => {
@@ -136,43 +139,46 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 </div>
               )}
               <div className="pt-2">
-                {isTeamFailed(team) ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="destructive" className="gap-1.5 cursor-help">
-                          <AlertTriangle className="h-3 w-3" />
-                          Failed
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p>{getFailedReason(team)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : team.isSuspicious ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="destructive" className="gap-1.5 cursor-help">
-                          <AlertTriangle className="h-3 w-3" />
-                          Suspicious Behavior Detected
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Suspicious collaboration patterns detected during analysis</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : isGitAnalysisComplete ? (
-                  <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
-                    Normal Collaboration Pattern
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-                    Analyzing...
-                  </Badge>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {isTeamFailed(team) ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="destructive" className="gap-1.5 cursor-help">
+                            <AlertTriangle className="h-3 w-3" />
+                            Failed
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>{getFailedReason(team)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : team.isSuspicious ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="destructive" className="gap-1.5 cursor-help">
+                            <AlertTriangle className="h-3 w-3" />
+                            Suspicious Behavior Detected
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Suspicious collaboration patterns detected during analysis</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : isGitAnalysisComplete ? (
+                    <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
+                      Normal Collaboration Pattern
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                      Analyzing...
+                    </Badge>
+                  )}
+                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                </div>
               </div>
             </div>
 

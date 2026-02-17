@@ -11,11 +11,18 @@ import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import FileUpload from '@/components/FileUpload';
-import { getFailedReason, normalizeTeamName } from '@/lib/utils';
+import { getFailedReason } from '@/lib/utils';
+import PairProgrammingBadge from '@/components/PairProgrammingBadge';
+import {
+  getPairProgrammingBadgeStatus,
+  hasValidPairProgrammingAttendanceData,
+  type PairProgrammingAttendanceMap,
+  type PairProgrammingBadgeStatus,
+} from '@/lib/pairProgramming';
 
 interface TeamsListProps {
   teams: Team[];
-  onTeamSelect: (team: Team) => void;
+  onTeamSelect: (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
   onBackToHome: () => void;
   onStart: () => void;
   onCancel: () => void;
@@ -27,7 +34,7 @@ interface TeamsListProps {
   pairProgrammingEnabled: boolean;
   attendanceFile: File | null;
   uploadedAttendanceFileName: string | null;
-  pairProgrammingAttendanceByTeamName: Record<string, boolean>;
+  pairProgrammingAttendanceByTeamName: PairProgrammingAttendanceMap;
   onAttendanceFileSelect: (file: File | null) => void;
   onAttendanceUpload: () => void;
   onRemoveUploadedAttendanceFile: () => void;
@@ -75,7 +82,6 @@ const TeamsList = ({
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
-  const hasPairProgrammingAttendanceMapEntries = Object.keys(pairProgrammingAttendanceByTeamName).length > 0;
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -103,64 +109,6 @@ const TeamsList = ({
   // Helper to determine if a team is 'failed' (any student with <10 commits)
   const isTeamFailed = (team: Team) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
-  };
-
-  const renderPairProgrammingBadge = (team: Team) => {
-    if (!pairProgrammingEnabled || !hasUploadedAttendanceDocument || !hasPairProgrammingAttendanceMapEntries) {
-      return null;
-    }
-
-    const normalizedTeamName = normalizeTeamName(team.teamName);
-    const hasAttendanceEntry = Object.prototype.hasOwnProperty.call(pairProgrammingAttendanceByTeamName, normalizedTeamName);
-
-    if (!hasAttendanceEntry) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className="gap-1.5 cursor-help text-warning border-warning/50 bg-warning/10">
-                Pair Programming Warning
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Team not found. Verify the name matches Excel exactly.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-
-    if (pairProgrammingAttendanceByTeamName[normalizedTeamName]) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="secondary" className="gap-1.5 cursor-help bg-success/10 text-success hover:bg-success/20">
-                Pair Programming Pass
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p>Team was found in Excel and attended at least 2 of 3 pair-programming sessions.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="destructive" className="gap-1.5 cursor-help">
-              Pair Programming Fail
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p>Team was found in Excel but attended fewer than 2 of 3 pair-programming sessions.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
   };
 
   const renderAnalysisStatusBadge = (team: Team) => {
@@ -448,6 +396,12 @@ const TeamsList = ({
     [teams],
   );
 
+  const hasValidPairProgrammingData = hasValidPairProgrammingAttendanceData(
+    pairProgrammingEnabled,
+    uploadedAttendanceFileName,
+    pairProgrammingAttendanceByTeamName,
+  );
+
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
       <Button variant="ghost" onClick={onBackToHome} className="mb-4 text-muted-foreground hover:text-accent-foreground hover:bg-accent">
@@ -707,112 +661,120 @@ const TeamsList = ({
               </tr>
             </thead>
             <tbody>
-              {sortedAndFilteredTeams.map(team => (
-                <tr
-                  key={team.id}
-                  onClick={() => onTeamSelect(team)}
-                  className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                >
-                  <td className="py-4 px-6">
-                    <p className="font-semibold">{team.teamName.replace('Team ', '')}</p>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="space-y-1">
-                      {team.students.map((student, idx) => (
-                        <p
-                          key={idx}
-                          className={`text-sm ${(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
-                        >
-                          {student.name}
-                          {(team.analysisStatus === 'DONE' ||
-                            team.analysisStatus === 'GIT_DONE' ||
-                            team.analysisStatus === 'AI_ANALYZING') &&
-                            student.commitCount !== undefined && (
-                              <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
-                                {' '}
-                                ({student.commitCount} commits)
-                              </span>
-                            )}
-                        </p>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') &&
-                    team.basicMetrics ? (
-                      <div className="space-y-1">
-                        <p className="font-medium">{team.basicMetrics.totalCommits}</p>
-                        <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
-                      </div>
-                    ) : team.analysisStatus === 'PENDING' ||
-                      team.analysisStatus === 'DOWNLOADING' ||
-                      team.analysisStatus === 'GIT_ANALYZING' ||
-                      team.analysisStatus === 'ANALYZING' ? (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Analyzing...' : 'Pending'}</span>
-                      </div>
-                    ) : team.analysisStatus === 'ERROR' ? (
-                      <span className="text-sm text-destructive">—</span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-6">
-                    {team.analysisStatus === 'DONE' && team.cqi !== undefined ? (
-                      <div className="flex items-center gap-3">
-                        <div className={`flex items-center justify-center w-16 h-16 rounded-lg ${getCQIBgColor(team.cqi)}`}>
-                          <span className={`text-2xl font-bold ${getCQIColor(team.cqi)}`}>{team.cqi}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">out of 100</div>
-                      </div>
-                    ) : team.analysisStatus === 'AI_ANALYZING' ? (
-                      <div className="flex items-center gap-2 text-blue-500">
-                        <span className="text-sm">AI Analyzing...</span>
-                      </div>
-                    ) : team.analysisStatus === 'GIT_DONE' ? (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span className="text-sm">Waiting for AI</span>
-                      </div>
-                    ) : team.analysisStatus === 'ERROR' ? (
-                      <span className="text-sm text-destructive">Analysis Failed</span>
-                    ) : team.analysisStatus === 'CANCELLED' ? (
-                      <span className="text-sm text-muted-foreground">Cancelled</span>
-                    ) : (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span className="text-sm">
-                          {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
-                            ? 'Pending'
-                            : team.analysisStatus === 'GIT_ANALYZING'
-                              ? 'Git Analysis...'
-                              : 'Analyzing...'}
-                        </span>
-                      </div>
-                    )}
-                  </td>
-                  {isDevMode && (
+              {sortedAndFilteredTeams.map(team => {
+                const pairProgrammingBadgeStatus = getPairProgrammingBadgeStatus(
+                  team.teamName,
+                  hasValidPairProgrammingData,
+                  pairProgrammingAttendanceByTeamName,
+                );
+
+                return (
+                  <tr
+                    key={team.id}
+                    onClick={() => onTeamSelect(team, pairProgrammingBadgeStatus)}
+                    className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                  >
                     <td className="py-4 px-6">
-                      {team.llmTokenTotals ? (
-                        <div className="space-y-1">
-                          <p className="font-medium">{(team.llmTokenTotals.totalTokens ?? 0).toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">
-                            in {(team.llmTokenTotals.llmCalls ?? 0).toLocaleString()} calls
-                            {(team.llmTokenTotals.callsWithUsage ?? 0) < (team.llmTokenTotals.llmCalls ?? 0) &&
-                              ` (${(team.llmTokenTotals.callsWithUsage ?? 0).toLocaleString()} with usage)`}
+                      <p className="font-semibold">{team.teamName.replace('Team ', '')}</p>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="space-y-1">
+                        {team.students.map((student, idx) => (
+                          <p
+                            key={idx}
+                            className={`text-sm ${(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
+                          >
+                            {student.name}
+                            {(team.analysisStatus === 'DONE' ||
+                              team.analysisStatus === 'GIT_DONE' ||
+                              team.analysisStatus === 'AI_ANALYZING') &&
+                              student.commitCount !== undefined && (
+                                <span className={(student.commitCount ?? 0) < 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                                  {' '}
+                                  ({student.commitCount} commits)
+                                </span>
+                              )}
                           </p>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') &&
+                      team.basicMetrics ? (
+                        <div className="space-y-1">
+                          <p className="font-medium">{team.basicMetrics.totalCommits}</p>
+                          <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
                         </div>
+                      ) : team.analysisStatus === 'PENDING' ||
+                        team.analysisStatus === 'DOWNLOADING' ||
+                        team.analysisStatus === 'GIT_ANALYZING' ||
+                        team.analysisStatus === 'ANALYZING' ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Analyzing...' : 'Pending'}</span>
+                        </div>
+                      ) : team.analysisStatus === 'ERROR' ? (
+                        <span className="text-sm text-destructive">—</span>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </td>
-                  )}
-                  <td className="py-4 px-6">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {renderAnalysisStatusBadge(team)}
-                      {renderPairProgrammingBadge(team)}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    <td className="py-4 px-6">
+                      {team.analysisStatus === 'DONE' && team.cqi !== undefined ? (
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center justify-center w-16 h-16 rounded-lg ${getCQIBgColor(team.cqi)}`}>
+                            <span className={`text-2xl font-bold ${getCQIColor(team.cqi)}`}>{team.cqi}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">out of 100</div>
+                        </div>
+                      ) : team.analysisStatus === 'AI_ANALYZING' ? (
+                        <div className="flex items-center gap-2 text-blue-500">
+                          <span className="text-sm">AI Analyzing...</span>
+                        </div>
+                      ) : team.analysisStatus === 'GIT_DONE' ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span className="text-sm">Waiting for AI</span>
+                        </div>
+                      ) : team.analysisStatus === 'ERROR' ? (
+                        <span className="text-sm text-destructive">Analysis Failed</span>
+                      ) : team.analysisStatus === 'CANCELLED' ? (
+                        <span className="text-sm text-muted-foreground">Cancelled</span>
+                      ) : (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span className="text-sm">
+                            {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
+                              ? 'Pending'
+                              : team.analysisStatus === 'GIT_ANALYZING'
+                                ? 'Git Analysis...'
+                                : 'Analyzing...'}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    {isDevMode && (
+                      <td className="py-4 px-6">
+                        {team.llmTokenTotals ? (
+                          <div className="space-y-1">
+                            <p className="font-medium">{(team.llmTokenTotals.totalTokens ?? 0).toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">
+                              in {(team.llmTokenTotals.llmCalls ?? 0).toLocaleString()} calls
+                              {(team.llmTokenTotals.callsWithUsage ?? 0) < (team.llmTokenTotals.llmCalls ?? 0) &&
+                                ` (${(team.llmTokenTotals.callsWithUsage ?? 0).toLocaleString()} with usage)`}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    )}
+                    <td className="py-4 px-6">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {renderAnalysisStatusBadge(team)}
+                        <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

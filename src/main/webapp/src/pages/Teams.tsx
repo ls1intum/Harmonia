@@ -8,6 +8,13 @@ import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysi
 import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
 import { AttendanceResourceApi, Configuration, type TeamsScheduleDTO } from '@/app/generated';
 import { normalizeTeamName } from '@/lib/utils';
+import {
+  getPairProgrammingAttendanceFileStorageKey,
+  getPairProgrammingAttendanceMapStorageKey,
+  readStoredPairProgrammingAttendanceMap,
+  type PairProgrammingAttendanceMap,
+  type PairProgrammingBadgeStatus,
+} from '@/lib/pairProgramming';
 
 const apiConfig = new Configuration({
   basePath: window.location.origin,
@@ -17,42 +24,19 @@ const apiConfig = new Configuration({
 });
 const attendanceApi = new AttendanceResourceApi(apiConfig);
 
-const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): Record<string, boolean> => {
+const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairProgrammingAttendanceMap => {
   const teams = schedule?.teams;
   if (!teams) {
     return {};
   }
 
-  return Object.entries(teams).reduce<Record<string, boolean>>((acc, [teamName, attendance]) => {
+  return Object.entries(teams).reduce<PairProgrammingAttendanceMap>((acc, [teamName, attendance]) => {
     if (!teamName) {
       return acc;
     }
     acc[normalizeTeamName(teamName)] = attendance?.pairedAtLeastTwoOfThree === true;
     return acc;
   }, {});
-};
-
-const readStoredPairProgrammingAttendanceMap = (storageKey: string): Record<string, boolean> => {
-  const rawValue = window.sessionStorage.getItem(storageKey);
-  if (!rawValue) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue);
-    if (typeof parsed !== 'object' || parsed === null) {
-      return {};
-    }
-
-    return Object.entries(parsed).reduce<Record<string, boolean>>((acc, [teamName, attendedTwoOfThree]) => {
-      if (typeof attendedTwoOfThree === 'boolean') {
-        acc[normalizeTeamName(teamName)] = attendedTwoOfThree;
-      }
-      return acc;
-    }, {});
-  } catch {
-    return {};
-  }
 };
 
 export default function Teams() {
@@ -68,13 +52,13 @@ export default function Teams() {
     exercise: string;
     pairProgrammingEnabled?: boolean;
   };
-  const attendanceStorageKey = `pair-programming-attendance-file:${exercise}`;
-  const pairProgrammingAttendanceMapStorageKey = `pair-programming-attendance-status:${exercise}`;
+  const attendanceStorageKey = getPairProgrammingAttendanceFileStorageKey(exercise);
+  const pairProgrammingAttendanceMapStorageKey = getPairProgrammingAttendanceMapStorageKey(exercise);
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
   const [uploadedAttendanceFileName, setUploadedAttendanceFileName] = useState<string | null>(() =>
-    window.sessionStorage.getItem(`pair-programming-attendance-file:${exercise}`),
+    window.sessionStorage.getItem(attendanceStorageKey),
   );
-  const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<Record<string, boolean>>(() =>
+  const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<PairProgrammingAttendanceMap>(() =>
     readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
   );
 
@@ -365,8 +349,8 @@ export default function Teams() {
     return null;
   }
 
-  const handleTeamSelect = (team: Team) => {
-    navigate(`/teams/${team.id}`, { state: { team, course, exercise } });
+  const handleTeamSelect = (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
+    navigate(`/teams/${team.id}`, { state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus } });
   };
 
   const handleAttendanceUpload = () => {
