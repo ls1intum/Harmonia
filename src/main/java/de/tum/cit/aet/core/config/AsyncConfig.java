@@ -13,6 +13,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableAsync
 public class AsyncConfig {
 
+    /**
+     * Creates and configures a dedicated {@link Executor} bean for handling
+     * attendance-related asynchronous tasks.
+     * @return A configured {@link Executor} for attendance task processing
+     */
     @Bean(name = "attendanceTaskExecutor")
     public Executor attendanceTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
