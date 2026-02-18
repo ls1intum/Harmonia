@@ -10,6 +10,7 @@ import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
+import ExportButton from '@/components/ExportButton';
 
 interface TeamsListProps {
   teams: Team[];
@@ -318,6 +319,7 @@ const TeamsList = ({
             </span>
           </Button>
           {renderActionButton()}
+          <ExportButton exerciseId={exercise} disabled={teams.length === 0 || analysisStatus.state === 'RUNNING'} />
           <Button
             variant="outline"
             onClick={() => handleClearClick('both')}

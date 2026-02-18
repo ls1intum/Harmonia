@@ -92,6 +92,9 @@ dependencies {
     // Main database to persist entities
     implementation 'org.postgresql:postgresql:42.7.9'
 
+    // Apache POI for Excel export
+    implementation 'org.apache.poi:poi-ooxml:5.4.1'
+
     // Lombok for boilerplate code reduction
     compileOnly 'org.projectlombok:lombok'
 
