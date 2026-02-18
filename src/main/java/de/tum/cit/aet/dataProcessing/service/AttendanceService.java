@@ -129,12 +129,19 @@ public class AttendanceService {
     private Map<String, TeamAttendanceDTO> parseSheet(Sheet sheet, List<TutorialGroupSessionDTO> sessionInfos, DataFormatter formatter) {
         Map<String, TeamAttendanceDTO> teams = new LinkedHashMap<>();
         int rowIndex = attendanceConfiguration.getStartRowIndex();
+        int teamNameColumn = attendanceConfiguration.getTeamNameColumn();
+        int neighboringColumn = teamNameColumn + 1;
 
         while (true) {
             Row row = sheet.getRow(rowIndex);
-            String teamName = getCellString(row, attendanceConfiguration.getTeamNameColumn(), formatter);
+            String teamName = getCellString(row, teamNameColumn, formatter);
             if (teamName == null || teamName.isBlank()) {
-                break;
+                String neighboringValue = getCellString(row, neighboringColumn, formatter);
+                if (neighboringValue == null || neighboringValue.isBlank()) {
+                    break;
+                }
+                rowIndex += attendanceConfiguration.getRowStep();
+                continue;
             }
 
             Map<OffsetDateTime, Boolean> student1Attendance = new LinkedHashMap<>();
