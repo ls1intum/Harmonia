@@ -1,5 +1,6 @@
-import type { Team } from '@/types/team';
+import type { Team, SubMetric } from '@/types/team';
 import type { AnalyzedChunkDTO } from '@/app/generated';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +61,43 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
       student.linesChanged !== undefined
     );
   };
+
+  // Show Pair Programming card from server subMetrics when present; otherwise from attendance badge when available (e.g. when analysis failed)
+  const metricsToShow = useMemo((): SubMetric[] => {
+    const fromServer = team.subMetrics ?? [];
+    const hasPairProgrammingFromServer = fromServer.some(m => m.name === 'Pair Programming');
+    if (pairProgrammingBadgeStatus != null && !hasPairProgrammingFromServer) {
+      const description = 'Did both students commit during pair programming sessions?';
+      const synthetic: SubMetric =
+        pairProgrammingBadgeStatus === 'pass'
+          ? {
+              name: 'Pair Programming',
+              value: 100,
+              weight: 0,
+              description,
+              details:
+                'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.',
+            }
+          : pairProgrammingBadgeStatus === 'fail'
+            ? {
+                name: 'Pair Programming',
+                value: 0,
+                weight: 0,
+                description,
+                details: 'Team was found in Excel but attended fewer than 2 of 3 pair-programming sessions.',
+              }
+            : {
+                name: 'Pair Programming',
+                value: -2,
+                weight: 0,
+                description,
+                details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
+                status: 'NOT_FOUND',
+              };
+      return [...fromServer, synthetic];
+    }
+    return fromServer;
+  }, [team.subMetrics, pairProgrammingBadgeStatus]);
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
@@ -236,9 +274,9 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
           </p>
         </div>
 
-        {team.subMetrics && team.subMetrics.length > 0 ? (
+        {metricsToShow.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {team.subMetrics.map((metric, index) => (
+            {metricsToShow.map((metric, index) => (
               <MetricCard key={index} metric={metric} />
             ))}
           </div>
