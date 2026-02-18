@@ -17,7 +17,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="gap-1.5 cursor-help text-warning border-warning/50 bg-warning/10">
-              Pair Programming Warning
+              Warning
             </Badge>
           </TooltipTrigger>
           <TooltipContent>
@@ -34,7 +34,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="secondary" className="gap-1.5 cursor-help bg-success/10 text-success hover:bg-success/20">
-              Pair Programming Pass
+              Pass
             </Badge>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
@@ -50,7 +50,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Badge variant="destructive" className="gap-1.5 cursor-help">
-            Pair Programming Fail
+            Fail
           </Badge>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">

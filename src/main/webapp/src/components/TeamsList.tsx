@@ -655,6 +655,7 @@ const TeamsList = ({
                   />
                 </th>
                 {isDevMode && <th className="text-left py-4 px-6 font-semibold text-sm">LLM Tokens</th>}
+                {pairProgrammingEnabled && <th className="text-center py-4 px-6 font-semibold text-sm">Pair Programming</th>}
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <StatusFilterButton statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                 </th>
@@ -766,11 +767,15 @@ const TeamsList = ({
                         )}
                       </td>
                     )}
+                    {pairProgrammingEnabled && (
+                      <td className="py-4 px-6">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                        </div>
+                      </td>
+                    )}
                     <td className="py-4 px-6">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {renderAnalysisStatusBadge(team)}
-                        <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
-                      </div>
+                      <div className="flex flex-wrap items-center gap-2">{renderAnalysisStatusBadge(team)}</div>
                     </td>
                   </tr>
                 );
