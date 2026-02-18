@@ -3,8 +3,9 @@ package de.tum.cit.aet.dataProcessing.web;
 import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.security.CryptoService;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.dataProcessing.service.PairProgrammingRecomputeService;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.AttendanceService;
 import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
@@ -35,6 +36,7 @@ public class AttendanceResource {
     private final CryptoService cryptoService;
     private final ArtemisConfig artemisConfig;
     private final ArtemisClientService artemisClientService;
+    private final PairProgrammingRecomputeService pairProgrammingRecomputeService;
 
     /**
      * Constructs the AttendanceResource with required dependencies.
@@ -45,6 +47,7 @@ public class AttendanceResource {
      * @param cryptoService the crypto service
      * @param artemisConfig the Artemis configuration
      * @param artemisClientService the Artemis client service
+     * @param pairProgrammingRecomputeService the async pair programming recompute service
      */
     public AttendanceResource(
             AttendanceService attendanceService,
@@ -52,7 +55,8 @@ public class AttendanceResource {
             TeamScheduleService teamScheduleService,
             CryptoService cryptoService,
             ArtemisConfig artemisConfig,
-            ArtemisClientService artemisClientService
+            ArtemisClientService artemisClientService,
+            PairProgrammingRecomputeService pairProgrammingRecomputeService
     ) {
         this.attendanceService = attendanceService;
         this.requestService = requestService;
@@ -60,6 +64,7 @@ public class AttendanceResource {
         this.cryptoService = cryptoService;
         this.artemisConfig = artemisConfig;
         this.artemisClientService = artemisClientService;
+        this.pairProgrammingRecomputeService = pairProgrammingRecomputeService;
     }
 
     /**
@@ -134,12 +139,11 @@ public class AttendanceResource {
         }
 
         TeamsScheduleDTO results = attendanceService.parseAttendance(file, credentials, courseId, exerciseId);
-        try {
-            int updatedTeams = requestService.recomputePairProgrammingForExercise(exerciseId);
-            log.info("Recomputed pair programming metrics for {} teams after attendance upload", updatedTeams);
-        } catch (Exception e) {
-            log.warn("Attendance uploaded, but pair programming recomputation failed: {}", e.getMessage());
-        }
+
+        // Fire-and-forget background recomputation of pair programming metrics
+        pairProgrammingRecomputeService.recomputePairProgrammingForExerciseAsync(exerciseId);
+
+        log.info("Attendance uploaded for exercise {}. Triggered async pair programming recomputation.", exerciseId);
         log.info("AttendanceResource: {}", results);
         return ResponseEntity.ok(results);
     }
