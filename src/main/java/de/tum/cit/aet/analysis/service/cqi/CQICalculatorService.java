@@ -83,7 +83,7 @@ public class CQICalculatorService {
         if (teamName != null && !teamName.isEmpty()
                 && teamScheduleService.getTeamAttendance(teamName) != null
                 && !teamScheduleService.hasCancelledSessionWarning(teamName)
-                && !teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
+                && !teamScheduleService.isPairedMandatorySessions(teamName)) {
             log.warn("Team did not meet the mandatory pair-programming attendance threshold.");
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }

@@ -162,12 +162,12 @@ public class AttendanceService {
                     .map(Map.Entry::getKey)
                     .toList();
 
-            boolean pairedAtLeastTwoOfThree = pairedSessions.size() >= attendanceConfiguration.getMandatoryProgrammingSessions();
+            boolean pairedMandatorySessions = pairedSessions.size() >= attendanceConfiguration.getMandatoryProgrammingSessions();
 
             teams.put(teamName.trim(), new TeamAttendanceDTO(
                     student1Attendance,
                     student2Attendance,
-                    pairedAtLeastTwoOfThree,
+                    pairedMandatorySessions,
                     pairedSessions
             ));
 

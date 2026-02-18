@@ -95,9 +95,9 @@ public class TeamScheduleService {
         return new HashSet<>(attendance.pairedSessions());
     }
 
-    public boolean isPairedAtLeastTwoOfThree(String teamName) {
+    public boolean isPairedMandatorySessions(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
-        return attendance != null && attendance.pairedAtLeastTwoOfThree();
+        return attendance != null && attendance.pairedMandatorySessions();
     }
 
     /**

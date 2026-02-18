@@ -45,7 +45,7 @@ const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairPro
     const hasCancelledSessionWarning = hasCancelledSessionAttendance(attendance);
     acc[normalizeTeamName(teamName)] = hasCancelledSessionWarning
       ? 'warning'
-      : attendance?.pairedAtLeastTwoOfThree === true
+      : attendance?.pairedMandatorySessions === true
         ? 'pass'
         : 'fail';
     return acc;
