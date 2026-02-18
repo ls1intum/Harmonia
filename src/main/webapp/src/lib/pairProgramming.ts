@@ -1,8 +1,10 @@
 import { normalizeTeamName } from '@/lib/utils';
 
-export type PairProgrammingAttendanceMap = Record<string, boolean>;
+export type PairProgrammingAttendanceStatus = 'pass' | 'fail' | 'warning';
 
-export type PairProgrammingBadgeStatus = 'warning' | 'pass' | 'fail';
+export type PairProgrammingAttendanceMap = Record<string, PairProgrammingAttendanceStatus>;
+
+export type PairProgrammingBadgeStatus = 'not_found' | 'warning' | 'pass' | 'fail';
 
 export const getPairProgrammingAttendanceFileStorageKey = (exerciseId: string): string => {
   return `pair-programming-attendance-file:${exerciseId}`;
@@ -24,9 +26,12 @@ export const readStoredPairProgrammingAttendanceMap = (storageKey: string): Pair
       return {};
     }
 
-    return Object.entries(parsed).reduce<PairProgrammingAttendanceMap>((acc, [teamName, attendedTwoOfThree]) => {
-      if (typeof attendedTwoOfThree === 'boolean') {
-        acc[normalizeTeamName(teamName)] = attendedTwoOfThree;
+    return Object.entries(parsed).reduce<PairProgrammingAttendanceMap>((acc, [teamName, storedStatus]) => {
+      if (storedStatus === 'pass' || storedStatus === 'fail' || storedStatus === 'warning') {
+        acc[normalizeTeamName(teamName)] = storedStatus;
+      } else if (typeof storedStatus === 'boolean') {
+        // Backward compatibility for previously stored values.
+        acc[normalizeTeamName(teamName)] = storedStatus ? 'pass' : 'fail';
       }
       return acc;
     }, {});
@@ -56,8 +61,8 @@ export const getPairProgrammingBadgeStatus = (
   const hasAttendanceEntry = Object.prototype.hasOwnProperty.call(pairProgrammingAttendanceByTeamName, normalizedTeamName);
 
   if (!hasAttendanceEntry) {
-    return 'warning';
+    return 'not_found';
   }
 
-  return pairProgrammingAttendanceByTeamName[normalizedTeamName] ? 'pass' : 'fail';
+  return pairProgrammingAttendanceByTeamName[normalizedTeamName];
 };

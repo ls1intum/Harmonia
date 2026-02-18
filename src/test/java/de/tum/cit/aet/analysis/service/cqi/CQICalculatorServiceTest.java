@@ -7,6 +7,7 @@ import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService.RatedChunk;
+import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
@@ -36,7 +37,7 @@ class CQICalculatorServiceTest {
     @BeforeEach
     void setUp() {
         teamScheduleService = new TeamScheduleService();
-        cqiService = new CQICalculatorService(new CQIConfig(), teamScheduleService, new PairProgrammingCalculator());
+        cqiService = new CQICalculatorService(new CQIConfig(), teamScheduleService, new PairProgrammingCalculator(new AttendanceConfiguration()));
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
         teamName = "team1";

@@ -6,7 +6,7 @@ import type { Team } from '@/types/team';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
 import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
-import { AttendanceResourceApi, Configuration, type TeamsScheduleDTO } from '@/app/generated';
+import { AttendanceResourceApi, Configuration, type TeamAttendanceDTO, type TeamsScheduleDTO } from '@/app/generated';
 import { normalizeTeamName } from '@/lib/utils';
 import {
   getPairProgrammingAttendanceFileStorageKey,
@@ -24,6 +24,14 @@ const apiConfig = new Configuration({
 });
 const attendanceApi = new AttendanceResourceApi(apiConfig);
 
+type NullableAttendanceMap = Record<string, boolean | null>;
+
+const hasCancelledSessionAttendance = (attendance?: TeamAttendanceDTO): boolean => {
+  const student1Attendance = (attendance?.student1Attendance ?? {}) as NullableAttendanceMap;
+  const student2Attendance = (attendance?.student2Attendance ?? {}) as NullableAttendanceMap;
+  return [...Object.values(student1Attendance), ...Object.values(student2Attendance)].some(value => value === null);
+};
+
 const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairProgrammingAttendanceMap => {
   const teams = schedule?.teams;
   if (!teams) {
@@ -34,7 +42,12 @@ const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairPro
     if (!teamName) {
       return acc;
     }
-    acc[normalizeTeamName(teamName)] = attendance?.pairedAtLeastTwoOfThree === true;
+    const hasCancelledSessionWarning = hasCancelledSessionAttendance(attendance);
+    acc[normalizeTeamName(teamName)] = hasCancelledSessionWarning
+      ? 'warning'
+      : attendance?.pairedAtLeastTwoOfThree === true
+        ? 'pass'
+        : 'fail';
     return acc;
   }, {});
 };

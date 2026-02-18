@@ -475,9 +475,7 @@ const TeamsList = ({
               <p className="text-sm text-muted-foreground">
                 Used file:{' '}
                 <span className="font-medium text-foreground break-all">
-                  {isAttendanceUploading
-                    ? "Currently processing..."
-                    : (uploadedAttendanceFileName ?? 'Not uploaded yet')}
+                  {isAttendanceUploading ? 'Currently processing...' : (uploadedAttendanceFileName ?? 'Not uploaded yet')}
                 </span>
               </p>
               {hasUploadedAttendanceDocument && (

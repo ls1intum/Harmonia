@@ -1,6 +1,6 @@
 package de.tum.cit.aet.repositoryProcessing.dto;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,12 +13,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param start The start time of the tutorial session.
  * @param end The end time of the tutorial session.
  * @param location Optional location where the session takes place.
+ * @param cancelled Whether the session was cancelled.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record TutorialGroupSessionDTO(
         Long id,
-        @JsonProperty("start") Instant start,
-        @JsonProperty("end") Instant end,
-        String location
+        @JsonProperty("start") OffsetDateTime start,
+        @JsonProperty("end") OffsetDateTime end,
+        String location,
+        boolean cancelled
 ) {
 }

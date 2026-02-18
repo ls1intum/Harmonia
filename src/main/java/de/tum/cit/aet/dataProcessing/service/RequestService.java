@@ -582,10 +582,8 @@ public class RequestService {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
-                if (gitComponents.pairProgramming() != null) {
-                    teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
-                }
-                // Always set the status (FOUND, NOT_FOUND, or null)
+                teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
+                // Always set the status (FOUND, NOT_FOUND, WARNING, or null)
                 teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
                 teamParticipationRepository.save(teamParticipation);
 

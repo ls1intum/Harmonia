@@ -75,7 +75,10 @@ public class TeamScheduleService {
         if (sessionMap.isEmpty()) {
             return Set.of();
         }
-        return new HashSet<>(sessionMap.keySet());
+        return sessionMap.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     /**
@@ -95,6 +98,21 @@ public class TeamScheduleService {
     public boolean isPairedAtLeastTwoOfThree(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
         return attendance != null && attendance.pairedAtLeastTwoOfThree();
+    }
+
+    /**
+     * Indicates whether the team has cancelled tutorial sessions in attendance data.
+     *
+     * @param teamName the team name to look up
+     * @return true when any session attendance value is null
+     */
+    public boolean hasCancelledSessionWarning(String teamName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+        if (attendance == null) {
+            return false;
+        }
+        return hasNullAttendanceValue(attendance.student1Attendance())
+                || hasNullAttendanceValue(attendance.student2Attendance());
     }
 
     /**
@@ -125,5 +143,10 @@ public class TeamScheduleService {
             return second;
         }
         return Map.of();
+    }
+
+    private boolean hasNullAttendanceValue(Map<OffsetDateTime, Boolean> attendanceMap) {
+        return attendanceMap != null
+                && attendanceMap.values().stream().anyMatch(value -> value == null);
     }
 }

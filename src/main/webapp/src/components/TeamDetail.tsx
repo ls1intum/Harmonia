@@ -84,16 +84,26 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
                 value: 0,
                 weight: 0,
                 description,
-                details: 'Team was found in Excel but attended fewer than 2 of 3 pair-programming sessions.',
+                details: 'Team was found in Excel but attended fewer than the mandatory number of pair-programming sessions.',
               }
-            : {
-                name: 'Pair Programming',
-                value: -2,
-                weight: 0,
-                description,
-                details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
-                status: 'NOT_FOUND',
-              };
+            : pairProgrammingBadgeStatus === 'warning'
+              ? {
+                  name: 'Pair Programming',
+                  value: -3,
+                  weight: 0,
+                  description,
+                  details:
+                    'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.',
+                  status: 'WARNING',
+                }
+              : {
+                  name: 'Pair Programming',
+                  value: -2,
+                  weight: 0,
+                  description,
+                  details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
+                  status: 'NOT_FOUND',
+                };
       return [...fromServer, synthetic];
     }
     return fromServer;

@@ -78,12 +78,13 @@ public class CQICalculatorService {
             return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
 
-        // Edge case: < 2/3 pair programming sessions were attended
-        // Only check this if pair programming attendance data was actually uploaded
+        // Edge case: team did not meet the mandatory pair-programming attendance threshold.
+        // Only enforce this when attendance data exists and no cancellation warning applies.
         if (teamName != null && !teamName.isEmpty()
                 && teamScheduleService.getTeamAttendance(teamName) != null
+                && !teamScheduleService.hasCancelledSessionWarning(teamName)
                 && !teamScheduleService.isPairedAtLeastTwoOfThree(teamName)) {
-            log.warn("Less then 2/3 pair programming sessions were attended.");
+            log.warn("Team did not meet the mandatory pair-programming attendance threshold.");
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }
 
@@ -253,13 +254,14 @@ public class CQICalculatorService {
 
         // Calculate pair programming score if team name is provided
         Double pairProgrammingScore = null;
-        String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = team in Excel, "NOT_FOUND" = Excel uploaded but team missing
+        String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = in Excel, "NOT_FOUND" = missing, "WARNING" = cancelled-session edge case
         log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
         if (teamName != null && teamSize == 2) {
             try {
                 // Check if attendance data was uploaded at all
                 boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
                 boolean hasTeamAttendance = teamScheduleService.hasTeamAttendance(teamName);
+                boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
 
                 Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
                 Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
@@ -275,8 +277,10 @@ public class CQICalculatorService {
                         log.info("  Paired session: {}", date));
 
                 if (hasTeamAttendance) {
-                    pairProgrammingStatus = "FOUND";
-                    if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
+                    pairProgrammingStatus = hasCancelledSessionWarning ? "WARNING" : "FOUND";
+                    if (hasCancelledSessionWarning) {
+                        log.info("Team '{}' has cancelled tutorial sessions affecting mandatory attendance; setting pair programming status to WARNING", teamName);
+                    } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
                         pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
                                 pairedSessions, allSessions, chunks, teamSize);
                         log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
@@ -296,15 +300,15 @@ public class CQICalculatorService {
                 } else {
                     log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
                 }
-                log.info("Session availability for team {}: paired={}, all={}, hasTeamAttendance={}",
-                        teamName, pairedSessions.size(), allSessions.size(), hasTeamAttendance);
+                log.info("Session availability for team {}: paired={}, all={}, hasTeamAttendance={}, hasCancelledSessionWarning={}",
+                        teamName, pairedSessions.size(), allSessions.size(), hasTeamAttendance, hasCancelledSessionWarning);
             } catch (Exception e) {
                 log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
             }
         } else {
             if (teamName == null) {
                 log.info("calculateGitOnlyComponents: teamName is null, skipping pair programming calculation");
-            } else if (teamSize != 2) {
+            } else {
                 log.info("calculateGitOnlyComponents: teamSize={} (not 2), skipping pair programming calculation", teamSize);
             }
         }

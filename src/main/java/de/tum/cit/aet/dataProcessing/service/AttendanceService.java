@@ -4,6 +4,7 @@ import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.repositoryProcessing.dto.TutorialGroupSessionDTO;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,13 +66,13 @@ public class AttendanceService {
             Long courseId,
             Long exerciseId
     ) {
-        Map<String, List<OffsetDateTime>> sessionsByGroup = artemisClientService
-                .fetchTutorialGroupSessionStartTimes(credentials.serverUrl(), credentials.jwtToken(), courseId);
+        Map<String, List<TutorialGroupSessionDTO>> sessionsByGroup = artemisClientService
+                .fetchTutorialGroupSessions(credentials.serverUrl(), credentials.jwtToken(), courseId);
 
         OffsetDateTime submissionDeadline = artemisClientService.fetchSubmissionDeadline(
                 credentials.serverUrl(), credentials.jwtToken(), exerciseId);
 
-        Map<String, List<OffsetDateTime>> normalizedSessions = new LinkedHashMap<>();
+        Map<String, List<TutorialGroupSessionDTO>> normalizedSessions = new LinkedHashMap<>();
         sessionsByGroup.forEach((name, sessions) -> normalizedSessions.put(normalize(name), sessions));
 
         Map<String, TeamAttendanceDTO> teams = new LinkedHashMap<>();
@@ -83,23 +85,23 @@ public class AttendanceService {
             for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
                 Sheet sheet = workbook.getSheetAt(sheetIndex);
                 String sheetName = sheet.getSheetName();
-                List<OffsetDateTime> sessionTimes = normalizedSessions.getOrDefault(normalize(sheetName), List.of());
+                List<TutorialGroupSessionDTO> sessionInfos = normalizedSessions.getOrDefault(normalize(sheetName), List.of());
 
-                if (sessionTimes.isEmpty()) {
+                if (sessionInfos.isEmpty()) {
                     log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
                 }
 
 
-
-                long count = sessionTimes.stream()
-                        .filter(session -> session.isBefore(submissionDeadline))
+                long count = sessionInfos.stream()
+                        .filter(session -> session.start().isBefore(submissionDeadline))
                         .count();
 
-                List<OffsetDateTime> sortedSessions = sessionTimes.stream()
-                        .filter(session -> session.isBefore(submissionDeadline))
-                        .sorted()
+                List<TutorialGroupSessionDTO> sortedSessions = sessionInfos.stream()
+                        .filter(session -> session.start().isBefore(submissionDeadline))
+                        .sorted(Comparator.comparing(TutorialGroupSessionDTO::start))
                         .skip(Math.max(0, count - attendanceConfiguration.getNumberProgrammingSessions()))
                         .toList();
+
 
                 Map<String, TeamAttendanceDTO> parsedTeams = parseSheet(sheet, sortedSessions, formatter);
                 for (Map.Entry<String, TeamAttendanceDTO> entry : parsedTeams.entrySet()) {
@@ -124,7 +126,7 @@ public class AttendanceService {
         return schedule;
     }
 
-    private Map<String, TeamAttendanceDTO> parseSheet(Sheet sheet, List<OffsetDateTime> sessionTimes, DataFormatter formatter) {
+    private Map<String, TeamAttendanceDTO> parseSheet(Sheet sheet, List<TutorialGroupSessionDTO> sessionInfos, DataFormatter formatter) {
         Map<String, TeamAttendanceDTO> teams = new LinkedHashMap<>();
         int rowIndex = attendanceConfiguration.getStartRowIndex();
 
@@ -138,12 +140,20 @@ public class AttendanceService {
             Map<OffsetDateTime, Boolean> student1Attendance = new LinkedHashMap<>();
             Map<OffsetDateTime, Boolean> student2Attendance = new LinkedHashMap<>();
 
-            for (int i = 0; i < sessionTimes.size(); i++) {
-                OffsetDateTime sessionTime = sessionTimes.get(i);
+            for (int i = 0; i < sessionInfos.size(); i++) {
+                TutorialGroupSessionDTO sessionInfo = sessionInfos.get(i);
+                OffsetDateTime sessionTime = sessionInfo.start();
+
+                if (sessionInfo.cancelled()) {
+                    student1Attendance.put(sessionTime, null);
+                    student2Attendance.put(sessionTime, null);
+                    continue;
+                }
+
                 Boolean student1 = getCellBoolean(row, attendanceConfiguration.getStudent1Columns()[i], formatter);
                 Boolean student2 = getCellBoolean(row, attendanceConfiguration.getStudent2Columns()[i], formatter);
-                student1Attendance.put(sessionTime, student1);
-                student2Attendance.put(sessionTime, student2);
+                student1Attendance.put(sessionTime, Boolean.TRUE.equals(student1));
+                student2Attendance.put(sessionTime, Boolean.TRUE.equals(student2));
             }
 
             List<OffsetDateTime> pairedSessions = student1Attendance.entrySet().stream()
@@ -152,7 +162,7 @@ public class AttendanceService {
                     .map(Map.Entry::getKey)
                     .toList();
 
-            boolean pairedAtLeastTwoOfThree = pairedSessions.size() >= 2;
+            boolean pairedAtLeastTwoOfThree = pairedSessions.size() >= attendanceConfiguration.getMandatoryProgrammingSessions();
 
             teams.put(teamName.trim(), new TeamAttendanceDTO(
                     student1Attendance,

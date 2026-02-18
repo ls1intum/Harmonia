@@ -11,6 +11,23 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
     return null;
   }
 
+  if (status === 'not_found') {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="gap-1.5 cursor-help text-warning border-warning/50 bg-warning/10">
+              Not Found
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Team not found. Verify the name matches Excel exactly.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
   if (status === 'warning') {
     return (
       <TooltipProvider>
@@ -20,8 +37,11 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
               Warning
             </Badge>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Team not found. Verify the name matches Excel exactly.</p>
+          <TooltipContent className="max-w-xs">
+            <p>
+              Some pair-programming tutorials were cancelled and some were attended, so mandatory attendance could not be evaluated
+              reliably.
+            </p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -38,7 +58,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
             </Badge>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
-            <p>Team was found in Excel and attended at least 2 of 3 pair-programming sessions.</p>
+            <p>Team was found in Excel and attended at least the mandatory number of pair-programming sessions.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -54,7 +74,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
           </Badge>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          <p>Team was found in Excel but attended fewer than 2 of 3 pair-programming sessions.</p>
+          <p>Team was found in Excel but attended fewer than the mandatory number of pair-programming sessions.</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

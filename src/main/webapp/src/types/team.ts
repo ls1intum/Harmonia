@@ -6,7 +6,7 @@ export interface SubMetric {
   weight: number;
   description: string;
   details: string;
-  status?: 'FOUND' | 'NOT_FOUND' | null; // For pair programming: FOUND = team in Excel, NOT_FOUND = Excel uploaded but team missing
+  status?: 'FOUND' | 'NOT_FOUND' | 'WARNING' | null; // Pair programming status from attendance upload/analysis
 }
 
 export interface BasicMetrics {
