@@ -5,6 +5,7 @@ apis/analysis-resource-api.ts
 apis/attendance-resource-api.ts
 apis/auth-resource-api.ts
 apis/config-resource-api.ts
+apis/export-resource-api.ts
 apis/request-resource-api.ts
 base.ts
 common.ts
@@ -20,6 +21,7 @@ docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
 docs/ComponentWeightsDTO.md
 docs/ConfigResourceApi.md
+docs/ExportResourceApi.md
 docs/FilterSummaryDTO.md
 docs/LlmTokenTotals.md
 docs/LlmTokenUsage.md
