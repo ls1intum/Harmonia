@@ -462,7 +462,7 @@ components:
     TeamAttendanceDTO:
       type: object
       properties:
-        pairedAtLeastTwoOfThree: {type: boolean}
+        pairedMandatorySessions: {type: boolean}
         pairedSessions:
           type: array
           items: {type: string, format: date-time}
