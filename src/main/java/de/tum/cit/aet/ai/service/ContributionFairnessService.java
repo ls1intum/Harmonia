@@ -75,7 +75,7 @@ public class ContributionFairnessService {
 
             if (authorMapping.teamMemberCommits.isEmpty()) {
                 return new FairnessReportWithUsage(
-                        FairnessReportDTO.error(teamName, "No commits found from team members in VCS logs"),
+                        FairnessReportDTO.error(teamName, "No commits found from team members in repository history"),
                         teamTokenTotals);
             }
 

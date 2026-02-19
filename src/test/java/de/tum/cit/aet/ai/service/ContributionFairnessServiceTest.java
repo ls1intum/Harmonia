@@ -229,6 +229,25 @@ class ContributionFairnessServiceTest {
         assertFalse(reportWithUsage.report().analyzedChunks().get(1).llmTokenUsage().usageAvailable());
     }
 
+    @Test
+    void testAnalyzeFairness_noCommitsReturnsError() {
+        // Clear the setUp stub and return empty team-member commits instead
+        reset(gitContributionAnalysisService);
+        FullCommitMappingResult emptyMap = new FullCommitMappingResult(
+                Map.of(), Set.of(), Map.of());
+        when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class)))
+                .thenReturn(emptyMap);
+
+        FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
+
+        assertNotNull(report);
+        assertEquals("Team 1", report.teamId());
+        assertTrue(report.flags().contains(FairnessFlag.ANALYSIS_ERROR),
+                "Should flag as analysis error when no team member commits found");
+        assertTrue(report.requiresManualReview());
+        assertEquals(0.0, report.balanceScore());
+    }
+
     private CommitEffortRaterService.RatingWithUsage ratingWithUsage(EffortRatingDTO rating, LlmTokenUsage usage) {
         return new CommitEffortRaterService.RatingWithUsage(rating, usage);
     }

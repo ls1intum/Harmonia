@@ -161,7 +161,12 @@ public class GitContributionAnalysisService {
                 // Learn the git-author email -> studentId mapping
                 String gitEmail = commit.getAuthorIdent().getEmailAddress();
                 if (gitEmail != null) {
-                    learnedGitEmailToStudentId.put(gitEmail.toLowerCase(), studentId);
+                    String gitEmailLower = gitEmail.toLowerCase();
+                    Long existing = learnedGitEmailToStudentId.putIfAbsent(gitEmailLower, studentId);
+                    if (existing != null && !existing.equals(studentId)) {
+                        log.warn("Git email '{}' maps to multiple students (id {} and {}); keeping first",
+                                gitEmailLower, existing, studentId);
+                    }
                 }
             }
 

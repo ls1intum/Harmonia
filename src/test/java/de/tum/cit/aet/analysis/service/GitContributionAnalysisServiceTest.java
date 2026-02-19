@@ -230,6 +230,170 @@ class GitContributionAnalysisServiceTest {
     }
 
     @Test
+    void testEmailConflict_twoStudentsSameGitEmail() throws Exception {
+        // Both students use the same git email "shared@gmail.com" in their commits.
+        // VCS anchors map shared@gmail.com to Student A first (commit3).
+        // putIfAbsent keeps Student A; Student B's anchor (commit5) does not overwrite.
+        // So commit4 (also shared@gmail.com) is attributed to Student A via learned mapping.
+        Path conflictDir = tempDir.resolve("conflict-repo");
+        Files.createDirectories(conflictDir);
+
+        String hash3, hash4, hash5;
+        try (Git git = Git.init().setDirectory(conflictDir.toFile()).call()) {
+            Path readme = conflictDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            git.commit().setAuthor(new PersonIdent("X", "x@example.com")).setMessage("init").call();
+
+            // Commit 3 — pushed by Student A but git email is shared@gmail.com
+            Files.writeString(readme, "change A\n");
+            git.add().addFilepattern("README.md").call();
+            hash3 = git.commit()
+                    .setAuthor(new PersonIdent("Shared", "shared@gmail.com"))
+                    .setMessage("A work").call().getName();
+
+            // Commit 4 — intermediate by Student B, same shared email
+            Files.writeString(readme, "change B\n");
+            git.add().addFilepattern("README.md").call();
+            hash4 = git.commit()
+                    .setAuthor(new PersonIdent("Shared", "shared@gmail.com"))
+                    .setMessage("B work").call().getName();
+
+            // Commit 5 — pushed by Student B, same shared email
+            Files.writeString(readme, "change B2\n");
+            git.add().addFilepattern("README.md").call();
+            hash5 = git.commit()
+                    .setAuthor(new PersonIdent("Shared", "shared@gmail.com"))
+                    .setMessage("B work 2").call().getName();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL),
+                new ParticipantDTO(STUDENT_B_ID, "studentB", "Student B", STUDENT_B_EMAIL));
+
+        // VCS anchors: commit3 -> Student A, commit5 -> Student B
+        List<VCSLogDTO> vcsLogs = List.of(
+                new VCSLogDTO(STUDENT_A_EMAIL, "PUSH", hash3),
+                new VCSLogDTO(STUDENT_B_EMAIL, "PUSH", hash5));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                conflictDir.toString(), vcsLogs, students);
+
+        // commit3 is VCS anchor -> Student A (tier 1)
+        assertEquals(STUDENT_A_ID, result.commitToAuthor().get(hash3));
+
+        // commit5 is VCS anchor -> Student B (tier 1)
+        assertEquals(STUDENT_B_ID, result.commitToAuthor().get(hash5));
+
+        // commit4: RevWalk visits newest-first, so commit5 (Student B) is the
+        // first anchor seen for shared@gmail.com. putIfAbsent keeps Student B.
+        assertEquals(STUDENT_B_ID, result.commitToAuthor().get(hash4),
+                "Conflict email should map to the first-seen student (putIfAbsent)");
+    }
+
+    @Test
+    void testNullAuthorEmail() throws Exception {
+        // Commit with empty author email should not crash; it becomes an orphan.
+        Path nullEmailDir = tempDir.resolve("null-email-repo");
+        Files.createDirectories(nullEmailDir);
+
+        try (Git git = Git.init().setDirectory(nullEmailDir.toFile()).call()) {
+            Path readme = nullEmailDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            git.commit().setAuthor(new PersonIdent("NoEmail", "")).setMessage("no email commit").call();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                nullEmailDir.toString(), List.of(), students);
+
+        // Should not crash. The commit has no matching email, so it's an orphan.
+        int total = result.commitToAuthor().size() + result.orphanCommitHashes().size();
+        assertEquals(1, total, "Single commit should be discovered");
+        assertEquals(1, result.orphanCommitHashes().size(),
+                "Commit with empty email should be orphaned");
+    }
+
+    @Test
+    void testEmptyRepository() throws Exception {
+        // Fresh git init with no commits. Should return empty, no crash.
+        Path emptyDir = tempDir.resolve("empty-repo");
+        Files.createDirectories(emptyDir);
+
+        try (Git git = Git.init().setDirectory(emptyDir.toFile()).call()) {
+            // No commits
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                emptyDir.toString(), List.of(), students);
+
+        assertTrue(result.commitToAuthor().isEmpty());
+        assertTrue(result.orphanCommitHashes().isEmpty());
+    }
+
+    @Test
+    void testAllCommitsAreOrphans() throws Exception {
+        // Repo has commits but none match any student email or VCS log.
+        Path orphanDir = tempDir.resolve("orphan-repo");
+        Files.createDirectories(orphanDir);
+
+        try (Git git = Git.init().setDirectory(orphanDir.toFile()).call()) {
+            Path readme = orphanDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            git.commit().setAuthor(new PersonIdent("Unknown", "unknown@other.com"))
+                    .setMessage("unknown work").call();
+
+            Files.writeString(readme, "update\n");
+            git.add().addFilepattern("README.md").call();
+            git.commit().setAuthor(new PersonIdent("Stranger", "stranger@other.com"))
+                    .setMessage("stranger work").call();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL),
+                new ParticipantDTO(STUDENT_B_ID, "studentB", "Student B", STUDENT_B_EMAIL));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                orphanDir.toString(), List.of(), students);
+
+        assertTrue(result.commitToAuthor().isEmpty(), "No commits should match any student");
+        assertEquals(2, result.orphanCommitHashes().size(), "Both commits should be orphans");
+    }
+
+    @Test
+    void testStudentWithNoCommits() {
+        // Three students in team but only Student A and B have commits. Student C has none.
+        long studentCId = 300L;
+        String studentCEmail = "studentC@tum.de";
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL),
+                new ParticipantDTO(STUDENT_B_ID, "studentB", "Student B", STUDENT_B_EMAIL),
+                new ParticipantDTO(studentCId, "studentC", "Student C", studentCEmail));
+
+        TeamDTO team = new TeamDTO(1L, "Team Alpha", "TA", students, null);
+        ParticipationDTO participation = new ParticipationDTO(team, 1L, "https://repo.example.com", 3);
+        TeamRepositoryDTO repo = new TeamRepositoryDTO(participation, defaultVcsLogs(), tempDir.toString(), true, null);
+
+        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+
+        // Student A and B should have commits assigned
+        assertTrue(result.commitToAuthor().containsValue(STUDENT_A_ID));
+        assertTrue(result.commitToAuthor().containsValue(STUDENT_B_ID));
+
+        // Student C should simply not appear — no error
+        assertFalse(result.commitToAuthor().containsValue(studentCId),
+                "Student C with no commits should not appear in commitToAuthor");
+    }
+
+    @Test
     void testNullLocalPathReturnsEmpty() {
         List<ParticipantDTO> students = List.of(
                 new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
