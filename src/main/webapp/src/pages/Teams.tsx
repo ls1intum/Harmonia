@@ -366,7 +366,9 @@ export default function Teams() {
   }
 
   const handleTeamSelect = (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
-    navigate(`/teams/${team.id}`, { state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages } });
+    navigate(`/teams/${team.id}`, {
+      state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages },
+    });
   };
 
   const handleAttendanceUpload = () => {

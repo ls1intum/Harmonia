@@ -304,9 +304,7 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">CQI</p>
-              <p className={`text-2xl font-bold ${team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}>
-                {team.cqi ?? '—'}
-              </p>
+              <p className={`text-2xl font-bold ${team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}>{team.cqi ?? '—'}</p>
               <p className="text-xs text-muted-foreground">
                 Course avg: {courseAverages.analyzedTeams > 0 ? courseAverages.avgCQI : 'Pending'}
               </p>
