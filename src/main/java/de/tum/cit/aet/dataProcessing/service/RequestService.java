@@ -444,9 +444,20 @@ public class RequestService {
     }
 
     private Map<String, Long> buildCommitToAuthorMap(TeamRepository teamRepository, List<Student> students) {
-        Map<String, Long> emailToAuthor = new HashMap<>();
-        long syntheticId = -1L;
+        String localPath = teamRepository.getLocalPath();
 
+        // Convert JPA entities to DTOs for buildFullCommitMap
+        List<VCSLogDTO> vcsLogDTOs = new ArrayList<>();
+        if (teamRepository.getVcsLogs() != null) {
+            for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
+                if (vcsLog.getCommitHash() != null && vcsLog.getEmail() != null) {
+                    vcsLogDTOs.add(new VCSLogDTO(vcsLog.getEmail(), null, vcsLog.getCommitHash()));
+                }
+            }
+        }
+
+        long syntheticId = -1L;
+        List<ParticipantDTO> participantDTOs = new ArrayList<>();
         for (Student student : students) {
             if (student.getEmail() == null || student.getEmail().isBlank()) {
                 continue;
@@ -455,25 +466,11 @@ public class RequestService {
             if (authorId == null) {
                 authorId = syntheticId--;
             }
-            emailToAuthor.put(student.getEmail().toLowerCase(java.util.Locale.ROOT), authorId);
+            participantDTOs.add(new ParticipantDTO(authorId, student.getLogin(), student.getName(), student.getEmail()));
         }
 
-        Map<String, Long> commitToAuthor = new HashMap<>();
-        if (teamRepository.getVcsLogs() == null) {
-            return commitToAuthor;
-        }
-
-        for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
-            if (vcsLog.getCommitHash() == null || vcsLog.getEmail() == null) {
-                continue;
-            }
-            Long authorId = emailToAuthor.get(vcsLog.getEmail().toLowerCase(java.util.Locale.ROOT));
-            if (authorId != null) {
-                commitToAuthor.put(vcsLog.getCommitHash(), authorId);
-            }
-        }
-
-        return commitToAuthor;
+        var result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs);
+        return new HashMap<>(result.commitToAuthor());
     }
 
     private boolean clearPairProgrammingFields(TeamParticipation participation) {

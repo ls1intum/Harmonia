@@ -29,6 +29,188 @@ import java.util.*;
 public class GitContributionAnalysisService {
 
     /**
+     * Result of mapping ALL commits (from full git history walk) to authors.
+     *
+     * @param commitToAuthor   hash -> studentId for all assigned commits
+     * @param orphanCommitHashes hashes that could not be assigned to any student
+     * @param commitToVcsEmail hash -> VCS email (only for commits present in VCS logs)
+     */
+    public record FullCommitMappingResult(
+            Map<String, Long> commitToAuthor,
+            Set<String> orphanCommitHashes,
+            Map<String, String> commitToVcsEmail) {
+
+        public static FullCommitMappingResult empty() {
+            return new FullCommitMappingResult(Map.of(), Set.of(), Map.of());
+        }
+    }
+
+    /**
+     * Walks the full git history from HEAD and maps every commit to an author
+     * using a 3-tier matching strategy:
+     * <ol>
+     *   <li><b>VCS-Log anchor</b>: commit hash found in VCS logs -> use Artemis email</li>
+     *   <li><b>Learned mapping</b>: for VCS-log commits we know both Artemis email and
+     *       git-author email; intermediate commits with a known git email are assigned
+     *       via the learned gitEmail -> studentId mapping</li>
+     *   <li><b>Direct email match</b>: git-author email matched against Artemis student emails</li>
+     * </ol>
+     *
+     * @param repo the repository DTO (must have a non-null localPath)
+     * @return mapping result covering all reachable commits
+     */
+    public FullCommitMappingResult buildFullCommitMap(TeamRepositoryDTO repo) {
+        if (repo.localPath() == null) {
+            log.debug("localPath is null, returning empty commit map");
+            return FullCommitMappingResult.empty();
+        }
+
+        List<VCSLogDTO> vcsLogs = repo.vcsLogs() != null ? repo.vcsLogs() : List.of();
+        List<ParticipantDTO> students = repo.participation().team().students();
+
+        return buildFullCommitMap(repo.localPath(), vcsLogs, students);
+    }
+
+    /**
+     * Lower-level overload that accepts raw parameters instead of a DTO.
+     * Useful when the caller has JPA entities and converts them to lists.
+     */
+    public FullCommitMappingResult buildFullCommitMap(
+            String localPath,
+            List<VCSLogDTO> vcsLogs,
+            List<ParticipantDTO> students) {
+
+        if (localPath == null) {
+            return FullCommitMappingResult.empty();
+        }
+
+        // --- 1. Build lookup structures ---
+
+        // Artemis email (lowercase) -> studentId
+        Map<String, Long> emailToStudentId = new HashMap<>();
+        for (ParticipantDTO student : students) {
+            if (student.email() != null) {
+                emailToStudentId.put(student.email().toLowerCase(), student.id());
+            }
+        }
+
+        // VCS log hash -> VCS email (from Artemis, trustworthy)
+        Map<String, String> vcsHashToEmail = new HashMap<>();
+        for (VCSLogDTO logEntry : vcsLogs) {
+            if (logEntry.commitHash() != null && logEntry.email() != null) {
+                vcsHashToEmail.put(logEntry.commitHash(), logEntry.email());
+            }
+        }
+
+        // --- 2. Walk git history and build learned mapping ---
+
+        Map<String, Long> commitToAuthor = new HashMap<>();
+        Set<String> orphanCommitHashes = new HashSet<>();
+        Map<String, String> commitToVcsEmail = new HashMap<>(vcsHashToEmail);
+
+        // Learned mapping: gitEmail (lowercase) -> studentId
+        // Built from VCS-log anchor commits where we can correlate git-author email
+        // with the Artemis email (and thus the studentId).
+        Map<String, Long> learnedGitEmailToStudentId = new HashMap<>();
+
+        File gitDir = new File(localPath, ".git");
+        if (!gitDir.exists()) {
+            log.warn("Git directory not found at {}", gitDir.getAbsolutePath());
+            return FullCommitMappingResult.empty();
+        }
+
+        try (Repository repository = new FileRepositoryBuilder()
+                .setGitDir(gitDir)
+                .readEnvironment()
+                .build()) {
+
+            ObjectId head = repository.resolve("HEAD");
+            if (head == null) {
+                log.warn("HEAD could not be resolved in {}", localPath);
+                return FullCommitMappingResult.empty();
+            }
+
+            // Collect all commits reachable from HEAD
+            List<RevCommit> allCommits = new ArrayList<>();
+            try (RevWalk revWalk = new RevWalk(repository)) {
+                revWalk.markStart(revWalk.parseCommit(head));
+                for (RevCommit commit : revWalk) {
+                    allCommits.add(commit);
+                }
+            }
+
+            // --- Pass 1: Build learned mapping from VCS-log anchor commits ---
+            for (RevCommit commit : allCommits) {
+                String hash = commit.getName();
+                String vcsEmail = vcsHashToEmail.get(hash);
+                if (vcsEmail == null) {
+                    continue;
+                }
+
+                // This commit is a VCS-log anchor
+                Long studentId = emailToStudentId.get(vcsEmail.toLowerCase());
+                if (studentId == null) {
+                    continue;
+                }
+
+                // Learn the git-author email -> studentId mapping
+                String gitEmail = commit.getAuthorIdent().getEmailAddress();
+                if (gitEmail != null) {
+                    learnedGitEmailToStudentId.put(gitEmail.toLowerCase(), studentId);
+                }
+            }
+
+            log.debug("Learned {} git-email -> studentId mappings from VCS anchors",
+                    learnedGitEmailToStudentId.size());
+
+            // --- Pass 2: Assign every commit using 3-tier matching ---
+            for (RevCommit commit : allCommits) {
+                String hash = commit.getName();
+                String gitEmail = commit.getAuthorIdent().getEmailAddress();
+                String gitEmailLower = gitEmail != null ? gitEmail.toLowerCase() : null;
+
+                Long studentId = null;
+
+                // Tier 1: VCS-Log anchor
+                String vcsEmail = vcsHashToEmail.get(hash);
+                if (vcsEmail != null) {
+                    studentId = emailToStudentId.get(vcsEmail.toLowerCase());
+                }
+
+                // Tier 2: Learned mapping (gitEmail -> studentId)
+                if (studentId == null && gitEmailLower != null) {
+                    studentId = learnedGitEmailToStudentId.get(gitEmailLower);
+                }
+
+                // Tier 3: Direct email match (git email against Artemis emails)
+                if (studentId == null && gitEmailLower != null) {
+                    studentId = emailToStudentId.get(gitEmailLower);
+                }
+
+                if (studentId != null) {
+                    commitToAuthor.put(hash, studentId);
+                } else {
+                    orphanCommitHashes.add(hash);
+                    log.debug("Orphan commit: {} by {}", hash.substring(0, Math.min(7, hash.length())),
+                            gitEmail);
+                }
+            }
+
+        } catch (IOException e) {
+            log.error("Error walking git history at {}: {}", localPath, e.getMessage());
+            return FullCommitMappingResult.empty();
+        }
+
+        log.info("Full commit map: {} assigned, {} orphan (from {} total reachable commits)",
+                commitToAuthor.size(), orphanCommitHashes.size(),
+                commitToAuthor.size() + orphanCommitHashes.size());
+
+        return new FullCommitMappingResult(commitToAuthor, orphanCommitHashes, commitToVcsEmail);
+    }
+
+    // ========== Methods that delegate to buildFullCommitMap ==========
+
+    /**
      * Result of mapping commits to authors, including orphan commits.
      */
     private record CommitMappingResult(
@@ -38,47 +220,57 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Maps each commit hash to the corresponding author ID based on the VCS logs
-     * and team participation data. Also tracks orphan commits.
-     *
-     * @param repo The TeamRepositoryDTO containing participation and logs.
-     * @return CommitMappingResult with mapping data and orphan info.
+     * Maps each commit hash to the corresponding author ID based on full git
+     * history walk with 3-tier matching. Also tracks orphan commits.
      */
     private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo) {
-        Map<String, Long> commitToStudent = new HashMap<>();
-        Map<String, Long> emailToStudent = new HashMap<>();
-        Set<String> orphanCommitHashes = new HashSet<>();
-        Map<String, String> commitToEmail = new HashMap<>();
+        FullCommitMappingResult full = buildFullCommitMap(repo);
+        return new CommitMappingResult(
+                new HashMap<>(full.commitToAuthor()),
+                new HashSet<>(full.orphanCommitHashes()),
+                new HashMap<>(full.commitToVcsEmail()));
+    }
 
-        // Map registered student emails to their IDs (VCS emails from Artemis)
-        repo.participation().team().students().forEach(student -> {
-            if (student.email() != null) {
-                emailToStudent.put(student.email().toLowerCase(), student.id());
+    /**
+     * Builds a mapping from commit SHA to synthetic author ID by walking full
+     * git history. Synthetic IDs are assigned per unique email.
+     *
+     * @param repo The repository containing VCS logs
+     * @return Map of commit hashes to synthetic author IDs
+     */
+    public Map<String, Long> buildCommitToAuthorMap(TeamRepositoryDTO repo) {
+        FullCommitMappingResult full = buildFullCommitMap(repo);
+
+        // Convert real studentIds to synthetic per-email IDs for backward compat
+        Map<Long, Long> studentIdToSynthetic = new HashMap<>();
+        Map<String, Long> mapping = new HashMap<>();
+        long idCounter = 1;
+
+        for (Map.Entry<String, Long> entry : full.commitToAuthor().entrySet()) {
+            Long realId = entry.getValue();
+            Long syntheticId = studentIdToSynthetic.get(realId);
+            if (syntheticId == null) {
+                syntheticId = idCounter++;
+                studentIdToSynthetic.put(realId, syntheticId);
             }
-        });
-
-        for (VCSLogDTO logEntry : repo.vcsLogs()) {
-            String commitHash = logEntry.commitHash();
-            String email = logEntry.email();
-            commitToEmail.put(commitHash, email);
-
-            // Match email directly (both from Artemis)
-            Long studentId = null;
-            if (email != null) {
-                studentId = emailToStudent.get(email.toLowerCase());
-            }
-
-            if (studentId != null) {
-                commitToStudent.put(commitHash, studentId);
-            } else {
-                // This is an orphan commit - email doesn't match any registered student
-                orphanCommitHashes.add(commitHash);
-                log.debug("Orphan commit detected: {} with email {}", commitHash, email);
-            }
+            mapping.put(entry.getKey(), syntheticId);
         }
 
-        return new CommitMappingResult(commitToStudent, orphanCommitHashes, commitToEmail);
+        log.debug("Mapped {} commits to {} unique authors (full history walk)",
+                mapping.size(), studentIdToSynthetic.size());
+        return mapping;
     }
+
+    /**
+     * Maps each commit hash to the corresponding author ID using full git
+     * history walk with real student IDs.
+     */
+    private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
+        FullCommitMappingResult full = buildFullCommitMap(repo);
+        return new HashMap<>(full.commitToAuthor());
+    }
+
+    // ========== Analysis methods (unchanged logic) ==========
 
     /**
      * Analyzes the Git repository and returns both contributions and orphan
@@ -201,72 +393,6 @@ public class GitContributionAnalysisService {
         }
 
         return new RepositoryAnalysisResultDTO(repoContributions, orphanCommits);
-    }
-
-    // ========== Public utility methods ==========
-
-    /**
-     * Builds a mapping from commit SHA to synthetic author ID from VCS logs.
-     * This creates synthetic IDs based on unique email addresses, useful when
-     * real student IDs are not available or not needed.
-     *
-     * @param repo The repository containing VCS logs
-     * @return Map of commit hashes to synthetic author IDs
-     */
-    public Map<String, Long> buildCommitToAuthorMap(TeamRepositoryDTO repo) {
-        Map<String, Long> mapping = new HashMap<>();
-        Map<String, Long> emailToId = new HashMap<>();
-        long idCounter = 1;
-
-        if (repo.vcsLogs() == null) {
-            return mapping;
-        }
-
-        for (var logEntry : repo.vcsLogs()) {
-            if (logEntry.commitHash() == null || logEntry.email() == null) {
-                continue;
-            }
-
-            Long authorId = emailToId.get(logEntry.email());
-            if (authorId == null) {
-                authorId = idCounter++;
-                emailToId.put(logEntry.email(), authorId);
-            }
-            mapping.put(logEntry.commitHash(), authorId);
-        }
-
-        log.debug("Mapped {} commits to {} unique authors", mapping.size(), emailToId.size());
-        return mapping;
-    }
-
-    // ========== Legacy methods for backward compatibility ==========
-
-    /**
-     * Maps each commit hash to the corresponding author ID (legacy method).
-     * Uses real student IDs from the database instead of synthetic IDs.
-     */
-    private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
-        Map<String, Long> commitToStudent = new HashMap<>();
-        Map<String, Long> emailToStudent = new HashMap<>();
-
-        // Map student emails directly (both from Artemis)
-        repo.participation().team().students().forEach(student -> {
-            if (student.email() != null) {
-                emailToStudent.put(student.email().toLowerCase(), student.id());
-            }
-        });
-
-        for (VCSLogDTO logEntry : repo.vcsLogs()) {
-            String email = logEntry.email();
-            Long studentId = null;
-            if (email != null) {
-                studentId = emailToStudent.get(email.toLowerCase());
-            }
-            if (studentId != null) {
-                commitToStudent.put(logEntry.commitHash(), studentId);
-            }
-        }
-        return commitToStudent;
     }
 
     /**

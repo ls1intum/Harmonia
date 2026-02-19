@@ -6,6 +6,8 @@ import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.FullCommitMappingResult;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
@@ -22,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,6 +48,9 @@ class ContributionFairnessServiceTest {
 
     @Mock
     private CQICalculatorService cqiCalculatorService;
+
+    @Mock
+    private GitContributionAnalysisService gitContributionAnalysisService;
 
     @InjectMocks
     private ContributionFairnessService fairnessService;
@@ -68,6 +75,15 @@ class ContributionFairnessServiceTest {
                 new VCSLogDTO("student2@tum.de", null, "hash2"));
 
         dummyRepo = new TeamRepositoryDTO(participationDTO, logs, "/tmp/repo", true, null);
+
+        // Mock buildFullCommitMap to return the same mapping that the old VCS-log-only
+        // approach would produce (hash1 -> student 1, hash2 -> student 2)
+        FullCommitMappingResult fullCommitMap = new FullCommitMappingResult(
+                Map.of("hash1", 1L, "hash2", 2L),
+                Set.of(),
+                Map.of("hash1", "student1@tum.de", "hash2", "student2@tum.de"));
+        when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class)))
+                .thenReturn(fullCommitMap);
 
         chunkA = new CommitChunkDTO(
                 "hash1", 1L, "student1@tum.de", "feat", LocalDateTime.now(),

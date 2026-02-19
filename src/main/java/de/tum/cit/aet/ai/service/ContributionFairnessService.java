@@ -5,11 +5,13 @@ import de.tum.cit.aet.ai.dto.*;
 
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.FullCommitMappingResult;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
-import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class ContributionFairnessService {
     private final CommitEffortRaterService commitEffortRaterService;
     private final CommitPreFilterService commitPreFilterService;
     private final CQICalculatorService cqiCalculatorService;
+    private final GitContributionAnalysisService gitContributionAnalysisService;
 
     /**
      * Analyzes a repository for contribution fairness.
@@ -67,8 +70,8 @@ public class ContributionFairnessService {
         long startTime = System.currentTimeMillis();
 
         try {
-            // 1. Map commits to authors (only team members for CQI)
-            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO.vcsLogs(), teamMembers);
+            // 1. Map commits to authors using full git history walk
+            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO);
 
             if (authorMapping.teamMemberCommits.isEmpty()) {
                 return new FairnessReportWithUsage(
@@ -259,67 +262,48 @@ public class ContributionFairnessService {
     }
 
     /**
-     * Maps commits to authors, separating team member commits from external
-     * contributor commits.
-     * Only commits from registered team members are included in the main mapping
-     * for CQI calculation.
-     * Also builds a map of commit hashes to VCS emails for use in chunking.
-     *
-     * VCS emails from Artemis are used directly (no normalization needed) since
-     * both
-     * VCS logs and team member emails come from Artemis and are guaranteed to
-     * match.
+     * Maps commits to authors using full git history walk (via
+     * GitContributionAnalysisService), separating team member commits from
+     * external/orphan commits.
+     * Uses 3-tier matching: VCS anchor -> learned mapping -> direct email match.
      */
-    private AuthorMappingResult mapCommitsToAuthors(List<VCSLogDTO> logs, List<ParticipantDTO> teamMembers) {
+    private AuthorMappingResult mapCommitsToAuthors(TeamRepositoryDTO repositoryDTO) {
+        List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
+
+        // Build team member ID set for partitioning
+        Set<Long> teamMemberIds = new HashSet<>();
+        for (ParticipantDTO member : teamMembers) {
+            if (member.id() != null) {
+                teamMemberIds.add(member.id());
+            }
+        }
+
+        FullCommitMappingResult fullMap = gitContributionAnalysisService.buildFullCommitMap(repositoryDTO);
+
         Map<String, Long> teamMemberCommits = new HashMap<>();
         Map<String, Long> externalCommits = new HashMap<>();
         Set<String> externalEmails = new HashSet<>();
-        Map<String, String> commitToEmail = new HashMap<>();
 
-        // Build a lookup map of team member emails to their IDs
-        Map<String, Long> teamMemberEmailToId = new HashMap<>();
-        for (ParticipantDTO member : teamMembers) {
-            if (member.email() != null) {
-                teamMemberEmailToId.put(member.email().toLowerCase(), member.id());
+        // Partition assigned commits into team members vs external
+        for (Map.Entry<String, Long> entry : fullMap.commitToAuthor().entrySet()) {
+            if (teamMemberIds.contains(entry.getValue())) {
+                teamMemberCommits.put(entry.getKey(), entry.getValue());
             }
+            // Commits assigned to unknown IDs are ignored (shouldn't happen)
         }
 
-        log.debug("Team members: {}", teamMemberEmailToId.keySet());
-
-        // Track synthetic IDs for external contributors
-        Map<String, Long> externalEmailToId = new HashMap<>();
+        // Orphan commits become external with synthetic negative IDs
         long externalIdCounter = -1;
-
-        for (VCSLogDTO vcsLog : logs) {
-            if (vcsLog.commitHash() == null || vcsLog.email() == null) {
-                continue;
-            }
-
-            String emailLower = vcsLog.email().toLowerCase();
-
-            // Always store the VCS email for this commit (to override Git email)
-            commitToEmail.put(vcsLog.commitHash(), vcsLog.email());
-
-            // Check if this is a team member
-            Long teamMemberId = teamMemberEmailToId.get(emailLower);
-
-            if (teamMemberId != null) {
-                teamMemberCommits.put(vcsLog.commitHash(), teamMemberId);
-            } else {
-                // External contributor
-                Long externalId = externalEmailToId.get(emailLower);
-                if (externalId == null) {
-                    externalId = externalIdCounter--;
-                    externalEmailToId.put(emailLower, externalId);
-                    externalEmails.add(vcsLog.email());
-                }
-                externalCommits.put(vcsLog.commitHash(), externalId);
-            }
+        for (String orphanHash : fullMap.orphanCommitHashes()) {
+            externalCommits.put(orphanHash, externalIdCounter--);
+            externalEmails.add("unknown");
         }
 
-        log.debug("Mapped {} team member commits and {} external commits from {} external contributors",
-                teamMemberCommits.size(), externalCommits.size(), externalEmails.size());
-        return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails, commitToEmail);
+        log.debug("Full history mapping: {} team member commits, {} orphan/external commits",
+                teamMemberCommits.size(), externalCommits.size());
+
+        return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails,
+                new HashMap<>(fullMap.commitToVcsEmail()));
     }
 
     private RatedChunksWithUsage rateChunks(List<CommitChunkDTO> chunks) throws InterruptedException {
