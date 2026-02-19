@@ -146,7 +146,7 @@ class GitContributionAnalysisServiceTest {
         FullCommitMappingResult result = service.buildFullCommitMap(repo);
 
         // All 5 student commits + template = 6 total
-        int totalCommits = result.commitToAuthor().size() + result.orphanCommitHashes().size();
+        int totalCommits = result.commitToAuthor().size() + result.orphanCommitEmails().size();
         assertEquals(6, totalCommits, "Should discover all 6 reachable commits");
 
         // All 5 student commits should be assigned (not just 2 from VCS log)
@@ -202,7 +202,7 @@ class GitContributionAnalysisServiceTest {
         FullCommitMappingResult result = service.buildFullCommitMap(repo);
 
         // Template commit email doesn't match any student
-        assertTrue(result.orphanCommitHashes().contains(templateHash),
+        assertTrue(result.orphanCommitEmails().containsKey(templateHash),
                 "Template commit should be an orphan");
         assertFalse(result.commitToAuthor().containsKey(templateHash),
                 "Template commit should not be assigned to any student");
@@ -220,13 +220,13 @@ class GitContributionAnalysisServiceTest {
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commit3Hash));
 
         // Commits 4, 5 have bob@gmail.com -> no match (no learned mapping without VCS logs)
-        assertTrue(result.orphanCommitHashes().contains(commit4Hash),
+        assertTrue(result.orphanCommitEmails().containsKey(commit4Hash),
                 "Commit 4 should be orphan without VCS logs (bob@gmail.com doesn't match)");
-        assertTrue(result.orphanCommitHashes().contains(commit5Hash),
+        assertTrue(result.orphanCommitEmails().containsKey(commit5Hash),
                 "Commit 5 should be orphan without VCS logs (bob@gmail.com doesn't match)");
 
         // Template commit -> orphan
-        assertTrue(result.orphanCommitHashes().contains(templateHash));
+        assertTrue(result.orphanCommitEmails().containsKey(templateHash));
     }
 
     @Test
@@ -311,9 +311,9 @@ class GitContributionAnalysisServiceTest {
                 nullEmailDir.toString(), List.of(), students);
 
         // Should not crash. The commit has no matching email, so it's an orphan.
-        int total = result.commitToAuthor().size() + result.orphanCommitHashes().size();
+        int total = result.commitToAuthor().size() + result.orphanCommitEmails().size();
         assertEquals(1, total, "Single commit should be discovered");
-        assertEquals(1, result.orphanCommitHashes().size(),
+        assertEquals(1, result.orphanCommitEmails().size(),
                 "Commit with empty email should be orphaned");
     }
 
@@ -334,7 +334,7 @@ class GitContributionAnalysisServiceTest {
                 emptyDir.toString(), List.of(), students);
 
         assertTrue(result.commitToAuthor().isEmpty());
-        assertTrue(result.orphanCommitHashes().isEmpty());
+        assertTrue(result.orphanCommitEmails().isEmpty());
     }
 
     @Test
@@ -364,7 +364,7 @@ class GitContributionAnalysisServiceTest {
                 orphanDir.toString(), List.of(), students);
 
         assertTrue(result.commitToAuthor().isEmpty(), "No commits should match any student");
-        assertEquals(2, result.orphanCommitHashes().size(), "Both commits should be orphans");
+        assertEquals(2, result.orphanCommitEmails().size(), "Both commits should be orphans");
     }
 
     @Test
@@ -404,6 +404,69 @@ class GitContributionAnalysisServiceTest {
         FullCommitMappingResult result = service.buildFullCommitMap(repo);
 
         assertTrue(result.commitToAuthor().isEmpty());
-        assertTrue(result.orphanCommitHashes().isEmpty());
+        assertTrue(result.orphanCommitEmails().isEmpty());
+    }
+
+    @Test
+    void testCaseInsensitiveEmailMatching() throws Exception {
+        // Git email is uppercase; Artemis email is lowercase.
+        // Tier 3 direct match should still work.
+        Path caseDir = tempDir.resolve("case-repo");
+        Files.createDirectories(caseDir);
+
+        String commitHash;
+        try (Git git = Git.init().setDirectory(caseDir.toFile()).call()) {
+            Path readme = caseDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            commitHash = git.commit()
+                    .setAuthor(new PersonIdent("Student A", "StudentA@TUM.DE"))
+                    .setMessage("uppercase email commit")
+                    .call().getName();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", "studenta@tum.de"));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                caseDir.toString(), List.of(), students);
+
+        assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commitHash),
+                "Tier 3 direct match should be case-insensitive");
+    }
+
+    @Test
+    void testVcsAnchorExternalDoesNotFallThrough() throws Exception {
+        // VCS log says commit was pushed by external@other.com (not a team member).
+        // Git author email on that commit is studentA@tum.de (matches a team member).
+        // The commit should be an orphan, NOT attributed to Student A.
+        Path anchorDir = tempDir.resolve("anchor-external-repo");
+        Files.createDirectories(anchorDir);
+
+        String commitHash;
+        try (Git git = Git.init().setDirectory(anchorDir.toFile()).call()) {
+            Path readme = anchorDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            commitHash = git.commit()
+                    .setAuthor(new PersonIdent("Student A", STUDENT_A_EMAIL))
+                    .setMessage("pushed by external")
+                    .call().getName();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
+
+        // VCS log records this commit as pushed by an external email
+        List<VCSLogDTO> vcsLogs = List.of(
+                new VCSLogDTO("external@other.com", "PUSH", commitHash));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                anchorDir.toString(), vcsLogs, students);
+
+        assertFalse(result.commitToAuthor().containsKey(commitHash),
+                "VCS anchor with external email should NOT fall through to Tier 2/3");
+        assertTrue(result.orphanCommitEmails().containsKey(commitHash),
+                "Commit should be an orphan when VCS anchor email is external");
     }
 }

@@ -292,11 +292,18 @@ public class ContributionFairnessService {
             // Commits assigned to unknown IDs are ignored (shouldn't happen)
         }
 
-        // Orphan commits become external with synthetic negative IDs
+        // Orphan commits become external with synthetic negative IDs (grouped by email)
+        Map<String, Long> emailToExternalId = new HashMap<>();
         long externalIdCounter = -1;
-        for (String orphanHash : fullMap.orphanCommitHashes()) {
-            externalCommits.put(orphanHash, externalIdCounter--);
-            externalEmails.add("unknown");
+        for (Map.Entry<String, String> entry : fullMap.orphanCommitEmails().entrySet()) {
+            String email = entry.getValue();
+            Long externalId = emailToExternalId.get(email);
+            if (externalId == null) {
+                externalId = externalIdCounter--;
+                emailToExternalId.put(email, externalId);
+                externalEmails.add(email);
+            }
+            externalCommits.put(entry.getKey(), externalId);
         }
 
         log.debug("Full history mapping: {} team member commits, {} orphan/external commits",

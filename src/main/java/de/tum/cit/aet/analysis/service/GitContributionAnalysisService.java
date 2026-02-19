@@ -12,6 +12,7 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.patch.FileHeader;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevSort;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
@@ -32,16 +33,16 @@ public class GitContributionAnalysisService {
      * Result of mapping ALL commits (from full git history walk) to authors.
      *
      * @param commitToAuthor   hash -> studentId for all assigned commits
-     * @param orphanCommitHashes hashes that could not be assigned to any student
+     * @param orphanCommitEmails hash -> git author email for commits that could not be assigned
      * @param commitToVcsEmail hash -> VCS email (only for commits present in VCS logs)
      */
     public record FullCommitMappingResult(
             Map<String, Long> commitToAuthor,
-            Set<String> orphanCommitHashes,
+            Map<String, String> orphanCommitEmails,
             Map<String, String> commitToVcsEmail) {
 
         public static FullCommitMappingResult empty() {
-            return new FullCommitMappingResult(Map.of(), Set.of(), Map.of());
+            return new FullCommitMappingResult(Map.of(), Map.of(), Map.of());
         }
     }
 
@@ -95,7 +96,7 @@ public class GitContributionAnalysisService {
         Map<String, Long> emailToStudentId = new HashMap<>();
         for (ParticipantDTO student : students) {
             if (student.email() != null) {
-                emailToStudentId.put(student.email().toLowerCase(), student.id());
+                emailToStudentId.put(student.email().toLowerCase(Locale.ROOT), student.id());
             }
         }
 
@@ -110,7 +111,7 @@ public class GitContributionAnalysisService {
         // --- 2. Walk git history and build learned mapping ---
 
         Map<String, Long> commitToAuthor = new HashMap<>();
-        Set<String> orphanCommitHashes = new HashSet<>();
+        Map<String, String> orphanCommitEmails = new HashMap<>();
         Map<String, String> commitToVcsEmail = new HashMap<>(vcsHashToEmail);
 
         // Learned mapping: gitEmail (lowercase) -> studentId
@@ -138,6 +139,7 @@ public class GitContributionAnalysisService {
             // Collect all commits reachable from HEAD
             List<RevCommit> allCommits = new ArrayList<>();
             try (RevWalk revWalk = new RevWalk(repository)) {
+                revWalk.sort(RevSort.COMMIT_TIME_DESC);
                 revWalk.markStart(revWalk.parseCommit(head));
                 for (RevCommit commit : revWalk) {
                     allCommits.add(commit);
@@ -153,15 +155,15 @@ public class GitContributionAnalysisService {
                 }
 
                 // This commit is a VCS-log anchor
-                Long studentId = emailToStudentId.get(vcsEmail.toLowerCase());
+                Long studentId = emailToStudentId.get(vcsEmail.toLowerCase(Locale.ROOT));
                 if (studentId == null) {
                     continue;
                 }
 
                 // Learn the git-author email -> studentId mapping
                 String gitEmail = commit.getAuthorIdent().getEmailAddress();
-                if (gitEmail != null) {
-                    String gitEmailLower = gitEmail.toLowerCase();
+                if (gitEmail != null && !gitEmail.isBlank()) {
+                    String gitEmailLower = gitEmail.toLowerCase(Locale.ROOT);
                     Long existing = learnedGitEmailToStudentId.putIfAbsent(gitEmailLower, studentId);
                     if (existing != null && !existing.equals(studentId)) {
                         log.warn("Git email '{}' maps to multiple students (id {} and {}); keeping first",
@@ -177,18 +179,28 @@ public class GitContributionAnalysisService {
             for (RevCommit commit : allCommits) {
                 String hash = commit.getName();
                 String gitEmail = commit.getAuthorIdent().getEmailAddress();
-                String gitEmailLower = gitEmail != null ? gitEmail.toLowerCase() : null;
+                String gitEmailLower = (gitEmail != null && !gitEmail.isBlank())
+                        ? gitEmail.toLowerCase(Locale.ROOT) : null;
 
                 Long studentId = null;
 
                 // Tier 1: VCS-Log anchor
                 String vcsEmail = vcsHashToEmail.get(hash);
                 if (vcsEmail != null) {
-                    studentId = emailToStudentId.get(vcsEmail.toLowerCase());
+                    studentId = emailToStudentId.get(vcsEmail.toLowerCase(Locale.ROOT));
+                    if (studentId != null) {
+                        commitToAuthor.put(hash, studentId);
+                    } else {
+                        String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
+                        orphanCommitEmails.put(hash, orphanEmail);
+                        log.debug("Orphan commit (VCS anchor unresolved): {} by {}",
+                                hash.substring(0, Math.min(7, hash.length())), gitEmail);
+                    }
+                    continue; // VCS anchor is authoritative — never fall through
                 }
 
                 // Tier 2: Learned mapping (gitEmail -> studentId)
-                if (studentId == null && gitEmailLower != null) {
+                if (gitEmailLower != null) {
                     studentId = learnedGitEmailToStudentId.get(gitEmailLower);
                 }
 
@@ -200,7 +212,8 @@ public class GitContributionAnalysisService {
                 if (studentId != null) {
                     commitToAuthor.put(hash, studentId);
                 } else {
-                    orphanCommitHashes.add(hash);
+                    String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
+                    orphanCommitEmails.put(hash, orphanEmail);
                     log.debug("Orphan commit: {} by {}", hash.substring(0, Math.min(7, hash.length())),
                             gitEmail);
                 }
@@ -212,10 +225,10 @@ public class GitContributionAnalysisService {
         }
 
         log.info("Full commit map: {} assigned, {} orphan (from {} total reachable commits)",
-                commitToAuthor.size(), orphanCommitHashes.size(),
-                commitToAuthor.size() + orphanCommitHashes.size());
+                commitToAuthor.size(), orphanCommitEmails.size(),
+                commitToAuthor.size() + orphanCommitEmails.size());
 
-        return new FullCommitMappingResult(commitToAuthor, orphanCommitHashes, commitToVcsEmail);
+        return new FullCommitMappingResult(commitToAuthor, orphanCommitEmails, commitToVcsEmail);
     }
 
     // ========== Methods that delegate to buildFullCommitMap ==========
@@ -237,7 +250,7 @@ public class GitContributionAnalysisService {
         FullCommitMappingResult full = buildFullCommitMap(repo);
         return new CommitMappingResult(
                 new HashMap<>(full.commitToAuthor()),
-                new HashSet<>(full.orphanCommitHashes()),
+                new HashSet<>(full.orphanCommitEmails().keySet()),
                 new HashMap<>(full.commitToVcsEmail()));
     }
 
