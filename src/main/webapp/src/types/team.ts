@@ -6,6 +6,7 @@ export interface SubMetric {
   weight: number;
   description: string;
   details: string;
+  status?: 'FOUND' | 'NOT_FOUND';
 }
 
 export interface BasicMetrics {
