@@ -34,7 +34,7 @@ public class ExportResource {
     public ResponseEntity<byte[]> exportData(
             @PathVariable Long exerciseId,
             @RequestParam(defaultValue = "EXCEL") ExportFormat format,
-            @RequestParam(defaultValue = "teams,students") List<String> include) {
+            @RequestParam(defaultValue = "teams,students,chunks,commits") List<String> include) {
         try {
             Set<String> includeSet = Set.copyOf(include);
             byte[] data = exportService.exportData(exerciseId, format, includeSet);
