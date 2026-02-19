@@ -143,8 +143,7 @@ public class ContributionFairnessService {
                     teamSize,
                     projectStart,
                     projectEnd,
-                    filterSummary,
-                    teamName);
+                    filterSummary);
 
             double balanceScore = cqiResult.cqi();
             log.info("CQI calculated for team {}: {} (base={}, penalty={})",

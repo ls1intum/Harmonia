@@ -67,12 +67,6 @@ public class TeamParticipation {
     @Column(name = "cqi_ownership_spread")
     private Double cqiOwnershipSpread;
 
-    @Column(name = "cqi_pair_programming")
-    private Double cqiPairProgramming;
-
-    @Column(name = "cqi_pair_programming_status")
-    private String cqiPairProgrammingStatus;
-
     @Column(name = "cqi_base_score")
     private Double cqiBaseScore;
 
@@ -98,7 +92,7 @@ public class TeamParticipation {
     private Long llmTotalTokens;
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
-                             String repositoryUrl, Integer submissionCount) {
+            String repositoryUrl, Integer submissionCount) {
         this.participation = participation;
         this.team = team;
         this.tutor = tutor;
@@ -109,7 +103,7 @@ public class TeamParticipation {
     }
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
-                             String repositoryUrl, Integer submissionCount, Double cqi, Boolean isSuspicious) {
+            String repositoryUrl, Integer submissionCount, Double cqi, Boolean isSuspicious) {
         this.participation = participation;
         this.team = team;
         this.tutor = tutor;
