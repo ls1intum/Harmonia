@@ -74,6 +74,11 @@ public class GitContributionAnalysisService {
     /**
      * Lower-level overload that accepts raw parameters instead of a DTO.
      * Useful when the caller has JPA entities and converts them to lists.
+     *
+     * @param localPath path to the local git repository
+     * @param vcsLogs   VCS log entries from Artemis
+     * @param students  participants whose contributions are analysed
+     * @return mapping result containing per-student commit data
      */
     public FullCommitMappingResult buildFullCommitMap(
             String localPath,
