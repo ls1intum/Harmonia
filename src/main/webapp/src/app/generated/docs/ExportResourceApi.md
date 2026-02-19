@@ -19,7 +19,7 @@ const configuration = new Configuration();
 const apiInstance = new ExportResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
-let format: 'CSV' | 'EXCEL' | 'JSON'; // (optional) (default to 'CSV')
+let format: 'EXCEL' | 'JSON'; // (optional) (default to 'EXCEL')
 let include: Array<string>; // (optional) (default to undefined)
 
 const { status, data } = await apiInstance.exportData(exerciseId, format, include);
@@ -27,11 +27,11 @@ const { status, data } = await apiInstance.exportData(exerciseId, format, includ
 
 ### Parameters
 
-| Name           | Type                    | Description     | Notes                                                                                    |
-| -------------- | ----------------------- | --------------- | ---------------------------------------------------------------------------------------- | --- | ---------------------------- |
-| **exerciseId** | [**number**]            |                 | defaults to undefined                                                                    |
-| **format**     | [\*\*&#39;CSV&#39;      | &#39;EXCEL&#39; | &#39;JSON&#39;**]**Array<&#39;CSV&#39; &#124; &#39;EXCEL&#39; &#124; &#39;JSON&#39;>\*\* |     | (optional) defaults to 'CSV' |
-| **include**    | **Array&lt;string&gt;** |                 | (optional) defaults to undefined                                                         |
+| Name           | Type                    | Description                                                         | Notes                            |
+| -------------- | ----------------------- | ------------------------------------------------------------------- | -------------------------------- | ------------------------------ |
+| **exerciseId** | [**number**]            |                                                                     | defaults to undefined            |
+| **format**     | [\*\*&#39;EXCEL&#39;    | &#39;JSON&#39;**]**Array<&#39;EXCEL&#39; &#124; &#39;JSON&#39;>\*\* |                                  | (optional) defaults to 'EXCEL' |
+| **include**    | **Array&lt;string&gt;** |                                                                     | (optional) defaults to undefined |
 
 ### Return type
 

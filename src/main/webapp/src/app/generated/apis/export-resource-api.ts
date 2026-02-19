@@ -158,7 +158,6 @@ export class ExportResourceApi extends BaseAPI {
 }
 
 export const ExportDataFormatEnum = {
-  Csv: 'CSV',
   Excel: 'EXCEL',
   Json: 'JSON',
 } as const;

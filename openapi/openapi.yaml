@@ -163,14 +163,14 @@ paths:
         required: false
         schema:
           type: string
-          default: CSV
-          enum: [CSV, EXCEL, JSON]
+          default: EXCEL
+          enum: [EXCEL, JSON]
       - name: include
         in: query
         required: false
         schema:
           type: array
-          default: [teams, students]
+          default: [teams, students, chunks, commits]
           items: {type: string}
       responses:
         '200':
