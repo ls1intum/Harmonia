@@ -98,7 +98,7 @@ public class TeamParticipation {
     private Long llmTotalTokens;
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
-                             String repositoryUrl, Integer submissionCount) {
+            String repositoryUrl, Integer submissionCount) {
         this.participation = participation;
         this.team = team;
         this.tutor = tutor;
@@ -109,7 +109,7 @@ public class TeamParticipation {
     }
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
-                             String repositoryUrl, Integer submissionCount, Double cqi, Boolean isSuspicious) {
+            String repositoryUrl, Integer submissionCount, Double cqi, Boolean isSuspicious) {
         this.participation = participation;
         this.team = team;
         this.tutor = tutor;
