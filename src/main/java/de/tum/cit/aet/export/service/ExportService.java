@@ -64,14 +64,20 @@ public class ExportService {
             if (include.contains("teams")) {
                 teamRows.add(new TeamExportRow(
                         teamName,
+                        tp.getShortName(),
                         tutorName,
+                        tp.getRepositoryUrl(),
                         tp.getSubmissionCount(),
                         tp.getAnalysisStatus() != null ? tp.getAnalysisStatus().name() : null,
                         tp.getCqi(),
+                        tp.getCqiBaseScore(),
+                        tp.getCqiPenaltyMultiplier(),
                         tp.getCqiEffortBalance(),
                         tp.getCqiLocBalance(),
                         tp.getCqiTemporalSpread(),
                         tp.getCqiOwnershipSpread(),
+                        tp.getCqiPairProgramming(),
+                        tp.getCqiPairProgrammingStatus(),
                         tp.getIsSuspicious(),
                         tp.getLlmTotalTokens()));
             }
@@ -105,8 +111,19 @@ public class ExportService {
                             c.getConfidence(),
                             c.getReasoning(),
                             c.getCommitShas(),
+                            c.getCommitMessages(),
                             c.getTimestamp(),
-                            c.getLinesChanged()));
+                            c.getLinesChanged(),
+                            c.getIsBundled(),
+                            c.getChunkIndex(),
+                            c.getTotalChunks(),
+                            c.getIsError(),
+                            c.getErrorMessage(),
+                            c.getIsExternalContributor(),
+                            c.getLlmModel(),
+                            c.getLlmPromptTokens(),
+                            c.getLlmCompletionTokens(),
+                            c.getLlmTotalTokens()));
                 }
             }
 

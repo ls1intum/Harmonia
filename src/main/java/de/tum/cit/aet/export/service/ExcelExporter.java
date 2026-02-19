@@ -26,25 +26,34 @@ public final class ExcelExporter {
                 XSSFSheet sheet = workbook.createSheet("Teams");
                 int row = 0;
                 var header = sheet.createRow(row++);
-                String[] teamHeaders = {"teamName", "tutor", "submissionCount", "analysisStatus",
-                        "cqi", "cqiEffortBalance", "cqiLocBalance", "cqiTemporalSpread",
-                        "cqiOwnershipSpread", "isSuspicious", "llmTotalTokens"};
+                String[] teamHeaders = {"teamName", "shortName", "tutor", "repositoryUrl",
+                        "submissionCount", "analysisStatus",
+                        "cqi", "cqiBaseScore", "cqiPenaltyMultiplier",
+                        "cqiEffortBalance", "cqiLocBalance", "cqiTemporalSpread",
+                        "cqiOwnershipSpread", "cqiPairProgramming", "cqiPairProgrammingStatus",
+                        "isSuspicious", "llmTotalTokens"};
                 for (int i = 0; i < teamHeaders.length; i++) {
                     header.createCell(i).setCellValue(teamHeaders[i]);
                 }
                 for (TeamExportRow r : data.getTeams()) {
                     var dataRow = sheet.createRow(row++);
                     dataRow.createCell(0).setCellValue(str(r.teamName()));
-                    dataRow.createCell(1).setCellValue(str(r.tutor()));
-                    setCellNumeric(dataRow, 2, r.submissionCount());
-                    dataRow.createCell(3).setCellValue(str(r.analysisStatus()));
-                    setCellNumeric(dataRow, 4, r.cqi());
-                    setCellNumeric(dataRow, 5, r.cqiEffortBalance());
-                    setCellNumeric(dataRow, 6, r.cqiLocBalance());
-                    setCellNumeric(dataRow, 7, r.cqiTemporalSpread());
-                    setCellNumeric(dataRow, 8, r.cqiOwnershipSpread());
-                    dataRow.createCell(9).setCellValue(r.isSuspicious() != null && r.isSuspicious());
-                    setCellNumeric(dataRow, 10, r.llmTotalTokens());
+                    dataRow.createCell(1).setCellValue(str(r.shortName()));
+                    dataRow.createCell(2).setCellValue(str(r.tutor()));
+                    dataRow.createCell(3).setCellValue(str(r.repositoryUrl()));
+                    setCellNumeric(dataRow, 4, r.submissionCount());
+                    dataRow.createCell(5).setCellValue(str(r.analysisStatus()));
+                    setCellNumeric(dataRow, 6, r.cqi());
+                    setCellNumeric(dataRow, 7, r.cqiBaseScore());
+                    setCellNumeric(dataRow, 8, r.cqiPenaltyMultiplier());
+                    setCellNumeric(dataRow, 9, r.cqiEffortBalance());
+                    setCellNumeric(dataRow, 10, r.cqiLocBalance());
+                    setCellNumeric(dataRow, 11, r.cqiTemporalSpread());
+                    setCellNumeric(dataRow, 12, r.cqiOwnershipSpread());
+                    setCellNumeric(dataRow, 13, r.cqiPairProgramming());
+                    dataRow.createCell(14).setCellValue(str(r.cqiPairProgrammingStatus()));
+                    dataRow.createCell(15).setCellValue(r.isSuspicious() != null && r.isSuspicious());
+                    setCellNumeric(dataRow, 16, r.llmTotalTokens());
                 }
             }
 
@@ -76,7 +85,10 @@ public final class ExcelExporter {
                 var header = sheet.createRow(row++);
                 String[] chunkHeaders = {"teamName", "authorName", "authorEmail", "classification",
                         "effortScore", "complexity", "novelty", "confidence", "reasoning",
-                        "commitShas", "timestamp", "linesChanged"};
+                        "commitShas", "commitMessages", "timestamp", "linesChanged",
+                        "isBundled", "chunkIndex", "totalChunks",
+                        "isError", "errorMessage", "isExternalContributor",
+                        "llmModel", "llmPromptTokens", "llmCompletionTokens", "llmTotalTokens"};
                 for (int i = 0; i < chunkHeaders.length; i++) {
                     header.createCell(i).setCellValue(chunkHeaders[i]);
                 }
@@ -92,8 +104,19 @@ public final class ExcelExporter {
                     setCellNumeric(dataRow, 7, r.confidence());
                     dataRow.createCell(8).setCellValue(str(r.reasoning()));
                     dataRow.createCell(9).setCellValue(str(r.commitShas()));
-                    dataRow.createCell(10).setCellValue(r.timestamp() != null ? r.timestamp().toString() : "");
-                    setCellNumeric(dataRow, 11, r.linesChanged());
+                    dataRow.createCell(10).setCellValue(str(r.commitMessages()));
+                    dataRow.createCell(11).setCellValue(r.timestamp() != null ? r.timestamp().toString() : "");
+                    setCellNumeric(dataRow, 12, r.linesChanged());
+                    dataRow.createCell(13).setCellValue(r.isBundled() != null && r.isBundled());
+                    setCellNumeric(dataRow, 14, r.chunkIndex());
+                    setCellNumeric(dataRow, 15, r.totalChunks());
+                    dataRow.createCell(16).setCellValue(r.isError() != null && r.isError());
+                    dataRow.createCell(17).setCellValue(str(r.errorMessage()));
+                    dataRow.createCell(18).setCellValue(r.isExternalContributor() != null && r.isExternalContributor());
+                    dataRow.createCell(19).setCellValue(str(r.llmModel()));
+                    setCellNumeric(dataRow, 20, r.llmPromptTokens());
+                    setCellNumeric(dataRow, 21, r.llmCompletionTokens());
+                    setCellNumeric(dataRow, 22, r.llmTotalTokens());
                 }
             }
 

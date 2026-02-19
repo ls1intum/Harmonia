@@ -13,6 +13,17 @@ public record ChunkExportRow(
         Double confidence,
         String reasoning,
         String commitShas,
+        String commitMessages,
         LocalDateTime timestamp,
-        Integer linesChanged) {
+        Integer linesChanged,
+        Boolean isBundled,
+        Integer chunkIndex,
+        Integer totalChunks,
+        Boolean isError,
+        String errorMessage,
+        Boolean isExternalContributor,
+        String llmModel,
+        Long llmPromptTokens,
+        Long llmCompletionTokens,
+        Long llmTotalTokens) {
 }
