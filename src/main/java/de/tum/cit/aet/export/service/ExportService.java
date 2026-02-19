@@ -41,7 +41,7 @@ public class ExportService {
      * Export analyzed data for an exercise in the requested format.
      *
      * @param exerciseId the exercise ID
-     * @param format     the export format (CSV, EXCEL, JSON)
+     * @param format     the export format (EXCEL, JSON)
      * @param include    set of data scopes to include (teams, students, chunks, commits)
      * @return the exported file content as byte array
      * @throws IOException if serialization fails
@@ -131,7 +131,6 @@ public class ExportService {
                 include.contains("commits") ? commitRows : null);
 
         return switch (format) {
-            case CSV -> CsvExporter.export(exportData);
             case EXCEL -> ExcelExporter.export(exportData);
             case JSON -> JsonExporter.export(exportData);
         };

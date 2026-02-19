@@ -50,11 +50,11 @@ class ExportServiceTest {
         TeamParticipation tp = createParticipation("Team1");
         when(teamParticipationRepository.findAllByExerciseId(1L)).thenReturn(List.of(tp));
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV, Set.of("teams"));
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("teams"));
 
         assertTrue(result.length > 0);
-        String csv = new String(result);
-        assertTrue(csv.contains("Team1"));
+        String json = new String(result);
+        assertTrue(json.contains("Team1"));
         verifyNoInteractions(studentRepository);
         verifyNoInteractions(analyzedChunkRepository);
         verifyNoInteractions(teamRepositoryRepository);
@@ -68,11 +68,11 @@ class ExportServiceTest {
         Student student = new Student(1L, "alice01", "Alice", "alice@test.com", tp, 10, 200, 50, 250);
         when(studentRepository.findAllByTeam(tp)).thenReturn(List.of(student));
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV, Set.of("students"));
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("students"));
 
-        String csv = new String(result);
-        assertTrue(csv.contains("Alice"));
-        assertTrue(csv.contains("alice01"));
+        String json = new String(result);
+        assertTrue(json.contains("Alice"));
+        assertTrue(json.contains("alice01"));
         verify(studentRepository).findAllByTeam(tp);
     }
 
@@ -96,11 +96,11 @@ class ExportServiceTest {
         chunk.setLinesChanged(42);
         when(analyzedChunkRepository.findByParticipation(tp)).thenReturn(List.of(chunk));
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV, Set.of("chunks"));
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("chunks"));
 
-        String csv = new String(result);
-        assertTrue(csv.contains("FEATURE"));
-        assertTrue(csv.contains("alice@test.com"));
+        String json = new String(result);
+        assertTrue(json.contains("FEATURE"));
+        assertTrue(json.contains("alice@test.com"));
         verify(analyzedChunkRepository).findByParticipation(tp);
     }
 
@@ -117,10 +117,10 @@ class ExportServiceTest {
         teamRepo.setVcsLogs(List.of(log));
         when(teamRepositoryRepository.findByTeamParticipation(tp)).thenReturn(Optional.of(teamRepo));
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV, Set.of("commits"));
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("commits"));
 
-        String csv = new String(result);
-        assertTrue(csv.contains("abc123"));
+        String json = new String(result);
+        assertTrue(json.contains("abc123"));
         verify(teamRepositoryRepository).findByTeamParticipation(tp);
     }
 
@@ -145,36 +145,34 @@ class ExportServiceTest {
         teamRepo.setVcsLogs(List.of(log));
         when(teamRepositoryRepository.findByTeamParticipation(tp)).thenReturn(Optional.of(teamRepo));
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV,
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON,
                 Set.of("teams", "students", "chunks", "commits"));
 
-        String csv = new String(result);
-        assertTrue(csv.contains("# Teams"));
-        assertTrue(csv.contains("# Students"));
-        assertTrue(csv.contains("# Chunks"));
-        assertTrue(csv.contains("# Commits"));
+        String json = new String(result);
+        assertTrue(json.contains("\"teams\""));
+        assertTrue(json.contains("\"students\""));
+        assertTrue(json.contains("\"chunks\""));
+        assertTrue(json.contains("\"commits\""));
     }
 
     @Test
-    void exportData_csvFormat_delegatesToCsvExporter() throws IOException {
+    void exportData_excelFormat_returnsNonEmptyBytes() throws IOException {
         TeamParticipation tp = createParticipation("Team1");
         when(teamParticipationRepository.findAllByExerciseId(1L)).thenReturn(List.of(tp));
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV, Set.of("teams"));
+        byte[] result = exportService.exportData(1L, ExportFormat.EXCEL, Set.of("teams"));
 
         assertTrue(result.length > 0);
-        String csv = new String(result);
-        // CSV format produces text with section headers
-        assertTrue(csv.contains("# Teams"));
     }
 
     @Test
     void exportData_noParticipations_returnsEmptyExport() throws IOException {
         when(teamParticipationRepository.findAllByExerciseId(1L)).thenReturn(List.of());
 
-        byte[] result = exportService.exportData(1L, ExportFormat.CSV, Set.of("teams"));
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("teams"));
 
-        assertEquals(0, result.length);
+        String json = new String(result);
+        assertTrue(json.contains("null"));
     }
 
     private TeamParticipation createParticipation(String name) {

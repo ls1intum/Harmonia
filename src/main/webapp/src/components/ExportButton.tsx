@@ -26,7 +26,7 @@ interface ExportButtonProps {
   disabled?: boolean;
 }
 
-type ExportFormat = 'CSV' | 'EXCEL' | 'JSON';
+type ExportFormat = 'EXCEL' | 'JSON';
 type DataScope = 'teams' | 'students' | 'chunks' | 'commits';
 
 const DATA_SCOPES: { value: DataScope; label: string }[] = [
@@ -53,7 +53,7 @@ function triggerDownload(exerciseId: string, format: ExportFormat, include: Data
 
 const ExportButton = ({ exerciseId, disabled = false }: ExportButtonProps) => {
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
-  const [customFormat, setCustomFormat] = useState<ExportFormat>('CSV');
+  const [customFormat, setCustomFormat] = useState<ExportFormat>('EXCEL');
   const [customScopes, setCustomScopes] = useState<Set<DataScope>>(new Set(['teams', 'students']));
 
   const toggleScope = (scope: DataScope) => {
@@ -89,7 +89,6 @@ const ExportButton = ({ exerciseId, disabled = false }: ExportButtonProps) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleQuickExport('CSV')}>CSV</DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleQuickExport('EXCEL')}>Excel (.xlsx)</DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleQuickExport('JSON')}>JSON</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -111,7 +110,6 @@ const ExportButton = ({ exerciseId, disabled = false }: ExportButtonProps) => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CSV">CSV</SelectItem>
                   <SelectItem value="EXCEL">Excel (.xlsx)</SelectItem>
                   <SelectItem value="JSON">JSON</SelectItem>
                 </SelectContent>

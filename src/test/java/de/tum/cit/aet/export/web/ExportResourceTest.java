@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -30,19 +29,6 @@ class ExportResourceTest {
     }
 
     @Test
-    void exportData_csv_returns200WithCsvHeaders() throws IOException {
-        when(exportService.exportData(eq(1L), eq(ExportFormat.CSV), any()))
-                .thenReturn("csv-content".getBytes());
-
-        ResponseEntity<byte[]> response = exportResource.exportData(1L, ExportFormat.CSV, List.of("teams"));
-
-        assertEquals(200, response.getStatusCode().value());
-        assertEquals("text/csv", response.getHeaders().getContentType().toString());
-        assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("export-1.csv"));
-        assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("attachment"));
-    }
-
-    @Test
     void exportData_excel_returns200WithExcelHeaders() throws IOException {
         when(exportService.exportData(eq(1L), eq(ExportFormat.EXCEL), any()))
                 .thenReturn(new byte[]{1, 2, 3});
@@ -53,6 +39,7 @@ class ExportResourceTest {
         assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 response.getHeaders().getContentType().toString());
         assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("export-1.xlsx"));
+        assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("attachment"));
     }
 
     @Test
@@ -69,10 +56,10 @@ class ExportResourceTest {
 
     @Test
     void exportData_serviceThrows_returns500() throws IOException {
-        when(exportService.exportData(eq(1L), eq(ExportFormat.CSV), any()))
+        when(exportService.exportData(eq(1L), eq(ExportFormat.EXCEL), any()))
                 .thenThrow(new IOException("Export failed"));
 
-        ResponseEntity<byte[]> response = exportResource.exportData(1L, ExportFormat.CSV, List.of("teams"));
+        ResponseEntity<byte[]> response = exportResource.exportData(1L, ExportFormat.EXCEL, List.of("teams"));
 
         assertEquals(500, response.getStatusCode().value());
         assertNull(response.getBody());

@@ -26,14 +26,14 @@ public class ExportResource {
      * Export analyzed data for an exercise as a downloadable file.
      *
      * @param exerciseId the exercise ID
-     * @param format     the export format (CSV, EXCEL, JSON)
+     * @param format     the export format (EXCEL, JSON)
      * @param include    data scopes to include
      * @return the file as a byte array response with Content-Disposition header
      */
     @GetMapping("/{exerciseId}")
     public ResponseEntity<byte[]> exportData(
             @PathVariable Long exerciseId,
-            @RequestParam(defaultValue = "CSV") ExportFormat format,
+            @RequestParam(defaultValue = "EXCEL") ExportFormat format,
             @RequestParam(defaultValue = "teams,students") List<String> include) {
         try {
             Set<String> includeSet = Set.copyOf(include);
@@ -41,19 +41,12 @@ public class ExportResource {
 
             String filename = "export-" + exerciseId;
             String contentType;
-            switch (format) {
-                case EXCEL -> {
-                    filename += ".xlsx";
-                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-                }
-                case JSON -> {
-                    filename += ".json";
-                    contentType = "application/json";
-                }
-                default -> {
-                    filename += ".csv";
-                    contentType = "text/csv";
-                }
+            if (format == ExportFormat.EXCEL) {
+                filename += ".xlsx";
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            } else {
+                filename += ".json";
+                contentType = "application/json";
             }
 
             return ResponseEntity.ok()
