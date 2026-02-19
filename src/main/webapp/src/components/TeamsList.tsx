@@ -319,7 +319,7 @@ const TeamsList = ({
             </span>
           </Button>
           {renderActionButton()}
-          <ExportButton exerciseId={exercise} disabled={teams.length === 0 || analysisStatus.state === 'RUNNING'} />
+          <ExportButton exerciseId={exercise} disabled={teams.length === 0} />
           <Button
             variant="outline"
             onClick={() => handleClearClick('both')}
