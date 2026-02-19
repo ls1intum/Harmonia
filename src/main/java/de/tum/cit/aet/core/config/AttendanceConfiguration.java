@@ -21,4 +21,6 @@ public class AttendanceConfiguration {
     private int[] student2Columns = new int[]{5, 9, 13};
     @Min(1)
     private int numberProgrammingSessions = 3;
+    @Min(1)
+    private int mandatoryProgrammingSessions = 2;
 }

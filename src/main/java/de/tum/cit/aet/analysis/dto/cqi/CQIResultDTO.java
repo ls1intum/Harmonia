@@ -37,7 +37,7 @@ public record CQIResultDTO(
     }
 
     /**
-     * Create result when < 2/3 pair programming sessions were attended
+     * Create result when mandatory pair-programming attendance was not met.
      */
     public static CQIResultDTO noPairProgramming(ComponentWeightsDTO weights) {
         return new CQIResultDTO(

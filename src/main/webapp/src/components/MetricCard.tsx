@@ -10,6 +10,7 @@ interface MetricCardProps {
 const MetricCard = ({ metric }: MetricCardProps) => {
   const isPending = metric.value === -1;
   const isNotFound = metric.value === -2 || metric.status === 'NOT_FOUND';
+  const isWarning = metric.value === -3 || metric.status === 'WARNING';
 
   const getProgressColor = (value: number) => {
     if (value >= 80) return 'bg-success';
@@ -19,7 +20,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
 
   return (
     <Card
-      className={`shadow-card hover:shadow-elevated transition-shadow ${isPending ? 'opacity-75' : ''} ${isNotFound ? 'border-amber-500/50' : ''}`}
+      className={`shadow-card hover:shadow-elevated transition-shadow ${isPending ? 'opacity-75' : ''} ${isNotFound || isWarning ? 'border-amber-500/50' : ''}`}
     >
       <CardHeader>
         <div className="flex items-start justify-between">
@@ -35,6 +36,14 @@ const MetricCard = ({ metric }: MetricCardProps) => {
                   Not Found
                 </span>
                 <span className="text-xs text-amber-500">Check Excel</span>
+              </>
+            ) : isWarning ? (
+              <>
+                <span className="text-xl font-bold text-amber-500 flex items-center gap-1">
+                  <AlertTriangle className="h-5 w-5" />
+                  Warning
+                </span>
+                <span className="text-xs text-amber-500">Cancelled Sessions</span>
               </>
             ) : isPending ? (
               <>
@@ -56,13 +65,15 @@ const MetricCard = ({ metric }: MetricCardProps) => {
             <span className="text-muted-foreground">Score</span>
             {isNotFound ? (
               <span className="font-medium text-amber-500">Team not in Excel</span>
+            ) : isWarning ? (
+              <span className="font-medium text-amber-500">Sessions cancelled</span>
             ) : isPending ? (
               <span className="font-medium text-amber-500">Waiting for AI</span>
             ) : (
               <span className="font-medium">{metric.value}/100</span>
             )}
           </div>
-          {isNotFound ? (
+          {isNotFound || isWarning ? (
             <div className="h-2 bg-amber-500/20 rounded-full overflow-hidden">
               <div className="h-full bg-amber-500/50 w-full"></div>
             </div>
@@ -81,7 +92,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
               .filter(s => s.trim())
               .map((sentence, idx) => (
                 <p key={idx} className="flex items-start gap-2">
-                  <span className={isNotFound ? 'text-amber-500 mt-0.5' : 'text-primary mt-0.5'}>•</span>
+                  <span className={isNotFound || isWarning ? 'text-amber-500 mt-0.5' : 'text-primary mt-0.5'}>•</span>
                   <span>{sentence.trim()}</span>
                 </p>
               ))}

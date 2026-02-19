@@ -40,6 +40,74 @@ export const AttendanceResourceApiAxiosParamCreator = function (configuration?: 
   return {
     /**
      *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    clearAttendance: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('clearAttendance', 'exerciseId', exerciseId);
+      const localVarPath = `/api/attendance/clear`;
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      if (exerciseId !== undefined) {
+        localVarQueryParameter['exerciseId'] = exerciseId;
+      }
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    clearAttendancePost: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('clearAttendancePost', 'exerciseId', exerciseId);
+      const localVarPath = `/api/attendance/clear`;
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      if (exerciseId !== undefined) {
+        localVarQueryParameter['exerciseId'] = exerciseId;
+      }
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
      * @param {number} courseId
      * @param {number} exerciseId
      * @param {File} file
@@ -132,6 +200,40 @@ export const AttendanceResourceApiFp = function (configuration?: Configuration) 
   return {
     /**
      *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async clearAttendance(
+      exerciseId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.clearAttendance(exerciseId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['AttendanceResourceApi.clearAttendance']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async clearAttendancePost(
+      exerciseId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.clearAttendancePost(exerciseId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['AttendanceResourceApi.clearAttendancePost']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
      * @param {number} courseId
      * @param {number} exerciseId
      * @param {File} file
@@ -188,6 +290,24 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
   return {
     /**
      *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    clearAttendance(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+      return localVarFp.clearAttendance(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    clearAttendancePost(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+      return localVarFp.clearAttendancePost(exerciseId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
      * @param {number} courseId
      * @param {number} exerciseId
      * @param {File} file
@@ -237,6 +357,30 @@ export const AttendanceResourceApiFactory = function (configuration?: Configurat
  * AttendanceResourceApi - object-oriented interface
  */
 export class AttendanceResourceApi extends BaseAPI {
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public clearAttendance(exerciseId: number, options?: RawAxiosRequestConfig) {
+    return AttendanceResourceApiFp(this.configuration)
+      .clearAttendance(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public clearAttendancePost(exerciseId: number, options?: RawAxiosRequestConfig) {
+    return AttendanceResourceApiFp(this.configuration)
+      .clearAttendancePost(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
   /**
    *
    * @param {number} courseId

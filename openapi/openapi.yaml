@@ -71,6 +71,35 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
+  /api/attendance/clear:
+    post:
+      tags: [attendance-resource]
+      operationId: clearAttendancePost
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: string}
+    delete:
+      tags: [attendance-resource]
+      operationId: clearAttendance
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: string}
   /api/attendance/upload:
     post:
       tags: [attendance-resource]
@@ -462,7 +491,7 @@ components:
     TeamAttendanceDTO:
       type: object
       properties:
-        pairedAtLeastTwoOfThree: {type: boolean}
+        pairedMandatorySessions: {type: boolean}
         pairedSessions:
           type: array
           items: {type: string, format: date-time}

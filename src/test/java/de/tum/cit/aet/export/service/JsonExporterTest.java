@@ -20,7 +20,7 @@ class JsonExporterTest {
         LocalDateTime ts = LocalDateTime.of(2025, 1, 15, 10, 30);
         ExportData data = new ExportData(
                 List.of(new TeamExportRow("Team1", "t1", "Tutor1", "https://git.example.com/team1",
-                        5, "DONE", 0.85, 80.0, 1.0,
+                        5, "DONE", 0.85,
                         0.9, 0.8, 0.7, 0.6, 0.55, "FOUND", false, 1000L)),
                 List.of(new StudentExportRow("Team1", "Alice", "alice01", "alice@test.com", 10, 200, 50, 250)),
                 List.of(new ChunkExportRow("Team1", "Alice", "alice@test.com", "FEATURE",
@@ -40,8 +40,6 @@ class JsonExporterTest {
         assertEquals(5, team.get("submissionCount").asInt());
         assertEquals("DONE", team.get("analysisStatus").asText());
         assertEquals(0.85, team.get("cqi").asDouble(), 0.001);
-        assertEquals(80.0, team.get("cqiBaseScore").asDouble());
-        assertEquals(1.0, team.get("cqiPenaltyMultiplier").asDouble());
         assertEquals(0.9, team.get("cqiEffortBalance").asDouble(), 0.001);
         assertEquals(0.8, team.get("cqiLocBalance").asDouble(), 0.001);
         assertEquals(0.7, team.get("cqiTemporalSpread").asDouble(), 0.001);

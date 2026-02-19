@@ -8,7 +8,9 @@ package de.tum.cit.aet.analysis.dto.cqi;
  * @param temporalSpread  Temporal distribution of work (0-100)
  * @param ownershipSpread File ownership distribution (0-100)
  * @param pairProgramming   Pair programming collaboration verification (0-100, nullable)
- * @param pairProgrammingStatus Status of pair programming metric: "FOUND" if team in Excel, "NOT_FOUND" if Excel uploaded but team missing, null if no Excel
+ * @param pairProgrammingStatus Status of pair programming metric: "FOUND" if team in Excel,
+ *                              "NOT_FOUND" if Excel uploaded but team missing, "WARNING" if
+ *                              cancelled sessions affected mandatory attendance, null if no Excel
  */
 public record ComponentScoresDTO(
         double effortBalance,

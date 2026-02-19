@@ -2,36 +2,26 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlayCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
-import { AttendanceResourceApi, Configuration } from '@/app/generated';
-import FileUpload from '@/components/FileUpload.tsx';
 
 interface StartAnalysisProps {
-  onStart: (course: string, exercise: string, username: string, password: string) => void;
+  onStart: (course: string, exercise: string, username: string, password: string, pairProgrammingEnabled: boolean) => void;
 }
-
-// Initialize API client for attendance upload
-const apiConfig = new Configuration({
-  basePath: window.location.origin,
-  baseOptions: {
-    withCredentials: true,
-  },
-});
-const attendanceApi = new AttendanceResourceApi(apiConfig);
 
 /**
  * Login form component for starting repository analysis.
  * Step 1: User enters Artemis credentials and exercise URL.
- * Step 2: Upon successful login, uploads attendance file if provided.
+ * Step 2: User selects whether pair programming is part of the project.
  * Step 3: Triggers navigation to Teams page.
  */
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [exerciseUrl, setExerciseUrl] = useState('https://artemis.tum.de/courses/478/exercises/18806');
-  const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
+  const [pairProgrammingMode, setPairProgrammingMode] = useState<'yes' | 'no'>('yes');
 
   // Parse exercise URL to extract baseUrl, courseId, and exerciseId
   const parseExerciseUrl = (urlString: string) => {
@@ -47,38 +37,6 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       return null;
     }
   };
-
-  // Mutation for uploading attendance file
-  const attendanceUploadMutation = useMutation({
-    mutationFn: async (params: {
-      courseId: number;
-      exerciseId: number;
-      file: File;
-      serverUrl: string;
-      username: string;
-      password: string;
-    }) => {
-      return attendanceApi.uploadAttendance(
-        params.courseId,
-        params.exerciseId,
-        params.file,
-        undefined, // jwt (cookie)
-        undefined, // artemisServerUrl (cookie)
-        undefined, // artemisUsername (cookie)
-        undefined, // artemisPassword (cookie)
-        params.serverUrl,
-        params.username,
-        params.password,
-      );
-    },
-    onError: () => {
-      toast({
-        variant: 'destructive',
-        title: 'Attendance upload failed',
-        description: 'Could not process the attendance file. Analysis will continue without it.',
-      });
-    },
-  });
 
   // Mutation for login
   const loginMutation = useMutation({
@@ -120,28 +78,8 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         courseId,
       });
 
-      // Step 2: Upload attendance file if provided (after successful login)
-      if (attendanceFile) {
-        try {
-          await attendanceUploadMutation.mutateAsync({
-            courseId: parseInt(courseId),
-            exerciseId: parseInt(exerciseId),
-            file: attendanceFile,
-            serverUrl: baseUrl,
-            username,
-            password,
-          });
-          toast({
-            title: 'Attendance uploaded',
-            description: 'Pair programming attendance data was successfully processed.',
-          });
-        } catch {
-          // Error already handled in mutation onError, continue with analysis
-        }
-      }
-
-      // Step 3: Navigate to analysis
-      onStart(courseId, exerciseId, username, password);
+      // Step 2: Navigate to analysis
+      onStart(courseId, exerciseId, username, password, pairProgrammingMode === 'yes');
     } catch (error) {
       const status = (error as Error & { status?: number }).status;
       if (status === 403) {
@@ -160,7 +98,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
     }
   };
 
-  const isLoading = loginMutation.isPending || attendanceUploadMutation.isPending;
+  const isLoading = loginMutation.isPending;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4">
@@ -204,10 +142,21 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           />
         </div>
 
-        <div className="my-6 border-t border-border" />
-
-        {/* Pair Programming Attendance Upload */}
-        <FileUpload onFileSelect={setAttendanceFile} disabled={isLoading} />
+        <div className="space-y-2">
+          <Label htmlFor="pair-programming-mode">Includes pair programming</Label>
+          <Select value={pairProgrammingMode} onValueChange={value => setPairProgrammingMode(value as 'yes' | 'no')} disabled={isLoading}>
+            <SelectTrigger id="pair-programming-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="yes">Yes</SelectItem>
+              <SelectItem value="no">No</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-sm text-muted-foreground">
+            If enabled, you can upload the pair programming attendance document on the Teams page.
+          </p>
+        </div>
 
         <Button
           size="lg"
@@ -216,7 +165,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           className="w-full mt-6 text-lg px-8 py-6 shadow-elevated hover:shadow-card transition-all"
         >
           {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
-          {attendanceUploadMutation.isPending ? 'Uploading Attendance...' : loginMutation.isPending ? 'Logging in...' : 'Login'}
+          {loginMutation.isPending ? 'Logging in...' : 'Login'}
         </Button>
       </div>
     </div>

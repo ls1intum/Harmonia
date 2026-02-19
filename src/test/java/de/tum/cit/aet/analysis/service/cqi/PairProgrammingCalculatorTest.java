@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.service.cqi;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
+import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,7 @@ class PairProgrammingCalculatorTest {
 
     @BeforeEach
     void setUp() {
-        calculator = new PairProgrammingCalculator();
+        calculator = new PairProgrammingCalculator(new AttendanceConfiguration());
     }
 
     // ==================== Perfect Pair Programming Tests ====================
@@ -76,7 +77,7 @@ class PairProgrammingCalculatorTest {
         Double score = calculator.calculate(pairedSessions, commits, 2);
 
         assertNotNull(score, "Score should not be null");
-        assertEquals(66.67, score, 0.1, "2 of 3 sessions should score ~66.67");
+        assertEquals(66.67, score, 0.1, "Two attended sessions out of three should score ~66.67 with default mandatory threshold");
     }
 
     @Test

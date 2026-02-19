@@ -4,15 +4,21 @@ import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService.RatedChunk;
+import de.tum.cit.aet.core.config.AttendanceConfiguration;
+import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
+import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,13 +29,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class CQICalculatorServiceTest {
 
     private CQICalculatorService cqiService;
+    private TeamScheduleService teamScheduleService;
     private LocalDateTime projectStart;
     private LocalDateTime projectEnd;
     private String teamName;
 
     @BeforeEach
     void setUp() {
-        cqiService = new CQICalculatorService(new CQIConfig(), new TeamScheduleService(), new PairProgrammingCalculator());
+        teamScheduleService = new TeamScheduleService();
+        cqiService = new CQICalculatorService(new CQIConfig(), teamScheduleService, new PairProgrammingCalculator(new AttendanceConfiguration()));
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
         teamName = "team1";
@@ -206,6 +214,52 @@ class CQICalculatorServiceTest {
                 "CQI should be 0-100, got: " + result.cqi());
     }
 
+    @Test
+    void testGitOnlyComponents_FoundTeamWithoutPairedSessions_IsFoundWithZeroScore() {
+        OffsetDateTime session = OffsetDateTime.parse("2025-01-13T10:00:00+01:00");
+
+        TeamAttendanceDTO attendance = new TeamAttendanceDTO(
+                Map.of(session, true),
+                Map.of(session, false),
+                false,
+                List.of());
+        teamScheduleService.update(new TeamsScheduleDTO(Map.of("Team 01", attendance)));
+
+        List<CommitChunkDTO> chunks = List.of(
+                createChunk(1L, 40, session.toLocalDate().atTime(11, 0)),
+                createChunk(2L, 45, session.toLocalDate().atTime(12, 0)));
+
+        ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, null, null, "Team 01");
+
+        assertEquals("FOUND", components.pairProgrammingStatus());
+        assertEquals(0.0, components.pairProgramming(), 0.001);
+    }
+
+    @Test
+    void testGitOnlyComponents_NormalizesTeamNameWithNbspAndWhitespace() {
+        OffsetDateTime sessionOne = OffsetDateTime.parse("2025-01-20T10:00:00+01:00");
+        OffsetDateTime sessionTwo = OffsetDateTime.parse("2025-01-27T10:00:00+01:00");
+
+        TeamAttendanceDTO attendance = new TeamAttendanceDTO(
+                Map.of(sessionOne, true, sessionTwo, true),
+                Map.of(sessionOne, true, sessionTwo, true),
+                true,
+                List.of(sessionOne, sessionTwo));
+        teamScheduleService.update(new TeamsScheduleDTO(Map.of("  Team\u00A001  ", attendance)));
+
+        List<CommitChunkDTO> chunks = List.of(
+                createChunk(1L, 30, sessionOne.toLocalDate().atTime(10, 15)),
+                createChunk(2L, 35, sessionOne.toLocalDate().atTime(10, 45)),
+                createChunk(1L, 28, sessionTwo.toLocalDate().atTime(10, 20)),
+                createChunk(2L, 32, sessionTwo.toLocalDate().atTime(10, 35)));
+
+        ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, null, null, "team   01");
+
+        assertEquals("FOUND", components.pairProgrammingStatus());
+        assertNotNull(components.pairProgramming());
+        assertEquals(100.0, components.pairProgramming(), 0.001);
+    }
+
     // ==================== Helper Methods ====================
 
     private RatedChunk createRatedChunk(Long authorId, int loc, double effort,
@@ -232,9 +286,13 @@ class CQICalculatorServiceTest {
     }
 
     private CommitChunkDTO createChunk(Long authorId, int loc) {
+        return createChunk(authorId, loc, LocalDateTime.now());
+    }
+
+    private CommitChunkDTO createChunk(Long authorId, int loc, LocalDateTime timestamp) {
         return new CommitChunkDTO(
                 "sha-" + System.nanoTime(), authorId, "author" + authorId + "@test.com",
-                "Test commit", LocalDateTime.now(),
+                "Test commit", timestamp,
                 List.of("src/File.java"), "diff",
                 loc / 2, loc / 2, 0, 1, false, List.of(),
                 null, null, null

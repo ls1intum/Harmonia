@@ -67,8 +67,7 @@ class ExcelExporterTest {
             // Header row - all 17 columns
             String[] expectedHeaders = {"teamName", "shortName", "tutor", "repositoryUrl",
                     "submissionCount", "analysisStatus",
-                    "cqi", "cqiBaseScore", "cqiPenaltyMultiplier",
-                    "cqiEffortBalance", "cqiLocBalance", "cqiTemporalSpread",
+                    "cqi", "cqiEffortBalance", "cqiLocBalance", "cqiTemporalSpread",
                     "cqiOwnershipSpread", "cqiPairProgramming", "cqiPairProgrammingStatus",
                     "isSuspicious", "llmTotalTokens"};
             for (int i = 0; i < expectedHeaders.length; i++) {
@@ -84,16 +83,14 @@ class ExcelExporterTest {
             assertEquals(5.0, row.getCell(4).getNumericCellValue());
             assertEquals("DONE", row.getCell(5).getStringCellValue());
             assertEquals(0.85, row.getCell(6).getNumericCellValue(), 0.001);
-            assertEquals(80.0, row.getCell(7).getNumericCellValue());
-            assertEquals(1.0, row.getCell(8).getNumericCellValue());
-            assertEquals(0.9, row.getCell(9).getNumericCellValue(), 0.001);
-            assertEquals(0.8, row.getCell(10).getNumericCellValue(), 0.001);
-            assertEquals(0.7, row.getCell(11).getNumericCellValue(), 0.001);
-            assertEquals(0.6, row.getCell(12).getNumericCellValue(), 0.001);
-            assertEquals("", row.getCell(13).getStringCellValue()); // cqiPairProgramming null -> ""
-            assertEquals("", row.getCell(14).getStringCellValue()); // cqiPairProgrammingStatus null
-            assertFalse(row.getCell(15).getBooleanCellValue());
-            assertEquals(1000.0, row.getCell(16).getNumericCellValue());
+            assertEquals(0.9, row.getCell(7).getNumericCellValue(), 0.001);
+            assertEquals(0.8, row.getCell(8).getNumericCellValue(), 0.001);
+            assertEquals(0.7, row.getCell(9).getNumericCellValue(), 0.001);
+            assertEquals(0.6, row.getCell(10).getNumericCellValue(), 0.001);
+            assertEquals("", row.getCell(11).getStringCellValue()); // cqiPairProgramming null -> ""
+            assertEquals("", row.getCell(12).getStringCellValue()); // cqiPairProgrammingStatus null
+            assertFalse(row.getCell(13).getBooleanCellValue());
+            assertEquals(1000.0, row.getCell(14).getNumericCellValue());
         }
     }
 
@@ -190,7 +187,7 @@ class ExcelExporterTest {
 
     private static TeamExportRow sampleTeamRow() {
         return new TeamExportRow("Team1", "t1", "Tutor1", "https://git.example.com/team1",
-                5, "DONE", 0.85, 80.0, 1.0,
+                5, "DONE", 0.85,
                 0.9, 0.8, 0.7, 0.6, null, null,
                 false, 1000L);
     }

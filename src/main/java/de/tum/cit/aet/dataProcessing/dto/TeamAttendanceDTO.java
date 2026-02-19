@@ -7,7 +7,7 @@ import java.util.Map;
 public record TeamAttendanceDTO(
         Map<OffsetDateTime, Boolean> student1Attendance,
         Map<OffsetDateTime, Boolean> student2Attendance,
-        boolean pairedAtLeastTwoOfThree,
+        boolean pairedMandatorySessions,
         List<OffsetDateTime> pairedSessions
 ) {
 }

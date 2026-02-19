@@ -3,6 +3,7 @@ package de.tum.cit.aet.repositoryProcessing.service;
 import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.exceptions.ArtemisConnectionException;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
+import de.tum.cit.aet.repositoryProcessing.dto.TutorialGroupSessionDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import tools.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
@@ -337,14 +338,14 @@ public class ArtemisClientService {
     }
 
     /**
-     * Fetches tutorial groups and returns a mapping from group name to session start times.
+     * Fetches tutorial groups and returns a mapping from group name to tutorial sessions.
      *
      * @param serverUrl The Artemis server URL
      * @param jwtToken  The JWT token for authentication
      * @param courseId  The course ID to fetch tutorial groups for
-     * @return Map of tutorial group name to list of session start times
+     * @return Map of tutorial group name to tutorial session metadata
      */
-    public Map<String, List<OffsetDateTime>> fetchTutorialGroupSessionStartTimes(
+    public Map<String, List<TutorialGroupSessionDTO>> fetchTutorialGroupSessions(
             String serverUrl,
             String jwtToken,
             Long courseId
@@ -368,14 +369,14 @@ public class ArtemisClientService {
                 return Map.of();
             }
 
-            Map<String, List<OffsetDateTime>> result = new HashMap<>();
+            Map<String, List<TutorialGroupSessionDTO>> result = new HashMap<>();
             for (JsonNode groupNode : response) {
                 String groupName = firstNonBlank(groupNode, "title", "name", "tutorialGroupName");
                 if (groupName == null || groupName.isBlank()) {
                     continue;
                 }
 
-                List<OffsetDateTime> sessions = extractSessionStartTimes(groupNode);
+                List<TutorialGroupSessionDTO> sessions = extractSessionInfos(groupNode);
                 result.put(groupName, sessions);
             }
 
@@ -387,8 +388,8 @@ public class ArtemisClientService {
         }
     }
 
-    private List<OffsetDateTime> extractSessionStartTimes(JsonNode groupNode) {
-        List<OffsetDateTime> sessions = new ArrayList<>();
+    private List<TutorialGroupSessionDTO> extractSessionInfos(JsonNode groupNode) {
+        List<TutorialGroupSessionDTO> sessions = new ArrayList<>();
 
         JsonNode sessionsNode = groupNode.get("tutorialGroupSessions");
         if (sessionsNode == null || !sessionsNode.isArray()) {
@@ -415,11 +416,21 @@ public class ArtemisClientService {
             }
             OffsetDateTime parsed = parseOffsetDateTime(startValue);
             if (parsed != null) {
-                sessions.add(parsed);
+                sessions.add(new TutorialGroupSessionDTO(
+                        null,
+                        parsed,
+                        null,
+                        null,
+                        isSessionCancelled(sessionNode)));
             }
         }
 
         return sessions;
+    }
+
+    private boolean isSessionCancelled(JsonNode sessionNode) {
+        String status = firstNonBlank(sessionNode, "status");
+        return "CANCELLED".equalsIgnoreCase(status);
     }
 
     private String firstNonBlank(JsonNode node, String... fieldNames) {

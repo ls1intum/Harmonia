@@ -71,8 +71,6 @@ public class ExportService {
                         tp.getSubmissionCount(),
                         tp.getAnalysisStatus() != null ? tp.getAnalysisStatus().name() : null,
                         tp.getCqi(),
-                        tp.getCqiBaseScore(),
-                        tp.getCqiPenaltyMultiplier(),
                         tp.getCqiEffortBalance(),
                         tp.getCqiLocBalance(),
                         tp.getCqiTemporalSpread(),

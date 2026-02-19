@@ -3,6 +3,7 @@ package de.tum.cit.aet.dataProcessing.service;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import org.springframework.stereotype.Service;
+import static de.tum.cit.aet.dataProcessing.util.AttendanceUtils.normalize;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -44,6 +45,19 @@ public class TeamScheduleService {
     }
 
     /**
+     * Checks if attendance data exists for a specific team.
+     *
+     * @param teamName the team name to look up
+     * @return true if the team exists in uploaded attendance data, false otherwise
+     */
+    public boolean hasTeamAttendance(String teamName) {
+        if (teamName == null) {
+            return false;
+        }
+        return teamsByNormalizedName.containsKey(normalize(teamName));
+    }
+
+    /**
      * Retrieves the class dates for a specific team.
      *
      * @param teamName the name of the team
@@ -61,7 +75,10 @@ public class TeamScheduleService {
         if (sessionMap.isEmpty()) {
             return Set.of();
         }
-        return new HashSet<>(sessionMap.keySet());
+        return sessionMap.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     /**
@@ -78,9 +95,24 @@ public class TeamScheduleService {
         return new HashSet<>(attendance.pairedSessions());
     }
 
-    public boolean isPairedAtLeastTwoOfThree(String teamName) {
+    public boolean isPairedMandatorySessions(String teamName) {
         TeamAttendanceDTO attendance = getTeamAttendance(teamName);
-        return attendance != null && attendance.pairedAtLeastTwoOfThree();
+        return attendance != null && attendance.pairedMandatorySessions();
+    }
+
+    /**
+     * Indicates whether the team has cancelled tutorial sessions in attendance data.
+     *
+     * @param teamName the team name to look up
+     * @return true when any session attendance value is null
+     */
+    public boolean hasCancelledSessionWarning(String teamName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+        if (attendance == null) {
+            return false;
+        }
+        return hasNullAttendanceValue(attendance.student1Attendance())
+                || hasNullAttendanceValue(attendance.student2Attendance());
     }
 
     /**
@@ -113,7 +145,8 @@ public class TeamScheduleService {
         return Map.of();
     }
 
-    private String normalize(String teamName) {
-        return teamName == null ? "" : teamName.trim().toLowerCase(Locale.ROOT);
+    private boolean hasNullAttendanceValue(Map<OffsetDateTime, Boolean> attendanceMap) {
+        return attendanceMap != null
+                && attendanceMap.values().stream().anyMatch(value -> value == null);
     }
 }

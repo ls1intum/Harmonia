@@ -19,10 +19,10 @@ public interface TeamRepositoryRepository extends JpaRepository<TeamRepository, 
     void deleteAllByTeamParticipation(TeamParticipation participation);
 
     /**
-     * Find the team repository for a given participation.
+     * Finds the repository metadata for a given team participation.
      *
-     * @param teamParticipation the team participation
-     * @return the team repository if found
+     * @param participation the team participation
+     * @return the repository entity, if available
      */
-    Optional<TeamRepository> findByTeamParticipation(TeamParticipation teamParticipation);
+    Optional<TeamRepository> findByTeamParticipation(TeamParticipation participation);
 }

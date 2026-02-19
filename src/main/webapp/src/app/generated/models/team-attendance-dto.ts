@@ -13,7 +13,7 @@
  */
 
 export interface TeamAttendanceDTO {
-  pairedAtLeastTwoOfThree?: boolean;
+  pairedMandatorySessions?: boolean;
   pairedSessions?: Array<string>;
   student1Attendance?: { [key: string]: boolean };
   student2Attendance?: { [key: string]: boolean };

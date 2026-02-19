@@ -28,8 +28,7 @@ public final class ExcelExporter {
                 var header = sheet.createRow(row++);
                 String[] teamHeaders = {"teamName", "shortName", "tutor", "repositoryUrl",
                         "submissionCount", "analysisStatus",
-                        "cqi", "cqiBaseScore", "cqiPenaltyMultiplier",
-                        "cqiEffortBalance", "cqiLocBalance", "cqiTemporalSpread",
+                        "cqi", "cqiEffortBalance", "cqiLocBalance", "cqiTemporalSpread",
                         "cqiOwnershipSpread", "cqiPairProgramming", "cqiPairProgrammingStatus",
                         "isSuspicious", "llmTotalTokens"};
                 for (int i = 0; i < teamHeaders.length; i++) {
@@ -44,16 +43,14 @@ public final class ExcelExporter {
                     setCellNumeric(dataRow, 4, r.submissionCount());
                     dataRow.createCell(5).setCellValue(str(r.analysisStatus()));
                     setCellNumeric(dataRow, 6, r.cqi());
-                    setCellNumeric(dataRow, 7, r.cqiBaseScore());
-                    setCellNumeric(dataRow, 8, r.cqiPenaltyMultiplier());
-                    setCellNumeric(dataRow, 9, r.cqiEffortBalance());
-                    setCellNumeric(dataRow, 10, r.cqiLocBalance());
-                    setCellNumeric(dataRow, 11, r.cqiTemporalSpread());
-                    setCellNumeric(dataRow, 12, r.cqiOwnershipSpread());
-                    setCellNumeric(dataRow, 13, r.cqiPairProgramming());
-                    dataRow.createCell(14).setCellValue(str(r.cqiPairProgrammingStatus()));
-                    dataRow.createCell(15).setCellValue(r.isSuspicious() != null && r.isSuspicious());
-                    setCellNumeric(dataRow, 16, r.llmTotalTokens());
+                    setCellNumeric(dataRow, 7, r.cqiEffortBalance());
+                    setCellNumeric(dataRow, 8, r.cqiLocBalance());
+                    setCellNumeric(dataRow, 9, r.cqiTemporalSpread());
+                    setCellNumeric(dataRow, 10, r.cqiOwnershipSpread());
+                    setCellNumeric(dataRow, 11, r.cqiPairProgramming());
+                    dataRow.createCell(12).setCellValue(str(r.cqiPairProgrammingStatus()));
+                    dataRow.createCell(13).setCellValue(r.isSuspicious() != null && r.isSuspicious());
+                    setCellNumeric(dataRow, 14, r.llmTotalTokens());
                 }
             }
 

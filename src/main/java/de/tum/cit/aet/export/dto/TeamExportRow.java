@@ -8,8 +8,6 @@ public record TeamExportRow(
         Integer submissionCount,
         String analysisStatus,
         Double cqi,
-        Double cqiBaseScore,
-        Double cqiPenaltyMultiplier,
         Double cqiEffortBalance,
         Double cqiLocBalance,
         Double cqiTemporalSpread,
