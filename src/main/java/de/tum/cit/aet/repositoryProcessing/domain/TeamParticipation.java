@@ -67,6 +67,12 @@ public class TeamParticipation {
     @Column(name = "cqi_ownership_spread")
     private Double cqiOwnershipSpread;
 
+    @Column(name = "cqi_pair_programming")
+    private Double cqiPairProgramming;
+
+    @Column(name = "cqi_pair_programming_status")
+    private String cqiPairProgrammingStatus;
+
     @Column(name = "cqi_base_score")
     private Double cqiBaseScore;
 
