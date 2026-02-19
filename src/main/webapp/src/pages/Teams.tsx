@@ -1,16 +1,79 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
 import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
+import { AttendanceResourceApi, Configuration, type TeamAttendanceDTO, type TeamsScheduleDTO } from '@/app/generated';
+import { normalizeTeamName } from '@/lib/utils';
+import {
+  getPairProgrammingAttendanceFileStorageKey,
+  getPairProgrammingAttendanceMapStorageKey,
+  readStoredPairProgrammingAttendanceMap,
+  type PairProgrammingAttendanceMap,
+  type PairProgrammingBadgeStatus,
+} from '@/lib/pairProgramming';
+
+const apiConfig = new Configuration({
+  basePath: window.location.origin,
+  baseOptions: {
+    withCredentials: true,
+  },
+});
+const attendanceApi = new AttendanceResourceApi(apiConfig);
+
+type NullableAttendanceMap = Record<string, boolean | null>;
+
+const hasCancelledSessionAttendance = (attendance?: TeamAttendanceDTO): boolean => {
+  const student1Attendance = (attendance?.student1Attendance ?? {}) as NullableAttendanceMap;
+  const student2Attendance = (attendance?.student2Attendance ?? {}) as NullableAttendanceMap;
+  return [...Object.values(student1Attendance), ...Object.values(student2Attendance)].some(value => value === null);
+};
+
+const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairProgrammingAttendanceMap => {
+  const teams = schedule?.teams;
+  if (!teams) {
+    return {};
+  }
+
+  return Object.entries(teams).reduce<PairProgrammingAttendanceMap>((acc, [teamName, attendance]) => {
+    if (!teamName) {
+      return acc;
+    }
+    const hasCancelledSessionWarning = hasCancelledSessionAttendance(attendance);
+    acc[normalizeTeamName(teamName)] = hasCancelledSessionWarning
+      ? 'warning'
+      : attendance?.pairedMandatorySessions === true
+        ? 'pass'
+        : 'fail';
+    return acc;
+  }, {});
+};
 
 export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { course, exercise } = location.state || {};
+  const {
+    course,
+    exercise,
+    pairProgrammingEnabled = true,
+  } = (location.state || {}) as {
+    course: string;
+    exercise: string;
+    pairProgrammingEnabled?: boolean;
+  };
+  const attendanceStorageKey = getPairProgrammingAttendanceFileStorageKey(exercise);
+  const pairProgrammingAttendanceMapStorageKey = getPairProgrammingAttendanceMapStorageKey(exercise);
+  const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
+  const [uploadedAttendanceFileName, setUploadedAttendanceFileName] = useState<string | null>(() =>
+    window.sessionStorage.getItem(attendanceStorageKey),
+  );
+  const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<PairProgrammingAttendanceMap>(() =>
+    readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
+  );
 
   // Use new server-synced status hook
   const {
@@ -40,6 +103,74 @@ export default function Teams() {
     enabled: !!exercise,
     refetchInterval: isAnalysisRunning ? 3000 : false, // Poll every 3s during analysis to get new teams
     refetchOnWindowFocus: !isAnalysisRunning,
+  });
+
+  const attendanceUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const courseId = Number.parseInt(course ?? '', 10);
+      const exerciseId = Number.parseInt(exercise ?? '', 10);
+      if (Number.isNaN(courseId) || Number.isNaN(exerciseId)) {
+        throw new Error('Invalid course or exercise ID');
+      }
+      return attendanceApi.uploadAttendance(courseId, exerciseId, file);
+    },
+    onSuccess: (response, file) => {
+      const pairProgrammingAttendanceMap = buildPairProgrammingAttendanceMap(response.data);
+      setUploadedAttendanceFileName(file.name);
+      window.sessionStorage.setItem(attendanceStorageKey, file.name);
+      setPairProgrammingAttendanceByTeamName(pairProgrammingAttendanceMap);
+      window.sessionStorage.setItem(pairProgrammingAttendanceMapStorageKey, JSON.stringify(pairProgrammingAttendanceMap));
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      toast({
+        title: 'Attendance uploaded',
+        description: 'Pair programming metrics were updated.',
+      });
+    },
+    onError: () => {
+      toast({
+        variant: 'destructive',
+        title: 'Attendance upload failed',
+        description: 'Could not process the attendance file.',
+      });
+    },
+  });
+
+  const clearAttendanceMutation = useMutation({
+    mutationFn: async () => {
+      const exerciseId = Number.parseInt(exercise ?? '', 10);
+      if (Number.isNaN(exerciseId)) {
+        throw new Error('Invalid exercise ID');
+      }
+
+      const response = await fetch(`/api/attendance/clear?exerciseId=${exerciseId}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorMessage = (await response.text()) || response.statusText;
+        throw new Error(`Could not clear attendance data (${response.status}): ${errorMessage}`);
+      }
+    },
+    onSuccess: () => {
+      setAttendanceFile(null);
+      setUploadedAttendanceFileName(null);
+      setPairProgrammingAttendanceByTeamName({});
+      window.sessionStorage.removeItem(attendanceStorageKey);
+      window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      toast({
+        title: 'Attendance file removed',
+        description: 'Pair programming data was cleared.',
+      });
+    },
+    onError: error => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to remove attendance file',
+        description: error instanceof Error ? error.message : 'Could not clear pair programming data.',
+      });
+    },
   });
 
   // Mutation for starting analysis
@@ -208,6 +339,11 @@ export default function Teams() {
   const clearMutation = useMutation({
     mutationFn: (type: 'db' | 'files' | 'both') => clearData(exercise, type),
     onSuccess: () => {
+      setAttendanceFile(null);
+      setUploadedAttendanceFileName(null);
+      setPairProgrammingAttendanceByTeamName({});
+      window.sessionStorage.removeItem(attendanceStorageKey);
+      window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
       toast({ title: 'Data cleared successfully' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       refetchStatus();
@@ -226,8 +362,24 @@ export default function Teams() {
     return null;
   }
 
-  const handleTeamSelect = (team: Team) => {
-    navigate(`/teams/${team.id}`, { state: { team, course, exercise } });
+  const handleTeamSelect = (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
+    navigate(`/teams/${team.id}`, { state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus } });
+  };
+
+  const handleAttendanceUpload = () => {
+    if (!attendanceFile) {
+      toast({
+        variant: 'destructive',
+        title: 'No file selected',
+        description: 'Please select an XLSX file before uploading.',
+      });
+      return;
+    }
+    attendanceUploadMutation.mutate(attendanceFile);
+  };
+
+  const handleRemoveUploadedAttendanceFile = () => {
+    clearAttendanceMutation.mutate();
   };
 
   return (
@@ -242,11 +394,20 @@ export default function Teams() {
       course={course}
       exercise={exercise}
       analysisStatus={status}
+      pairProgrammingEnabled={pairProgrammingEnabled}
+      attendanceFile={attendanceFile}
+      uploadedAttendanceFileName={uploadedAttendanceFileName}
+      pairProgrammingAttendanceByTeamName={pairProgrammingAttendanceByTeamName}
+      onAttendanceFileSelect={setAttendanceFile}
+      onAttendanceUpload={handleAttendanceUpload}
+      onRemoveUploadedAttendanceFile={handleRemoveUploadedAttendanceFile}
       isLoading={isStatusLoading}
       isStarting={startMutation.isPending}
       isCancelling={cancelMutation.isPending}
       isRecomputing={recomputeMutation.isPending}
       isClearing={clearMutation.isPending}
+      isAttendanceUploading={attendanceUploadMutation.isPending}
+      isAttendanceClearing={clearAttendanceMutation.isPending}
     />
   );
 }

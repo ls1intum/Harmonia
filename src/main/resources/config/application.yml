@@ -65,6 +65,7 @@ harmonia:
     student1-columns: [ 4, 8, 12 ]
     student2-columns: [ 5, 9, 13 ]
     number-programming-sessions: 3
+    mandatory-programming-sessions: 2
   projects:
     - id: itp-2526
       courseName: ITP

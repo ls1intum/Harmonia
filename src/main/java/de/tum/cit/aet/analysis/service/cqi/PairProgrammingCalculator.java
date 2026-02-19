@@ -1,6 +1,8 @@
 package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
+import de.tum.cit.aet.core.config.AttendanceConfiguration;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +29,10 @@ import java.util.Set;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class PairProgrammingCalculator {
+
+    private final AttendanceConfiguration attendanceConfiguration;
 
     /**
      * Calculate pair programming score based on commits during paired sessions.
@@ -84,8 +89,6 @@ public class PairProgrammingCalculator {
         Long student1 = studentIds.stream().findFirst().orElse(null);
         Long student2 = studentIds.stream().skip(1).findFirst().orElse(null);
 
-        // Get the students as a list for easier access
-        List<Long> students = List.of(student1, student2);
 
         // Count sessions where both students committed
         int sessionsWithBothCommitted = 0;
@@ -111,8 +114,8 @@ public class PairProgrammingCalculator {
 
         double score = (double) sessionsWithBothCommitted / pairedSessions.size() * 100.0;
 
-        log.debug("Pair programming score: {}/{}={:.1f}",
-                sessionsWithBothCommitted, pairedSessions.size(), score);
+        log.debug("Pair programming score: {}/{}={}",
+                sessionsWithBothCommitted, pairedSessions.size(), String.format("%.1f", score));
 
         return score;
     }
@@ -120,7 +123,6 @@ public class PairProgrammingCalculator {
     /**
      * Calculate pair programming score based on raw commit chunks (no LLM ratings needed).
      * This overload works with raw CommitChunkDTO (used during git analysis phase).
-     *
      * Scores against ALL sessions in the course, penalizing teams that missed sessions.
      * Score = (paired sessions where both committed) / (total sessions) × 100
      *
@@ -220,9 +222,9 @@ public class PairProgrammingCalculator {
         // Score calculation:
         // Full credit = 1.0 per session (both committed)
         // Half credit = 0.5 per session (only one committed)
-        // Minimum requirement = 2 sessions
-        // Score = (full + 0.5*half) / 2 * 100, capped at 100%
-        int minimumRequiredSessions = 2;
+        // Minimum requirement is configurable.
+        // Score = (full + 0.5*half) / mandatory * 100, capped at 100%
+        int minimumRequiredSessions = attendanceConfiguration.getMandatoryProgrammingSessions();
         double totalCredit = sessionsBothCommitted + (0.5 * sessionsOnlyOneCommitted);
         double score = Math.min(100.0, (totalCredit / minimumRequiredSessions) * 100.0);
 
@@ -230,9 +232,8 @@ public class PairProgrammingCalculator {
         log.info("  Sessions with both committed: {} (full credit = 1.0 each)", sessionsBothCommitted);
         log.info("  Sessions with only 1 committed: {} (half credit = 0.5 each)", sessionsOnlyOneCommitted);
         log.info("  Total credit: {}", String.format("%.1f", totalCredit));
-        log.info("  Minimum requirement: {} sessions");
-        log.info("  Final score: {:.1f}%",
-                minimumRequiredSessions, score);
+        log.info("  Minimum requirement: {} sessions", minimumRequiredSessions);
+        log.info("Final score: {}%", String.format("%.1f", score));
 
         return score;
     }

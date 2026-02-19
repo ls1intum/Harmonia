@@ -4,7 +4,7 @@
 
 | Name                        | Type                            | Description | Notes                             |
 | --------------------------- | ------------------------------- | ----------- | --------------------------------- |
-| **pairedAtLeastTwoOfThree** | **boolean**                     |             | [optional] [default to undefined] |
+| **pairedMandatorySessions** | **boolean**                     |             | [optional] [default to undefined] |
 | **pairedSessions**          | **Array&lt;string&gt;**         |             | [optional] [default to undefined] |
 | **student1Attendance**      | **{ [key: string]: boolean; }** |             | [optional] [default to undefined] |
 | **student2Attendance**      | **{ [key: string]: boolean; }** |             | [optional] [default to undefined] |
@@ -15,7 +15,7 @@
 import { TeamAttendanceDTO } from './api';
 
 const instance: TeamAttendanceDTO = {
-  pairedAtLeastTwoOfThree,
+  pairedMandatorySessions,
   pairedSessions,
   student1Attendance,
   student2Attendance,

@@ -1,5 +1,6 @@
-import type { Team } from '@/types/team';
+import type { Team, SubMetric } from '@/types/team';
 import type { AnalyzedChunkDTO } from '@/app/generated';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,15 +11,19 @@ import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
+import { getFailedReason } from '@/lib/utils.ts';
+import PairProgrammingBadge from '@/components/PairProgrammingBadge';
+import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface TeamDetailProps {
   team: Team;
   onBack: () => void;
-  course: string;
-  exercise: string;
+  course?: string;
+  exercise?: string;
+  pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
 }
 
-const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
+const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus = null }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
 
   const getCQIColor = (cqi: number) => {
@@ -46,13 +51,6 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
 
-  // Get tooltip text explaining why a team failed
-  const getFailedReason = (team: Team) => {
-    const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
-    if (failedStudents.length === 0) return '';
-    return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;
-  };
-
   // Check if student metadata is available (show after git analysis is complete)
   const hasStudentMetadata = (student: { commitCount?: number; linesAdded?: number; linesDeleted?: number; linesChanged?: number }) => {
     return (
@@ -63,6 +61,53 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
       student.linesChanged !== undefined
     );
   };
+
+  // Show Pair Programming card from server subMetrics when present; otherwise from attendance badge when available (e.g. when analysis failed)
+  const metricsToShow = useMemo((): SubMetric[] => {
+    const fromServer = team.subMetrics ?? [];
+    const hasPairProgrammingFromServer = fromServer.some(m => m.name === 'Pair Programming');
+    if (pairProgrammingBadgeStatus != null && !hasPairProgrammingFromServer) {
+      const description = 'Did both students commit during pair programming sessions?';
+      const synthetic: SubMetric =
+        pairProgrammingBadgeStatus === 'pass'
+          ? {
+              name: 'Pair Programming',
+              value: 100,
+              weight: 0,
+              description,
+              details:
+                'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.',
+            }
+          : pairProgrammingBadgeStatus === 'fail'
+            ? {
+                name: 'Pair Programming',
+                value: 0,
+                weight: 0,
+                description,
+                details: 'Team was found in Excel but attended fewer than the mandatory number of pair-programming sessions.',
+              }
+            : pairProgrammingBadgeStatus === 'warning'
+              ? {
+                  name: 'Pair Programming',
+                  value: -3,
+                  weight: 0,
+                  description,
+                  details:
+                    'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.',
+                  status: 'WARNING',
+                }
+              : {
+                  name: 'Pair Programming',
+                  value: -2,
+                  weight: 0,
+                  description,
+                  details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
+                  status: 'NOT_FOUND',
+                };
+      return [...fromServer, synthetic];
+    }
+    return fromServer;
+  }, [team.subMetrics, pairProgrammingBadgeStatus]);
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
@@ -142,43 +187,46 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
                 </div>
               )}
               <div className="pt-2">
-                {isTeamFailed(team) ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="destructive" className="gap-1.5 cursor-help">
-                          <AlertTriangle className="h-3 w-3" />
-                          Failed
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p>{getFailedReason(team)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : team.isSuspicious ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="destructive" className="gap-1.5 cursor-help">
-                          <AlertTriangle className="h-3 w-3" />
-                          Suspicious Behavior Detected
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Suspicious collaboration patterns detected during analysis</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : isGitAnalysisComplete ? (
-                  <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
-                    Normal Collaboration Pattern
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-                    Analyzing...
-                  </Badge>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {isTeamFailed(team) ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="destructive" className="gap-1.5 cursor-help">
+                            <AlertTriangle className="h-3 w-3" />
+                            Failed
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>{getFailedReason(team)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : team.isSuspicious ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="destructive" className="gap-1.5 cursor-help">
+                            <AlertTriangle className="h-3 w-3" />
+                            Suspicious Behavior Detected
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Suspicious collaboration patterns detected during analysis</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : isGitAnalysisComplete ? (
+                    <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20">
+                      Normal Collaboration Pattern
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                      Analyzing...
+                    </Badge>
+                  )}
+                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                </div>
               </div>
             </div>
 
@@ -236,9 +284,9 @@ const TeamDetail = ({ team, onBack, course, exercise }: TeamDetailProps) => {
           </p>
         </div>
 
-        {team.subMetrics && team.subMetrics.length > 0 ? (
+        {metricsToShow.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {team.subMetrics.map((metric, index) => (
+            {metricsToShow.map((metric, index) => (
               <MetricCard key={index} metric={metric} />
             ))}
           </div>
