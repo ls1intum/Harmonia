@@ -87,8 +87,9 @@ public final class ExcelExporter {
                         "effortScore", "complexity", "novelty", "confidence", "reasoning",
                         "commitShas", "commitMessages", "timestamp", "linesChanged",
                         "isBundled", "chunkIndex", "totalChunks",
-                        "isError", "errorMessage", "isExternalContributor",
-                        "llmModel", "llmPromptTokens", "llmCompletionTokens", "llmTotalTokens"};
+                        "isError", "errorMessage",
+                        "llmModel", "llmPromptTokens", "llmCompletionTokens", "llmTotalTokens",
+                        "llmUsageAvailable"};
                 for (int i = 0; i < chunkHeaders.length; i++) {
                     header.createCell(i).setCellValue(chunkHeaders[i]);
                 }
@@ -112,11 +113,11 @@ public final class ExcelExporter {
                     setCellNumeric(dataRow, 15, r.totalChunks());
                     dataRow.createCell(16).setCellValue(r.isError() != null && r.isError());
                     dataRow.createCell(17).setCellValue(str(r.errorMessage()));
-                    dataRow.createCell(18).setCellValue(r.isExternalContributor() != null && r.isExternalContributor());
-                    dataRow.createCell(19).setCellValue(str(r.llmModel()));
-                    setCellNumeric(dataRow, 20, r.llmPromptTokens());
-                    setCellNumeric(dataRow, 21, r.llmCompletionTokens());
-                    setCellNumeric(dataRow, 22, r.llmTotalTokens());
+                    dataRow.createCell(18).setCellValue(str(r.llmModel()));
+                    setCellNumeric(dataRow, 19, r.llmPromptTokens());
+                    setCellNumeric(dataRow, 20, r.llmCompletionTokens());
+                    setCellNumeric(dataRow, 21, r.llmTotalTokens());
+                    dataRow.createCell(22).setCellValue(r.llmUsageAvailable() != null && r.llmUsageAvailable());
                 }
             }
 

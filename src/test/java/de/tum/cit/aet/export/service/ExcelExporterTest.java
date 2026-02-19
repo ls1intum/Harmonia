@@ -88,7 +88,7 @@ class ExcelExporterTest {
         return new ChunkExportRow("Team1", "Alice", "alice@test.com", "FEATURE",
                 0.9, 0.8, 0.7, 0.95, "Good work", "abc123", "[\"init commit\"]",
                 LocalDateTime.of(2025, 1, 15, 10, 30), 42,
-                false, 0, 1, false, null, false,
-                "gpt-4", 100L, 200L, 300L);
+                false, 0, 1, false, null,
+                "gpt-4", 100L, 200L, 300L, true);
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -66,7 +67,7 @@ public class ExportService {
                         teamName,
                         tp.getShortName(),
                         tutorName,
-                        tp.getRepositoryUrl(),
+                        sanitizeUrl(tp.getRepositoryUrl()),
                         tp.getSubmissionCount(),
                         tp.getAnalysisStatus() != null ? tp.getAnalysisStatus().name() : null,
                         tp.getCqi(),
@@ -119,11 +120,11 @@ public class ExportService {
                             c.getTotalChunks(),
                             c.getIsError(),
                             c.getErrorMessage(),
-                            c.getIsExternalContributor(),
                             c.getLlmModel(),
                             c.getLlmPromptTokens(),
                             c.getLlmCompletionTokens(),
-                            c.getLlmTotalTokens()));
+                            c.getLlmTotalTokens(),
+                            c.getLlmUsageAvailable()));
                 }
             }
 
@@ -151,5 +152,21 @@ public class ExportService {
             case EXCEL -> ExcelExporter.export(exportData);
             case JSON -> JsonExporter.export(exportData);
         };
+    }
+
+    private static String sanitizeUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(url);
+            if (uri.getUserInfo() != null) {
+                return new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(),
+                        uri.getPath(), uri.getQuery(), uri.getFragment()).toString();
+            }
+            return url;
+        } catch (Exception e) {
+            return url;
+        }
     }
 }

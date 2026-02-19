@@ -25,7 +25,7 @@ class JsonExporterTest {
                 List.of(new StudentExportRow("Team1", "Alice", "alice01", "alice@test.com", 10, 200, 50, 250)),
                 List.of(new ChunkExportRow("Team1", "Alice", "alice@test.com", "FEATURE",
                         0.9, 0.8, 0.7, 0.95, "Good work", "abc123", "[\"init commit\"]",
-                        ts, 42, false, 0, 1, false, null, false, "gpt-4", 100L, 200L, 300L)),
+                        ts, 42, false, 0, 1, false, null, "gpt-4", 100L, 200L, 300L, true)),
                 List.of(new CommitExportRow("Team1", "abc123", "alice@test.com")));
 
         byte[] result = JsonExporter.export(data);
@@ -72,7 +72,7 @@ class JsonExporterTest {
                 null, null,
                 List.of(new ChunkExportRow("Team1", "Alice", "alice@test.com", "FEATURE",
                         0.9, 0.8, 0.7, 0.95, "reasoning", "abc123", null,
-                        ts, 10, false, 0, 1, false, null, false, null, null, null, null)),
+                        ts, 10, false, 0, 1, false, null, null, null, null, null, null)),
                 null);
 
         byte[] result = JsonExporter.export(data);

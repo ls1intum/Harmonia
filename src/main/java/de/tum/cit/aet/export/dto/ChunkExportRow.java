@@ -21,9 +21,9 @@ public record ChunkExportRow(
         Integer totalChunks,
         Boolean isError,
         String errorMessage,
-        Boolean isExternalContributor,
         String llmModel,
         Long llmPromptTokens,
         Long llmCompletionTokens,
-        Long llmTotalTokens) {
+        Long llmTotalTokens,
+        Boolean llmUsageAvailable) {
 }
