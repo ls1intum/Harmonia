@@ -1,8 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
+import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
 import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
@@ -356,6 +357,8 @@ export default function Teams() {
     },
   });
 
+  const courseAverages = useMemo(() => computeCourseAverages(teams), [teams]);
+
   // Redirect if no course/exercise
   if (!course || !exercise) {
     navigate('/');
@@ -363,7 +366,7 @@ export default function Teams() {
   }
 
   const handleTeamSelect = (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
-    navigate(`/teams/${team.id}`, { state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus } });
+    navigate(`/teams/${team.id}`, { state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages } });
   };
 
   const handleAttendanceUpload = () => {
@@ -385,6 +388,7 @@ export default function Teams() {
   return (
     <TeamsList
       teams={teams}
+      courseAverages={courseAverages}
       onTeamSelect={handleTeamSelect}
       onBackToHome={() => navigate('/')}
       onStart={() => startMutation.mutate()}

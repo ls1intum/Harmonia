@@ -469,4 +469,103 @@ class GitContributionAnalysisServiceTest {
         assertTrue(result.orphanCommitEmails().containsKey(commitHash),
                 "Commit should be an orphan when VCS anchor email is external");
     }
+
+    @Test
+    void testVcsLogOverlap_disambiguatedByGitAuthor() throws Exception {
+        // Both students push the same merge commit, creating two VCS log entries.
+        // Git author email matches Student A -> should be assigned to Student A.
+        Path overlapDir = tempDir.resolve("overlap-repo");
+        Files.createDirectories(overlapDir);
+
+        String mergeHash;
+        try (Git git = Git.init().setDirectory(overlapDir.toFile()).call()) {
+            Path readme = overlapDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            mergeHash = git.commit()
+                    .setAuthor(new PersonIdent("Student A", STUDENT_A_EMAIL))
+                    .setMessage("merge commit")
+                    .call().getName();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL),
+                new ParticipantDTO(STUDENT_B_ID, "studentB", "Student B", STUDENT_B_EMAIL));
+
+        // Two VCS log entries for the same commit hash
+        List<VCSLogDTO> vcsLogs = List.of(
+                new VCSLogDTO(STUDENT_A_EMAIL, "PUSH", mergeHash),
+                new VCSLogDTO(STUDENT_B_EMAIL, "PUSH", mergeHash));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                overlapDir.toString(), vcsLogs, students);
+
+        assertEquals(STUDENT_A_ID, result.commitToAuthor().get(mergeHash),
+                "Overlap should be resolved to Student A via git-author email");
+        assertEquals(STUDENT_A_EMAIL, result.commitToVcsEmail().get(mergeHash),
+                "Display email should be Student A's VCS email");
+    }
+
+    @Test
+    void testVcsLogOverlap_unknownGitAuthor_fallsBackToFirst() throws Exception {
+        // Both students push the same commit, but git author email is unknown.
+        // Should fall back to the first VCS log entry.
+        Path overlapDir = tempDir.resolve("overlap-unknown-repo");
+        Files.createDirectories(overlapDir);
+
+        String mergeHash;
+        try (Git git = Git.init().setDirectory(overlapDir.toFile()).call()) {
+            Path readme = overlapDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            mergeHash = git.commit()
+                    .setAuthor(new PersonIdent("Unknown", "unknown@random.com"))
+                    .setMessage("merge commit")
+                    .call().getName();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL),
+                new ParticipantDTO(STUDENT_B_ID, "studentB", "Student B", STUDENT_B_EMAIL));
+
+        List<VCSLogDTO> vcsLogs = List.of(
+                new VCSLogDTO(STUDENT_A_EMAIL, "PUSH", mergeHash),
+                new VCSLogDTO(STUDENT_B_EMAIL, "PUSH", mergeHash));
+
+        FullCommitMappingResult result = service.buildFullCommitMap(
+                overlapDir.toString(), vcsLogs, students);
+
+        // Should not be orphan — assigned to first VCS entry's student
+        assertTrue(result.commitToAuthor().containsKey(mergeHash),
+                "Overlap with unknown git author should not produce an orphan");
+        assertEquals(STUDENT_A_ID, result.commitToAuthor().get(mergeHash),
+                "Should fall back to first VCS email when git author is unknown");
+    }
+
+    @Test
+    void testTier2CommitHasDisplayEmail() {
+        // Commit 4 is assigned via Tier 2 (learned mapping: bob@gmail.com -> Student B).
+        // commitToVcsEmail should contain Student B's Artemis email for this commit.
+        TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
+        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+
+        assertEquals(STUDENT_B_ID, result.commitToAuthor().get(commit4Hash),
+                "Commit 4 should be assigned to Student B via learned mapping");
+        assertEquals(STUDENT_B_EMAIL, result.commitToVcsEmail().get(commit4Hash),
+                "Tier 2 commit should have Student B's Artemis email as display email");
+    }
+
+    @Test
+    void testTier3CommitHasDisplayEmail() {
+        // Commits 1 and 2 are assigned via Tier 3 (direct match: studentA@tum.de).
+        // commitToVcsEmail should contain Student A's Artemis email for these commits.
+        TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
+        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+
+        assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commit1Hash));
+        assertEquals(STUDENT_A_EMAIL, result.commitToVcsEmail().get(commit1Hash),
+                "Tier 3 commit should have Student A's Artemis email as display email");
+        assertEquals(STUDENT_A_EMAIL, result.commitToVcsEmail().get(commit2Hash),
+                "Tier 3 commit should have Student A's Artemis email as display email");
+    }
 }

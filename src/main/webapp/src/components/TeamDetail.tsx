@@ -1,4 +1,4 @@
-import type { Team, SubMetric } from '@/types/team';
+import type { Team, SubMetric, CourseAverages } from '@/types/team';
 import type { AnalyzedChunkDTO } from '@/app/generated';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,10 @@ interface TeamDetailProps {
   course?: string;
   exercise?: string;
   pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
+  courseAverages?: CourseAverages | null;
 }
 
-const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus = null }: TeamDetailProps) => {
+const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus = null, courseAverages = null }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
 
   const getCQIColor = (cqi: number) => {
@@ -275,6 +276,44 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
           </div>
         </CardContent>
       </Card>
+
+      {courseAverages && (
+        <Card className="p-6 shadow-card" data-testid="course-comparison-card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Course Comparison</h3>
+              <p className="text-sm text-muted-foreground">
+                Based on {courseAverages.analyzedTeams} analyzed team{courseAverages.analyzedTeams !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Commits</p>
+              <p className="text-2xl font-bold">{team.basicMetrics?.totalCommits ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">
+                Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgCommits : 'Pending'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Lines</p>
+              <p className="text-2xl font-bold">{team.basicMetrics?.totalLines?.toLocaleString() ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">
+                Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgLines.toLocaleString() : 'Pending'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">CQI</p>
+              <p className={`text-2xl font-bold ${team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}>
+                {team.cqi ?? '—'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Course avg: {courseAverages.analyzedTeams > 0 ? courseAverages.avgCQI : 'Pending'}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="space-y-4">
         <div>

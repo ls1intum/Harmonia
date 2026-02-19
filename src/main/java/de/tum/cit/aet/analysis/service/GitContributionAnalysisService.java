@@ -34,7 +34,8 @@ public class GitContributionAnalysisService {
      *
      * @param commitToAuthor   hash -> studentId for all assigned commits
      * @param orphanCommitEmails hash -> git author email for commits that could not be assigned
-     * @param commitToVcsEmail hash -> VCS email (only for commits present in VCS logs)
+     * @param commitToVcsEmail hash -> display email for all assigned commits
+     *                         (VCS email for Tier 1 anchors, Artemis email for Tier 2/3)
      */
     public record FullCommitMappingResult(
             Map<String, Long> commitToAuthor,
@@ -100,11 +101,21 @@ public class GitContributionAnalysisService {
             }
         }
 
-        // VCS log hash -> VCS email (from Artemis, trustworthy)
-        Map<String, String> vcsHashToEmail = new HashMap<>();
+        // studentId -> Artemis email (reverse lookup for display emails)
+        Map<Long, String> studentIdToEmail = new HashMap<>();
+        for (ParticipantDTO student : students) {
+            if (student.email() != null && student.id() != null) {
+                studentIdToEmail.put(student.id(), student.email());
+            }
+        }
+
+        // VCS log hash -> list of VCS emails (multi-valued because both students
+        // can push the same commit hash after a merge, creating two VCS log entries)
+        Map<String, List<String>> vcsHashToEmails = new HashMap<>();
         for (VCSLogDTO logEntry : vcsLogs) {
             if (logEntry.commitHash() != null && logEntry.email() != null) {
-                vcsHashToEmail.put(logEntry.commitHash(), logEntry.email());
+                vcsHashToEmails.computeIfAbsent(logEntry.commitHash(), k -> new ArrayList<>())
+                        .add(logEntry.email());
             }
         }
 
@@ -112,7 +123,7 @@ public class GitContributionAnalysisService {
 
         Map<String, Long> commitToAuthor = new HashMap<>();
         Map<String, String> orphanCommitEmails = new HashMap<>();
-        Map<String, String> commitToVcsEmail = new HashMap<>(vcsHashToEmail);
+        Map<String, String> commitToVcsEmail = new HashMap<>();
 
         // Learned mapping: gitEmail (lowercase) -> studentId
         // Built from VCS-log anchor commits where we can correlate git-author email
@@ -136,23 +147,32 @@ public class GitContributionAnalysisService {
                 return FullCommitMappingResult.empty();
             }
 
-            // Collect all commits reachable from HEAD
+            // Collect all commits reachable from HEAD and build git-email lookup
             List<RevCommit> allCommits = new ArrayList<>();
+            Map<String, String> hashToGitEmail = new HashMap<>();
             try (RevWalk revWalk = new RevWalk(repository)) {
                 revWalk.sort(RevSort.COMMIT_TIME_DESC);
                 revWalk.markStart(revWalk.parseCommit(head));
                 for (RevCommit commit : revWalk) {
                     allCommits.add(commit);
+                    String ge = commit.getAuthorIdent().getEmailAddress();
+                    if (ge != null && !ge.isBlank()) {
+                        hashToGitEmail.put(commit.getName(), ge.toLowerCase(Locale.ROOT));
+                    }
                 }
             }
 
-            // --- Pass 1: Build learned mapping from VCS-log anchor commits ---
+            // --- Pass 1: Build learned mapping from unambiguous VCS-log anchor commits ---
             for (RevCommit commit : allCommits) {
                 String hash = commit.getName();
-                String vcsEmail = vcsHashToEmail.get(hash);
-                if (vcsEmail == null) {
+                List<String> vcsEmails = vcsHashToEmails.get(hash);
+                if (vcsEmails == null || vcsEmails.isEmpty()) {
                     continue;
                 }
+                if (vcsEmails.size() > 1) {
+                    continue; // ambiguous — resolve after Pass 1
+                }
+                String vcsEmail = vcsEmails.get(0);
 
                 // This commit is a VCS-log anchor
                 Long studentId = emailToStudentId.get(vcsEmail.toLowerCase(Locale.ROOT));
@@ -175,6 +195,19 @@ public class GitContributionAnalysisService {
             log.debug("Learned {} git-email -> studentId mappings from VCS anchors",
                     learnedGitEmailToStudentId.size());
 
+            // --- Resolve multi-valued VCS entries using git-author email ---
+            Map<String, String> vcsHashToEmail = new HashMap<>();
+            for (Map.Entry<String, List<String>> entry : vcsHashToEmails.entrySet()) {
+                List<String> emails = entry.getValue();
+                if (emails.size() == 1) {
+                    vcsHashToEmail.put(entry.getKey(), emails.get(0));
+                } else {
+                    String resolved = resolveVcsOverlap(emails, hashToGitEmail.get(entry.getKey()),
+                            emailToStudentId, learnedGitEmailToStudentId);
+                    vcsHashToEmail.put(entry.getKey(), resolved);
+                }
+            }
+
             // --- Pass 2: Assign every commit using 3-tier matching ---
             for (RevCommit commit : allCommits) {
                 String hash = commit.getName();
@@ -190,6 +223,7 @@ public class GitContributionAnalysisService {
                     studentId = emailToStudentId.get(vcsEmail.toLowerCase(Locale.ROOT));
                     if (studentId != null) {
                         commitToAuthor.put(hash, studentId);
+                        commitToVcsEmail.put(hash, vcsEmail);
                     } else {
                         String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
                         orphanCommitEmails.put(hash, orphanEmail);
@@ -211,6 +245,10 @@ public class GitContributionAnalysisService {
 
                 if (studentId != null) {
                     commitToAuthor.put(hash, studentId);
+                    String artemisEmail = studentIdToEmail.get(studentId);
+                    if (artemisEmail != null) {
+                        commitToVcsEmail.put(hash, artemisEmail);
+                    }
                 } else {
                     String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
                     orphanCommitEmails.put(hash, orphanEmail);
@@ -229,6 +267,38 @@ public class GitContributionAnalysisService {
                 commitToAuthor.size() + orphanCommitEmails.size());
 
         return new FullCommitMappingResult(commitToAuthor, orphanCommitEmails, commitToVcsEmail);
+    }
+
+    /**
+     * Resolves an ambiguous VCS-log overlap where multiple emails are recorded
+     * for the same commit hash. Uses the git-author email to pick the correct
+     * VCS email by matching through the learned and direct email mappings.
+     *
+     * @param vcsEmails                  the candidate VCS emails (size > 1)
+     * @param gitEmailLower              the git-author email (lowercase), may be null
+     * @param emailToStudentId           Artemis email -> studentId
+     * @param learnedGitEmailToStudentId learned git email -> studentId
+     * @return the resolved VCS email, or the first candidate as fallback
+     */
+    private static String resolveVcsOverlap(List<String> vcsEmails, String gitEmailLower,
+            Map<String, Long> emailToStudentId, Map<String, Long> learnedGitEmailToStudentId) {
+        if (gitEmailLower != null) {
+            // Look up studentId for the git-author email
+            Long gitStudentId = learnedGitEmailToStudentId.get(gitEmailLower);
+            if (gitStudentId == null) {
+                gitStudentId = emailToStudentId.get(gitEmailLower);
+            }
+            if (gitStudentId != null) {
+                for (String candidate : vcsEmails) {
+                    Long candidateId = emailToStudentId.get(candidate.toLowerCase(Locale.ROOT));
+                    if (gitStudentId.equals(candidateId)) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+        // Fallback: first VCS email
+        return vcsEmails.get(0);
     }
 
     // ========== Methods that delegate to buildFullCommitMap ==========

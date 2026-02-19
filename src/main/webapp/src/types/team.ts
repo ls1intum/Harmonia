@@ -1,5 +1,15 @@
 import type { StudentAnalysisDTO, CQIResultDTO, AnalyzedChunkDTO, OrphanCommitDTO, LlmTokenTotals } from '@/app/generated';
 
+export interface CourseAverages {
+  avgCQI: number;
+  avgCommits: number;
+  avgLines: number;
+  suspiciousPercentage: number;
+  totalTeams: number;
+  analyzedTeams: number;
+  gitAnalyzedTeams: number;
+}
+
 export interface SubMetric {
   name: string;
   value: number;

@@ -1,4 +1,4 @@
-import type { Team } from '@/types/team';
+import type { Team, CourseAverages } from '@/types/team';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
 
 interface TeamsListProps {
   teams: Team[];
+  courseAverages: CourseAverages | null;
   onTeamSelect: (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
   onBackToHome: () => void;
   onStart: () => void;
@@ -50,6 +51,7 @@ interface TeamsListProps {
 
 const TeamsList = ({
   teams,
+  courseAverages,
   onTeamSelect,
   onBackToHome,
   onStart,
@@ -287,32 +289,6 @@ const TeamsList = ({
 
     return filtered;
   }, [teams, sortColumn, sortDirection, statusFilter]);
-
-  const courseAverages = useMemo(() => {
-    if (teams.length === 0) return null;
-
-    // Only include teams with calculated CQI in the CQI average
-    const teamsWithCQI = teams.filter(team => team.cqi !== undefined);
-    const totalCQI = teamsWithCQI.reduce((sum, team) => sum + (team.cqi ?? 0), 0);
-
-    // Include teams with git metrics (GIT_DONE, AI_ANALYZING, or DONE) in commit/line averages
-    const teamsWithGitMetrics = teams.filter(
-      team => team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE',
-    );
-    const totalCommits = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalCommits || 0), 0);
-    const totalLines = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalLines || 0), 0);
-    const suspiciousCount = teams.filter(team => team.isSuspicious === true).length;
-
-    return {
-      avgCQI: teamsWithCQI.length > 0 ? Math.round(totalCQI / teamsWithCQI.length) : 0,
-      avgCommits: teamsWithGitMetrics.length > 0 ? Math.round(totalCommits / teamsWithGitMetrics.length) : 0,
-      avgLines: teamsWithGitMetrics.length > 0 ? Math.round(totalLines / teamsWithGitMetrics.length) : 0,
-      suspiciousPercentage: Math.round((suspiciousCount / teams.length) * 100),
-      totalTeams: teams.length,
-      analyzedTeams: teamsWithCQI.length,
-      gitAnalyzedTeams: teamsWithGitMetrics.length,
-    };
-  }, [teams]);
 
   const renderActionButton = () => {
     if (isLoading) {

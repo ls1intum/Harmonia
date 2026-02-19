@@ -121,8 +121,47 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
     );
   }
 
+  // Group external chunks by author for the summary banner
+  const externalAuthors = externalChunks.reduce(
+    (acc, chunk) => {
+      const email = chunk.authorEmail ?? 'unknown';
+      if (!acc[email]) {
+        acc[email] = { name: chunk.authorName ?? email.split('@')[0], chunks: 0, lines: 0 };
+      }
+      acc[email].chunks += 1;
+      acc[email].lines += chunk.linesChanged ?? 0;
+      return acc;
+    },
+    {} as Record<string, { name: string; chunks: number; lines: number }>,
+  );
+
   return (
     <div className="space-y-6">
+      {/* External Contributors Banner */}
+      {externalChunks.length > 0 && (
+        <Card className="border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <UserX className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  {Object.keys(externalAuthors).length} external contributor{Object.keys(externalAuthors).length !== 1 ? 's' : ''} detected
+                  {' — '}
+                  <span className="font-normal">not included in CQI calculation</span>
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {Object.entries(externalAuthors).map(([email, data]) => (
+                    <span key={email} className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                      {data.name} ({data.chunks} chunk{data.chunks !== 1 ? 's' : ''}, {data.lines} lines)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Per-Person Average Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Object.entries(authorSummary).map(([email, data]) => {
