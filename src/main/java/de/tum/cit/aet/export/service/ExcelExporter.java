@@ -22,7 +22,7 @@ public final class ExcelExporter {
     public static byte[] export(ExportData data) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
 
-            if (data.getTeams() != null && !data.getTeams().isEmpty()) {
+            if (data.teams() != null && !data.teams().isEmpty()) {
                 XSSFSheet sheet = workbook.createSheet("Teams");
                 int row = 0;
                 var header = sheet.createRow(row++);
@@ -35,7 +35,7 @@ public final class ExcelExporter {
                 for (int i = 0; i < teamHeaders.length; i++) {
                     header.createCell(i).setCellValue(teamHeaders[i]);
                 }
-                for (TeamExportRow r : data.getTeams()) {
+                for (TeamExportRow r : data.teams()) {
                     var dataRow = sheet.createRow(row++);
                     dataRow.createCell(0).setCellValue(str(r.teamName()));
                     dataRow.createCell(1).setCellValue(str(r.shortName()));
@@ -57,7 +57,7 @@ public final class ExcelExporter {
                 }
             }
 
-            if (data.getStudents() != null && !data.getStudents().isEmpty()) {
+            if (data.students() != null && !data.students().isEmpty()) {
                 XSSFSheet sheet = workbook.createSheet("Students");
                 int row = 0;
                 var header = sheet.createRow(row++);
@@ -66,7 +66,7 @@ public final class ExcelExporter {
                 for (int i = 0; i < studentHeaders.length; i++) {
                     header.createCell(i).setCellValue(studentHeaders[i]);
                 }
-                for (StudentExportRow r : data.getStudents()) {
+                for (StudentExportRow r : data.students()) {
                     var dataRow = sheet.createRow(row++);
                     dataRow.createCell(0).setCellValue(str(r.teamName()));
                     dataRow.createCell(1).setCellValue(str(r.studentName()));
@@ -79,7 +79,7 @@ public final class ExcelExporter {
                 }
             }
 
-            if (data.getChunks() != null && !data.getChunks().isEmpty()) {
+            if (data.chunks() != null && !data.chunks().isEmpty()) {
                 XSSFSheet sheet = workbook.createSheet("Chunks");
                 int row = 0;
                 var header = sheet.createRow(row++);
@@ -93,7 +93,7 @@ public final class ExcelExporter {
                 for (int i = 0; i < chunkHeaders.length; i++) {
                     header.createCell(i).setCellValue(chunkHeaders[i]);
                 }
-                for (ChunkExportRow r : data.getChunks()) {
+                for (ChunkExportRow r : data.chunks()) {
                     var dataRow = sheet.createRow(row++);
                     dataRow.createCell(0).setCellValue(str(r.teamName()));
                     dataRow.createCell(1).setCellValue(str(r.authorName()));
@@ -121,7 +121,7 @@ public final class ExcelExporter {
                 }
             }
 
-            if (data.getCommits() != null && !data.getCommits().isEmpty()) {
+            if (data.commits() != null && !data.commits().isEmpty()) {
                 XSSFSheet sheet = workbook.createSheet("Commits");
                 int row = 0;
                 var header = sheet.createRow(row++);
@@ -129,7 +129,7 @@ public final class ExcelExporter {
                 for (int i = 0; i < commitHeaders.length; i++) {
                     header.createCell(i).setCellValue(commitHeaders[i]);
                 }
-                for (CommitExportRow r : data.getCommits()) {
+                for (CommitExportRow r : data.commits()) {
                     var dataRow = sheet.createRow(row++);
                     dataRow.createCell(0).setCellValue(str(r.teamName()));
                     dataRow.createCell(1).setCellValue(str(r.commitHash()));
