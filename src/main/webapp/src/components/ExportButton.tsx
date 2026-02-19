@@ -17,7 +17,7 @@ const apiConfig = new Configuration({
 });
 const exportApi = new ExportResourceApi(apiConfig);
 
-async function triggerDownload(exerciseId: string, format: typeof ExportDataFormatEnum[keyof typeof ExportDataFormatEnum]) {
+async function triggerDownload(exerciseId: string, format: (typeof ExportDataFormatEnum)[keyof typeof ExportDataFormatEnum]) {
   const include = ['teams', 'students', 'chunks', 'commits'];
 
   try {
