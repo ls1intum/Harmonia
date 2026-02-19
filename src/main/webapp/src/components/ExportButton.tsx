@@ -2,32 +2,32 @@ import { Download, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
+import { ExportResourceApi, Configuration, ExportDataFormatEnum } from '@/app/generated';
 
 interface ExportButtonProps {
   exerciseId: string;
   disabled?: boolean;
 }
 
-type ExportFormat = 'EXCEL' | 'JSON';
+const apiConfig = new Configuration({
+  basePath: window.location.origin,
+  baseOptions: {
+    withCredentials: true,
+  },
+});
+const exportApi = new ExportResourceApi(apiConfig);
 
-async function triggerDownload(exerciseId: string, format: ExportFormat) {
-  const params = new URLSearchParams();
-  params.set('format', format);
-  params.append('include', 'teams');
-  params.append('include', 'students');
-  params.append('include', 'chunks');
-  params.append('include', 'commits');
-  const url = `/api/export/${exerciseId}?${params.toString()}`;
+async function triggerDownload(exerciseId: string, format: typeof ExportDataFormatEnum[keyof typeof ExportDataFormatEnum]) {
+  const include = ['teams', 'students', 'chunks', 'commits'];
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      toast.error('Export failed', `Server returned ${response.status}`);
-      return;
-    }
-    const blob = await response.blob();
-    const disposition = response.headers.get('Content-Disposition');
-    const filename = disposition?.match(/filename="(.+)"/)?.[1] ?? `export-${exerciseId}.${format === 'EXCEL' ? 'xlsx' : 'json'}`;
+    const response = await exportApi.exportData(Number(exerciseId), format, include, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data]);
+    const disposition = response.headers?.['content-disposition'];
+    const filename =
+      disposition?.match(/filename="(.+)"/)?.[1] ?? `export-${exerciseId}.${format === ExportDataFormatEnum.Excel ? 'xlsx' : 'json'}`;
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
@@ -37,7 +37,7 @@ async function triggerDownload(exerciseId: string, format: ExportFormat) {
     a.remove();
     URL.revokeObjectURL(objectUrl);
   } catch {
-    toast.error('Export failed', 'Could not connect to server');
+    toast.error('Export failed', 'Could not download export file');
   }
 }
 
@@ -52,8 +52,8 @@ const ExportButton = ({ exerciseId, disabled = false }: ExportButtonProps) => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => triggerDownload(exerciseId, 'EXCEL')}>Excel (.xlsx)</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => triggerDownload(exerciseId, 'JSON')}>JSON</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => triggerDownload(exerciseId, ExportDataFormatEnum.Excel)}>Excel (.xlsx)</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => triggerDownload(exerciseId, ExportDataFormatEnum.Json)}>JSON</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

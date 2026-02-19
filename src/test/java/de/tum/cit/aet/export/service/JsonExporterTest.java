@@ -78,7 +78,7 @@ class JsonExporterTest {
         assertEquals(0, chunk.get("chunkIndex").asInt());
         assertEquals(1, chunk.get("totalChunks").asInt());
         assertFalse(chunk.get("isError").asBoolean());
-        assertTrue(chunk.get("errorMessage").isNull());
+        assertNull(chunk.get("errorMessage"));
         assertEquals("gpt-4", chunk.get("llmModel").asText());
         assertEquals(100, chunk.get("llmPromptTokens").asLong());
         assertEquals(200, chunk.get("llmCompletionTokens").asLong());
@@ -99,10 +99,10 @@ class JsonExporterTest {
         byte[] result = JsonExporter.export(data);
         JsonNode root = mapper.readTree(result);
 
-        assertTrue(root.get("teams").isNull());
-        assertTrue(root.get("students").isNull());
-        assertTrue(root.get("chunks").isNull());
-        assertTrue(root.get("commits").isNull());
+        assertNull(root.get("teams"));
+        assertNull(root.get("students"));
+        assertNull(root.get("chunks"));
+        assertNull(root.get("commits"));
     }
 
     @Test

@@ -62,9 +62,9 @@ class ExportServiceTest {
         assertEquals(0.85, team.get("cqi").asDouble(), 0.001);
         assertEquals("DONE", team.get("analysisStatus").asText());
         assertFalse(team.get("isSuspicious").asBoolean());
-        assertTrue(root.get("students").isNull());
-        assertTrue(root.get("chunks").isNull());
-        assertTrue(root.get("commits").isNull());
+        assertNull(root.get("students"));
+        assertNull(root.get("chunks"));
+        assertNull(root.get("commits"));
         verifyNoInteractions(studentRepository);
         verifyNoInteractions(analyzedChunkRepository);
         verifyNoInteractions(teamRepositoryRepository);
