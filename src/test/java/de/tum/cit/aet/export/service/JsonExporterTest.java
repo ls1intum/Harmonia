@@ -21,7 +21,7 @@ class JsonExporterTest {
         ExportData data = new ExportData(
                 List.of(new TeamExportRow("Team1", "t1", "Tutor1", "https://git.example.com/team1",
                         5, "DONE", 0.85, 80.0, 1.0,
-                        0.9, 0.8, 0.7, 0.6, null, null, false, 1000L)),
+                        0.9, 0.8, 0.7, 0.6, 0.55, "FOUND", false, 1000L)),
                 List.of(new StudentExportRow("Team1", "Alice", "alice01", "alice@test.com", 10, 200, 50, 250)),
                 List.of(new ChunkExportRow("Team1", "Alice", "alice@test.com", "FEATURE",
                         0.9, 0.8, 0.7, 0.95, "Good work", "abc123", "[\"init commit\"]",
@@ -31,25 +31,67 @@ class JsonExporterTest {
         byte[] result = JsonExporter.export(data);
         JsonNode root = mapper.readTree(result);
 
-        // Teams
-        assertEquals(1, root.get("teams").size());
-        assertEquals("Team1", root.get("teams").get(0).get("teamName").asText());
-        assertEquals(0.85, root.get("teams").get(0).get("cqi").asDouble(), 0.001);
-        assertEquals("t1", root.get("teams").get(0).get("shortName").asText());
+        // Teams - verify all fields
+        JsonNode team = root.get("teams").get(0);
+        assertEquals("Team1", team.get("teamName").asText());
+        assertEquals("t1", team.get("shortName").asText());
+        assertEquals("Tutor1", team.get("tutor").asText());
+        assertEquals("https://git.example.com/team1", team.get("repositoryUrl").asText());
+        assertEquals(5, team.get("submissionCount").asInt());
+        assertEquals("DONE", team.get("analysisStatus").asText());
+        assertEquals(0.85, team.get("cqi").asDouble(), 0.001);
+        assertEquals(80.0, team.get("cqiBaseScore").asDouble());
+        assertEquals(1.0, team.get("cqiPenaltyMultiplier").asDouble());
+        assertEquals(0.9, team.get("cqiEffortBalance").asDouble(), 0.001);
+        assertEquals(0.8, team.get("cqiLocBalance").asDouble(), 0.001);
+        assertEquals(0.7, team.get("cqiTemporalSpread").asDouble(), 0.001);
+        assertEquals(0.6, team.get("cqiOwnershipSpread").asDouble(), 0.001);
+        assertEquals(0.55, team.get("cqiPairProgramming").asDouble(), 0.001);
+        assertEquals("FOUND", team.get("cqiPairProgrammingStatus").asText());
+        assertFalse(team.get("isSuspicious").asBoolean());
+        assertEquals(1000, team.get("llmTotalTokens").asLong());
 
-        // Students
-        assertEquals(1, root.get("students").size());
-        assertEquals("alice01", root.get("students").get(0).get("login").asText());
+        // Students - verify all fields
+        JsonNode student = root.get("students").get(0);
+        assertEquals("Team1", student.get("teamName").asText());
+        assertEquals("Alice", student.get("studentName").asText());
+        assertEquals("alice01", student.get("login").asText());
+        assertEquals("alice@test.com", student.get("email").asText());
+        assertEquals(10, student.get("commitCount").asInt());
+        assertEquals(200, student.get("linesAdded").asInt());
+        assertEquals(50, student.get("linesDeleted").asInt());
+        assertEquals(250, student.get("linesChanged").asInt());
 
-        // Chunks
-        assertEquals(1, root.get("chunks").size());
-        assertEquals("FEATURE", root.get("chunks").get(0).get("classification").asText());
-        assertEquals("gpt-4", root.get("chunks").get(0).get("llmModel").asText());
-        assertEquals(300, root.get("chunks").get(0).get("llmTotalTokens").asLong());
+        // Chunks - verify all fields
+        JsonNode chunk = root.get("chunks").get(0);
+        assertEquals("Team1", chunk.get("teamName").asText());
+        assertEquals("Alice", chunk.get("authorName").asText());
+        assertEquals("alice@test.com", chunk.get("authorEmail").asText());
+        assertEquals("FEATURE", chunk.get("classification").asText());
+        assertEquals(0.9, chunk.get("effortScore").asDouble(), 0.001);
+        assertEquals(0.8, chunk.get("complexity").asDouble(), 0.001);
+        assertEquals(0.7, chunk.get("novelty").asDouble(), 0.001);
+        assertEquals(0.95, chunk.get("confidence").asDouble(), 0.001);
+        assertEquals("Good work", chunk.get("reasoning").asText());
+        assertEquals("abc123", chunk.get("commitShas").asText());
+        assertEquals("[\"init commit\"]", chunk.get("commitMessages").asText());
+        assertEquals(42, chunk.get("linesChanged").asInt());
+        assertFalse(chunk.get("isBundled").asBoolean());
+        assertEquals(0, chunk.get("chunkIndex").asInt());
+        assertEquals(1, chunk.get("totalChunks").asInt());
+        assertFalse(chunk.get("isError").asBoolean());
+        assertTrue(chunk.get("errorMessage").isNull());
+        assertEquals("gpt-4", chunk.get("llmModel").asText());
+        assertEquals(100, chunk.get("llmPromptTokens").asLong());
+        assertEquals(200, chunk.get("llmCompletionTokens").asLong());
+        assertEquals(300, chunk.get("llmTotalTokens").asLong());
+        assertTrue(chunk.get("llmUsageAvailable").asBoolean());
 
-        // Commits
-        assertEquals(1, root.get("commits").size());
-        assertEquals("abc123", root.get("commits").get(0).get("commitHash").asText());
+        // Commits - verify all fields
+        JsonNode commit = root.get("commits").get(0);
+        assertEquals("Team1", commit.get("teamName").asText());
+        assertEquals("abc123", commit.get("commitHash").asText());
+        assertEquals("alice@test.com", commit.get("authorEmail").asText());
     }
 
     @Test

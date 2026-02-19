@@ -1,6 +1,7 @@
 import { Download, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { toast } from '@/hooks/use-toast';
 
 interface ExportButtonProps {
   exerciseId: string;
@@ -9,7 +10,7 @@ interface ExportButtonProps {
 
 type ExportFormat = 'EXCEL' | 'JSON';
 
-function triggerDownload(exerciseId: string, format: ExportFormat) {
+async function triggerDownload(exerciseId: string, format: ExportFormat) {
   const params = new URLSearchParams();
   params.set('format', format);
   params.append('include', 'teams');
@@ -17,12 +18,27 @@ function triggerDownload(exerciseId: string, format: ExportFormat) {
   params.append('include', 'chunks');
   params.append('include', 'commits');
   const url = `/api/export/${exerciseId}?${params.toString()}`;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      toast.error('Export failed', `Server returned ${response.status}`);
+      return;
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition');
+    const filename = disposition?.match(/filename="(.+)"/)?.[1] ?? `export-${exerciseId}.${format === 'EXCEL' ? 'xlsx' : 'json'}`;
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    toast.error('Export failed', 'Could not connect to server');
+  }
 }
 
 const ExportButton = ({ exerciseId, disabled = false }: ExportButtonProps) => {

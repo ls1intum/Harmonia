@@ -1,5 +1,7 @@
 package de.tum.cit.aet.export.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.export.dto.ExportFormat;
@@ -39,6 +41,8 @@ class ExportServiceTest {
 
     private ExportService exportService;
 
+    private final ObjectMapper mapper = new ObjectMapper();
+
     @BeforeEach
     void setUp() {
         exportService = new ExportService(teamParticipationRepository, studentRepository,
@@ -52,9 +56,15 @@ class ExportServiceTest {
 
         byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("teams"));
 
-        assertTrue(result.length > 0);
-        String json = new String(result);
-        assertTrue(json.contains("Team1"));
+        JsonNode root = mapper.readTree(result);
+        JsonNode team = root.get("teams").get(0);
+        assertEquals("Team1", team.get("teamName").asText());
+        assertEquals(0.85, team.get("cqi").asDouble(), 0.001);
+        assertEquals("DONE", team.get("analysisStatus").asText());
+        assertFalse(team.get("isSuspicious").asBoolean());
+        assertTrue(root.get("students").isNull());
+        assertTrue(root.get("chunks").isNull());
+        assertTrue(root.get("commits").isNull());
         verifyNoInteractions(studentRepository);
         verifyNoInteractions(analyzedChunkRepository);
         verifyNoInteractions(teamRepositoryRepository);
@@ -70,9 +80,13 @@ class ExportServiceTest {
 
         byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("students"));
 
-        String json = new String(result);
-        assertTrue(json.contains("Alice"));
-        assertTrue(json.contains("alice01"));
+        JsonNode root = mapper.readTree(result);
+        JsonNode s = root.get("students").get(0);
+        assertEquals("Team1", s.get("teamName").asText());
+        assertEquals("Alice", s.get("studentName").asText());
+        assertEquals("alice01", s.get("login").asText());
+        assertEquals("alice@test.com", s.get("email").asText());
+        assertEquals(10, s.get("commitCount").asInt());
         verify(studentRepository).findAllByTeam(tp);
     }
 
@@ -94,13 +108,20 @@ class ExportServiceTest {
         chunk.setCommitShas("abc123");
         chunk.setTimestamp(LocalDateTime.of(2025, 1, 15, 10, 30));
         chunk.setLinesChanged(42);
+        chunk.setLlmModel("gpt-4");
+        chunk.setLlmUsageAvailable(true);
         when(analyzedChunkRepository.findByParticipation(tp)).thenReturn(List.of(chunk));
 
         byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("chunks"));
 
-        String json = new String(result);
-        assertTrue(json.contains("FEATURE"));
-        assertTrue(json.contains("alice@test.com"));
+        JsonNode root = mapper.readTree(result);
+        JsonNode c = root.get("chunks").get(0);
+        assertEquals("Team1", c.get("teamName").asText());
+        assertEquals("FEATURE", c.get("classification").asText());
+        assertEquals("alice@test.com", c.get("authorEmail").asText());
+        assertEquals(0.9, c.get("effortScore").asDouble(), 0.001);
+        assertEquals("gpt-4", c.get("llmModel").asText());
+        assertTrue(c.get("llmUsageAvailable").asBoolean());
         verify(analyzedChunkRepository).findByParticipation(tp);
     }
 
@@ -119,8 +140,11 @@ class ExportServiceTest {
 
         byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("commits"));
 
-        String json = new String(result);
-        assertTrue(json.contains("abc123"));
+        JsonNode root = mapper.readTree(result);
+        JsonNode commit = root.get("commits").get(0);
+        assertEquals("Team1", commit.get("teamName").asText());
+        assertEquals("abc123", commit.get("commitHash").asText());
+        assertEquals("alice@test.com", commit.get("authorEmail").asText());
         verify(teamRepositoryRepository).findByTeamParticipation(tp);
     }
 
@@ -148,11 +172,15 @@ class ExportServiceTest {
         byte[] result = exportService.exportData(1L, ExportFormat.JSON,
                 Set.of("teams", "students", "chunks", "commits"));
 
-        String json = new String(result);
-        assertTrue(json.contains("\"teams\""));
-        assertTrue(json.contains("\"students\""));
-        assertTrue(json.contains("\"chunks\""));
-        assertTrue(json.contains("\"commits\""));
+        JsonNode root = mapper.readTree(result);
+        assertFalse(root.get("teams").isNull());
+        assertEquals(1, root.get("teams").size());
+        assertFalse(root.get("students").isNull());
+        assertEquals(1, root.get("students").size());
+        assertFalse(root.get("chunks").isNull());
+        assertEquals(1, root.get("chunks").size());
+        assertFalse(root.get("commits").isNull());
+        assertEquals(1, root.get("commits").size());
     }
 
     @Test
@@ -171,8 +199,37 @@ class ExportServiceTest {
 
         byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("teams"));
 
-        String json = new String(result);
-        assertTrue(json.contains("null"));
+        JsonNode root = mapper.readTree(result);
+        assertTrue(root.get("teams").isArray());
+        assertEquals(0, root.get("teams").size());
+    }
+
+    @Test
+    void exportData_sanitizesRepositoryUrl() throws IOException {
+        TeamParticipation tp = createParticipation("Team1");
+        tp.setRepositoryUrl("https://user:secret@git.example.com/repo.git");
+        when(teamParticipationRepository.findAllByExerciseId(1L)).thenReturn(List.of(tp));
+
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("teams"));
+
+        JsonNode root = mapper.readTree(result);
+        String exportedUrl = root.get("teams").get(0).get("repositoryUrl").asText();
+        assertFalse(exportedUrl.contains("user"), "URL should not contain username");
+        assertFalse(exportedUrl.contains("secret"), "URL should not contain password");
+        assertTrue(exportedUrl.contains("git.example.com/repo.git"));
+    }
+
+    @Test
+    void exportData_sanitizesUrlWithoutCredentials() throws IOException {
+        TeamParticipation tp = createParticipation("Team1");
+        tp.setRepositoryUrl("https://git.example.com/repo.git");
+        when(teamParticipationRepository.findAllByExerciseId(1L)).thenReturn(List.of(tp));
+
+        byte[] result = exportService.exportData(1L, ExportFormat.JSON, Set.of("teams"));
+
+        JsonNode root = mapper.readTree(result);
+        assertEquals("https://git.example.com/repo.git",
+                root.get("teams").get(0).get("repositoryUrl").asText());
     }
 
     private TeamParticipation createParticipation(String name) {
