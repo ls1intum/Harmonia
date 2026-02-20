@@ -25,12 +25,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,8 +82,10 @@ class ContributionFairnessServiceTest {
         FullCommitMappingResult fullCommitMap = new FullCommitMappingResult(
                 Map.of("hash1", 1L, "hash2", 2L),
                 Map.of(),
-                Map.of("hash1", "student1@tum.de", "hash2", "student2@tum.de"));
-        when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class)))
+                Map.of("hash1", "student1@tum.de", "hash2", "student2@tum.de"),
+                Set.of());
+        when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class),
+                nullable(String.class)))
                 .thenReturn(fullCommitMap);
 
         chunkA = new CommitChunkDTO(
@@ -233,7 +237,7 @@ class ContributionFairnessServiceTest {
         // Clear the setUp stub and return empty team-member commits instead
         reset(gitContributionAnalysisService);
         FullCommitMappingResult emptyMap = new FullCommitMappingResult(
-                Map.of(), Map.of(), Map.of());
+                Map.of(), Map.of(), Map.of(), Set.of());
         when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class)))
                 .thenReturn(emptyMap);
 

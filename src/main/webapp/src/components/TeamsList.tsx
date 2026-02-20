@@ -1,8 +1,10 @@
 import type { Team, CourseAverages } from '@/types/team';
+import type { TemplateAuthorInfo } from '@/data/dataLoaders';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
@@ -40,6 +42,10 @@ interface TeamsListProps {
   onAttendanceFileSelect: (file: File | null) => void;
   onAttendanceUpload: () => void;
   onRemoveUploadedAttendanceFile: () => void;
+  templateAuthor: TemplateAuthorInfo | null;
+  templateAuthorCandidates: string[] | null;
+  onTemplateAuthorSet: (email: string) => void;
+  onTemplateAuthorRemove: () => void;
   isLoading?: boolean;
   isStarting?: boolean;
   isCancelling?: boolean;
@@ -68,6 +74,10 @@ const TeamsList = ({
   onAttendanceFileSelect,
   onAttendanceUpload,
   onRemoveUploadedAttendanceFile,
+  templateAuthor,
+  templateAuthorCandidates,
+  onTemplateAuthorSet,
+  onTemplateAuthorRemove,
   isLoading = false,
   isStarting = false,
   isCancelling = false,
@@ -471,6 +481,55 @@ const TeamsList = ({
         </Card>
       )}
 
+      {templateAuthor && (
+        <Card className="border-green-200 bg-green-50/50 dark:bg-green-950/10">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium">Template Author</span>
+                {templateAuthor.autoDetected && (
+                  <Badge variant="outline" className="text-green-700 border-green-300">
+                    Auto-detected
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="text-sm text-muted-foreground">{templateAuthor.email}</code>
+                <Button variant="ghost" size="sm" onClick={onTemplateAuthorRemove} className="h-7 text-xs gap-1">
+                  <X className="h-3 w-3" />
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!templateAuthor && templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/10">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium">Template Author Unknown</span>
+              <span className="text-sm text-muted-foreground">Different root commit authors detected across repositories.</span>
+            </div>
+            <Select onValueChange={onTemplateAuthorSet}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Select template author..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templateAuthorCandidates.map(email => (
+                  <SelectItem key={email} value={email}>
+                    {email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
+
       <ActivityLog status={analysisStatus} />
 
       <ConfirmationDialog
@@ -751,7 +810,12 @@ const TeamsList = ({
                       </td>
                     )}
                     <td className="py-4 px-6">
-                      <div className="flex flex-wrap items-center gap-2">{renderAnalysisStatusBadge(team)}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {renderAnalysisStatusBadge(team)}
+                        {team.orphanCommitCount != null && team.orphanCommitCount > 0 && (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">{team.orphanCommitCount} unmatched</Badge>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

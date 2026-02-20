@@ -55,6 +55,19 @@ public class ContributionFairnessService {
      * @return fairness report plus aggregated LLM token usage for this team
      */
     public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
+        return analyzeFairnessWithUsage(repositoryDTO, null);
+    }
+
+    /**
+     * Analyzes a repository with optional template author email.
+     * When provided, all commits from the template author are excluded from analysis.
+     *
+     * @param repositoryDTO       the repository data transfer object to analyze
+     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @return fairness report plus aggregated LLM token usage for this team
+     */
+    public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
+            String templateAuthorEmail) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         int teamSize = repositoryDTO.participation().team().students().size();
@@ -71,7 +84,8 @@ public class ContributionFairnessService {
 
         try {
             // 1. Map commits to authors using full git history walk
-            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO);
+            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO,
+                    templateAuthorEmail);
 
             if (authorMapping.teamMemberCommits.isEmpty()) {
                 return new FairnessReportWithUsage(
@@ -163,13 +177,33 @@ public class ContributionFairnessService {
             // 7. Generate flags from CQI penalties
             List<FairnessFlag> flags = generateFlagsFromCQI(cqiResult, effortShare);
 
-            // 7b. Rate external chunks with trivial rating (for display only)
-            List<RatedChunk> externalRatedChunks = externalChunks.stream()
-                    .map(chunk -> new RatedChunk(
-                            chunk,
-                            EffortRatingDTO.trivial("External contributor"),
-                            LlmTokenUsage.unavailable("external")))
-                    .toList();
+            // 7b. Rate external chunks with full LLM analysis (scores stored for
+            //     later CQI recalculation when manually mapped to a student)
+            List<RatedChunk> externalRatedChunks;
+            if (!externalChunks.isEmpty()) {
+                CommitPreFilterService.PreFilterResult extFilterResult = commitPreFilterService
+                        .preFilter(externalChunks);
+                List<CommitChunkDTO> externalToAnalyze = extFilterResult.chunksToAnalyze();
+
+                // Pre-filtered external chunks get trivial rating
+                List<RatedChunk> extTrivial = extFilterResult.filteredChunks().stream()
+                        .map(pfc -> new RatedChunk(pfc.chunk(),
+                                EffortRatingDTO.trivial("Pre-filtered external commit"),
+                                LlmTokenUsage.unavailable("external-filtered")))
+                        .toList();
+
+                if (!externalToAnalyze.isEmpty()) {
+                    RatedChunksWithUsage externalRatedWithUsage = rateChunks(externalToAnalyze);
+                    teamTokenTotals = teamTokenTotals.merge(externalRatedWithUsage.tokenTotals());
+                    List<RatedChunk> combined = new ArrayList<>(externalRatedWithUsage.ratedChunks());
+                    combined.addAll(extTrivial);
+                    externalRatedChunks = combined;
+                } else {
+                    externalRatedChunks = extTrivial;
+                }
+            } else {
+                externalRatedChunks = List.of();
+            }
 
             // 8. Build report
             long duration = System.currentTimeMillis() - startTime;
@@ -266,8 +300,12 @@ public class ContributionFairnessService {
      * GitContributionAnalysisService), separating team member commits from
      * external/orphan commits.
      * Uses 3-tier matching: VCS anchor -> learned mapping -> direct email match.
+     *
+     * @param repositoryDTO       the repository DTO
+     * @param templateAuthorEmail email of the template author (lowercase), or null
      */
-    private AuthorMappingResult mapCommitsToAuthors(TeamRepositoryDTO repositoryDTO) {
+    private AuthorMappingResult mapCommitsToAuthors(TeamRepositoryDTO repositoryDTO,
+            String templateAuthorEmail) {
         List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
 
         // Build team member ID set for partitioning
@@ -278,7 +316,8 @@ public class ContributionFairnessService {
             }
         }
 
-        FullCommitMappingResult fullMap = gitContributionAnalysisService.buildFullCommitMap(repositoryDTO);
+        FullCommitMappingResult fullMap = gitContributionAnalysisService.buildFullCommitMap(
+                repositoryDTO, templateAuthorEmail);
 
         Map<String, Long> teamMemberCommits = new HashMap<>();
         Map<String, Long> externalCommits = new HashMap<>();
@@ -293,9 +332,15 @@ public class ContributionFairnessService {
         }
 
         // Orphan commits become external with synthetic negative IDs (grouped by email)
+        // Template commits (unassigned root commits) are excluded entirely
+        Set<String> templateHashes = fullMap.templateCommitHashes() != null
+                ? fullMap.templateCommitHashes() : Set.of();
         Map<String, Long> emailToExternalId = new HashMap<>();
         long externalIdCounter = -1;
         for (Map.Entry<String, String> entry : fullMap.orphanCommitEmails().entrySet()) {
+            if (templateHashes.contains(entry.getKey())) {
+                continue; // Skip template commits
+            }
             String email = entry.getValue();
             Long externalId = emailToExternalId.get(email);
             if (externalId == null) {
@@ -421,16 +466,18 @@ public class ContributionFairnessService {
                         rc.tokenUsage)) // isExternalContributor = false
                 .collect(Collectors.toList());
 
-        // Add external contributor chunks (marked with isExternalContributor = true)
+        // Add external contributor chunks with real LLM ratings (marked as external)
         List<AnalyzedChunkDTO> externalChunks = externalRatedChunks.stream()
                 .map(rc -> new AnalyzedChunkDTO(
                         rc.chunk.commitSha(),
                         rc.chunk.authorEmail(),
                         emailToName.getOrDefault(rc.chunk.authorEmail().toLowerCase(), rc.chunk.authorEmail()),
-                        "EXTERNAL",
-                        0.0, // No effort contribution to CQI
-                        0.0, 0.0, 0.0,
-                        "External contributor - not included in CQI calculation",
+                        rc.rating.type().name(),
+                        rc.rating.weightedEffort(),
+                        rc.rating.complexity(),
+                        rc.rating.novelty(),
+                        rc.rating.confidence(),
+                        rc.rating.reasoning(),
                         List.of(rc.chunk.commitSha()),
                         List.of(rc.chunk.commitMessage()),
                         rc.chunk.timestamp(),
@@ -438,7 +485,8 @@ public class ContributionFairnessService {
                         rc.chunk.isBundled(),
                         rc.chunk.chunkIndex(),
                         rc.chunk.totalChunks(),
-                        false, null,
+                        rc.rating.isError(),
+                        rc.rating.errorMessage(),
                         true,
                         rc.tokenUsage)) // isExternalContributor = true
                 .toList();

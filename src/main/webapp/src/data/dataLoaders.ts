@@ -194,6 +194,9 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   // Use orphan commits directly from server (already in correct DTO format)
   const orphanCommits = dto.orphanCommits;
 
+  // Orphan commit count from persisted data (available even after reload)
+  const orphanCommitCount = (dto as ClientResponseDTO & { orphanCommitCount?: number }).orphanCommitCount;
+
   const team: Team = {
     ...basicData,
     cqi,
@@ -203,6 +206,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
     subMetrics,
     analysisHistory,
     orphanCommits,
+    orphanCommitCount,
     analysisStatus: (dto as ClientResponseDTO).analysisStatus,
   };
 
@@ -290,6 +294,11 @@ async function fetchTeamByIdFromServer(teamId: string, exerciseId?: string): Pro
  * 8. AI_UPDATE - a team's AI analysis is complete (with CQI)
  * 9. DONE - all analysis complete
  */
+export interface TemplateAuthorInfo {
+  email: string;
+  autoDetected: boolean;
+}
+
 export function loadBasicTeamDataStream(
   exerciseId: string,
   onStart: (total: number) => void,
@@ -299,6 +308,8 @@ export function loadBasicTeamDataStream(
   onError: (error: unknown) => void,
   onPhaseChange?: (phase: 'GIT_ANALYSIS' | 'AI_ANALYSIS', total: number) => void,
   onGitDone?: (processed: number) => void,
+  onTemplateAuthor?: (info: TemplateAuthorInfo) => void,
+  onTemplateAuthorAmbiguous?: (candidates: string[]) => void,
 ): () => void {
   if (USE_DUMMY_DATA) {
     // Simulate streaming for dummy data
@@ -360,6 +371,14 @@ export function loadBasicTeamDataStream(
         // All git analysis complete
         if (onGitDone) {
           onGitDone(data.processed);
+        }
+      } else if (data.type === 'TEMPLATE_AUTHOR') {
+        if (onTemplateAuthor) {
+          onTemplateAuthor({ email: data.email, autoDetected: data.autoDetected });
+        }
+      } else if (data.type === 'TEMPLATE_AUTHOR_AMBIGUOUS') {
+        if (onTemplateAuthorAmbiguous) {
+          onTemplateAuthorAmbiguous(data.candidates);
         }
       } else if (data.type === 'AI_ANALYZING') {
         // A specific team's AI analysis is starting

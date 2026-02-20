@@ -146,7 +146,9 @@ class GitContributionAnalysisServiceTest {
         FullCommitMappingResult result = service.buildFullCommitMap(repo);
 
         // All 5 student commits + template = 6 total
-        int totalCommits = result.commitToAuthor().size() + result.orphanCommitEmails().size();
+        int totalCommits = result.commitToAuthor().size()
+                + result.orphanCommitEmails().size()
+                + result.templateCommitHashes().size();
         assertEquals(6, totalCommits, "Should discover all 6 reachable commits");
 
         // All 5 student commits should be assigned (not just 2 from VCS log)
@@ -201,11 +203,13 @@ class GitContributionAnalysisServiceTest {
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
         FullCommitMappingResult result = service.buildFullCommitMap(repo);
 
-        // Template commit email doesn't match any student
-        assertTrue(result.orphanCommitEmails().containsKey(templateHash),
-                "Template commit should be an orphan");
+        // Template commit is a root commit with no matching student -> detected as template
+        assertTrue(result.templateCommitHashes().contains(templateHash),
+                "Template commit should be detected as a template (root commit, no student match)");
         assertFalse(result.commitToAuthor().containsKey(templateHash),
                 "Template commit should not be assigned to any student");
+        assertFalse(result.orphanCommitEmails().containsKey(templateHash),
+                "Template commit should not appear in orphans");
     }
 
     @Test
@@ -225,8 +229,9 @@ class GitContributionAnalysisServiceTest {
         assertTrue(result.orphanCommitEmails().containsKey(commit5Hash),
                 "Commit 5 should be orphan without VCS logs (bob@gmail.com doesn't match)");
 
-        // Template commit -> orphan
-        assertTrue(result.orphanCommitEmails().containsKey(templateHash));
+        // Template commit -> detected as template (root commit, no student match)
+        assertTrue(result.templateCommitHashes().contains(templateHash),
+                "Template commit should be detected as a template");
     }
 
     @Test
@@ -310,11 +315,14 @@ class GitContributionAnalysisServiceTest {
         FullCommitMappingResult result = service.buildFullCommitMap(
                 nullEmailDir.toString(), List.of(), students);
 
-        // Should not crash. The commit has no matching email, so it's an orphan.
-        int total = result.commitToAuthor().size() + result.orphanCommitEmails().size();
+        // Should not crash. The commit is a root commit with no matching email,
+        // so it's detected as a template commit.
+        int total = result.commitToAuthor().size()
+                + result.orphanCommitEmails().size()
+                + result.templateCommitHashes().size();
         assertEquals(1, total, "Single commit should be discovered");
-        assertEquals(1, result.orphanCommitEmails().size(),
-                "Commit with empty email should be orphaned");
+        assertEquals(1, result.templateCommitHashes().size(),
+                "Root commit with empty email should be detected as template");
     }
 
     @Test
@@ -364,7 +372,11 @@ class GitContributionAnalysisServiceTest {
                 orphanDir.toString(), List.of(), students);
 
         assertTrue(result.commitToAuthor().isEmpty(), "No commits should match any student");
-        assertEquals(2, result.orphanCommitEmails().size(), "Both commits should be orphans");
+        // First commit is a root commit -> template; second commit is not root -> orphan
+        assertEquals(1, result.orphanCommitEmails().size(),
+                "Non-root commit should be orphan");
+        assertEquals(1, result.templateCommitHashes().size(),
+                "Root commit with unknown email should be detected as template");
     }
 
     @Test
@@ -447,6 +459,14 @@ class GitContributionAnalysisServiceTest {
         try (Git git = Git.init().setDirectory(anchorDir.toFile()).call()) {
             Path readme = anchorDir.resolve("README.md");
             Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            // Template root commit so the test commit is not a root commit
+            git.commit()
+                    .setAuthor(new PersonIdent("Template", TEMPLATE_EMAIL))
+                    .setMessage("template init")
+                    .call();
+
+            Files.writeString(readme, "update\n");
             git.add().addFilepattern("README.md").call();
             commitHash = git.commit()
                     .setAuthor(new PersonIdent("Student A", STUDENT_A_EMAIL))
@@ -567,5 +587,76 @@ class GitContributionAnalysisServiceTest {
                 "Tier 3 commit should have Student A's Artemis email as display email");
         assertEquals(STUDENT_A_EMAIL, result.commitToVcsEmail().get(commit2Hash),
                 "Tier 3 commit should have Student A's Artemis email as display email");
+    }
+
+    @Test
+    void testTemplateAuthorEmail_allCommitsExcluded() throws Exception {
+        // When a template author email is provided, ALL commits from that author
+        // should be detected as template (not just root commits).
+        Path taDir = tempDir.resolve("template-author-repo");
+        Files.createDirectories(taDir);
+
+        String rootHash, nonRootHash, studentHash;
+        try (Git git = Git.init().setDirectory(taDir.toFile()).call()) {
+            // Root commit by template author
+            Path readme = taDir.resolve("README.md");
+            Files.writeString(readme, "init\n");
+            git.add().addFilepattern("README.md").call();
+            rootHash = git.commit()
+                    .setAuthor(new PersonIdent("Template", TEMPLATE_EMAIL))
+                    .setMessage("template init").call().getName();
+
+            // Student commit
+            Files.writeString(readme, "student work\n");
+            git.add().addFilepattern("README.md").call();
+            studentHash = git.commit()
+                    .setAuthor(new PersonIdent("Student A", STUDENT_A_EMAIL))
+                    .setMessage("student work").call().getName();
+
+            // Another commit by template author (non-root)
+            Files.writeString(readme, "template update\n");
+            git.add().addFilepattern("README.md").call();
+            nonRootHash = git.commit()
+                    .setAuthor(new PersonIdent("Template", TEMPLATE_EMAIL))
+                    .setMessage("template update").call().getName();
+        }
+
+        List<ParticipantDTO> students = List.of(
+                new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
+
+        // Without template author email: only root commit is template
+        FullCommitMappingResult withoutTemplate = service.buildFullCommitMap(
+                taDir.toString(), List.of(), students, Map.of(), null);
+        assertTrue(withoutTemplate.templateCommitHashes().contains(rootHash),
+                "Root commit should be template without template email");
+        assertTrue(withoutTemplate.orphanCommitEmails().containsKey(nonRootHash),
+                "Non-root template commit should be orphan without template email");
+
+        // With template author email: ALL template author commits are template
+        FullCommitMappingResult withTemplate = service.buildFullCommitMap(
+                taDir.toString(), List.of(), students, Map.of(), TEMPLATE_EMAIL);
+        assertTrue(withTemplate.templateCommitHashes().contains(rootHash),
+                "Root commit should be template with template email");
+        assertTrue(withTemplate.templateCommitHashes().contains(nonRootHash),
+                "Non-root template commit should be template with template email");
+        assertFalse(withTemplate.orphanCommitEmails().containsKey(nonRootHash),
+                "Non-root template commit should NOT be orphan with template email");
+        assertEquals(STUDENT_A_ID, withTemplate.commitToAuthor().get(studentHash),
+                "Student commit should still be assigned");
+    }
+
+    @Test
+    void testFindRootCommitEmails() {
+        // The default test repo has one root commit by template@artemis.de
+        Set<String> rootEmails = service.findRootCommitEmails(tempDir.toString());
+        assertEquals(1, rootEmails.size(), "Should find exactly one root commit email");
+        assertTrue(rootEmails.contains(TEMPLATE_EMAIL),
+                "Root commit email should be the template email");
+    }
+
+    @Test
+    void testFindRootCommitEmails_nullPath() {
+        Set<String> rootEmails = service.findRootCommitEmails(null);
+        assertTrue(rootEmails.isEmpty(), "Null path should return empty set");
     }
 }

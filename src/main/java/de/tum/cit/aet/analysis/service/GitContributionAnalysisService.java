@@ -32,18 +32,22 @@ public class GitContributionAnalysisService {
     /**
      * Result of mapping ALL commits (from full git history walk) to authors.
      *
-     * @param commitToAuthor   hash -> studentId for all assigned commits
-     * @param orphanCommitEmails hash -> git author email for commits that could not be assigned
-     * @param commitToVcsEmail hash -> display email for all assigned commits
-     *                         (VCS email for Tier 1 anchors, Artemis email for Tier 2/3)
+     * @param commitToAuthor       hash -> studentId for all assigned commits
+     * @param orphanCommitEmails   hash -> git author email for commits that could not be assigned
+     * @param commitToVcsEmail     hash -> display email for all assigned commits
+     *                             (VCS email for Tier 1 anchors, Artemis email for Tier 2/3)
+     * @param templateCommitHashes hashes of root commits (parentCount == 0) whose author
+     *                             could not be resolved to any student — typically the
+     *                             course-template initial commit
      */
     public record FullCommitMappingResult(
             Map<String, Long> commitToAuthor,
             Map<String, String> orphanCommitEmails,
-            Map<String, String> commitToVcsEmail) {
+            Map<String, String> commitToVcsEmail,
+            Set<String> templateCommitHashes) {
 
         public static FullCommitMappingResult empty() {
-            return new FullCommitMappingResult(Map.of(), Map.of(), Map.of());
+            return new FullCommitMappingResult(Map.of(), Map.of(), Map.of(), Set.of());
         }
     }
 
@@ -62,6 +66,20 @@ public class GitContributionAnalysisService {
      * @return mapping result covering all reachable commits
      */
     public FullCommitMappingResult buildFullCommitMap(TeamRepositoryDTO repo) {
+        return buildFullCommitMap(repo, null);
+    }
+
+    /**
+     * Walks the full git history with template author email for enhanced detection.
+     * When a template author email is provided, ALL commits from that author are
+     * marked as template commits (not just unassigned root commits).
+     *
+     * @param repo                the repository DTO (must have a non-null localPath)
+     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @return mapping result covering all reachable commits
+     */
+    public FullCommitMappingResult buildFullCommitMap(TeamRepositoryDTO repo,
+            String templateAuthorEmail) {
         if (repo.localPath() == null) {
             log.debug("localPath is null, returning empty commit map");
             return FullCommitMappingResult.empty();
@@ -70,12 +88,12 @@ public class GitContributionAnalysisService {
         List<VCSLogDTO> vcsLogs = repo.vcsLogs() != null ? repo.vcsLogs() : List.of();
         List<ParticipantDTO> students = repo.participation().team().students();
 
-        return buildFullCommitMap(repo.localPath(), vcsLogs, students);
+        return buildFullCommitMap(repo.localPath(), vcsLogs, students, Map.of(),
+                templateAuthorEmail);
     }
 
     /**
      * Lower-level overload that accepts raw parameters instead of a DTO.
-     * Useful when the caller has JPA entities and converts them to lists.
      *
      * @param localPath path to the local git repository
      * @param vcsLogs   VCS log entries from Artemis
@@ -86,6 +104,45 @@ public class GitContributionAnalysisService {
             String localPath,
             List<VCSLogDTO> vcsLogs,
             List<ParticipantDTO> students) {
+        return buildFullCommitMap(localPath, vcsLogs, students, Map.of());
+    }
+
+    /**
+     * Lower-level overload that also accepts manual email-to-student mappings.
+     * Manual mappings act as "Tier 0" — they override all other matching tiers.
+     *
+     * @param localPath       path to the local git repository
+     * @param vcsLogs         VCS log entries from Artemis
+     * @param students        participants whose contributions are analysed
+     * @param manualMappings  gitEmail (lowercase) -> studentId from ExerciseEmailMappings
+     * @return mapping result containing per-student commit data
+     */
+    public FullCommitMappingResult buildFullCommitMap(
+            String localPath,
+            List<VCSLogDTO> vcsLogs,
+            List<ParticipantDTO> students,
+            Map<String, Long> manualMappings) {
+        return buildFullCommitMap(localPath, vcsLogs, students, manualMappings, null);
+    }
+
+    /**
+     * Full overload that also accepts a template author email.
+     * When provided, ALL commits from this author are marked as template
+     * (not just unassigned root commits).
+     *
+     * @param localPath            path to the local git repository
+     * @param vcsLogs              VCS log entries from Artemis
+     * @param students             participants whose contributions are analysed
+     * @param manualMappings       gitEmail (lowercase) -> studentId from ExerciseEmailMappings
+     * @param templateAuthorEmail  email of the template author (lowercase), or null
+     * @return mapping result containing per-student commit data
+     */
+    public FullCommitMappingResult buildFullCommitMap(
+            String localPath,
+            List<VCSLogDTO> vcsLogs,
+            List<ParticipantDTO> students,
+            Map<String, Long> manualMappings,
+            String templateAuthorEmail) {
 
         if (localPath == null) {
             return FullCommitMappingResult.empty();
@@ -100,6 +157,8 @@ public class GitContributionAnalysisService {
                 emailToStudentId.put(student.email().toLowerCase(Locale.ROOT), student.id());
             }
         }
+        // Tier 0: Manual mappings override all other email mappings
+        emailToStudentId.putAll(manualMappings);
 
         // studentId -> Artemis email (reverse lookup for display emails)
         Map<Long, String> studentIdToEmail = new HashMap<>();
@@ -124,6 +183,7 @@ public class GitContributionAnalysisService {
         Map<String, Long> commitToAuthor = new HashMap<>();
         Map<String, String> orphanCommitEmails = new HashMap<>();
         Map<String, String> commitToVcsEmail = new HashMap<>();
+        Set<String> templateHashes = new HashSet<>();
 
         // Learned mapping: gitEmail (lowercase) -> studentId
         // Built from VCS-log anchor commits where we can correlate git-author email
@@ -257,16 +317,48 @@ public class GitContributionAnalysisService {
                 }
             }
 
+            // --- Pass 3: Detect template commits ---
+            // If a template author email is configured, ALL their commits are template.
+            // Otherwise, only unassigned root commits are detected as template.
+            for (RevCommit commit : allCommits) {
+                String hash = commit.getName();
+                if (commitToAuthor.containsKey(hash)) {
+                    continue; // Already assigned to a student
+                }
+
+                String gitEmail = commit.getAuthorIdent().getEmailAddress();
+                String gitEmailLower = gitEmail != null ? gitEmail.toLowerCase(Locale.ROOT) : "";
+
+                boolean isTemplate = false;
+                if (templateAuthorEmail != null
+                        && templateAuthorEmail.equalsIgnoreCase(gitEmailLower)) {
+                    isTemplate = true; // All commits from template author
+                } else if (commit.getParentCount() == 0) {
+                    isTemplate = true; // Fallback: unassigned root commits
+                }
+
+                if (isTemplate) {
+                    templateHashes.add(hash);
+                    orphanCommitEmails.remove(hash);
+                }
+            }
+
+            if (!templateHashes.isEmpty()) {
+                log.info("Detected {} template commit(s), excluded from orphans",
+                        templateHashes.size());
+            }
+
         } catch (IOException e) {
             log.error("Error walking git history at {}: {}", localPath, e.getMessage());
             return FullCommitMappingResult.empty();
         }
 
-        log.info("Full commit map: {} assigned, {} orphan (from {} total reachable commits)",
-                commitToAuthor.size(), orphanCommitEmails.size(),
-                commitToAuthor.size() + orphanCommitEmails.size());
+        log.info("Full commit map: {} assigned, {} orphan, {} template (from {} total reachable commits)",
+                commitToAuthor.size(), orphanCommitEmails.size(), templateHashes.size(),
+                commitToAuthor.size() + orphanCommitEmails.size() + templateHashes.size());
 
-        return new FullCommitMappingResult(commitToAuthor, orphanCommitEmails, commitToVcsEmail);
+        return new FullCommitMappingResult(commitToAuthor, orphanCommitEmails, commitToVcsEmail,
+                templateHashes);
     }
 
     /**
@@ -299,6 +391,53 @@ public class GitContributionAnalysisService {
         }
         // Fallback: first VCS email
         return vcsEmails.get(0);
+    }
+
+    /**
+     * Finds the author emails of all root commits (parentCount == 0) in the given
+     * repository. Used for cross-repo template author detection.
+     *
+     * @param localPath path to the local git repository
+     * @return set of lowercase author emails from root commits
+     */
+    public Set<String> findRootCommitEmails(String localPath) {
+        Set<String> rootEmails = new HashSet<>();
+        if (localPath == null) {
+            return rootEmails;
+        }
+
+        File gitDir = new File(localPath, ".git");
+        if (!gitDir.exists()) {
+            log.warn("Git directory not found at {} for root commit detection", gitDir.getAbsolutePath());
+            return rootEmails;
+        }
+
+        try (Repository repository = new FileRepositoryBuilder()
+                .setGitDir(gitDir)
+                .readEnvironment()
+                .build()) {
+
+            ObjectId head = repository.resolve("HEAD");
+            if (head == null) {
+                return rootEmails;
+            }
+
+            try (RevWalk revWalk = new RevWalk(repository)) {
+                revWalk.markStart(revWalk.parseCommit(head));
+                for (RevCommit commit : revWalk) {
+                    if (commit.getParentCount() == 0) {
+                        String email = commit.getAuthorIdent().getEmailAddress();
+                        if (email != null && !email.isBlank()) {
+                            rootEmails.add(email.toLowerCase(Locale.ROOT));
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error finding root commit emails at {}: {}", localPath, e.getMessage());
+        }
+
+        return rootEmails;
     }
 
     // ========== Methods that delegate to buildFullCommitMap ==========

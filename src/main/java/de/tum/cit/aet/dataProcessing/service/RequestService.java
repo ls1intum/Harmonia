@@ -23,10 +23,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 
+import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
@@ -62,6 +65,7 @@ public class RequestService {
     private final TutorRepository tutorRepository;
     private final StudentRepository studentRepository;
     private final AnalyzedChunkRepository analyzedChunkRepository;
+    private final ExerciseTemplateAuthorRepository templateAuthorRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -86,6 +90,7 @@ public class RequestService {
             TutorRepository tutorRepository,
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
+            ExerciseTemplateAuthorRepository templateAuthorRepository,
             GitContributionAnalysisService gitContributionAnalysisService,
             CommitPreFilterService commitPreFilterService,
             CQICalculatorService cqiCalculatorService,
@@ -101,6 +106,7 @@ public class RequestService {
         this.tutorRepository = tutorRepository;
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
+        this.templateAuthorRepository = templateAuthorRepository;
         this.gitContributionAnalysisService = gitContributionAnalysisService;
         this.commitPreFilterService = commitPreFilterService;
         this.cqiCalculatorService = cqiCalculatorService;
@@ -643,6 +649,11 @@ public class RequestService {
 
         List<Student> students = studentRepository.findAllByTeam(teamParticipation);
 
+        // Load template author email for this exercise (if configured)
+        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
+                .map(ExerciseTemplateAuthor::getTemplateEmail)
+                .orElse(null);
+
         // Calculate CQI using effort-based fairness analysis
         Double cqi = null;
         boolean isSuspicious = false;
@@ -666,7 +677,8 @@ public class RequestService {
         // Step 2: Try effort-based fairness analysis (primary method)
         boolean fairnessAnalysisSucceeded = false;
         try {
-            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(repo);
+            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(
+                    repo, templateAuthorEmail);
             FairnessReportDTO fairnessReport = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
             boolean isErrorReport = fairnessReport.flags() != null &&
@@ -726,6 +738,8 @@ public class RequestService {
         // Step 5: Update TeamParticipation with CQI
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(isSuspicious);
+        teamParticipation.setOrphanCommitCount(
+                orphanCommits != null ? orphanCommits.size() : 0);
 
         if (cqiDetails != null && cqiDetails.components() != null) {
             teamParticipation.setCqiEffortBalance(cqiDetails.components().effortBalance());
@@ -943,6 +957,8 @@ public class RequestService {
         // Step 6: Update TeamParticipation with CQI and isSuspicious flag
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(isSuspicious);
+        teamParticipation.setOrphanCommitCount(
+                orphanCommits != null ? orphanCommits.size() : 0);
 
         // Step 6a: Persist CQI components for later reconstruction
         if (cqiDetails != null && cqiDetails.components() != null) {
@@ -1190,6 +1206,76 @@ public class RequestService {
                         "processed", gitAnalyzedCount.get(),
                         "total", totalToProcess));
                 return;
+            }
+
+            // ============================================================
+            // TEMPLATE AUTHOR DETECTION — cross-repo root commit comparison
+            // ============================================================
+            try {
+                ExerciseTemplateAuthor existingTemplate = templateAuthorRepository
+                        .findByExerciseId(exerciseId).orElse(null);
+
+                if (existingTemplate != null) {
+                    // Already configured — emit existing
+                    log.info("Template author already configured for exercise {}: {}",
+                            exerciseId, existingTemplate.getTemplateEmail());
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of(
+                                "type", "TEMPLATE_AUTHOR",
+                                "email", existingTemplate.getTemplateEmail(),
+                                "autoDetected", existingTemplate.getAutoDetected()));
+                    }
+                } else {
+                    // Cross-repo detection: find root commit emails across all repos
+                    Map<String, Integer> rootAuthorCounts = new HashMap<>();
+                    for (TeamRepositoryDTO repo : clonedRepos.values()) {
+                        if (repo.localPath() == null) {
+                            continue;
+                        }
+                        Set<String> rootEmails = gitContributionAnalysisService
+                                .findRootCommitEmails(repo.localPath());
+                        rootEmails.forEach(email ->
+                                rootAuthorCounts.merge(email, 1, Integer::sum));
+                    }
+
+                    int totalRepos = (int) clonedRepos.values().stream()
+                            .filter(r -> r.localPath() != null).count();
+
+                    // Find email that appears as root author in ALL repos
+                    java.util.Optional<String> unanimousAuthor = rootAuthorCounts.entrySet()
+                            .stream()
+                            .filter(e -> e.getValue() == totalRepos)
+                            .map(Map.Entry::getKey)
+                            .findFirst();
+
+                    if (unanimousAuthor.isPresent() && totalRepos > 0) {
+                        // Auto-detect: same root author in all repos
+                        String email = unanimousAuthor.get();
+                        ExerciseTemplateAuthor ta = new ExerciseTemplateAuthor(
+                                exerciseId, email, true);
+                        templateAuthorRepository.save(ta);
+                        log.info("Auto-detected template author for exercise {}: {} " +
+                                "(unanimous across {} repos)", exerciseId, email, totalRepos);
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of(
+                                    "type", "TEMPLATE_AUTHOR",
+                                    "email", email, "autoDetected", true));
+                        }
+                    } else if (!rootAuthorCounts.isEmpty()) {
+                        // Ambiguous — ask user
+                        log.info("Ambiguous template author for exercise {}: candidates={}",
+                                exerciseId, rootAuthorCounts.keySet());
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of(
+                                    "type", "TEMPLATE_AUTHOR_AMBIGUOUS",
+                                    "candidates",
+                                    new java.util.ArrayList<>(rootAuthorCounts.keySet())));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Template author detection failed for exercise {}: {}",
+                        exerciseId, e.getMessage());
             }
 
             // ============================================================
@@ -1539,7 +1625,8 @@ public class RequestService {
                 cqiDetails,
                 loadAnalyzedChunks(participation),
                 null, // Orphan commits are not persisted
-                readTeamTokenTotals(participation));
+                readTeamTokenTotals(participation),
+                participation.getOrphanCommitCount());
     }
 
     /**
