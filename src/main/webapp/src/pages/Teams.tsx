@@ -75,11 +75,11 @@ export default function Teams() {
   const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<PairProgrammingAttendanceMap>(() =>
     readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
   );
-  const [templateAuthor, setTemplateAuthor] = useState<TemplateAuthorInfo | null>(null);
-  const [templateAuthorCandidates, setTemplateAuthorCandidates] = useState<string[] | null>(null);
+  // Template author candidates — no server endpoint, managed purely via query cache
+  const templateAuthorCandidates = queryClient.getQueryData<string[] | null>(['templateAuthorCandidates', exercise]) ?? null;
 
-  // Load template author from server on mount
-  useQuery({
+  // Load template author from server — derived directly from query cache
+  const { data: templateAuthor = null } = useQuery<TemplateAuthorInfo | null>({
     queryKey: ['templateAuthor', exercise],
     queryFn: async () => {
       const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
@@ -88,8 +88,7 @@ export default function Teams() {
       if (response.status === 404) return null;
       if (!response.ok) return null;
       const data = await response.json();
-      setTemplateAuthor({ email: data.templateEmail, autoDetected: data.autoDetected });
-      return data;
+      return { email: data.templateEmail, autoDetected: data.autoDetected };
     },
     enabled: !!exercise,
     staleTime: 60 * 1000,
@@ -210,8 +209,8 @@ export default function Teams() {
       toast({ title: 'Starting analysis...' });
 
       // Step 2: Start streaming (server will clear data before starting)
-      setTemplateAuthor(null);
-      setTemplateAuthorCandidates(null);
+      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
@@ -246,8 +245,8 @@ export default function Teams() {
           },
           undefined, // onPhaseChange
           undefined, // onGitDone
-          info => setTemplateAuthor(info),
-          candidates => setTemplateAuthorCandidates(candidates),
+          info => queryClient.setQueryData(['templateAuthor', exercise], info),
+          candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
         );
       });
     },
@@ -311,8 +310,8 @@ export default function Teams() {
       toast({ title: 'Forcing reanalysis...' });
 
       // Step 2: Start streaming (server will clear data before starting)
-      setTemplateAuthor(null);
-      setTemplateAuthorCandidates(null);
+      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
@@ -344,8 +343,8 @@ export default function Teams() {
           },
           undefined, // onPhaseChange
           undefined, // onGitDone
-          info => setTemplateAuthor(info),
-          candidates => setTemplateAuthorCandidates(candidates),
+          info => queryClient.setQueryData(['templateAuthor', exercise], info),
+          candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
         );
       });
     },
@@ -429,8 +428,8 @@ export default function Teams() {
         body: JSON.stringify({ templateEmail: email }),
       });
       if (response.ok) {
-        setTemplateAuthor({ email, autoDetected: false });
-        setTemplateAuthorCandidates(null);
+        queryClient.setQueryData(['templateAuthor', exercise], { email, autoDetected: false });
+        queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
         queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
         toast({ title: 'Template author set', description: email });
       }
@@ -446,7 +445,7 @@ export default function Teams() {
         credentials: 'include',
       });
       if (response.ok || response.status === 204) {
-        setTemplateAuthor(null);
+        queryClient.setQueryData(['templateAuthor', exercise], null);
         queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
         toast({ title: 'Template author removed' });
       }
