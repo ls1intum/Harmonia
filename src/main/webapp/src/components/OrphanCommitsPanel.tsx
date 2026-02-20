@@ -156,8 +156,8 @@ const OrphanCommitsPanel = ({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            <CardTitle className="text-base font-medium text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="w-5 h-5 text-amber-700 dark:text-amber-400" />
+            <CardTitle className="text-base font-medium text-foreground dark:text-amber-200">
               {totalOrphanCount > 0
                 ? `${totalOrphanCount} Unmatched Email${totalOrphanCount !== 1 ? 's' : ''}`
                 : `${totalMappedCount} Mapped Email${totalMappedCount !== 1 ? 's' : ''}`}
@@ -167,7 +167,7 @@ const OrphanCommitsPanel = ({
             )}
           </div>
           <div className="flex items-center gap-3">
-            {totalLines > 0 && <span className="text-sm text-amber-700 dark:text-amber-300">{totalLines} lines</span>}
+            {totalLines > 0 && <span className="text-sm text-muted-foreground dark:text-amber-300">{totalLines} lines</span>}
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
               {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>

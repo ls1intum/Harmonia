@@ -142,16 +142,16 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
         <Card className="border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
           <CardContent className="py-4">
             <div className="flex items-start gap-3">
-              <UserX className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <UserX className="h-5 w-5 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                <p className="text-sm font-medium text-foreground dark:text-amber-300">
                   {Object.keys(externalAuthors).length} external contributor{Object.keys(externalAuthors).length !== 1 ? 's' : ''} detected
                   {' — '}
                   <span className="font-normal">not included in CQI calculation</span>
                 </p>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {Object.entries(externalAuthors).map(([email, data]) => (
-                    <span key={email} className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                    <span key={email} className="text-xs text-muted-foreground dark:text-amber-400/80">
                       {data.name} ({data.chunks} chunk{data.chunks !== 1 ? 's' : ''}, {data.lines} lines)
                     </span>
                   ))}
@@ -428,8 +428,8 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
               <CardHeader className="cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <UserX className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    <CardTitle className="text-lg text-amber-700 dark:text-amber-300">
+                    <UserX className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+                    <CardTitle className="text-lg text-foreground dark:text-amber-300">
                       External Contributions ({externalChunks.length} chunks)
                     </CardTitle>
                   </div>
@@ -437,7 +437,7 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
                     {externalOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="text-sm text-amber-600/80 dark:text-amber-400/80 mt-1">
+                <p className="text-sm text-muted-foreground dark:text-amber-400/80 mt-1">
                   These commits are from contributors not registered as team members. They are shown for transparency but are{' '}
                   <strong>not included</strong> in the CQI calculation.
                 </p>
