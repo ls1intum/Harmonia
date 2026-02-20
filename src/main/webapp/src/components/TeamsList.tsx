@@ -3,7 +3,7 @@ import type { TemplateAuthorInfo } from '@/data/dataLoaders';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, X, Pencil } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
