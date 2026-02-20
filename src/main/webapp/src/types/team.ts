@@ -47,4 +47,5 @@ export interface Team {
   basicMetrics?: BasicMetrics;
   analysisHistory?: AnalyzedChunkDTO[];
   orphanCommits?: OrphanCommitDTO[];
+  orphanCommitCount?: number;
 }

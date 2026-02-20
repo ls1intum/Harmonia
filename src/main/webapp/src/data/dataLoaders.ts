@@ -68,8 +68,6 @@ function setCachedTeam(teamId: string, team: Team): void {
 function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
   const teamName = dto.teamName || 'Unknown Team';
   const students = dto.students || [];
-  const totalCommits = dto.submissionCount || 0;
-
   // Students are already in DTO format, just ensure defaults
   const studentData = students.map(student => ({
     name: student.name || 'Unknown',
@@ -79,6 +77,9 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
     linesChanged: student.linesChanged || 0,
   }));
 
+  // Use sum of actual git commits when available, fallback to Artemis submission count
+  const studentCommitSum = studentData.reduce((sum, s) => sum + (s.commitCount || 0), 0);
+  const totalCommits = studentCommitSum > 0 ? studentCommitSum : dto.submissionCount || 0;
   const totalLines = studentData.reduce((sum, s) => sum + (s.linesAdded || 0), 0);
 
   return {

@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import TeamDetail from '@/components/TeamDetail';
 import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 import type { Team, CourseAverages } from '@/types/team';
@@ -6,7 +7,14 @@ import type { Team, CourseAverages } from '@/types/team';
 export default function TeamDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages } = (location.state || {}) as {
+  const {
+    team: initialTeam,
+    course,
+    exercise,
+    pairProgrammingEnabled,
+    pairProgrammingBadgeStatus,
+    courseAverages,
+  } = (location.state || {}) as {
     team?: Team;
     course?: string;
     exercise?: string;
@@ -14,6 +22,8 @@ export default function TeamDetailPage() {
     pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
     courseAverages?: CourseAverages | null;
   };
+
+  const [team, setTeam] = useState<Team | undefined>(initialTeam);
 
   if (!team) {
     return (
@@ -36,6 +46,7 @@ export default function TeamDetailPage() {
       exercise={exercise}
       pairProgrammingBadgeStatus={pairProgrammingBadgeStatus}
       courseAverages={courseAverages}
+      onTeamUpdate={setTeam}
     />
   );
 }

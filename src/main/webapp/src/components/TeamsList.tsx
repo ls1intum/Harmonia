@@ -482,28 +482,26 @@ const TeamsList = ({
       )}
 
       {templateAuthor && (
-        <Card className="border-green-200 bg-green-50/50 dark:bg-green-950/10">
-          <CardContent className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <GitBranch className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium">Template Author</span>
-                {templateAuthor.autoDetected && (
-                  <Badge variant="outline" className="text-green-700 border-green-300">
-                    Auto-detected
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="text-sm text-muted-foreground">{templateAuthor.email}</code>
-                <Button variant="ghost" size="sm" onClick={onTemplateAuthorRemove} className="h-7 text-xs gap-1">
-                  <X className="h-3 w-3" />
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+          <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
+          <span>
+            Template author: <span className="font-medium text-foreground">{templateAuthor.email}</span>
+          </span>
+          {templateAuthor.autoDetected && (
+            <Badge variant="outline" className="text-xs py-0 h-5">
+              auto-detected
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onTemplateAuthorRemove}
+            className="h-6 text-xs gap-1 text-muted-foreground hover:text-destructive px-1.5"
+          >
+            <X className="h-3 w-3" />
+            Remove
+          </Button>
+        </div>
       )}
 
       {!templateAuthor && templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
