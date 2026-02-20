@@ -1,10 +1,20 @@
 import type { Team, CourseAverages } from '@/types/team';
 import type { TemplateAuthorInfo } from '@/data/dataLoaders';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, X } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, X, Pencil } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
@@ -94,7 +104,14 @@ const TeamsList = ({
   const [removeAttendanceDialogOpen, setRemoveAttendanceDialogOpen] = useState(false);
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
+  const [templateAuthorDialogOpen, setTemplateAuthorDialogOpen] = useState(false);
+  const [templateAuthorInput, setTemplateAuthorInput] = useState('');
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
+
+  const openTemplateAuthorDialog = () => {
+    setTemplateAuthorInput(templateAuthor?.email || '');
+    setTemplateAuthorDialogOpen(true);
+  };
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -481,7 +498,7 @@ const TeamsList = ({
         </Card>
       )}
 
-      {templateAuthor && (
+      {templateAuthor ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
           <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
           <span>
@@ -495,6 +512,15 @@ const TeamsList = ({
           <Button
             variant="ghost"
             size="sm"
+            onClick={openTemplateAuthorDialog}
+            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground px-1.5"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onTemplateAuthorRemove}
             className="h-6 text-xs gap-1 text-muted-foreground hover:text-destructive px-1.5"
           >
@@ -502,30 +528,20 @@ const TeamsList = ({
             Remove
           </Button>
         </div>
-      )}
-
-      {!templateAuthor && templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/10">
-          <CardContent className="py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium">Template Author Unknown</span>
-              <span className="text-sm text-muted-foreground">Different root commit authors detected across repositories.</span>
-            </div>
-            <Select onValueChange={onTemplateAuthorSet}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Select template author..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templateAuthorCandidates.map(email => (
-                  <SelectItem key={email} value={email}>
-                    {email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+          <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
+          <span>No template author configured</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openTemplateAuthorDialog}
+            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground px-1.5"
+          >
+            <Pencil className="h-3 w-3" />
+            Set
+          </Button>
+        </div>
       )}
 
       <ActivityLog status={analysisStatus} />
@@ -558,6 +574,46 @@ const TeamsList = ({
         variant="destructive"
         onConfirm={onRemoveUploadedAttendanceFile}
       />
+
+      <AlertDialog open={templateAuthorDialogOpen} onOpenChange={setTemplateAuthorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Template Author</AlertDialogTitle>
+            <AlertDialogDescription>All commits from this email address will be excluded from the CQI calculation.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {templateAuthor && (
+            <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+              Commits from the previous template author were not analyzed and cannot be included retroactively. Re-run the analysis for a
+              full recalculation.
+            </p>
+          )}
+          <Input
+            value={templateAuthorInput}
+            onChange={e => setTemplateAuthorInput(e.target.value)}
+            placeholder="e.g. template-bot@university.edu"
+          />
+          {templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {templateAuthorCandidates.map(email => (
+                <Badge
+                  key={email}
+                  variant="outline"
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => setTemplateAuthorInput(email)}
+                >
+                  {email}
+                </Badge>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={!templateAuthorInput.trim()} onClick={() => onTemplateAuthorSet(templateAuthorInput.trim())}>
+              Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {courseAverages && (
         <Card className="p-6 shadow-card">
