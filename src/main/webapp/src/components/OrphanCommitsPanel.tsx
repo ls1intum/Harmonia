@@ -221,7 +221,7 @@ const OrphanCommitsPanel = ({
               {mappedEmails.length > 0 && (
                 <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Unmapped Emails</h4>
               )}
-              <div className="h-[300px] w-full overflow-y-auto pr-2">
+              <div className="max-h-[300px] w-full overflow-y-auto pr-2">
                 <div className="space-y-3">
                   {unmappedEmails.map(email => {
                     if (!email) return null;
