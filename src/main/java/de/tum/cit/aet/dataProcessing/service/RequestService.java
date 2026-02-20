@@ -29,6 +29,7 @@ import java.util.concurrent.*;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
@@ -66,6 +67,7 @@ public class RequestService {
     private final StudentRepository studentRepository;
     private final AnalyzedChunkRepository analyzedChunkRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
+    private final ExerciseEmailMappingRepository emailMappingRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -91,6 +93,7 @@ public class RequestService {
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
             ExerciseTemplateAuthorRepository templateAuthorRepository,
+            ExerciseEmailMappingRepository emailMappingRepository,
             GitContributionAnalysisService gitContributionAnalysisService,
             CommitPreFilterService commitPreFilterService,
             CQICalculatorService cqiCalculatorService,
@@ -107,6 +110,7 @@ public class RequestService {
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
         this.templateAuthorRepository = templateAuthorRepository;
+        this.emailMappingRepository = emailMappingRepository;
         this.gitContributionAnalysisService = gitContributionAnalysisService;
         this.commitPreFilterService = commitPreFilterService;
         this.cqiCalculatorService = cqiCalculatorService;
@@ -306,10 +310,13 @@ public class RequestService {
         // Find all participations for this exercise
         var participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
 
-        if (participations.isEmpty()) {
-            log.info("No participations found for exercise {}", exerciseId);
-            return;
-        }
+        // Collect tutors from participations before deleting (each tutor is only
+        // referenced by one participation, so they become orphaned after deletion)
+        var tutorIds = participations.stream()
+                .filter(p -> p.getTutor() != null)
+                .map(p -> p.getTutor().getTutorId())
+                .distinct()
+                .toList();
 
         // Delete child entities first due to foreign key constraints
         for (var participation : participations) {
@@ -323,6 +330,15 @@ public class RequestService {
 
         // Delete the participations themselves
         teamParticipationRepository.deleteAllByExerciseId(exerciseId);
+
+        // Delete orphaned tutors that were referenced by the deleted participations
+        if (!tutorIds.isEmpty()) {
+            tutorRepository.deleteAllById(tutorIds);
+            log.info("Deleted {} tutors for exercise {}", tutorIds.size(), exerciseId);
+        }
+
+        // Delete email mappings for this exercise
+        emailMappingRepository.deleteAllByExerciseId(exerciseId);
 
         log.info("Cleared {} participations for exercise {}", participations.size(), exerciseId);
     }
