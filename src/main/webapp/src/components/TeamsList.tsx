@@ -518,15 +518,6 @@ const TeamsList = ({
             <Pencil className="h-3 w-3" />
             Edit
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onTemplateAuthorRemove}
-            className="h-6 text-xs gap-1 text-muted-foreground hover:text-destructive px-1.5"
-          >
-            <X className="h-3 w-3" />
-            Remove
-          </Button>
         </div>
       ) : (
         <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
@@ -583,8 +574,8 @@ const TeamsList = ({
           </AlertDialogHeader>
           {templateAuthor && (
             <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
-              Commits from the previous template author were not analyzed and cannot be included retroactively. Re-run the analysis for a
-              full recalculation.
+              Commits from the previous template author ({templateAuthor.email}) were not analyzed and cannot be included retroactively.
+              Re-run the analysis for a full recalculation.
             </p>
           )}
           <Input
@@ -607,6 +598,14 @@ const TeamsList = ({
             </div>
           )}
           <AlertDialogFooter>
+            {templateAuthor && (
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 mr-auto"
+                onClick={() => onTemplateAuthorRemove()}
+              >
+                Remove
+              </AlertDialogAction>
+            )}
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={!templateAuthorInput.trim()} onClick={() => onTemplateAuthorSet(templateAuthorInput.trim())}>
               Save
