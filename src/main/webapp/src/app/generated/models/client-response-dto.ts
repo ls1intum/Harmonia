@@ -35,6 +35,7 @@ export interface ClientResponseDTO {
   cqiDetails?: CQIResultDTO;
   isSuspicious?: boolean;
   llmTokenTotals?: LlmTokenTotals;
+  orphanCommitCount?: number;
   orphanCommits?: Array<OrphanCommitDTO>;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;

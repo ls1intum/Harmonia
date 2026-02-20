@@ -12,10 +12,9 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/analysis-resource-api';
-export * from './apis/attendance-resource-api';
-export * from './apis/auth-resource-api';
-export * from './apis/config-resource-api';
-export * from './apis/email-mapping-resource-api';
-export * from './apis/export-resource-api';
-export * from './apis/request-resource-api';
+export interface CreateEmailMappingRequest {
+  gitEmail?: string;
+  studentId?: number;
+  studentName?: string;
+  teamParticipationId?: string;
+}
