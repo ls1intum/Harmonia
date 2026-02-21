@@ -533,7 +533,7 @@ components:
         gitEmail: {type: string}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
-        teamParticipationId: {type: string, format: uuid}
+        teamParticipationId: {type: integer, format: int64}
     EmailMappingDTO:
       type: object
       properties:

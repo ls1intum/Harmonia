@@ -7,7 +7,7 @@
 | **gitEmail**            | **string** |             | [optional] [default to undefined] |
 | **studentId**           | **number** |             | [optional] [default to undefined] |
 | **studentName**         | **string** |             | [optional] [default to undefined] |
-| **teamParticipationId** | **string** |             | [optional] [default to undefined] |
+| **teamParticipationId** | **number** |             | [optional] [default to undefined] |
 
 ## Example
 
