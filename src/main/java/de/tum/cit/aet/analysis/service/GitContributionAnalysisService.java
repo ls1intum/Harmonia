@@ -523,6 +523,14 @@ public class GitContributionAnalysisService {
         return analyzeRepositoryWithOrphans(repo, null);
     }
 
+    /**
+     * Analyzes the Git repository and returns contributions and orphan commits,
+     * excluding any commits authored by the template author.
+     *
+     * @param repo                The TeamRepositoryDTO to analyze.
+     * @param templateAuthorEmail Email of the template author (lowercase), or null.
+     * @return RepositoryAnalysisResultDTO with contributions and orphans.
+     */
     public RepositoryAnalysisResultDTO analyzeRepositoryWithOrphans(
             TeamRepositoryDTO repo, String templateAuthorEmail) {
         CommitMappingResult mapping = mapCommitToAuthor(repo, templateAuthorEmail);
