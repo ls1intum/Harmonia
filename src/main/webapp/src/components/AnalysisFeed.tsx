@@ -89,15 +89,15 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
     .filter(chunk => !chunk.isError)
     .reduce(
       (acc, chunk) => {
-        const email = chunk.authorEmail ?? 'unknown';
-        if (!acc[email]) {
-          acc[email] = { name: chunk.authorName ?? email.split('@')[0], effort: 0, complexity: 0, novelty: 0, confidence: 0, count: 0 };
+        const key = chunk.authorName ?? chunk.authorEmail ?? 'unknown';
+        if (!acc[key]) {
+          acc[key] = { name: chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0], effort: 0, complexity: 0, novelty: 0, confidence: 0, count: 0 };
         }
-        acc[email].effort += chunk.effortScore ?? 0;
-        acc[email].complexity += chunk.complexity ?? 0;
-        acc[email].novelty += chunk.novelty ?? 0;
-        acc[email].confidence += chunk.confidence ?? 0;
-        acc[email].count += 1;
+        acc[key].effort += chunk.effortScore ?? 0;
+        acc[key].complexity += chunk.complexity ?? 0;
+        acc[key].novelty += chunk.novelty ?? 0;
+        acc[key].confidence += chunk.confidence ?? 0;
+        acc[key].count += 1;
         return acc;
       },
       {} as Record<string, { name: string; effort: number; complexity: number; novelty: number; confidence: number; count: number }>,
@@ -267,7 +267,7 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
           return (
             <Card
               key={chunkId}
-              className={`overflow-hidden transition-colors border-l-4 ${authorColorMap[chunk.authorEmail ?? 'unknown']?.border ?? ''} shadow-sm`}
+              className={`overflow-hidden transition-colors border-l-4 ${authorColorMap[chunk.authorName ?? chunk.authorEmail ?? 'unknown']?.border ?? ''} shadow-sm`}
               style={cardStyle}
             >
               <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(chunkId)}>

@@ -130,6 +130,7 @@ public class EmailMappingResource {
                     && emailLower.equals(chunk.getAuthorEmail() != null
                             ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
                 chunk.setIsExternalContributor(false);
+                chunk.setAuthorName(request.studentName());
             }
         }
         analyzedChunkRepository.saveAll(chunks);
@@ -182,6 +183,7 @@ public class EmailMappingResource {
                 if (emailLower.equals(chunkEmail)
                         && !knownEmails.contains(chunkEmail)) {
                     chunk.setIsExternalContributor(true);
+                    chunk.setAuthorName(chunk.getAuthorEmail());
                     changed = true;
                 }
             }

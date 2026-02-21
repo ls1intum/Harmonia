@@ -163,6 +163,7 @@ class EmailMappingResourceTest {
         resource.createMapping(EXERCISE_ID, request);
 
         assertFalse(externalChunk.getIsExternalContributor());
+        assertEquals("Alice", externalChunk.getAuthorName());
     }
 
     @Test
@@ -257,6 +258,7 @@ class EmailMappingResourceTest {
         resource.deleteMapping(EXERCISE_ID, mapping.getId());
 
         assertTrue(chunk.getIsExternalContributor());
+        assertEquals("orphan@gmail.com", chunk.getAuthorName());
     }
 
     @Test
