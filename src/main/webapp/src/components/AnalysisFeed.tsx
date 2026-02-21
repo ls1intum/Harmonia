@@ -91,7 +91,14 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
       (acc, chunk) => {
         const key = chunk.authorName ?? chunk.authorEmail ?? 'unknown';
         if (!acc[key]) {
-          acc[key] = { name: chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0], effort: 0, complexity: 0, novelty: 0, confidence: 0, count: 0 };
+          acc[key] = {
+            name: chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0],
+            effort: 0,
+            complexity: 0,
+            novelty: 0,
+            confidence: 0,
+            count: 0,
+          };
         }
         acc[key].effort += chunk.effortScore ?? 0;
         acc[key].complexity += chunk.complexity ?? 0;
