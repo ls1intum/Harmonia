@@ -98,19 +98,30 @@ public class EmailMappingResource {
         log.info("Creating email mapping: {} -> studentId {} for exercise {}",
                 request.gitEmail(), request.studentId(), exerciseId);
 
-        // 1. Save mapping
-        ExerciseEmailMapping mapping = new ExerciseEmailMapping(
-                exerciseId, request.gitEmail().toLowerCase(Locale.ROOT),
-                request.studentId(), request.studentName());
-        emailMappingRepository.save(mapping);
-
-        // 2. Find the team participation
+        // 1. Find the team participation (must exist before we resolve the student ID)
         TeamParticipation participation = teamParticipationRepository
                 .findById(request.teamParticipationId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "TeamParticipation not found: " + request.teamParticipationId()));
 
-        // 3. Update chunks: mark matching external chunks as non-external
+        // 2. Resolve real Artemis student ID by name (frontend may send 0 as placeholder)
+        Long resolvedStudentId = request.studentId();
+        if (request.studentName() != null) {
+            List<Student> students = studentRepository.findAllByTeam(participation);
+            resolvedStudentId = students.stream()
+                    .filter(s -> request.studentName().equals(s.getName()))
+                    .map(Student::getId)
+                    .findFirst()
+                    .orElse(request.studentId());
+        }
+
+        // 3. Save mapping with resolved ID
+        ExerciseEmailMapping mapping = new ExerciseEmailMapping(
+                exerciseId, request.gitEmail().toLowerCase(Locale.ROOT),
+                resolvedStudentId, request.studentName());
+        emailMappingRepository.save(mapping);
+
+        // 4. Update chunks: mark matching external chunks as non-external
         List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
         String emailLower = request.gitEmail().toLowerCase(Locale.ROOT);
         for (AnalyzedChunk chunk : chunks) {
@@ -122,10 +133,10 @@ public class EmailMappingResource {
         }
         analyzedChunkRepository.saveAll(chunks);
 
-        // 4. Recalculate CQI from persisted chunks
+        // 5. Recalculate CQI from persisted chunks
         recalculateCqi(participation, chunks);
 
-        // 5. Return updated response
+        // 6. Return updated response
         return ResponseEntity.ok(buildResponse(participation));
     }
 
@@ -247,14 +258,19 @@ public class EmailMappingResource {
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
             boolean changed = false;
 
+            // Build known emails so we don't accidentally orphan a known student
+            Set<String> knownEmails = buildKnownEmails(participation, exerciseId);
+
             for (AnalyzedChunk chunk : chunks) {
                 String chunkEmail = chunk.getAuthorEmail() != null
                         ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
 
                 if (oldEmail != null && oldEmail.equalsIgnoreCase(chunkEmail)
                         && !newEmail.equalsIgnoreCase(chunkEmail)) {
-                    // Old template email → becomes external (orphan) again
-                    chunk.setIsExternalContributor(true);
+                    // Old template email: only mark external if NOT a known student/mapping
+                    boolean shouldBeExternal = !knownEmails.contains(
+                            chunkEmail != null ? chunkEmail.toLowerCase(Locale.ROOT) : null);
+                    chunk.setIsExternalContributor(shouldBeExternal);
                     changed = true;
                 }
                 if (newEmail.equalsIgnoreCase(chunkEmail)) {
@@ -304,6 +320,24 @@ public class EmailMappingResource {
         List<ClientResponseDTO> responses = new ArrayList<>();
         for (TeamParticipation participation : participations) {
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+
+            // Unmark chunks whose old template email is actually a known student/mapping
+            Set<String> knownEmails = buildKnownEmails(participation, exerciseId);
+            boolean changed = false;
+            for (AnalyzedChunk chunk : chunks) {
+                String chunkEmail = chunk.getAuthorEmail() != null
+                        ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
+                if (oldEmail.equals(chunkEmail)
+                        && Boolean.TRUE.equals(chunk.getIsExternalContributor())
+                        && knownEmails.contains(chunkEmail)) {
+                    chunk.setIsExternalContributor(false);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                analyzedChunkRepository.saveAll(chunks);
+            }
+
             recalculateCqi(participation, chunks);
             responses.add(buildResponse(participation));
         }
