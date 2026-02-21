@@ -36,6 +36,15 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
     Optional<TeamParticipation> findByParticipation(Long participation);
 
     /**
+     * Find a participation by its exercise and Artemis team ID.
+     *
+     * @param exerciseId the Artemis exercise ID
+     * @param team       the Artemis team ID
+     * @return the TeamParticipation if found
+     */
+    Optional<TeamParticipation> findByExerciseIdAndTeam(Long exerciseId, Long team);
+
+    /**
      * Find all participations for a given exercise.
      *
      * @param exerciseId the Artemis exercise ID

@@ -59,7 +59,8 @@ class EmailMappingResourceTest {
     private EmailMappingResource resource;
 
     private static final Long EXERCISE_ID = 42L;
-    private static final UUID PARTICIPATION_ID = UUID.randomUUID();
+    private static final Long TEAM_ID = 10L;
+    private static final UUID PARTICIPATION_UUID = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
@@ -77,9 +78,9 @@ class EmailMappingResourceTest {
     // ================================================================
 
     private TeamParticipation makeParticipation() {
-        TeamParticipation p = new TeamParticipation(1L, 10L, null, "Team-1", "t1",
+        TeamParticipation p = new TeamParticipation(1L, TEAM_ID, null, "Team-1", "t1",
                 "https://repo.example.com/t1", 5);
-        p.setTeamParticipationId(PARTICIPATION_ID);
+        p.setTeamParticipationId(PARTICIPATION_UUID);
         p.setExerciseId(EXERCISE_ID);
         return p;
     }
@@ -118,7 +119,7 @@ class EmailMappingResourceTest {
         Student bob = makeStudent(888L, "Bob", "bob@uni.de", participation);
         AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
 
-        when(teamParticipationRepository.findById(PARTICIPATION_ID))
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.of(participation));
         when(studentRepository.findAllByTeam(participation))
                 .thenReturn(List.of(alice, bob));
@@ -129,7 +130,7 @@ class EmailMappingResourceTest {
         stubCqiCalculation();
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
-                "orphan@gmail.com", 0L, "Alice", PARTICIPATION_ID);
+                "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
 
@@ -146,7 +147,7 @@ class EmailMappingResourceTest {
         Student bob = makeStudent(888L, "Bob", "bob@uni.de", participation);
         AnalyzedChunk externalChunk = makeChunk(participation, "orphan@gmail.com", true);
 
-        when(teamParticipationRepository.findById(PARTICIPATION_ID))
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.of(participation));
         when(studentRepository.findAllByTeam(participation))
                 .thenReturn(List.of(alice, bob));
@@ -157,7 +158,7 @@ class EmailMappingResourceTest {
         stubCqiCalculation();
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
-                "orphan@gmail.com", 0L, "Alice", PARTICIPATION_ID);
+                "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
 
@@ -171,7 +172,7 @@ class EmailMappingResourceTest {
         Student bob = makeStudent(888L, "Bob", "bob@uni.de", participation);
         AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
 
-        when(teamParticipationRepository.findById(PARTICIPATION_ID))
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.of(participation));
         when(studentRepository.findAllByTeam(participation))
                 .thenReturn(List.of(alice, bob));
@@ -182,7 +183,7 @@ class EmailMappingResourceTest {
         stubCqiCalculation();
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
-                "orphan@gmail.com", 0L, "Alice", PARTICIPATION_ID);
+                "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
 
@@ -192,11 +193,11 @@ class EmailMappingResourceTest {
 
     @Test
     void createMapping_throwsIfParticipationNotFound() {
-        when(teamParticipationRepository.findById(PARTICIPATION_ID))
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.empty());
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
-                "orphan@gmail.com", 0L, "Alice", PARTICIPATION_ID);
+                "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         assertThrows(IllegalArgumentException.class,
                 () -> resource.createMapping(EXERCISE_ID, request));
@@ -209,7 +210,7 @@ class EmailMappingResourceTest {
         Student charlie = makeStudent(777L, "Charlie", "charlie@uni.de", participation);
         AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
 
-        when(teamParticipationRepository.findById(PARTICIPATION_ID))
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.of(participation));
         when(studentRepository.findAllByTeam(participation))
                 .thenReturn(List.of(bob, charlie));
@@ -221,7 +222,7 @@ class EmailMappingResourceTest {
 
         // Student name "Unknown" does not match any student → falls back to request ID (77)
         var request = new EmailMappingResource.CreateEmailMappingRequest(
-                "orphan@gmail.com", 77L, "Unknown", PARTICIPATION_ID);
+                "orphan@gmail.com", 77L, "Unknown", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
 

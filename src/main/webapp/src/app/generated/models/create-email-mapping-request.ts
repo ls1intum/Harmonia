@@ -16,5 +16,5 @@ export interface CreateEmailMappingRequest {
   gitEmail?: string;
   studentId?: number;
   studentName?: string;
-  teamParticipationId?: string;
+  teamParticipationId?: number;
 }

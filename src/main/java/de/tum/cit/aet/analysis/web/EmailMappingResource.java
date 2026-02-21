@@ -52,7 +52,7 @@ public class EmailMappingResource {
             String gitEmail,
             Long studentId,
             String studentName,
-            UUID teamParticipationId) {
+            Long teamParticipationId) {
     }
 
     /**
@@ -100,9 +100,10 @@ public class EmailMappingResource {
 
         // 1. Find the team participation (must exist before we resolve the student ID)
         TeamParticipation participation = teamParticipationRepository
-                .findById(request.teamParticipationId())
+                .findByExerciseIdAndTeam(exerciseId, request.teamParticipationId())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "TeamParticipation not found: " + request.teamParticipationId()));
+                        "TeamParticipation not found for exercise " + exerciseId
+                                + " and team " + request.teamParticipationId()));
 
         // 2. Resolve real Artemis student ID by name (frontend may send 0 as placeholder)
         Long resolvedStudentId = request.studentId();
