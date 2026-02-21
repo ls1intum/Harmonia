@@ -665,7 +665,7 @@ public class RequestService {
         // Step 1: Detect orphan commits
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
             orphanCommits = analysisResult.orphanCommits();
             if (orphanCommits != null && !orphanCommits.isEmpty()) {
                 log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
@@ -869,9 +869,12 @@ public class RequestService {
         LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
 
         // Step 5a: Detect orphan commits first
+        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
+                .map(ExerciseTemplateAuthor::getTemplateEmail)
+                .orElse(null);
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
             orphanCommits = analysisResult.orphanCommits();
             if (orphanCommits != null && !orphanCommits.isEmpty()) {
                 log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());

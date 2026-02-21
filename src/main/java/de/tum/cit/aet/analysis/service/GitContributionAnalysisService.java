@@ -456,10 +456,18 @@ public class GitContributionAnalysisService {
      * history walk with 3-tier matching. Also tracks orphan commits.
      */
     private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo) {
-        FullCommitMappingResult full = buildFullCommitMap(repo);
+        return mapCommitToAuthor(repo, null);
+    }
+
+    private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo, String templateAuthorEmail) {
+        FullCommitMappingResult full = buildFullCommitMap(repo, templateAuthorEmail);
+        Set<String> templateHashes = full.templateCommitHashes() != null
+                ? full.templateCommitHashes() : Set.of();
+        Set<String> orphanHashes = new HashSet<>(full.orphanCommitEmails().keySet());
+        orphanHashes.removeAll(templateHashes);
         return new CommitMappingResult(
                 new HashMap<>(full.commitToAuthor()),
-                new HashSet<>(full.orphanCommitEmails().keySet()),
+                orphanHashes,
                 new HashMap<>(full.commitToVcsEmail()));
     }
 
@@ -512,7 +520,12 @@ public class GitContributionAnalysisService {
      * @return RepositoryAnalysisResultDTO with contributions and orphans.
      */
     public RepositoryAnalysisResultDTO analyzeRepositoryWithOrphans(TeamRepositoryDTO repo) {
-        CommitMappingResult mapping = mapCommitToAuthor(repo);
+        return analyzeRepositoryWithOrphans(repo, null);
+    }
+
+    public RepositoryAnalysisResultDTO analyzeRepositoryWithOrphans(
+            TeamRepositoryDTO repo, String templateAuthorEmail) {
+        CommitMappingResult mapping = mapCommitToAuthor(repo, templateAuthorEmail);
         String localPath = repo.localPath();
 
         try {
