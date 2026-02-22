@@ -126,20 +126,27 @@ public class EmailMappingResource {
         // 4. Update chunks: mark matching external chunks as non-external
         List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
         String emailLower = request.gitEmail().toLowerCase(Locale.ROOT);
+        List<AnalyzedChunk> remappedChunks = new ArrayList<>();
         for (AnalyzedChunk chunk : chunks) {
             if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
                     && emailLower.equals(chunk.getAuthorEmail() != null
                             ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
                 chunk.setIsExternalContributor(false);
                 chunk.setAuthorName(request.studentName());
+                remappedChunks.add(chunk);
             }
         }
         analyzedChunkRepository.saveAll(chunks);
 
-        // 5. Recalculate CQI from persisted chunks
+        // 5. Update target student's commit/line stats with the remapped chunks
+        if (!remappedChunks.isEmpty()) {
+            addChunkStatsToStudent(participation, request.studentName(), remappedChunks);
+        }
+
+        // 6. Recalculate CQI from persisted chunks
         recalculateCqi(participation, chunks);
 
-        // 6. Return updated response
+        // 7. Return updated response
         return ResponseEntity.ok(buildResponse(participation));
     }
 
@@ -173,7 +180,7 @@ public class EmailMappingResource {
 
         for (TeamParticipation participation : participations) {
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
-            boolean changed = false;
+            List<AnalyzedChunk> orphanedChunks = new ArrayList<>();
 
             // Build set of known student emails (from students + remaining mappings)
             Set<String> knownEmails = buildKnownEmails(participation, exerciseId);
@@ -185,12 +192,13 @@ public class EmailMappingResource {
                         && !knownEmails.contains(chunkEmail)) {
                     chunk.setIsExternalContributor(true);
                     chunk.setAuthorName(chunk.getAuthorEmail());
-                    changed = true;
+                    orphanedChunks.add(chunk);
                 }
             }
 
-            if (changed) {
+            if (!orphanedChunks.isEmpty()) {
                 analyzedChunkRepository.saveAll(chunks);
+                subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
                 recalculateCqi(participation, chunks);
                 lastResponse = buildResponse(participation);
             }
@@ -347,6 +355,92 @@ public class EmailMappingResource {
         }
 
         return ResponseEntity.ok(responses);
+    }
+
+    /**
+     * Adds the commit/line stats from the given chunks to the named student.
+     * The linesAdded/linesDeleted split is distributed proportionally based on
+     * the student's existing ratio, since chunks only store total linesChanged.
+     */
+    private void addChunkStatsToStudent(TeamParticipation participation, String studentName,
+                                        List<AnalyzedChunk> addedChunks) {
+        ChunkStatsDelta delta = computeChunkStats(addedChunks);
+        if (delta.commits == 0 && delta.linesChanged == 0) return;
+
+        studentRepository.findAllByTeam(participation).stream()
+                .filter(s -> studentName.equals(s.getName()))
+                .findFirst()
+                .ifPresent(student -> {
+                    student.setCommitCount(safe(student.getCommitCount()) + delta.commits);
+                    student.setLinesChanged(safe(student.getLinesChanged()) + delta.linesChanged);
+                    applyLinesSplit(student, delta.linesChanged, true);
+                    studentRepository.save(student);
+                });
+    }
+
+    /**
+     * Subtracts the commit/line stats of the given chunks from the named student.
+     */
+    private void subtractChunkStatsFromStudent(TeamParticipation participation, String studentName,
+                                               List<AnalyzedChunk> removedChunks) {
+        ChunkStatsDelta delta = computeChunkStats(removedChunks);
+        if (delta.commits == 0 && delta.linesChanged == 0) return;
+
+        studentRepository.findAllByTeam(participation).stream()
+                .filter(s -> studentName.equals(s.getName()))
+                .findFirst()
+                .ifPresent(student -> {
+                    student.setCommitCount(Math.max(0, safe(student.getCommitCount()) - delta.commits));
+                    student.setLinesChanged(Math.max(0, safe(student.getLinesChanged()) - delta.linesChanged));
+                    applyLinesSplit(student, delta.linesChanged, false);
+                    studentRepository.save(student);
+                });
+    }
+
+    private record ChunkStatsDelta(int commits, int linesChanged) {}
+
+    private ChunkStatsDelta computeChunkStats(List<AnalyzedChunk> chunks) {
+        int totalCommits = 0;
+        int totalLines = 0;
+        for (AnalyzedChunk chunk : chunks) {
+            if (chunk.getCommitShas() != null && !chunk.getCommitShas().isEmpty()) {
+                totalCommits += chunk.getCommitShas().split(",").length;
+            }
+            totalLines += chunk.getLinesChanged() != null ? chunk.getLinesChanged() : 0;
+        }
+        return new ChunkStatsDelta(totalCommits, totalLines);
+    }
+
+    /**
+     * Distributes a linesChanged delta into linesAdded/linesDeleted
+     * using the student's existing ratio.
+     */
+    private void applyLinesSplit(Student student, int deltaLines, boolean add) {
+        int oldAdded = safe(student.getLinesAdded());
+        int oldDeleted = safe(student.getLinesDeleted());
+        int oldTotal = oldAdded + oldDeleted;
+
+        int deltaAdded;
+        int deltaDeleted;
+        if (oldTotal > 0) {
+            deltaAdded = (int) Math.round(deltaLines * ((double) oldAdded / oldTotal));
+            deltaDeleted = deltaLines - deltaAdded;
+        } else {
+            deltaAdded = deltaLines;
+            deltaDeleted = 0;
+        }
+
+        if (add) {
+            student.setLinesAdded(oldAdded + deltaAdded);
+            student.setLinesDeleted(oldDeleted + deltaDeleted);
+        } else {
+            student.setLinesAdded(Math.max(0, oldAdded - deltaAdded));
+            student.setLinesDeleted(Math.max(0, oldDeleted - deltaDeleted));
+        }
+    }
+
+    private static int safe(Integer value) {
+        return value != null ? value : 0;
     }
 
     /**
