@@ -781,7 +781,10 @@ public class RequestService {
 
         Tutor tutor = teamParticipation.getTutor();
 
-        log.info("AI analysis complete for team: {} (CQI={})", team.name(), cqi);
+        // Use post-mapping values from participation (recalculateFromChunks may have updated them)
+        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+
+        log.info("AI analysis complete for team: {} (CQI={})", team.name(), finalCqi);
 
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
@@ -790,13 +793,14 @@ public class RequestService {
                         participation.team().name(),
                         participation.submissionCount(),
                         studentAnalysisDTOS,
-                        cqi,
+                        finalCqi,
                         isSuspicious,
                         AnalysisStatus.DONE,
                         cqiDetails,
                         analysisHistory,
                         orphanCommits,
-                        teamTokenTotals),
+                        teamTokenTotals,
+                        teamParticipation.getOrphanCommitCount()),
                 teamTokenTotals);
     }
 
@@ -1005,6 +1009,9 @@ public class RequestService {
             applyExistingEmailMappings(teamParticipation, exerciseId);
         }
 
+        // Use post-mapping values from participation (recalculateFromChunks may have updated them)
+        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+
         // Step 7: Return the assembled client response DTO
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
@@ -1013,13 +1020,14 @@ public class RequestService {
                         participation.team().name(),
                         participation.submissionCount(),
                         studentAnalysisDTOS,
-                        cqi,
+                        finalCqi,
                         isSuspicious,
                         teamParticipation.getAnalysisStatus(),
                         cqiDetails,
                         analysisHistory,
                         orphanCommits,
-                        teamTokenTotals),
+                        teamTokenTotals,
+                        teamParticipation.getOrphanCommitCount()),
                 teamTokenTotals);
     }
 
