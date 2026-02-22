@@ -77,7 +77,7 @@ dependencies {
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.5.0.202512021534-r'
 
     // Excel parsing
-    implementation 'org.apache.poi:poi-ooxml:5.4.0'
+    implementation 'org.apache.poi:poi-ooxml:5.5.1'
 
     // Uses patched netty version to resolve vulnerability in Spring AI
     implementation 'io.netty:netty-codec-http:4.2.9.Final'
@@ -93,7 +93,7 @@ dependencies {
     implementation 'org.postgresql:postgresql:42.7.9'
 
     // Apache POI for Excel export
-    implementation 'org.apache.poi:poi-ooxml:5.4.1'
+    implementation 'org.apache.poi:poi-ooxml:5.5.1'
 
     // Lombok for boilerplate code reduction
     compileOnly 'org.projectlombok:lombok'
