@@ -3,7 +3,7 @@ import type { TemplateAuthorInfo } from '@/data/dataLoaders';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, Pencil } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, Pencil, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -20,6 +20,12 @@ import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import ExportButton from '@/components/ExportButton';
@@ -41,7 +47,7 @@ interface TeamsListProps {
   onStart: () => void;
   onCancel: () => void;
   onRecompute: () => void;
-  onClear: (type: 'db' | 'files' | 'both') => void;
+  onClear: (type: 'db' | 'files' | 'both', clearMappings?: boolean) => void;
   course: string;
   exercise: string;
   analysisStatus: AnalysisStatus;
@@ -101,6 +107,7 @@ const TeamsList = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
+  const [clearMappings, setClearMappings] = useState(false);
   const [removeAttendanceDialogOpen, setRemoveAttendanceDialogOpen] = useState(false);
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
@@ -354,8 +361,9 @@ const TeamsList = ({
     }
   };
 
-  const handleClearClick = (type: 'db' | 'files' | 'both') => {
+  const handleClearClick = (type: 'db' | 'files' | 'both', withMappings: boolean) => {
     setClearType(type);
+    setClearMappings(withMappings);
     setClearDialogOpen(true);
   };
 
@@ -443,14 +451,26 @@ const TeamsList = ({
           </Button>
           {renderActionButton()}
           <ExportButton exerciseId={exercise} disabled={teams.length === 0} />
-          <Button
-            variant="outline"
-            onClick={() => handleClearClick('both')}
-            disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}
-          >
-            {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            {isClearing ? 'Clearing...' : 'Clear Data'}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}
+              >
+                {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {isClearing ? 'Clearing...' : 'Clear Data'}
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleClearClick('both', false)}>
+                Clear Analysis
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleClearClick('both', true)} className="text-destructive">
+                Clear All
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -540,11 +560,15 @@ const TeamsList = ({
       <ConfirmationDialog
         open={clearDialogOpen}
         onOpenChange={setClearDialogOpen}
-        title="Clear Data"
-        description={`This will permanently delete ${clearType === 'both' ? 'database records and repository files' : clearType === 'db' ? 'database records' : 'repository files'}. This action cannot be undone.`}
-        confirmLabel="Clear"
+        title={clearMappings ? 'Clear All Data' : 'Clear Analysis'}
+        description={
+          clearMappings
+            ? 'This will permanently delete analysis data, repository files, and all email mappings. This action cannot be undone.'
+            : 'This will permanently delete analysis data and repository files. Email mappings will be preserved and applied to the next analysis.'
+        }
+        confirmLabel={clearMappings ? 'Clear All' : 'Clear Analysis'}
         variant="destructive"
-        onConfirm={() => onClear(clearType)}
+        onConfirm={() => onClear(clearType, clearMappings)}
       />
 
       <ConfirmationDialog

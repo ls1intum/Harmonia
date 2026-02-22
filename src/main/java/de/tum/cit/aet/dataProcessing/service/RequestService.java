@@ -26,9 +26,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 
+import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
@@ -66,6 +68,7 @@ public class RequestService {
     private final StudentRepository studentRepository;
     private final AnalyzedChunkRepository analyzedChunkRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
+    private final ExerciseEmailMappingRepository emailMappingRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -91,6 +94,7 @@ public class RequestService {
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
             ExerciseTemplateAuthorRepository templateAuthorRepository,
+            ExerciseEmailMappingRepository emailMappingRepository,
             GitContributionAnalysisService gitContributionAnalysisService,
             CommitPreFilterService commitPreFilterService,
             CQICalculatorService cqiCalculatorService,
@@ -107,6 +111,7 @@ public class RequestService {
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
         this.templateAuthorRepository = templateAuthorRepository;
+        this.emailMappingRepository = emailMappingRepository;
         this.gitContributionAnalysisService = gitContributionAnalysisService;
         this.commitPreFilterService = commitPreFilterService;
         this.cqiCalculatorService = cqiCalculatorService;
@@ -694,6 +699,7 @@ public class RequestService {
 
                 if (analysisHistory != null && !analysisHistory.isEmpty()) {
                     saveAnalyzedChunks(teamParticipation, analysisHistory);
+                    applyExistingEmailMappings(teamParticipation, exerciseId);
                 }
             } else {
                 log.warn("Fairness analysis returned error for team {}", team.name());
@@ -908,6 +914,7 @@ public class RequestService {
                 // Persist analyzed chunks to database
                 if (analysisHistory != null && !analysisHistory.isEmpty()) {
                     saveAnalyzedChunks(teamParticipation, analysisHistory);
+                    applyExistingEmailMappings(teamParticipation, exerciseId);
                 }
             } else {
                 log.warn("Fairness analysis returned error for team {}", team.name());
@@ -1672,6 +1679,42 @@ public class RequestService {
             log.debug("Saved {} analyzed chunks for team {}", entities.size(), participation.getName());
         } catch (Exception e) {
             log.warn("Failed to save analyzed chunks for team {}: {}", participation.getName(), e.getMessage());
+        }
+    }
+
+    /**
+     * Applies any existing email mappings to freshly saved chunks.
+     * This ensures that mappings created before a "Clear Analysis" + re-run
+     * are automatically applied to the new chunks.
+     */
+    void applyExistingEmailMappings(TeamParticipation participation, Long exerciseId) {
+        try {
+            List<ExerciseEmailMapping> mappings = emailMappingRepository.findAllByExerciseId(exerciseId);
+            if (mappings.isEmpty()) {
+                return;
+            }
+            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+            boolean anyUpdated = false;
+            for (ExerciseEmailMapping mapping : mappings) {
+                String emailLower = mapping.getGitEmail().toLowerCase(java.util.Locale.ROOT);
+                for (AnalyzedChunk chunk : chunks) {
+                    if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
+                            && emailLower.equals(chunk.getAuthorEmail() != null
+                                    ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
+                        chunk.setIsExternalContributor(false);
+                        chunk.setAuthorName(mapping.getStudentName());
+                        anyUpdated = true;
+                    }
+                }
+            }
+            if (anyUpdated) {
+                analyzedChunkRepository.saveAll(chunks);
+                log.info("Applied {} existing email mapping(s) to chunks for team {}",
+                        mappings.size(), participation.getName());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to apply existing email mappings for team {}: {}",
+                    participation.getName(), e.getMessage());
         }
     }
 

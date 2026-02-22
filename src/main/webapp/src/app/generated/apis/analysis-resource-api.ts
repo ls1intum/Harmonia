@@ -75,7 +75,7 @@ export const AnalysisResourceApiAxiosParamCreator = function (configuration?: Co
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    clearData: async (exerciseId: number, type?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+    clearData: async (exerciseId: number, type?: string, clearMappings?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
       assertParamExists('clearData', 'exerciseId', exerciseId);
       const localVarPath = `/api/analysis/{exerciseId}/clear`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
@@ -92,6 +92,10 @@ export const AnalysisResourceApiAxiosParamCreator = function (configuration?: Co
 
       if (type !== undefined) {
         localVarQueryParameter['type'] = type;
+      }
+
+      if (clearMappings !== undefined) {
+        localVarQueryParameter['clearMappings'] = clearMappings;
       }
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
@@ -197,15 +201,17 @@ export const AnalysisResourceApiFp = function (configuration?: Configuration) {
      *
      * @param {number} exerciseId
      * @param {string} [type]
+     * @param {boolean} [clearMappings]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async clearData(
       exerciseId: number,
       type?: string,
+      clearMappings?: boolean,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.clearData(exerciseId, type, options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.clearData(exerciseId, type, clearMappings, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath = operationServerMap['AnalysisResourceApi.clearData']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
@@ -267,11 +273,12 @@ export const AnalysisResourceApiFactory = function (configuration?: Configuratio
      *
      * @param {number} exerciseId
      * @param {string} [type]
+     * @param {boolean} [clearMappings]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    clearData(exerciseId: number, type?: string, options?: RawAxiosRequestConfig): AxiosPromise<string> {
-      return localVarFp.clearData(exerciseId, type, options).then(request => request(axios, basePath));
+    clearData(exerciseId: number, type?: string, clearMappings?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+      return localVarFp.clearData(exerciseId, type, clearMappings, options).then(request => request(axios, basePath));
     },
     /**
      *
@@ -315,12 +322,13 @@ export class AnalysisResourceApi extends BaseAPI {
    *
    * @param {number} exerciseId
    * @param {string} [type]
+   * @param {boolean} [clearMappings]
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public clearData(exerciseId: number, type?: string, options?: RawAxiosRequestConfig) {
+  public clearData(exerciseId: number, type?: string, clearMappings?: boolean, options?: RawAxiosRequestConfig) {
     return AnalysisResourceApiFp(this.configuration)
-      .clearData(exerciseId, type, options)
+      .clearData(exerciseId, type, clearMappings, options)
       .then(request => request(this.axios, this.basePath));
   }
 

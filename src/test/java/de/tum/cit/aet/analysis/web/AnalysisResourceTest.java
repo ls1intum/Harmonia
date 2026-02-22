@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
+import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
@@ -29,11 +30,14 @@ class AnalysisResourceTest {
     @Mock
     private TeamScheduleService teamScheduleService;
 
+    @Mock
+    private ExerciseEmailMappingRepository emailMappingRepository;
+
     private AnalysisResource resource;
 
     @BeforeEach
     void setUp() {
-        resource = new AnalysisResource(stateService, requestService, teamScheduleService);
+        resource = new AnalysisResource(stateService, requestService, teamScheduleService, emailMappingRepository);
     }
 
     @Test
@@ -67,35 +71,56 @@ class AnalysisResourceTest {
 
     @Test
     void clearData_dbOnly_clearsOnlyDatabase() {
-        ResponseEntity<String> response = resource.clearData(123L, "db");
+        ResponseEntity<String> response = resource.clearData(123L, "db", false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
         verify(teamScheduleService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
+        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
     }
 
     @Test
     void clearData_filesOnly_clearsOnlyFiles() {
-        ResponseEntity<String> response = resource.clearData(123L, "files");
+        ResponseEntity<String> response = resource.clearData(123L, "files", false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
         verify(teamScheduleService).clear();  // Always clears attendance data
         verify(requestService, never()).clearDatabaseForExercise(any());
         verify(stateService, never()).resetStatus(any());
+        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
     }
 
     @Test
     void clearData_both_clearsDatabaseAndFiles() {
-        ResponseEntity<String> response = resource.clearData(123L, "both");
+        ResponseEntity<String> response = resource.clearData(123L, "both", false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
         verify(teamScheduleService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
+        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
+    }
+
+    @Test
+    void clearData_withClearMappings_deletesEmailMappings() {
+        ResponseEntity<String> response = resource.clearData(123L, "both", true);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(requestService).clearDatabaseForExercise(123L);
+        verify(emailMappingRepository).deleteAllByExerciseId(123L);
+    }
+
+    @Test
+    void clearData_filesOnlyWithClearMappings_doesNotDeleteMappings() {
+        ResponseEntity<String> response = resource.clearData(123L, "files", true);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(requestService, never()).clearDatabaseForExercise(any());
+        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
     }
 
     @Test

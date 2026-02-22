@@ -370,7 +370,8 @@ export default function Teams() {
 
   // Mutation for clear
   const clearMutation = useMutation({
-    mutationFn: (type: 'db' | 'files' | 'both') => clearData(exercise, type),
+    mutationFn: ({ type, clearMappings }: { type: 'db' | 'files' | 'both'; clearMappings?: boolean }) =>
+      clearData(exercise, type, clearMappings),
     onSuccess: () => {
       setAttendanceFile(null);
       setUploadedAttendanceFileName(null);
@@ -463,7 +464,7 @@ export default function Teams() {
       onStart={() => startMutation.mutate()}
       onCancel={() => cancelMutation.mutate()}
       onRecompute={() => recomputeMutation.mutate()}
-      onClear={type => clearMutation.mutate(type)}
+      onClear={(type, clearMappings) => clearMutation.mutate({ type, clearMappings })}
       course={course}
       exercise={exercise}
       analysisStatus={status}
