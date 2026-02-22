@@ -47,6 +47,9 @@
             <!-- meta columns -->
             <column name="exercise_id" type="BIGINT"/>
             <column name="analysis_status" type="VARCHAR(255)"/>
+
+            <!-- orphan commit tracking -->
+            <column name="orphan_commit_count" type="INT"/>
         </createTable>
     </changeSet>
 
@@ -202,6 +205,7 @@
             <column name="llm_completion_tokens" type="BIGINT"/>
             <column name="llm_total_tokens" type="BIGINT"/>
             <column name="llm_usage_available" type="BOOLEAN"/>
+            <column name="is_external_contributor" type="BOOLEAN"/>
         </createTable>
         <addForeignKeyConstraint
                 baseTableName="analyzed_chunks"
@@ -212,6 +216,47 @@
         <createIndex tableName="analyzed_chunks" indexName="idx_analyzed_chunks_participation">
             <column name="participation_id"/>
         </createIndex>
+    </changeSet>
+
+    <!-- initial-schema-k: exercise_email_mappings table -->
+    <changeSet id="initial-schema-k" author="Liam">
+        <createTable tableName="exercise_email_mappings">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="exercise_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="git_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="student_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="student_name" type="VARCHAR(255)"/>
+        </createTable>
+        <addUniqueConstraint tableName="exercise_email_mappings"
+            columnNames="exercise_id, git_email"
+            constraintName="uc_email_mapping_exercise_email"/>
+        <createIndex tableName="exercise_email_mappings" indexName="idx_email_mapping_exercise">
+            <column name="exercise_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- initial-schema-l: exercise_template_authors table -->
+    <changeSet id="initial-schema-l" author="Liam">
+        <createTable tableName="exercise_template_authors">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="exercise_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="template_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="auto_detected" type="BOOLEAN" defaultValueBoolean="false"/>
+        </createTable>
     </changeSet>
 
 </databaseChangeLog>
