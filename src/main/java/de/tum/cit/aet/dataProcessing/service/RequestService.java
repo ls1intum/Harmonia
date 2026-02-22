@@ -1694,7 +1694,8 @@ public class RequestService {
                 return;
             }
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
-            boolean anyUpdated = false;
+            // Track remapped chunks per student name so we can update student stats
+            Map<String, List<AnalyzedChunk>> remappedByStudent = new HashMap<>();
             for (ExerciseEmailMapping mapping : mappings) {
                 String emailLower = mapping.getGitEmail().toLowerCase(java.util.Locale.ROOT);
                 for (AnalyzedChunk chunk : chunks) {
@@ -1703,14 +1704,65 @@ public class RequestService {
                                     ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
                         chunk.setIsExternalContributor(false);
                         chunk.setAuthorName(mapping.getStudentName());
-                        anyUpdated = true;
+                        remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
+                                .add(chunk);
                     }
                 }
             }
-            if (anyUpdated) {
+            if (!remappedByStudent.isEmpty()) {
                 analyzedChunkRepository.saveAll(chunks);
-                log.info("Applied {} existing email mapping(s) to chunks for team {}",
-                        mappings.size(), participation.getName());
+
+                // Update student stats with the remapped chunks
+                List<Student> students = studentRepository.findAllByTeam(participation);
+                for (Map.Entry<String, List<AnalyzedChunk>> entry : remappedByStudent.entrySet()) {
+                    String studentName = entry.getKey();
+                    List<AnalyzedChunk> remappedChunks = entry.getValue();
+                    int deltaCommits = 0;
+                    int deltaLines = 0;
+                    for (AnalyzedChunk chunk : remappedChunks) {
+                        if (chunk.getCommitShas() != null && !chunk.getCommitShas().isEmpty()) {
+                            deltaCommits += chunk.getCommitShas().split(",").length;
+                        }
+                        deltaLines += chunk.getLinesChanged() != null ? chunk.getLinesChanged() : 0;
+                    }
+                    if (deltaCommits > 0 || deltaLines > 0) {
+                        int finalDeltaCommits = deltaCommits;
+                        int finalDeltaLines = deltaLines;
+                        students.stream()
+                                .filter(s -> studentName.equals(s.getName()))
+                                .findFirst()
+                                .ifPresent(student -> {
+                                    student.setCommitCount(
+                                            (student.getCommitCount() != null ? student.getCommitCount() : 0)
+                                                    + finalDeltaCommits);
+                                    student.setLinesChanged(
+                                            (student.getLinesChanged() != null ? student.getLinesChanged() : 0)
+                                                    + finalDeltaLines);
+                                    // Distribute linesChanged into linesAdded/linesDeleted
+                                    // using the student's existing ratio
+                                    int oldAdded = student.getLinesAdded() != null ? student.getLinesAdded() : 0;
+                                    int oldDeleted = student.getLinesDeleted() != null ? student.getLinesDeleted() : 0;
+                                    int oldTotal = oldAdded + oldDeleted;
+                                    int deltaAdded;
+                                    int deltaDeleted;
+                                    if (oldTotal > 0) {
+                                        deltaAdded = (int) Math.round(
+                                                finalDeltaLines * ((double) oldAdded / oldTotal));
+                                        deltaDeleted = finalDeltaLines - deltaAdded;
+                                    } else {
+                                        deltaAdded = finalDeltaLines;
+                                        deltaDeleted = 0;
+                                    }
+                                    student.setLinesAdded(oldAdded + deltaAdded);
+                                    student.setLinesDeleted(oldDeleted + deltaDeleted);
+                                    studentRepository.save(student);
+                                });
+                    }
+                }
+
+                log.info("Applied {} existing email mapping(s) to chunks for team {}, "
+                                + "updated stats for {} student(s)",
+                        mappings.size(), participation.getName(), remappedByStudent.size());
             }
         } catch (Exception e) {
             log.warn("Failed to apply existing email mappings for team {}: {}",

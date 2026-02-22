@@ -65,7 +65,7 @@ class RequestServiceApplyMappingsTest {
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
 
     @Test
-    void applyMappings_matchingExternalChunk_becomesNonExternalWithCorrectName() {
+    void applyMappings_matchingExternalChunk_becomesNonExternalAndUpdatesStudentStats() {
         TeamParticipation participation = new TeamParticipation();
         participation.setName("Team A");
 
@@ -76,6 +76,8 @@ class RequestServiceApplyMappingsTest {
         externalChunk.setAuthorEmail("orphan@gmail.com");
         externalChunk.setAuthorName("Unknown");
         externalChunk.setIsExternalContributor(true);
+        externalChunk.setCommitShas("abc123,def456");
+        externalChunk.setLinesChanged(200);
 
         AnalyzedChunk normalChunk = new AnalyzedChunk();
         normalChunk.setAuthorEmail("student@uni.de");
@@ -85,6 +87,10 @@ class RequestServiceApplyMappingsTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(List.of(externalChunk, normalChunk));
 
+        // Student "Alice" exists with some initial stats
+        Student alice = new Student(1L, "alice", "Alice", "alice@uni.de", participation, 10, 300, 100, 400);
+        when(studentRepository.findAllByTeam(participation)).thenReturn(List.of(alice));
+
         service.applyExistingEmailMappings(participation, 42L);
 
         verify(analyzedChunkRepository).saveAll(any());
@@ -93,6 +99,14 @@ class RequestServiceApplyMappingsTest {
         // Normal chunk must be untouched
         assertFalse(normalChunk.getIsExternalContributor());
         assertEquals("Bob", normalChunk.getAuthorName());
+
+        // Student stats should include the remapped chunk's contributions
+        verify(studentRepository).save(alice);
+        assertEquals(12, alice.getCommitCount(), "2 commits from chunk should be added");
+        assertEquals(600, alice.getLinesChanged(), "200 lines from chunk should be added");
+        // linesAdded/linesDeleted split proportionally: 300/(300+100) = 75% added
+        assertEquals(450, alice.getLinesAdded(), "linesAdded should increase proportionally");
+        assertEquals(150, alice.getLinesDeleted(), "linesDeleted should increase proportionally");
     }
 
     @Test
@@ -109,6 +123,7 @@ class RequestServiceApplyMappingsTest {
 
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(List.of(chunk));
+        when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
 
         service.applyExistingEmailMappings(participation, 42L);
 
@@ -198,6 +213,8 @@ class RequestServiceApplyMappingsTest {
             chunk.setAuthorEmail("orphan@gmail.com");
             chunk.setAuthorName("Unknown");
             chunk.setIsExternalContributor(true);
+            chunk.setCommitShas("abc123");
+            chunk.setLinesChanged(100);
             return List.of(chunk);
         });
 
@@ -216,5 +233,10 @@ class RequestServiceApplyMappingsTest {
                 "Chunk should no longer be marked as external after mapping is applied");
         assertEquals("Alice", applied.getAuthorName(),
                 "Chunk author name should be updated to the mapped student name");
+
+        // Student stats should be updated with the remapped chunk
+        verify(studentRepository).save(student);
+        assertEquals(21, student.getCommitCount(), "1 commit from mapped chunk should be added to original 20");
+        assertEquals(650, student.getLinesChanged(), "100 lines from mapped chunk should be added to original 550");
     }
 }
