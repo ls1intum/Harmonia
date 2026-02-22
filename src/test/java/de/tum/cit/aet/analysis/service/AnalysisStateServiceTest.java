@@ -89,12 +89,14 @@ class AnalysisStateServiceTest {
     }
 
     @Test
-    void updateProgress_notRunning_throwsException() {
+    void updateProgress_notRunning_returnsCurrentStatus() {
         AnalysisStatus idle = new AnalysisStatus(123L);
         when(statusRepository.findById(123L)).thenReturn(Optional.of(idle));
 
-        assertThrows(IllegalStateException.class,
-                () -> service.updateProgress(123L, "Team A", "DOWNLOADING", 3));
+        AnalysisStatus result = service.updateProgress(123L, "Team A", "DOWNLOADING", 3);
+
+        assertEquals(AnalysisState.IDLE, result.getState());
+        verify(statusRepository, never()).save(any());
     }
 
     @Test

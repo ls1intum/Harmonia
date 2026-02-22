@@ -2,20 +2,21 @@
 
 ## Properties
 
-| Name                | Type                                                         | Description | Notes                             |
-| ------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
-| **analysisHistory** | [**Array&lt;AnalyzedChunkDTO&gt;**](AnalyzedChunkDTO.md)     |             | [optional] [default to undefined] |
-| **analysisStatus**  | **string**                                                   |             | [optional] [default to undefined] |
-| **cqi**             | **number**                                                   |             | [optional] [default to undefined] |
-| **cqiDetails**      | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
-| **isSuspicious**    | **boolean**                                                  |             | [optional] [default to undefined] |
-| **llmTokenTotals**  | [**LlmTokenTotals**](LlmTokenTotals.md)                      |             | [optional] [default to undefined] |
-| **orphanCommits**   | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
-| **students**        | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
-| **submissionCount** | **number**                                                   |             | [optional] [default to undefined] |
-| **teamId**          | **number**                                                   |             | [optional] [default to undefined] |
-| **teamName**        | **string**                                                   |             | [optional] [default to undefined] |
-| **tutor**           | **string**                                                   |             | [optional] [default to undefined] |
+| Name                  | Type                                                         | Description | Notes                             |
+| --------------------- | ------------------------------------------------------------ | ----------- | --------------------------------- |
+| **analysisHistory**   | [**Array&lt;AnalyzedChunkDTO&gt;**](AnalyzedChunkDTO.md)     |             | [optional] [default to undefined] |
+| **analysisStatus**    | **string**                                                   |             | [optional] [default to undefined] |
+| **cqi**               | **number**                                                   |             | [optional] [default to undefined] |
+| **cqiDetails**        | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
+| **isSuspicious**      | **boolean**                                                  |             | [optional] [default to undefined] |
+| **llmTokenTotals**    | [**LlmTokenTotals**](LlmTokenTotals.md)                      |             | [optional] [default to undefined] |
+| **orphanCommitCount** | **number**                                                   |             | [optional] [default to undefined] |
+| **orphanCommits**     | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
+| **students**          | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
+| **submissionCount**   | **number**                                                   |             | [optional] [default to undefined] |
+| **teamId**            | **number**                                                   |             | [optional] [default to undefined] |
+| **teamName**          | **string**                                                   |             | [optional] [default to undefined] |
+| **tutor**             | **string**                                                   |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -29,6 +30,7 @@ const instance: ClientResponseDTO = {
   cqiDetails,
   isSuspicious,
   llmTokenTotals,
+  orphanCommitCount,
   orphanCommits,
   students,
   submissionCount,

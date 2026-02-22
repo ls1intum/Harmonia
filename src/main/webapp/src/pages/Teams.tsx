@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
+import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
-import { loadBasicTeamDataStream, transformToComplexTeamData } from '@/data/dataLoaders';
+import { loadBasicTeamDataStream, transformToComplexTeamData, type TemplateAuthorInfo } from '@/data/dataLoaders';
 import { AttendanceResourceApi, Configuration, type TeamAttendanceDTO, type TeamsScheduleDTO } from '@/app/generated';
 import { normalizeTeamName } from '@/lib/utils';
 import {
@@ -74,6 +75,24 @@ export default function Teams() {
   const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<PairProgrammingAttendanceMap>(() =>
     readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
   );
+  // Template author candidates — no server endpoint, managed purely via query cache
+  const templateAuthorCandidates = queryClient.getQueryData<string[] | null>(['templateAuthorCandidates', exercise]) ?? null;
+
+  // Load template author from server — derived directly from query cache
+  const { data: templateAuthor = null } = useQuery<TemplateAuthorInfo | null>({
+    queryKey: ['templateAuthor', exercise],
+    queryFn: async () => {
+      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
+        credentials: 'include',
+      });
+      if (response.status === 404) return null;
+      if (!response.ok) return null;
+      const data = await response.json();
+      return { email: data.templateEmail, autoDetected: data.autoDetected };
+    },
+    enabled: !!exercise,
+    staleTime: 60 * 1000,
+  });
 
   // Use new server-synced status hook
   const {
@@ -190,6 +209,8 @@ export default function Teams() {
       toast({ title: 'Starting analysis...' });
 
       // Step 2: Start streaming (server will clear data before starting)
+      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
@@ -222,12 +243,17 @@ export default function Teams() {
           error => {
             reject(error);
           },
+          undefined, // onPhaseChange
+          undefined, // onGitDone
+          info => queryClient.setQueryData(['templateAuthor', exercise], info),
+          candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
         );
       });
     },
     onSuccess: () => {
       toast({ title: 'Analysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
       refetchStatus();
     },
     onError: (error: Error) => {
@@ -284,6 +310,8 @@ export default function Teams() {
       toast({ title: 'Forcing reanalysis...' });
 
       // Step 2: Start streaming (server will clear data before starting)
+      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
           exercise,
@@ -313,12 +341,17 @@ export default function Teams() {
           error => {
             reject(error);
           },
+          undefined, // onPhaseChange
+          undefined, // onGitDone
+          info => queryClient.setQueryData(['templateAuthor', exercise], info),
+          candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
         );
       });
     },
     onSuccess: () => {
       toast({ title: 'Reanalysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
       refetchStatus();
     },
     onError: (error: Error) => {
@@ -337,7 +370,8 @@ export default function Teams() {
 
   // Mutation for clear
   const clearMutation = useMutation({
-    mutationFn: (type: 'db' | 'files' | 'both') => clearData(exercise, type),
+    mutationFn: ({ type, clearMappings }: { type: 'db' | 'files' | 'both'; clearMappings?: boolean }) =>
+      clearData(exercise, type, clearMappings),
     onSuccess: () => {
       setAttendanceFile(null);
       setUploadedAttendanceFileName(null);
@@ -356,6 +390,8 @@ export default function Teams() {
     },
   });
 
+  const courseAverages = useMemo(() => computeCourseAverages(teams), [teams]);
+
   // Redirect if no course/exercise
   if (!course || !exercise) {
     navigate('/');
@@ -363,7 +399,9 @@ export default function Teams() {
   }
 
   const handleTeamSelect = (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
-    navigate(`/teams/${team.id}`, { state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus } });
+    navigate(`/teams/${team.id}`, {
+      state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages },
+    });
   };
 
   const handleAttendanceUpload = () => {
@@ -382,15 +420,51 @@ export default function Teams() {
     clearAttendanceMutation.mutate();
   };
 
+  const handleTemplateAuthorSet = async (email: string) => {
+    try {
+      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ templateEmail: email }),
+      });
+      if (response.ok) {
+        queryClient.setQueryData(['templateAuthor', exercise], { email, autoDetected: false });
+        queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+        toast({ title: 'Template author set', description: email });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Failed to set template author' });
+    }
+  };
+
+  const handleTemplateAuthorRemove = async () => {
+    try {
+      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (response.ok || response.status === 204) {
+        queryClient.setQueryData(['templateAuthor', exercise], null);
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+        toast({ title: 'Template author removed' });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Failed to remove template author' });
+    }
+  };
+
   return (
     <TeamsList
       teams={teams}
+      courseAverages={courseAverages}
       onTeamSelect={handleTeamSelect}
       onBackToHome={() => navigate('/')}
       onStart={() => startMutation.mutate()}
       onCancel={() => cancelMutation.mutate()}
       onRecompute={() => recomputeMutation.mutate()}
-      onClear={type => clearMutation.mutate(type)}
+      onClear={(type, clearMappings) => clearMutation.mutate({ type, clearMappings })}
       course={course}
       exercise={exercise}
       analysisStatus={status}
@@ -401,6 +475,10 @@ export default function Teams() {
       onAttendanceFileSelect={setAttendanceFile}
       onAttendanceUpload={handleAttendanceUpload}
       onRemoveUploadedAttendanceFile={handleRemoveUploadedAttendanceFile}
+      templateAuthor={templateAuthor}
+      templateAuthorCandidates={templateAuthorCandidates}
+      onTemplateAuthorSet={handleTemplateAuthorSet}
+      onTemplateAuthorRemove={handleTemplateAuthorRemove}
       isLoading={isStatusLoading}
       isStarting={startMutation.isPending}
       isCancelling={cancelMutation.isPending}

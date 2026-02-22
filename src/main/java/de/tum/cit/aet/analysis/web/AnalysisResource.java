@@ -2,6 +2,7 @@ package de.tum.cit.aet.analysis.web;
 
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
+import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
@@ -24,11 +25,14 @@ public class AnalysisResource {
     private final AnalysisStateService stateService;
     private final RequestService requestService;
     private final TeamScheduleService teamScheduleService;
+    private final ExerciseEmailMappingRepository emailMappingRepository;
 
-    public AnalysisResource(AnalysisStateService stateService, RequestService requestService, TeamScheduleService teamScheduleService) {
+    public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
+                            TeamScheduleService teamScheduleService, ExerciseEmailMappingRepository emailMappingRepository) {
         this.stateService = stateService;
         this.requestService = requestService;
         this.teamScheduleService = teamScheduleService;
+        this.emailMappingRepository = emailMappingRepository;
     }
 
     /**
@@ -65,15 +69,17 @@ public class AnalysisResource {
     /**
      * Clear data for an exercise.
      *
-     * @param exerciseId the id of the exercise
-     * @param type       One of: "db", "files", "both"
+     * @param exerciseId    the id of the exercise
+     * @param type          One of: "db", "files", "both"
+     * @param clearMappings if true, also delete email mappings for this exercise
      * @return a response entity
      */
     @DeleteMapping("/{exerciseId}/clear")
     public ResponseEntity<String> clearData(
             @PathVariable Long exerciseId,
-            @RequestParam(defaultValue = "both") String type) {
-        log.info("Clear requested for exercise: {}, type: {}", exerciseId, type);
+            @RequestParam(defaultValue = "both") String type,
+            @RequestParam(defaultValue = "false") boolean clearMappings) {
+        log.info("Clear requested for exercise: {}, type: {}, clearMappings: {}", exerciseId, type, clearMappings);
 
         try {
             // First, stop any running analysis task to prevent it from continuing
@@ -88,6 +94,11 @@ public class AnalysisResource {
                 requestService.clearDatabaseForExercise(exerciseId);
                 stateService.resetStatus(exerciseId);
                 log.info("Database cleared for exercise {}", exerciseId);
+
+                if (clearMappings) {
+                    emailMappingRepository.deleteAllByExerciseId(exerciseId);
+                    log.info("Email mappings cleared for exercise {}", exerciseId);
+                }
             }
 
             if ("files".equals(type) || "both".equals(type)) {

@@ -45,8 +45,8 @@ export async function cancelAnalysis(exerciseId: string): Promise<AnalysisStatus
 /**
  * Clears data for an exercise using generated API.
  */
-export async function clearData(exerciseId: string, type: 'db' | 'files' | 'both'): Promise<void> {
-  await analysisApi.clearData(parseInt(exerciseId), type);
+export async function clearData(exerciseId: string, type: 'db' | 'files' | 'both', clearMappings?: boolean): Promise<void> {
+  await analysisApi.clearData(parseInt(exerciseId), type, clearMappings);
 }
 
 interface UseAnalysisStatusOptions {

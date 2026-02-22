@@ -22,7 +22,28 @@ public record ClientResponseDTO(
                 CQIResultDTO cqiDetails,
                 List<AnalyzedChunkDTO> analysisHistory,
                 List<OrphanCommitDTO> orphanCommits,
-                LlmTokenTotals llmTokenTotals) {
+                LlmTokenTotals llmTokenTotals,
+                Integer orphanCommitCount) {
+
+        /**
+         * Constructor for backward compatibility without orphanCommitCount.
+         */
+        public ClientResponseDTO(
+                        String tutor,
+                        Long teamId,
+                        String teamName,
+                        Integer submissionCount,
+                        List<StudentAnalysisDTO> students,
+                        Double cqi,
+                        Boolean isSuspicious,
+                        AnalysisStatus analysisStatus,
+                        CQIResultDTO cqiDetails,
+                        List<AnalyzedChunkDTO> analysisHistory,
+                        List<OrphanCommitDTO> orphanCommits,
+                        LlmTokenTotals llmTokenTotals) {
+                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
+                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null);
+        }
 
         /**
          * Constructor for backward compatibility without llmTokenTotals.
@@ -40,6 +61,6 @@ public record ClientResponseDTO(
                         List<AnalyzedChunkDTO> analysisHistory,
                         List<OrphanCommitDTO> orphanCommits) {
                 this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
-                                cqiDetails, analysisHistory, orphanCommits, null);
+                                cqiDetails, analysisHistory, orphanCommits, null, null);
         }
 }

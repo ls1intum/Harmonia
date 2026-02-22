@@ -1,6 +1,6 @@
-import type { Team, SubMetric } from '@/types/team';
+import type { Team, SubMetric, CourseAverages } from '@/types/team';
 import type { AnalyzedChunkDTO } from '@/app/generated';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
+import type { EmailMapping } from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
 import { getFailedReason } from '@/lib/utils.ts';
@@ -21,10 +22,80 @@ interface TeamDetailProps {
   course?: string;
   exercise?: string;
   pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
+  courseAverages?: CourseAverages | null;
+  onTeamUpdate?: (team: Team) => void;
 }
 
-const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus = null }: TeamDetailProps) => {
+const TeamDetail = ({
+  team,
+  onBack,
+  course,
+  exercise,
+  pairProgrammingBadgeStatus = null,
+  courseAverages = null,
+  onTeamUpdate,
+}: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
+  const [emailMappings, setEmailMappings] = useState<EmailMapping[]>([]);
+  const [templateAuthorEmail, setTemplateAuthorEmail] = useState<string | undefined>();
+
+  const loadEmailMappings = useCallback(async () => {
+    if (!exercise) return;
+    try {
+      const response = await fetch(`/api/exercises/${exercise}/email-mappings`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEmailMappings(data);
+      }
+    } catch (error) {
+      console.error('Failed to load email mappings:', error);
+    }
+  }, [exercise]);
+
+  const loadTemplateAuthor = useCallback(async () => {
+    if (!exercise) return;
+    try {
+      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTemplateAuthorEmail(data.templateEmail);
+      }
+    } catch {
+      // Template author not configured — that's fine
+    }
+  }, [exercise]);
+
+  useEffect(() => {
+    loadEmailMappings();
+    loadTemplateAuthor();
+  }, [loadEmailMappings, loadTemplateAuthor]);
+
+  const handleMappingChange = useCallback(async () => {
+    await loadEmailMappings();
+    // Refresh team data from server
+    if (onTeamUpdate && exercise) {
+      try {
+        const response = await fetch(`/api/requestResource/${exercise}/getData`, {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (response.ok) {
+          const { transformToComplexTeamData } = await import('@/data/dataLoaders');
+          const data = await response.json();
+          const updatedTeam = data.find((d: { teamId?: number }) => d.teamId?.toString() === team.id);
+          if (updatedTeam) {
+            onTeamUpdate(transformToComplexTeamData(updatedTeam));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to refresh team data:', error);
+      }
+    }
+  }, [loadEmailMappings, onTeamUpdate, exercise, team.id]);
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -276,6 +347,42 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
         </CardContent>
       </Card>
 
+      {courseAverages && (
+        <Card className="p-6 shadow-card" data-testid="course-comparison-card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Course Comparison</h3>
+              <p className="text-sm text-muted-foreground">
+                Based on {courseAverages.analyzedTeams} analyzed team{courseAverages.analyzedTeams !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Commits</p>
+              <p className="text-2xl font-bold">{team.basicMetrics?.totalCommits ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">
+                Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgCommits : 'Pending'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Lines</p>
+              <p className="text-2xl font-bold">{team.basicMetrics?.totalLines?.toLocaleString() ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">
+                Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgLines.toLocaleString() : 'Pending'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">CQI</p>
+              <p className={`text-2xl font-bold ${team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}>{team.cqi ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">
+                Course avg: {courseAverages.analyzedTeams > 0 ? courseAverages.avgCQI : 'Pending'}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="space-y-4">
         <div>
           <h3 className="text-2xl font-bold mb-2">Detailed Metrics</h3>
@@ -388,7 +495,16 @@ const TeamDetail = ({ team, onBack, course, exercise, pairProgrammingBadgeStatus
               }
             />
 
-            <OrphanCommitsPanel commits={team.orphanCommits || []} />
+            <OrphanCommitsPanel
+              commits={team.orphanCommits || []}
+              analysisHistory={team.analysisHistory}
+              students={team.students}
+              exerciseId={exercise}
+              teamParticipationId={team.id}
+              emailMappings={emailMappings}
+              onMappingChange={handleMappingChange}
+              templateAuthorEmail={templateAuthorEmail}
+            />
 
             <AnalysisFeed chunks={team.analysisHistory || []} isDevMode={isDevMode} />
           </>

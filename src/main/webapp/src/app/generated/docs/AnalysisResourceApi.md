@@ -67,16 +67,18 @@ const apiInstance = new AnalysisResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
 let type: string; // (optional) (default to 'both')
+let clearMappings: boolean; // (optional) (default to false)
 
-const { status, data } = await apiInstance.clearData(exerciseId, type);
+const { status, data } = await apiInstance.clearData(exerciseId, type, clearMappings);
 ```
 
 ### Parameters
 
-| Name           | Type         | Description | Notes                         |
-| -------------- | ------------ | ----------- | ----------------------------- |
-| **exerciseId** | [**number**] |             | defaults to undefined         |
-| **type**       | [**string**] |             | (optional) defaults to 'both' |
+| Name              | Type          | Description | Notes                         |
+| ----------------- | ------------- | ----------- | ----------------------------- |
+| **exerciseId**    | [**number**]  |             | defaults to undefined         |
+| **type**          | [**string**]  |             | (optional) defaults to 'both' |
+| **clearMappings** | [**boolean**] |             | (optional) defaults to false  |
 
 ### Return type
 

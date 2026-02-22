@@ -1,13 +1,26 @@
-import type { Team } from '@/types/team';
+import type { Team, CourseAverages } from '@/types/team';
+import type { TemplateAuthorInfo } from '@/data/dataLoaders';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, Pencil, ChevronDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import ExportButton from '@/components/ExportButton';
@@ -23,12 +36,13 @@ import {
 
 interface TeamsListProps {
   teams: Team[];
+  courseAverages: CourseAverages | null;
   onTeamSelect: (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
   onBackToHome: () => void;
   onStart: () => void;
   onCancel: () => void;
   onRecompute: () => void;
-  onClear: (type: 'db' | 'files' | 'both') => void;
+  onClear: (type: 'db' | 'files' | 'both', clearMappings?: boolean) => void;
   course: string;
   exercise: string;
   analysisStatus: AnalysisStatus;
@@ -39,6 +53,10 @@ interface TeamsListProps {
   onAttendanceFileSelect: (file: File | null) => void;
   onAttendanceUpload: () => void;
   onRemoveUploadedAttendanceFile: () => void;
+  templateAuthor: TemplateAuthorInfo | null;
+  templateAuthorCandidates: string[] | null;
+  onTemplateAuthorSet: (email: string) => void;
+  onTemplateAuthorRemove: () => void;
   isLoading?: boolean;
   isStarting?: boolean;
   isCancelling?: boolean;
@@ -50,6 +68,7 @@ interface TeamsListProps {
 
 const TeamsList = ({
   teams,
+  courseAverages,
   onTeamSelect,
   onBackToHome,
   onStart,
@@ -66,6 +85,10 @@ const TeamsList = ({
   onAttendanceFileSelect,
   onAttendanceUpload,
   onRemoveUploadedAttendanceFile,
+  templateAuthor,
+  templateAuthorCandidates,
+  onTemplateAuthorSet,
+  onTemplateAuthorRemove,
   isLoading = false,
   isStarting = false,
   isCancelling = false,
@@ -79,10 +102,18 @@ const TeamsList = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
+  const [clearMappings, setClearMappings] = useState(false);
   const [removeAttendanceDialogOpen, setRemoveAttendanceDialogOpen] = useState(false);
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
+  const [templateAuthorDialogOpen, setTemplateAuthorDialogOpen] = useState(false);
+  const [templateAuthorInput, setTemplateAuthorInput] = useState('');
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
+
+  const openTemplateAuthorDialog = () => {
+    setTemplateAuthorInput(templateAuthor?.email || '');
+    setTemplateAuthorDialogOpen(true);
+  };
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -288,32 +319,6 @@ const TeamsList = ({
     return filtered;
   }, [teams, sortColumn, sortDirection, statusFilter]);
 
-  const courseAverages = useMemo(() => {
-    if (teams.length === 0) return null;
-
-    // Only include teams with calculated CQI in the CQI average
-    const teamsWithCQI = teams.filter(team => team.cqi !== undefined);
-    const totalCQI = teamsWithCQI.reduce((sum, team) => sum + (team.cqi ?? 0), 0);
-
-    // Include teams with git metrics (GIT_DONE, AI_ANALYZING, or DONE) in commit/line averages
-    const teamsWithGitMetrics = teams.filter(
-      team => team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE',
-    );
-    const totalCommits = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalCommits || 0), 0);
-    const totalLines = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalLines || 0), 0);
-    const suspiciousCount = teams.filter(team => team.isSuspicious === true).length;
-
-    return {
-      avgCQI: teamsWithCQI.length > 0 ? Math.round(totalCQI / teamsWithCQI.length) : 0,
-      avgCommits: teamsWithGitMetrics.length > 0 ? Math.round(totalCommits / teamsWithGitMetrics.length) : 0,
-      avgLines: teamsWithGitMetrics.length > 0 ? Math.round(totalLines / teamsWithGitMetrics.length) : 0,
-      suspiciousPercentage: Math.round((suspiciousCount / teams.length) * 100),
-      totalTeams: teams.length,
-      analyzedTeams: teamsWithCQI.length,
-      gitAnalyzedTeams: teamsWithGitMetrics.length,
-    };
-  }, [teams]);
-
   const renderActionButton = () => {
     if (isLoading) {
       return (
@@ -351,8 +356,9 @@ const TeamsList = ({
     }
   };
 
-  const handleClearClick = (type: 'db' | 'files' | 'both') => {
+  const handleClearClick = (type: 'db' | 'files' | 'both', withMappings: boolean) => {
     setClearType(type);
+    setClearMappings(withMappings);
     setClearDialogOpen(true);
   };
 
@@ -440,14 +446,21 @@ const TeamsList = ({
           </Button>
           {renderActionButton()}
           <ExportButton exerciseId={exercise} disabled={teams.length === 0} />
-          <Button
-            variant="outline"
-            onClick={() => handleClearClick('both')}
-            disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}
-          >
-            {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            {isClearing ? 'Clearing...' : 'Clear Data'}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}>
+                {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {isClearing ? 'Clearing...' : 'Clear Data'}
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleClearClick('both', false)}>Clear Analysis</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleClearClick('both', true)} className="text-destructive">
+                Clear All
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -495,16 +508,57 @@ const TeamsList = ({
         </Card>
       )}
 
+      {templateAuthor ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+          <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
+          <span>
+            Template author: <span className="font-medium text-foreground">{templateAuthor.email}</span>
+          </span>
+          {templateAuthor.autoDetected && (
+            <Badge variant="outline" className="text-xs py-0 h-5">
+              auto-detected
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openTemplateAuthorDialog}
+            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground px-1.5"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+          <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
+          <span>No template author configured</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openTemplateAuthorDialog}
+            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground px-1.5"
+          >
+            <Pencil className="h-3 w-3" />
+            Set
+          </Button>
+        </div>
+      )}
+
       <ActivityLog status={analysisStatus} />
 
       <ConfirmationDialog
         open={clearDialogOpen}
         onOpenChange={setClearDialogOpen}
-        title="Clear Data"
-        description={`This will permanently delete ${clearType === 'both' ? 'database records and repository files' : clearType === 'db' ? 'database records' : 'repository files'}. This action cannot be undone.`}
-        confirmLabel="Clear"
+        title={clearMappings ? 'Clear All Data' : 'Clear Analysis'}
+        description={
+          clearMappings
+            ? 'This will permanently delete analysis data, repository files, and all email mappings. This action cannot be undone.'
+            : 'This will permanently delete analysis data and repository files. Email mappings will be preserved and applied to the next analysis.'
+        }
+        confirmLabel={clearMappings ? 'Clear All' : 'Clear Analysis'}
         variant="destructive"
-        onConfirm={() => onClear(clearType)}
+        onConfirm={() => onClear(clearType, clearMappings)}
       />
 
       <ConfirmationDialog
@@ -525,6 +579,54 @@ const TeamsList = ({
         variant="destructive"
         onConfirm={onRemoveUploadedAttendanceFile}
       />
+
+      <AlertDialog open={templateAuthorDialogOpen} onOpenChange={setTemplateAuthorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Template Author</AlertDialogTitle>
+            <AlertDialogDescription>All commits from this email address will be excluded from the CQI calculation.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {templateAuthor && (
+            <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+              Commits from the previous template author ({templateAuthor.email}) were not analyzed and cannot be included retroactively.
+              Re-run the analysis for a full recalculation.
+            </p>
+          )}
+          <Input
+            value={templateAuthorInput}
+            onChange={e => setTemplateAuthorInput(e.target.value)}
+            placeholder="e.g. template-bot@university.edu"
+          />
+          {templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {templateAuthorCandidates.map(email => (
+                <Badge
+                  key={email}
+                  variant="outline"
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => setTemplateAuthorInput(email)}
+                >
+                  {email}
+                </Badge>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            {templateAuthor && (
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 mr-auto"
+                onClick={() => onTemplateAuthorRemove()}
+              >
+                Remove
+              </AlertDialogAction>
+            )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={!templateAuthorInput.trim()} onClick={() => onTemplateAuthorSet(templateAuthorInput.trim())}>
+              Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {courseAverages && (
         <Card className="p-6 shadow-card">
@@ -775,7 +877,12 @@ const TeamsList = ({
                       </td>
                     )}
                     <td className="py-4 px-6">
-                      <div className="flex flex-wrap items-center gap-2">{renderAnalysisStatusBadge(team)}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {renderAnalysisStatusBadge(team)}
+                        {team.orphanCommitCount != null && team.orphanCommitCount > 0 && (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">{team.orphanCommitCount} unmatched</Badge>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

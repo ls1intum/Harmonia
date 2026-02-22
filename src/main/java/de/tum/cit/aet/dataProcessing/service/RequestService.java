@@ -23,10 +23,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 
+import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
+import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
+import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
+import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
@@ -62,6 +68,9 @@ public class RequestService {
     private final TutorRepository tutorRepository;
     private final StudentRepository studentRepository;
     private final AnalyzedChunkRepository analyzedChunkRepository;
+    private final ExerciseTemplateAuthorRepository templateAuthorRepository;
+    private final ExerciseEmailMappingRepository emailMappingRepository;
+    private final CqiRecalculationService cqiRecalculationService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -86,11 +95,14 @@ public class RequestService {
             TutorRepository tutorRepository,
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
+            ExerciseTemplateAuthorRepository templateAuthorRepository,
+            ExerciseEmailMappingRepository emailMappingRepository,
             GitContributionAnalysisService gitContributionAnalysisService,
             CommitPreFilterService commitPreFilterService,
             CQICalculatorService cqiCalculatorService,
             CommitChunkerService commitChunkerService,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            CqiRecalculationService cqiRecalculationService) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
@@ -101,11 +113,14 @@ public class RequestService {
         this.tutorRepository = tutorRepository;
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
+        this.templateAuthorRepository = templateAuthorRepository;
+        this.emailMappingRepository = emailMappingRepository;
         this.gitContributionAnalysisService = gitContributionAnalysisService;
         this.commitPreFilterService = commitPreFilterService;
         this.cqiCalculatorService = cqiCalculatorService;
         this.commitChunkerService = commitChunkerService;
         this.transactionTemplate = transactionTemplate;
+        this.cqiRecalculationService = cqiRecalculationService;
     }
 
     /**
@@ -444,9 +459,20 @@ public class RequestService {
     }
 
     private Map<String, Long> buildCommitToAuthorMap(TeamRepository teamRepository, List<Student> students) {
-        Map<String, Long> emailToAuthor = new HashMap<>();
-        long syntheticId = -1L;
+        String localPath = teamRepository.getLocalPath();
 
+        // Convert JPA entities to DTOs for buildFullCommitMap
+        List<VCSLogDTO> vcsLogDTOs = new ArrayList<>();
+        if (teamRepository.getVcsLogs() != null) {
+            for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
+                if (vcsLog.getCommitHash() != null && vcsLog.getEmail() != null) {
+                    vcsLogDTOs.add(new VCSLogDTO(vcsLog.getEmail(), null, vcsLog.getCommitHash()));
+                }
+            }
+        }
+
+        long syntheticId = -1L;
+        List<ParticipantDTO> participantDTOs = new ArrayList<>();
         for (Student student : students) {
             if (student.getEmail() == null || student.getEmail().isBlank()) {
                 continue;
@@ -455,25 +481,11 @@ public class RequestService {
             if (authorId == null) {
                 authorId = syntheticId--;
             }
-            emailToAuthor.put(student.getEmail().toLowerCase(java.util.Locale.ROOT), authorId);
+            participantDTOs.add(new ParticipantDTO(authorId, student.getLogin(), student.getName(), student.getEmail()));
         }
 
-        Map<String, Long> commitToAuthor = new HashMap<>();
-        if (teamRepository.getVcsLogs() == null) {
-            return commitToAuthor;
-        }
-
-        for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
-            if (vcsLog.getCommitHash() == null || vcsLog.getEmail() == null) {
-                continue;
-            }
-            Long authorId = emailToAuthor.get(vcsLog.getEmail().toLowerCase(java.util.Locale.ROOT));
-            if (authorId != null) {
-                commitToAuthor.put(vcsLog.getCommitHash(), authorId);
-            }
-        }
-
-        return commitToAuthor;
+        var result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs);
+        return new HashMap<>(result.commitToAuthor());
     }
 
     private boolean clearPairProgrammingFields(TeamParticipation participation) {
@@ -646,6 +658,11 @@ public class RequestService {
 
         List<Student> students = studentRepository.findAllByTeam(teamParticipation);
 
+        // Load template author email for this exercise (if configured)
+        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
+                .map(ExerciseTemplateAuthor::getTemplateEmail)
+                .orElse(null);
+
         // Calculate CQI using effort-based fairness analysis
         Double cqi = null;
         boolean isSuspicious = false;
@@ -657,7 +674,7 @@ public class RequestService {
         // Step 1: Detect orphan commits
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
             orphanCommits = analysisResult.orphanCommits();
             if (orphanCommits != null && !orphanCommits.isEmpty()) {
                 log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
@@ -669,7 +686,8 @@ public class RequestService {
         // Step 2: Try effort-based fairness analysis (primary method)
         boolean fairnessAnalysisSucceeded = false;
         try {
-            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(repo);
+            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(
+                    repo, templateAuthorEmail);
             FairnessReportDTO fairnessReport = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
             boolean isErrorReport = fairnessReport.flags() != null &&
@@ -729,6 +747,8 @@ public class RequestService {
         // Step 5: Update TeamParticipation with CQI
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(isSuspicious);
+        teamParticipation.setOrphanCommitCount(
+                orphanCommits != null ? orphanCommits.size() : 0);
 
         if (cqiDetails != null && cqiDetails.components() != null) {
             teamParticipation.setCqiEffortBalance(cqiDetails.components().effortBalance());
@@ -746,7 +766,14 @@ public class RequestService {
         teamParticipation.setAnalysisStatus(AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
-        // Build student DTOs from persisted data
+        // Apply existing email mappings AFTER persisting pre-mapping CQI.
+        // recalculateFromChunks (called inside) overwrites CQI/orphan count
+        // with correct post-mapping values and saves again.
+        if (analysisHistory != null && !analysisHistory.isEmpty()) {
+            applyExistingEmailMappings(teamParticipation, exerciseId);
+        }
+
+        // Build student DTOs from persisted data (after mapping so stats are up-to-date)
         List<StudentAnalysisDTO> studentAnalysisDTOS = students.stream()
                 .map(s -> new StudentAnalysisDTO(s.getName(), s.getCommitCount(), s.getLinesAdded(),
                         s.getLinesDeleted(), s.getLinesChanged()))
@@ -754,7 +781,14 @@ public class RequestService {
 
         Tutor tutor = teamParticipation.getTutor();
 
-        log.info("AI analysis complete for team: {} (CQI={})", team.name(), cqi);
+        // Use post-mapping values from participation (recalculateFromChunks may have updated them)
+        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+        CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation);
+        if (finalCqiDetails == null) {
+            finalCqiDetails = cqiDetails;
+        }
+
+        log.info("AI analysis complete for team: {} (CQI={})", team.name(), finalCqi);
 
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
@@ -763,13 +797,14 @@ public class RequestService {
                         participation.team().name(),
                         participation.submissionCount(),
                         studentAnalysisDTOS,
-                        cqi,
+                        finalCqi,
                         isSuspicious,
                         AnalysisStatus.DONE,
-                        cqiDetails,
+                        finalCqiDetails,
                         analysisHistory,
                         orphanCommits,
-                        teamTokenTotals),
+                        teamTokenTotals,
+                        teamParticipation.getOrphanCommitCount()),
                 teamTokenTotals);
     }
 
@@ -858,9 +893,12 @@ public class RequestService {
         LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
 
         // Step 5a: Detect orphan commits first
+        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
+                .map(ExerciseTemplateAuthor::getTemplateEmail)
+                .orElse(null);
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
             orphanCommits = analysisResult.orphanCommits();
             if (orphanCommits != null && !orphanCommits.isEmpty()) {
                 log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
@@ -946,6 +984,8 @@ public class RequestService {
         // Step 6: Update TeamParticipation with CQI and isSuspicious flag
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(isSuspicious);
+        teamParticipation.setOrphanCommitCount(
+                orphanCommits != null ? orphanCommits.size() : 0);
 
         // Step 6a: Persist CQI components for later reconstruction
         if (cqiDetails != null && cqiDetails.components() != null) {
@@ -966,6 +1006,27 @@ public class RequestService {
         teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
+        // Apply existing email mappings AFTER persisting pre-mapping CQI.
+        // recalculateFromChunks (called inside) overwrites CQI/orphan count
+        // with correct post-mapping values and saves again.
+        if (analysisHistory != null && !analysisHistory.isEmpty()) {
+            applyExistingEmailMappings(teamParticipation, exerciseId);
+        }
+
+        // Rebuild student DTOs from persisted data (after mapping so stats are up-to-date)
+        List<Student> updatedStudents = studentRepository.findAllByTeam(teamParticipation);
+        studentAnalysisDTOS = updatedStudents.stream()
+                .map(s -> new StudentAnalysisDTO(s.getName(), s.getCommitCount(), s.getLinesAdded(),
+                        s.getLinesDeleted(), s.getLinesChanged()))
+                .toList();
+
+        // Use post-mapping values from participation (recalculateFromChunks may have updated them)
+        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+        CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation);
+        if (finalCqiDetails == null) {
+            finalCqiDetails = cqiDetails;
+        }
+
         // Step 7: Return the assembled client response DTO
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
@@ -974,13 +1035,14 @@ public class RequestService {
                         participation.team().name(),
                         participation.submissionCount(),
                         studentAnalysisDTOS,
-                        cqi,
+                        finalCqi,
                         isSuspicious,
                         teamParticipation.getAnalysisStatus(),
-                        cqiDetails,
+                        finalCqiDetails,
                         analysisHistory,
                         orphanCommits,
-                        teamTokenTotals),
+                        teamTokenTotals,
+                        teamParticipation.getOrphanCommitCount()),
                 teamTokenTotals);
     }
 
@@ -1196,6 +1258,76 @@ public class RequestService {
             }
 
             // ============================================================
+            // TEMPLATE AUTHOR DETECTION — cross-repo root commit comparison
+            // ============================================================
+            try {
+                ExerciseTemplateAuthor existingTemplate = templateAuthorRepository
+                        .findByExerciseId(exerciseId).orElse(null);
+
+                if (existingTemplate != null) {
+                    // Already configured — emit existing
+                    log.info("Template author already configured for exercise {}: {}",
+                            exerciseId, existingTemplate.getTemplateEmail());
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of(
+                                "type", "TEMPLATE_AUTHOR",
+                                "email", existingTemplate.getTemplateEmail(),
+                                "autoDetected", existingTemplate.getAutoDetected()));
+                    }
+                } else {
+                    // Cross-repo detection: find root commit emails across all repos
+                    Map<String, Integer> rootAuthorCounts = new HashMap<>();
+                    for (TeamRepositoryDTO repo : clonedRepos.values()) {
+                        if (repo.localPath() == null) {
+                            continue;
+                        }
+                        Set<String> rootEmails = gitContributionAnalysisService
+                                .findRootCommitEmails(repo.localPath());
+                        rootEmails.forEach(email ->
+                                rootAuthorCounts.merge(email, 1, Integer::sum));
+                    }
+
+                    int totalRepos = (int) clonedRepos.values().stream()
+                            .filter(r -> r.localPath() != null).count();
+
+                    // Find email that appears as root author in ALL repos
+                    java.util.Optional<String> unanimousAuthor = rootAuthorCounts.entrySet()
+                            .stream()
+                            .filter(e -> e.getValue() == totalRepos)
+                            .map(Map.Entry::getKey)
+                            .findFirst();
+
+                    if (unanimousAuthor.isPresent() && totalRepos > 0) {
+                        // Auto-detect: same root author in all repos
+                        String email = unanimousAuthor.get();
+                        ExerciseTemplateAuthor ta = new ExerciseTemplateAuthor(
+                                exerciseId, email, true);
+                        templateAuthorRepository.save(ta);
+                        log.info("Auto-detected template author for exercise {}: {} " +
+                                "(unanimous across {} repos)", exerciseId, email, totalRepos);
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of(
+                                    "type", "TEMPLATE_AUTHOR",
+                                    "email", email, "autoDetected", true));
+                        }
+                    } else if (!rootAuthorCounts.isEmpty()) {
+                        // Ambiguous — ask user
+                        log.info("Ambiguous template author for exercise {}: candidates={}",
+                                exerciseId, rootAuthorCounts.keySet());
+                        synchronized (eventEmitter) {
+                            eventEmitter.accept(Map.of(
+                                    "type", "TEMPLATE_AUTHOR_AMBIGUOUS",
+                                    "candidates",
+                                    new java.util.ArrayList<>(rootAuthorCounts.keySet())));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Template author detection failed for exercise {}: {}",
+                        exerciseId, e.getMessage());
+            }
+
+            // ============================================================
             // PHASE 3: AI ANALYSIS - Calculate CQI scores
             // This runs AFTER all git analysis is complete
             // ============================================================
@@ -1365,20 +1497,6 @@ public class RequestService {
     }
 
     /**
-     * Check if a team has been fully analyzed (has valid CQI calculated).
-     * A team is considered "analyzed" only if it has a CQI value > 0.
-     * CQI = 0 indicates a failed or incomplete analysis.
-     */
-    private boolean isTeamAlreadyAnalyzed(Long participationId) {
-        var participation = teamParticipationRepository.findByParticipation(participationId);
-        if (participation.isEmpty()) {
-            return false;
-        }
-        Double cqi = participation.get().getCqi();
-        return cqi != null && cqi > 0;
-    }
-
-    /**
      * Retrieves all stored repository data from the database and assembles it into
      * ClientResponseDTOs.
      *
@@ -1542,7 +1660,8 @@ public class RequestService {
                 cqiDetails,
                 loadAnalyzedChunks(participation),
                 null, // Orphan commits are not persisted
-                readTeamTokenTotals(participation));
+                readTeamTokenTotals(participation),
+                participation.getOrphanCommitCount());
     }
 
     /**
@@ -1585,6 +1704,82 @@ public class RequestService {
             log.debug("Saved {} analyzed chunks for team {}", entities.size(), participation.getName());
         } catch (Exception e) {
             log.warn("Failed to save analyzed chunks for team {}: {}", participation.getName(), e.getMessage());
+        }
+    }
+
+    /**
+     * Applies any existing email mappings to freshly saved chunks.
+     * This ensures that mappings created before a "Clear Analysis" + re-run
+     * are automatically applied to the new chunks.
+     */
+    @Transactional
+    void applyExistingEmailMappings(TeamParticipation participation, Long exerciseId) {
+        try {
+            List<ExerciseEmailMapping> mappings = emailMappingRepository.findAllByExerciseId(exerciseId);
+            if (mappings.isEmpty()) {
+                return;
+            }
+            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+            // Track remapped chunks per student name so we can update student stats
+            Map<String, List<AnalyzedChunk>> remappedByStudent = new HashMap<>();
+            for (ExerciseEmailMapping mapping : mappings) {
+                String emailLower = mapping.getGitEmail().toLowerCase(java.util.Locale.ROOT);
+                for (AnalyzedChunk chunk : chunks) {
+                    if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
+                            && emailLower.equals(chunk.getAuthorEmail() != null
+                                    ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
+                        chunk.setIsExternalContributor(false);
+                        chunk.setAuthorName(mapping.getStudentName());
+                        remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
+                                .add(chunk);
+                    }
+                }
+            }
+            if (!remappedByStudent.isEmpty()) {
+                analyzedChunkRepository.saveAll(chunks);
+
+                // Update student stats with the remapped chunks
+                List<Student> students = studentRepository.findAllByTeam(participation);
+                for (Map.Entry<String, List<AnalyzedChunk>> entry : remappedByStudent.entrySet()) {
+                    String studentName = entry.getKey();
+                    List<AnalyzedChunk> remappedChunks = entry.getValue();
+                    int deltaCommits = 0;
+                    int deltaLines = 0;
+                    for (AnalyzedChunk chunk : remappedChunks) {
+                        if (chunk.getCommitShas() != null && !chunk.getCommitShas().isEmpty()) {
+                            deltaCommits += chunk.getCommitShas().split(",").length;
+                        }
+                        deltaLines += chunk.getLinesChanged() != null ? chunk.getLinesChanged() : 0;
+                    }
+                    if (deltaCommits > 0 || deltaLines > 0) {
+                        int finalDeltaCommits = deltaCommits;
+                        int finalDeltaLines = deltaLines;
+                        students.stream()
+                                .filter(s -> studentName.equals(s.getName()))
+                                .findFirst()
+                                .ifPresent(student -> {
+                                    student.setCommitCount(
+                                            (student.getCommitCount() != null ? student.getCommitCount() : 0)
+                                                    + finalDeltaCommits);
+                                    student.setLinesChanged(
+                                            (student.getLinesChanged() != null ? student.getLinesChanged() : 0)
+                                                    + finalDeltaLines);
+                                    CqiRecalculationService.applyLinesSplit(student, finalDeltaLines, true);
+                                    studentRepository.save(student);
+                                });
+                    }
+                }
+
+                log.info("Applied {} existing email mapping(s) to chunks for team {}, "
+                                + "updated stats for {} student(s)",
+                        mappings.size(), participation.getName(), remappedByStudent.size());
+
+                // Recalculate CQI from updated chunks (fixes orphan count + stale scores)
+                cqiRecalculationService.recalculateFromChunks(participation, chunks);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to apply existing email mappings for team {}: {}",
+                    participation.getName(), e.getMessage());
         }
     }
 

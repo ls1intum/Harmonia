@@ -34,7 +34,7 @@ public class ContributionBalanceCalculator {
                 .sum();
 
         if (totalCommits == 0) {
-            log.info("No commits detected, returning score of 0");
+            // log.info("No commits detected, returning score of 0");
             return 0.0;
         }
 
@@ -54,7 +54,7 @@ public class ContributionBalanceCalculator {
 
         // Apply 70% over-contribution penalty
         if (hasOverContributor(commitCounts)) {
-            log.info("Over-contributor detected (>70%), applying 10% penalty");
+            // log.info("Over-contributor detected (>70%), applying 10% penalty");
             balanceScore *= 0.9;
         }
 

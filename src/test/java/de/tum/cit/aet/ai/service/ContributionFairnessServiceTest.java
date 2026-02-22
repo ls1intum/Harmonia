@@ -6,6 +6,8 @@ import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
+import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.FullCommitMappingResult;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
@@ -22,12 +24,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +49,9 @@ class ContributionFairnessServiceTest {
 
     @Mock
     private CQICalculatorService cqiCalculatorService;
+
+    @Mock
+    private GitContributionAnalysisService gitContributionAnalysisService;
 
     @InjectMocks
     private ContributionFairnessService fairnessService;
@@ -68,6 +76,17 @@ class ContributionFairnessServiceTest {
                 new VCSLogDTO("student2@tum.de", null, "hash2"));
 
         dummyRepo = new TeamRepositoryDTO(participationDTO, logs, "/tmp/repo", true, null);
+
+        // Mock buildFullCommitMap to return the same mapping that the old VCS-log-only
+        // approach would produce (hash1 -> student 1, hash2 -> student 2)
+        FullCommitMappingResult fullCommitMap = new FullCommitMappingResult(
+                Map.of("hash1", 1L, "hash2", 2L),
+                Map.of(),
+                Map.of("hash1", "student1@tum.de", "hash2", "student2@tum.de"),
+                Set.of());
+        when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class),
+                nullable(String.class)))
+                .thenReturn(fullCommitMap);
 
         chunkA = new CommitChunkDTO(
                 "hash1", 1L, "student1@tum.de", "feat", LocalDateTime.now(),
@@ -211,6 +230,25 @@ class ContributionFairnessServiceTest {
         assertNotNull(reportWithUsage.report().analyzedChunks().get(0).llmTokenUsage());
         assertEquals(120, reportWithUsage.report().analyzedChunks().get(0).llmTokenUsage().totalTokens());
         assertFalse(reportWithUsage.report().analyzedChunks().get(1).llmTokenUsage().usageAvailable());
+    }
+
+    @Test
+    void testAnalyzeFairness_noCommitsReturnsError() {
+        // Clear the setUp stub and return empty team-member commits instead
+        reset(gitContributionAnalysisService);
+        FullCommitMappingResult emptyMap = new FullCommitMappingResult(
+                Map.of(), Map.of(), Map.of(), Set.of());
+        when(gitContributionAnalysisService.buildFullCommitMap(any(TeamRepositoryDTO.class)))
+                .thenReturn(emptyMap);
+
+        FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
+
+        assertNotNull(report);
+        assertEquals("Team 1", report.teamId());
+        assertTrue(report.flags().contains(FairnessFlag.ANALYSIS_ERROR),
+                "Should flag as analysis error when no team member commits found");
+        assertTrue(report.requiresManualReview());
+        assertEquals(0.0, report.balanceScore());
     }
 
     private CommitEffortRaterService.RatingWithUsage ratingWithUsage(EffortRatingDTO rating, LlmTokenUsage usage) {

@@ -98,11 +98,7 @@ public class AnalyzedChunk {
     @Column(name = "llm_usage_available")
     private Boolean llmUsageAvailable;
 
-    /**
-     * Transient field to mark chunks from external contributors (not persisted).
-     * External chunks are shown in UI but not included in CQI calculation.
-     */
-    @Transient
+    @Column(name = "is_external_contributor")
     private Boolean isExternalContributor;
 
     public AnalyzedChunk(TeamParticipation participation, String chunkIdentifier,
