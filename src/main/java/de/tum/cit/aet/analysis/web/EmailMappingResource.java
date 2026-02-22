@@ -365,7 +365,9 @@ public class EmailMappingResource {
     private void addChunkStatsToStudent(TeamParticipation participation, String studentName,
                                         List<AnalyzedChunk> addedChunks) {
         ChunkStatsDelta delta = computeChunkStats(addedChunks);
-        if (delta.commits == 0 && delta.linesChanged == 0) return;
+        if (delta.commits == 0 && delta.linesChanged == 0) {
+            return;
+        }
 
         studentRepository.findAllByTeam(participation).stream()
                 .filter(s -> studentName.equals(s.getName()))
@@ -384,7 +386,9 @@ public class EmailMappingResource {
     private void subtractChunkStatsFromStudent(TeamParticipation participation, String studentName,
                                                List<AnalyzedChunk> removedChunks) {
         ChunkStatsDelta delta = computeChunkStats(removedChunks);
-        if (delta.commits == 0 && delta.linesChanged == 0) return;
+        if (delta.commits == 0 && delta.linesChanged == 0) {
+            return;
+        }
 
         studentRepository.findAllByTeam(participation).stream()
                 .filter(s -> studentName.equals(s.getName()))
