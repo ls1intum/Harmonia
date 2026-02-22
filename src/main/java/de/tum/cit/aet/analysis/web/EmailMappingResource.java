@@ -9,6 +9,7 @@ import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.ai.dto.*;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.ComponentWeightsDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
@@ -462,10 +463,27 @@ public class EmailMappingResource {
                 ratedChunks, teamSize, projectStart, projectEnd,
                 FilterSummaryDTO.empty(), participation.getName());
 
-        // Update participation — preserve ownership spread from original analysis
-        // because we don't have the file list for recalculation
+        // Preserve ownership spread from original analysis because we don't
+        // have the file list for recalculation (chunks are rebuilt without files).
+        // Recompute the CQI using the original ownership so the final score is
+        // consistent with the displayed component scores.
         Double originalOwnership = participation.getCqiOwnershipSpread();
-        participation.setCqi(cqiResult.cqi());
+        double finalCqi = cqiResult.cqi();
+        double finalBaseScore = cqiResult.baseScore();
+
+        if (originalOwnership != null && cqiResult.components() != null) {
+            ComponentWeightsDTO weights = cqiCalculatorService.buildWeightsDTO();
+            finalBaseScore = cqiResult.components().weightedSum(
+                    weights.effortBalance(), weights.locBalance(),
+                    weights.temporalSpread(), weights.ownershipSpread())
+                    // Replace the incorrect ownership contribution with the original
+                    - weights.ownershipSpread() * cqiResult.components().ownershipSpread()
+                    + weights.ownershipSpread() * originalOwnership;
+            finalCqi = Math.max(0, Math.min(100,
+                    finalBaseScore * cqiResult.penaltyMultiplier()));
+        }
+
+        participation.setCqi(finalCqi);
         if (cqiResult.components() != null) {
             participation.setCqiEffortBalance(cqiResult.components().effortBalance());
             participation.setCqiLocBalance(cqiResult.components().locBalance());
@@ -473,7 +491,7 @@ public class EmailMappingResource {
             if (originalOwnership != null) {
                 participation.setCqiOwnershipSpread(originalOwnership);
             }
-            participation.setCqiBaseScore(cqiResult.baseScore());
+            participation.setCqiBaseScore(finalBaseScore);
             participation.setCqiPenaltyMultiplier(cqiResult.penaltyMultiplier());
             if (cqiResult.penalties() != null) {
                 participation.setCqiPenalties(serializePenalties(cqiResult.penalties()));
@@ -482,7 +500,7 @@ public class EmailMappingResource {
         teamParticipationRepository.save(participation);
 
         log.info("Recalculated CQI for team {}: {} (from {} team chunks, {} orphan)",
-                participation.getName(), cqiResult.cqi(), teamChunks.size(), orphanCount);
+                participation.getName(), finalCqi, teamChunks.size(), orphanCount);
     }
 
     private ClientResponseDTO buildResponse(TeamParticipation participation) {

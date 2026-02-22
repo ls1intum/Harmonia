@@ -106,6 +106,8 @@ class EmailMappingResourceTest {
                 List.of(), 75.0, 1.0, FilterSummaryDTO.empty());
         lenient().when(cqiCalculatorService.calculate(anyList(), anyInt(), any(), any(), any(), anyString()))
                 .thenReturn(result);
+        lenient().when(cqiCalculatorService.buildWeightsDTO())
+                .thenReturn(new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25));
     }
 
     // ================================================================
@@ -190,6 +192,47 @@ class EmailMappingResourceTest {
 
         // CQI recalculation triggers a participation save
         verify(teamParticipationRepository).save(participation);
+    }
+
+    @Test
+    void createMapping_recalculatesCqiWithOriginalOwnership() {
+        TeamParticipation participation = makeParticipation();
+        // Pre-set original ownership to 50 (from initial git analysis)
+        participation.setCqiOwnershipSpread(50.0);
+        Student alice = makeStudent(999L, "Alice", "alice@uni.de", participation);
+        Student bob = makeStudent(888L, "Bob", "bob@uni.de", participation);
+        AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
+
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
+                .thenReturn(Optional.of(participation));
+        when(studentRepository.findAllByTeam(participation))
+                .thenReturn(List.of(alice, bob));
+        when(analyzedChunkRepository.findByParticipation(participation))
+                .thenReturn(new ArrayList<>(List.of(chunk)));
+        when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
+                .thenReturn(List.of());
+
+        // CQI calculator returns ownership=90 (wrong, from empty file data)
+        // but the original ownership is 50
+        CQIResultDTO result = new CQIResultDTO(
+                75.0,
+                new ComponentScoresDTO(80.0, 70.0, 60.0, 90.0, null, null),
+                new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25),
+                List.of(), 75.0, 1.0, FilterSummaryDTO.empty());
+        when(cqiCalculatorService.calculate(anyList(), anyInt(), any(), any(), any(), anyString()))
+                .thenReturn(result);
+        when(cqiCalculatorService.buildWeightsDTO())
+                .thenReturn(new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25));
+
+        var request = new EmailMappingResource.CreateEmailMappingRequest(
+                "orphan@gmail.com", 0L, "Alice", TEAM_ID);
+
+        resource.createMapping(EXERCISE_ID, request);
+
+        // CQI should use original ownership (50) not the recalculated one (90)
+        // Expected: 0.25*80 + 0.25*70 + 0.25*60 + 0.25*50 = 65.0
+        assertEquals(65.0, participation.getCqi(), 0.01);
+        assertEquals(50.0, participation.getCqiOwnershipSpread());
     }
 
     @Test
