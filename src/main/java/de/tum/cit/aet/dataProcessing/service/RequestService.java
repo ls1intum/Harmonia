@@ -783,6 +783,10 @@ public class RequestService {
 
         // Use post-mapping values from participation (recalculateFromChunks may have updated them)
         Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+        CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation);
+        if (finalCqiDetails == null) {
+            finalCqiDetails = cqiDetails;
+        }
 
         log.info("AI analysis complete for team: {} (CQI={})", team.name(), finalCqi);
 
@@ -796,7 +800,7 @@ public class RequestService {
                         finalCqi,
                         isSuspicious,
                         AnalysisStatus.DONE,
-                        cqiDetails,
+                        finalCqiDetails,
                         analysisHistory,
                         orphanCommits,
                         teamTokenTotals,
@@ -1011,6 +1015,10 @@ public class RequestService {
 
         // Use post-mapping values from participation (recalculateFromChunks may have updated them)
         Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+        CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation);
+        if (finalCqiDetails == null) {
+            finalCqiDetails = cqiDetails;
+        }
 
         // Step 7: Return the assembled client response DTO
         return new ClientResponseWithUsage(
@@ -1023,7 +1031,7 @@ public class RequestService {
                         finalCqi,
                         isSuspicious,
                         teamParticipation.getAnalysisStatus(),
-                        cqiDetails,
+                        finalCqiDetails,
                         analysisHistory,
                         orphanCommits,
                         teamTokenTotals,
