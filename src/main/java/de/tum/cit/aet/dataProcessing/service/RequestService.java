@@ -703,7 +703,6 @@ public class RequestService {
 
                 if (analysisHistory != null && !analysisHistory.isEmpty()) {
                     saveAnalyzedChunks(teamParticipation, analysisHistory);
-                    applyExistingEmailMappings(teamParticipation, exerciseId);
                 }
             } else {
                 log.warn("Fairness analysis returned error for team {}", team.name());
@@ -767,7 +766,14 @@ public class RequestService {
         teamParticipation.setAnalysisStatus(AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
-        // Build student DTOs from persisted data
+        // Apply existing email mappings AFTER persisting pre-mapping CQI.
+        // recalculateFromChunks (called inside) overwrites CQI/orphan count
+        // with correct post-mapping values and saves again.
+        if (analysisHistory != null && !analysisHistory.isEmpty()) {
+            applyExistingEmailMappings(teamParticipation, exerciseId);
+        }
+
+        // Build student DTOs from persisted data (after mapping so stats are up-to-date)
         List<StudentAnalysisDTO> studentAnalysisDTOS = students.stream()
                 .map(s -> new StudentAnalysisDTO(s.getName(), s.getCommitCount(), s.getLinesAdded(),
                         s.getLinesDeleted(), s.getLinesChanged()))
@@ -918,7 +924,6 @@ public class RequestService {
                 // Persist analyzed chunks to database
                 if (analysisHistory != null && !analysisHistory.isEmpty()) {
                     saveAnalyzedChunks(teamParticipation, analysisHistory);
-                    applyExistingEmailMappings(teamParticipation, exerciseId);
                 }
             } else {
                 log.warn("Fairness analysis returned error for team {}", team.name());
@@ -992,6 +997,13 @@ public class RequestService {
         persistTeamTokenTotals(teamParticipation, teamTokenTotals);
         teamParticipation.setAnalysisStatus(de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
+
+        // Apply existing email mappings AFTER persisting pre-mapping CQI.
+        // recalculateFromChunks (called inside) overwrites CQI/orphan count
+        // with correct post-mapping values and saves again.
+        if (analysisHistory != null && !analysisHistory.isEmpty()) {
+            applyExistingEmailMappings(teamParticipation, exerciseId);
+        }
 
         // Step 7: Return the assembled client response DTO
         return new ClientResponseWithUsage(
