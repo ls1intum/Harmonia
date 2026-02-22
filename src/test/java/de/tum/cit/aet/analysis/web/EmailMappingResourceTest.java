@@ -3,14 +3,10 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentWeightsDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
-import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
+import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
@@ -30,9 +26,7 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,7 +48,7 @@ class EmailMappingResourceTest {
     private StudentRepository studentRepository;
 
     @Mock
-    private CQICalculatorService cqiCalculatorService;
+    private CqiRecalculationService cqiRecalculationService;
 
     private EmailMappingResource resource;
 
@@ -70,7 +64,7 @@ class EmailMappingResourceTest {
                 analyzedChunkRepository,
                 teamParticipationRepository,
                 studentRepository,
-                cqiCalculatorService);
+                cqiRecalculationService);
     }
 
     // ================================================================
@@ -98,18 +92,6 @@ class EmailMappingResourceTest {
         return c;
     }
 
-    private void stubCqiCalculation() {
-        CQIResultDTO result = new CQIResultDTO(
-                75.0,
-                new ComponentScoresDTO(80.0, 70.0, 60.0, 90.0, null, null),
-                new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25),
-                List.of(), 75.0, 1.0, FilterSummaryDTO.empty());
-        lenient().when(cqiCalculatorService.calculate(anyList(), anyInt(), any(), any(), any(), anyString()))
-                .thenReturn(result);
-        lenient().when(cqiCalculatorService.buildWeightsDTO())
-                .thenReturn(new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25));
-    }
-
     // ================================================================
     //  createMapping tests
     // ================================================================
@@ -127,9 +109,6 @@ class EmailMappingResourceTest {
                 .thenReturn(List.of(alice, bob));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
-        when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of());
-        stubCqiCalculation();
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
@@ -155,9 +134,6 @@ class EmailMappingResourceTest {
                 .thenReturn(List.of(alice, bob));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(externalChunk)));
-        when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of());
-        stubCqiCalculation();
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
@@ -181,58 +157,14 @@ class EmailMappingResourceTest {
                 .thenReturn(List.of(alice, bob));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
-        when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of());
-        stubCqiCalculation();
 
         var request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
 
-        // CQI recalculation triggers a participation save
-        verify(teamParticipationRepository).save(participation);
-    }
-
-    @Test
-    void createMapping_recalculatesCqiWithOriginalOwnership() {
-        TeamParticipation participation = makeParticipation();
-        // Pre-set original ownership to 50 (from initial git analysis)
-        participation.setCqiOwnershipSpread(50.0);
-        Student alice = makeStudent(999L, "Alice", "alice@uni.de", participation);
-        Student bob = makeStudent(888L, "Bob", "bob@uni.de", participation);
-        AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
-
-        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
-                .thenReturn(Optional.of(participation));
-        when(studentRepository.findAllByTeam(participation))
-                .thenReturn(List.of(alice, bob));
-        when(analyzedChunkRepository.findByParticipation(participation))
-                .thenReturn(new ArrayList<>(List.of(chunk)));
-        when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of());
-
-        // CQI calculator returns ownership=90 (wrong, from empty file data)
-        // but the original ownership is 50
-        CQIResultDTO result = new CQIResultDTO(
-                75.0,
-                new ComponentScoresDTO(80.0, 70.0, 60.0, 90.0, null, null),
-                new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25),
-                List.of(), 75.0, 1.0, FilterSummaryDTO.empty());
-        when(cqiCalculatorService.calculate(anyList(), anyInt(), any(), any(), any(), anyString()))
-                .thenReturn(result);
-        when(cqiCalculatorService.buildWeightsDTO())
-                .thenReturn(new ComponentWeightsDTO(0.25, 0.25, 0.25, 0.25));
-
-        var request = new EmailMappingResource.CreateEmailMappingRequest(
-                "orphan@gmail.com", 0L, "Alice", TEAM_ID);
-
-        resource.createMapping(EXERCISE_ID, request);
-
-        // CQI should use original ownership (50) not the recalculated one (90)
-        // Expected: 0.25*80 + 0.25*70 + 0.25*60 + 0.25*50 = 65.0
-        assertEquals(65.0, participation.getCqi(), 0.01);
-        assertEquals(50.0, participation.getCqiOwnershipSpread());
+        // CQI recalculation is delegated to the service
+        verify(cqiRecalculationService).recalculateFromChunks(eq(participation), anyList());
     }
 
     @Test
@@ -260,9 +192,6 @@ class EmailMappingResourceTest {
                 .thenReturn(List.of(bob, charlie));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
-        when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of());
-        stubCqiCalculation();
 
         // Student name "Unknown" does not match any student → falls back to request ID (77)
         var request = new EmailMappingResource.CreateEmailMappingRequest(
@@ -296,7 +225,6 @@ class EmailMappingResourceTest {
         // No students with this email, no remaining mappings → email is unknown
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
-        stubCqiCalculation();
 
         resource.deleteMapping(EXERCISE_ID, mapping.getId());
 
@@ -368,7 +296,6 @@ class EmailMappingResourceTest {
                 .thenReturn(new ArrayList<>(List.of(chunk)));
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
-        stubCqiCalculation();
 
         var request = new EmailMappingResource.TemplateAuthorDTO("template@example.com", false);
 
@@ -397,7 +324,6 @@ class EmailMappingResourceTest {
                 .thenReturn(new ArrayList<>(List.of(oldChunk, newChunk)));
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of(alice));
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
-        stubCqiCalculation();
 
         var request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
 
@@ -425,7 +351,6 @@ class EmailMappingResourceTest {
         // No students or mappings match old-unknown@example.com
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
-        stubCqiCalculation();
 
         var request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
 
@@ -471,7 +396,6 @@ class EmailMappingResourceTest {
         // The old template email is a known student
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of(alice));
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
-        stubCqiCalculation();
 
         resource.deleteTemplateAuthor(EXERCISE_ID);
 
@@ -496,7 +420,6 @@ class EmailMappingResourceTest {
         // No students or mappings match → email is unknown
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
-        stubCqiCalculation();
 
         resource.deleteTemplateAuthor(EXERCISE_ID);
 

@@ -11,6 +11,7 @@ import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
+import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
@@ -48,6 +49,7 @@ class RequestServiceApplyMappingsTest {
     @Mock private ContributionFairnessService fairnessService;
     @Mock private ExerciseTemplateAuthorRepository templateAuthorRepository;
     @Mock private GitContributionAnalysisService gitContributionAnalysisService;
+    @Mock private CqiRecalculationService cqiRecalculationService;
 
     @Captor private ArgumentCaptor<List<AnalyzedChunk>> chunksCaptor;
 
@@ -59,7 +61,8 @@ class RequestServiceApplyMappingsTest {
                 null, null, null, fairnessService, null,
                 null, teamParticipationRepository, null, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
-                gitContributionAnalysisService, null, null, null, null);
+                gitContributionAnalysisService, null, null, null, null,
+                cqiRecalculationService);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
@@ -107,6 +110,10 @@ class RequestServiceApplyMappingsTest {
         // linesAdded/linesDeleted split proportionally: 300/(300+100) = 75% added
         assertEquals(450, alice.getLinesAdded(), "linesAdded should increase proportionally");
         assertEquals(150, alice.getLinesDeleted(), "linesDeleted should increase proportionally");
+
+        // CQI should be recalculated after remapping
+        verify(cqiRecalculationService).recalculateFromChunks(
+                eq(participation), eq(List.of(externalChunk, normalChunk)));
     }
 
     @Test
@@ -129,6 +136,9 @@ class RequestServiceApplyMappingsTest {
 
         assertFalse(chunk.getIsExternalContributor());
         assertEquals("Alice", chunk.getAuthorName());
+
+        // CQI should be recalculated after remapping
+        verify(cqiRecalculationService).recalculateFromChunks(eq(participation), eq(List.of(chunk)));
     }
 
     @Test
@@ -151,6 +161,9 @@ class RequestServiceApplyMappingsTest {
 
         verify(analyzedChunkRepository, never()).saveAll(any());
         assertEquals("Bob", chunk.getAuthorName());
+
+        // CQI should NOT be recalculated when no chunks were remapped
+        verify(cqiRecalculationService, never()).recalculateFromChunks(any(), any());
     }
 
     // ── Integration test: saveAIAnalysisResult calls applyExistingEmailMappings ──
@@ -238,5 +251,8 @@ class RequestServiceApplyMappingsTest {
         verify(studentRepository).save(student);
         assertEquals(21, student.getCommitCount(), "1 commit from mapped chunk should be added to original 20");
         assertEquals(650, student.getLinesChanged(), "100 lines from mapped chunk should be added to original 550");
+
+        // CQI should be recalculated after remapping
+        verify(cqiRecalculationService).recalculateFromChunks(eq(teamParticipation), any());
     }
 }

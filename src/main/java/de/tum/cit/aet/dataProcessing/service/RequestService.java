@@ -32,6 +32,7 @@ import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
+import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
@@ -69,6 +70,7 @@ public class RequestService {
     private final AnalyzedChunkRepository analyzedChunkRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
     private final ExerciseEmailMappingRepository emailMappingRepository;
+    private final CqiRecalculationService cqiRecalculationService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -99,7 +101,8 @@ public class RequestService {
             CommitPreFilterService commitPreFilterService,
             CQICalculatorService cqiCalculatorService,
             CommitChunkerService commitChunkerService,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            CqiRecalculationService cqiRecalculationService) {
         this.repositoryFetchingService = repositoryFetchingService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
@@ -117,6 +120,7 @@ public class RequestService {
         this.cqiCalculatorService = cqiCalculatorService;
         this.commitChunkerService = commitChunkerService;
         this.transactionTemplate = transactionTemplate;
+        this.cqiRecalculationService = cqiRecalculationService;
     }
 
     /**
@@ -1763,6 +1767,9 @@ public class RequestService {
                 log.info("Applied {} existing email mapping(s) to chunks for team {}, "
                                 + "updated stats for {} student(s)",
                         mappings.size(), participation.getName(), remappedByStudent.size());
+
+                // Recalculate CQI from updated chunks (fixes orphan count + stale scores)
+                cqiRecalculationService.recalculateFromChunks(participation, chunks);
             }
         } catch (Exception e) {
             log.warn("Failed to apply existing email mappings for team {}: {}",
