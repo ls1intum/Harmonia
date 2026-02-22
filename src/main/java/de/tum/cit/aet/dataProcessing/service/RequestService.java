@@ -1013,6 +1013,13 @@ public class RequestService {
             applyExistingEmailMappings(teamParticipation, exerciseId);
         }
 
+        // Rebuild student DTOs from persisted data (after mapping so stats are up-to-date)
+        List<Student> updatedStudents = studentRepository.findAllByTeam(teamParticipation);
+        studentAnalysisDTOS = updatedStudents.stream()
+                .map(s -> new StudentAnalysisDTO(s.getName(), s.getCommitCount(), s.getLinesAdded(),
+                        s.getLinesDeleted(), s.getLinesChanged()))
+                .toList();
+
         // Use post-mapping values from participation (recalculateFromChunks may have updated them)
         Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
         CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation);
@@ -1490,20 +1497,6 @@ public class RequestService {
     }
 
     /**
-     * Check if a team has been fully analyzed (has valid CQI calculated).
-     * A team is considered "analyzed" only if it has a CQI value > 0.
-     * CQI = 0 indicates a failed or incomplete analysis.
-     */
-    private boolean isTeamAlreadyAnalyzed(Long participationId) {
-        var participation = teamParticipationRepository.findByParticipation(participationId);
-        if (participation.isEmpty()) {
-            return false;
-        }
-        Double cqi = participation.get().getCqi();
-        return cqi != null && cqi > 0;
-    }
-
-    /**
      * Retrieves all stored repository data from the database and assembles it into
      * ClientResponseDTOs.
      *
@@ -1719,6 +1712,7 @@ public class RequestService {
      * This ensures that mappings created before a "Clear Analysis" + re-run
      * are automatically applied to the new chunks.
      */
+    @Transactional
     void applyExistingEmailMappings(TeamParticipation participation, Long exerciseId) {
         try {
             List<ExerciseEmailMapping> mappings = emailMappingRepository.findAllByExerciseId(exerciseId);
@@ -1770,23 +1764,7 @@ public class RequestService {
                                     student.setLinesChanged(
                                             (student.getLinesChanged() != null ? student.getLinesChanged() : 0)
                                                     + finalDeltaLines);
-                                    // Distribute linesChanged into linesAdded/linesDeleted
-                                    // using the student's existing ratio
-                                    int oldAdded = student.getLinesAdded() != null ? student.getLinesAdded() : 0;
-                                    int oldDeleted = student.getLinesDeleted() != null ? student.getLinesDeleted() : 0;
-                                    int oldTotal = oldAdded + oldDeleted;
-                                    int deltaAdded;
-                                    int deltaDeleted;
-                                    if (oldTotal > 0) {
-                                        deltaAdded = (int) Math.round(
-                                                finalDeltaLines * ((double) oldAdded / oldTotal));
-                                        deltaDeleted = finalDeltaLines - deltaAdded;
-                                    } else {
-                                        deltaAdded = finalDeltaLines;
-                                        deltaDeleted = 0;
-                                    }
-                                    student.setLinesAdded(oldAdded + deltaAdded);
-                                    student.setLinesDeleted(oldDeleted + deltaDeleted);
+                                    CqiRecalculationService.applyLinesSplit(student, finalDeltaLines, true);
                                     studentRepository.save(student);
                                 });
                     }

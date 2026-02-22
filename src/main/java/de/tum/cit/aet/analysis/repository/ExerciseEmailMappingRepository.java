@@ -14,6 +14,8 @@ public interface ExerciseEmailMappingRepository extends JpaRepository<ExerciseEm
 
     List<ExerciseEmailMapping> findAllByExerciseId(Long exerciseId);
 
+    boolean existsByExerciseIdAndGitEmail(Long exerciseId, String gitEmail);
+
     void deleteById(UUID id);
 
     @Modifying

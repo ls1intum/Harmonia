@@ -175,6 +175,38 @@ public class CqiRecalculationService {
                 participation.getName(), finalCqi, teamChunks.size(), orphanCount);
     }
 
+    /**
+     * Distributes a linesChanged delta into linesAdded/linesDeleted
+     * using the student's existing ratio.
+     *
+     * @param student    the student to update
+     * @param deltaLines total line delta to distribute
+     * @param add        true to add, false to subtract
+     */
+    public static void applyLinesSplit(Student student, int deltaLines, boolean add) {
+        int oldAdded = student.getLinesAdded() != null ? student.getLinesAdded() : 0;
+        int oldDeleted = student.getLinesDeleted() != null ? student.getLinesDeleted() : 0;
+        int oldTotal = oldAdded + oldDeleted;
+
+        int deltaAdded;
+        int deltaDeleted;
+        if (oldTotal > 0) {
+            deltaAdded = (int) Math.round(deltaLines * ((double) oldAdded / oldTotal));
+            deltaDeleted = deltaLines - deltaAdded;
+        } else {
+            deltaAdded = deltaLines;
+            deltaDeleted = 0;
+        }
+
+        if (add) {
+            student.setLinesAdded(oldAdded + deltaAdded);
+            student.setLinesDeleted(oldDeleted + deltaDeleted);
+        } else {
+            student.setLinesAdded(Math.max(0, oldAdded - deltaAdded));
+            student.setLinesDeleted(Math.max(0, oldDeleted - deltaDeleted));
+        }
+    }
+
     String serializePenalties(List<?> penalties) {
         try {
             return OBJECT_MAPPER.writeValueAsString(penalties);

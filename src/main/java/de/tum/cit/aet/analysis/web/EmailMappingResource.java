@@ -112,20 +112,28 @@ public class EmailMappingResource {
                     .findFirst()
                     .orElse(request.studentId());
         }
+        if (resolvedStudentId == null || resolvedStudentId <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
 
-        // 3. Save mapping with resolved ID
+        // 3. Check for existing mapping with the same email
+        String normalizedEmail = request.gitEmail().toLowerCase(Locale.ROOT);
+        if (emailMappingRepository.existsByExerciseIdAndGitEmail(exerciseId, normalizedEmail)) {
+            return ResponseEntity.status(409).build();
+        }
+
+        // 4. Save mapping with resolved ID
         ExerciseEmailMapping mapping = new ExerciseEmailMapping(
-                exerciseId, request.gitEmail().toLowerCase(Locale.ROOT),
+                exerciseId, normalizedEmail,
                 resolvedStudentId, request.studentName());
         emailMappingRepository.save(mapping);
 
-        // 4. Update chunks: mark matching external chunks as non-external
+        // 5. Update chunks: mark matching external chunks as non-external
         List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
-        String emailLower = request.gitEmail().toLowerCase(Locale.ROOT);
         List<AnalyzedChunk> remappedChunks = new ArrayList<>();
         for (AnalyzedChunk chunk : chunks) {
             if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
-                    && emailLower.equals(chunk.getAuthorEmail() != null
+                    && normalizedEmail.equals(chunk.getAuthorEmail() != null
                             ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
                 chunk.setIsExternalContributor(false);
                 chunk.setAuthorName(request.studentName());
@@ -134,15 +142,15 @@ public class EmailMappingResource {
         }
         analyzedChunkRepository.saveAll(chunks);
 
-        // 5. Update target student's commit/line stats with the remapped chunks
+        // 6. Update target student's commit/line stats with the remapped chunks
         if (!remappedChunks.isEmpty()) {
             addChunkStatsToStudent(participation, request.studentName(), remappedChunks);
         }
 
-        // 6. Recalculate CQI from persisted chunks
+        // 7. Recalculate CQI from persisted chunks
         cqiRecalculationService.recalculateFromChunks(participation, chunks);
 
-        // 7. Return updated response
+        // 8. Return updated response
         return ResponseEntity.ok(buildResponse(participation));
     }
 
@@ -411,32 +419,8 @@ public class EmailMappingResource {
         return new ChunkStatsDelta(totalCommits, totalLines);
     }
 
-    /**
-     * Distributes a linesChanged delta into linesAdded/linesDeleted
-     * using the student's existing ratio.
-     */
     private void applyLinesSplit(Student student, int deltaLines, boolean add) {
-        int oldAdded = safe(student.getLinesAdded());
-        int oldDeleted = safe(student.getLinesDeleted());
-        int oldTotal = oldAdded + oldDeleted;
-
-        int deltaAdded;
-        int deltaDeleted;
-        if (oldTotal > 0) {
-            deltaAdded = (int) Math.round(deltaLines * ((double) oldAdded / oldTotal));
-            deltaDeleted = deltaLines - deltaAdded;
-        } else {
-            deltaAdded = deltaLines;
-            deltaDeleted = 0;
-        }
-
-        if (add) {
-            student.setLinesAdded(oldAdded + deltaAdded);
-            student.setLinesDeleted(oldDeleted + deltaDeleted);
-        } else {
-            student.setLinesAdded(Math.max(0, oldAdded - deltaAdded));
-            student.setLinesDeleted(Math.max(0, oldDeleted - deltaDeleted));
-        }
+        CqiRecalculationService.applyLinesSplit(student, deltaLines, add);
     }
 
     private static int safe(Integer value) {
