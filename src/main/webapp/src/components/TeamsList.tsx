@@ -20,12 +20,7 @@ import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import ExportButton from '@/components/ExportButton';
@@ -453,19 +448,14 @@ const TeamsList = ({
           <ExportButton exerciseId={exercise} disabled={teams.length === 0} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}
-              >
+              <Button variant="outline" disabled={analysisStatus.state === 'RUNNING' || isClearing || isStarting || isRecomputing}>
                 {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 {isClearing ? 'Clearing...' : 'Clear Data'}
                 <ChevronDown className="h-3 w-3 ml-1" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleClearClick('both', false)}>
-                Clear Analysis
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleClearClick('both', false)}>Clear Analysis</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleClearClick('both', true)} className="text-destructive">
                 Clear All
               </DropdownMenuItem>
