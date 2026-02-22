@@ -50,6 +50,10 @@ paths:
         in: query
         required: false
         schema: {type: string, default: both}
+      - name: clearMappings
+        in: query
+        required: false
+        schema: {type: boolean, default: false}
       responses:
         '200':
           description: OK

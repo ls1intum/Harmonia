@@ -72,10 +72,16 @@ export const AnalysisResourceApiAxiosParamCreator = function (configuration?: Co
      *
      * @param {number} exerciseId
      * @param {string} [type]
+     * @param {boolean} [clearMappings]
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    clearData: async (exerciseId: number, type?: string, clearMappings?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+    clearData: async (
+      exerciseId: number,
+      type?: string,
+      clearMappings?: boolean,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
       assertParamExists('clearData', 'exerciseId', exerciseId);
       const localVarPath = `/api/analysis/{exerciseId}/clear`.replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)));
