@@ -39,6 +39,9 @@ public class CqiRecalculationService {
      * Recalculates CQI from already-persisted AnalyzedChunk data.
      * Only non-external chunks are included in the CQI calculation.
      * Also updates the orphan commit count on the participation.
+     *
+     * @param participation the team participation to update
+     * @param allChunks     all analyzed chunks (including external ones)
      */
     public void recalculateFromChunks(TeamParticipation participation,
             List<AnalyzedChunk> allChunks) {
