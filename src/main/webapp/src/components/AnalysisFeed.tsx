@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX, Info, Search, X } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { AnalyzedChunkDTO } from '@/app/generated';
 
 interface AnalysisFeedProps {
@@ -22,6 +24,8 @@ const badgeColors: Record<string, string> = {
   CONFIG: 'bg-white text-gray-600 border border-gray-200',
   TRIVIAL: 'bg-white text-gray-500 border border-gray-200',
 };
+
+const classificationOptions = ['FEATURE', 'BUG_FIX', 'REFACTOR', 'TEST', 'DOCUMENTATION', 'CONFIG', 'TRIVIAL'] as const;
 
 // Distinct colors for differentiating authors in the analysis history
 const authorPalette = [
@@ -67,6 +71,9 @@ const MetricLabel = ({ label, tooltip }: { label: string; tooltip: string }) => 
 const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const [externalOpen, setExternalOpen] = useState(false);
+  const [authorFilter, setAuthorFilter] = useState('all');
+  const [classificationFilter, setClassificationFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const toggleExpand = (id: string) => {
     setExpandedChunks(prev => {
@@ -81,8 +88,8 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
   };
 
   // Separate team member chunks from external contributor chunks
-  const teamChunks = (chunks ?? []).filter(chunk => !chunk.isExternalContributor);
-  const externalChunks = (chunks ?? []).filter(chunk => chunk.isExternalContributor);
+  const teamChunks = useMemo(() => (chunks ?? []).filter(chunk => !chunk.isExternalContributor), [chunks]);
+  const externalChunks = useMemo(() => (chunks ?? []).filter(chunk => chunk.isExternalContributor), [chunks]);
 
   // Group by author for summary (filtering out errors and external contributors)
   const authorSummary = teamChunks
@@ -117,6 +124,35 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
   Object.keys(authorSummary).forEach((email, idx) => {
     authorColorMap[email] = authorPalette[idx % authorPalette.length];
   });
+
+  const filteredTeamChunks = useMemo(() => {
+    let filtered = teamChunks;
+
+    if (authorFilter !== 'all') {
+      filtered = filtered.filter(chunk => {
+        const key = chunk.authorName ?? chunk.authorEmail ?? 'unknown';
+        return key === authorFilter;
+      });
+    }
+
+    if (classificationFilter !== 'all') {
+      filtered = filtered.filter(chunk => chunk.classification === classificationFilter);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(chunk => {
+        const author = (chunk.authorName ?? chunk.authorEmail ?? '').toLowerCase();
+        const reasoning = (chunk.reasoning ?? '').toLowerCase();
+        const messages = (chunk.commitMessages ?? []).join(' ').toLowerCase();
+        return author.includes(q) || reasoning.includes(q) || messages.includes(q);
+      });
+    }
+
+    return filtered;
+  }, [teamChunks, authorFilter, classificationFilter, searchQuery]);
+
+  const hasActiveFilters = authorFilter !== 'all' || classificationFilter !== 'all' || searchQuery.trim() !== '';
 
   if (!chunks || chunks.length === 0) {
     return (
@@ -250,8 +286,72 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
 
       {/* Analysis Feed - Team Members */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold">Analysis History ({teamChunks.length} chunks)</h3>
-        {teamChunks.map(chunk => {
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search commits, reasoning, authors..."
+                className="pl-9 pr-9 h-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Select value={authorFilter} onValueChange={setAuthorFilter}>
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="All Authors" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Authors</SelectItem>
+                {Object.entries(authorSummary).map(([email, data]) => (
+                  <SelectItem key={email} value={email}>
+                    {data.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={classificationFilter} onValueChange={setClassificationFilter}>
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {classificationOptions.map(cls => (
+                  <SelectItem key={cls} value={cls}>
+                    {cls.replace('_', ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">
+              Analysis History
+              {hasActiveFilters ? ` (${filteredTeamChunks.length} of ${teamChunks.length} chunks)` : ` (${teamChunks.length} chunks)`}
+            </h3>
+            {hasActiveFilters && (
+              <button
+                onClick={() => {
+                  setAuthorFilter('all');
+                  setClassificationFilter('all');
+                  setSearchQuery('');
+                }}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+        {filteredTeamChunks.map(chunk => {
           const chunkId = chunk.id ?? '';
           const isExpanded = expandedChunks.has(chunkId);
           const isError = chunk.isError;
