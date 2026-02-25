@@ -1,9 +1,11 @@
 package de.tum.cit.aet.util.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.domain.Sort;
 
 import java.util.Set;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record SortDTO(String sortBy, Direction direction) {
     public enum Direction {
         ASC,
