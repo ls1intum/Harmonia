@@ -80,7 +80,7 @@ dependencies {
     implementation 'org.apache.poi:poi-ooxml:5.4.0'
 
     // Uses patched netty version to resolve vulnerability in Spring AI
-    implementation 'io.netty:netty-codec-http:4.2.9.Final'
+    implementation 'io.netty:netty-codec-http:4.2.10.Final'
     // Spring AI for LLM interaction
     implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M2')
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
