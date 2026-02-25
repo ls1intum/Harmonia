@@ -132,7 +132,7 @@ export default function Teams() {
       if (!response.ok) throw new Error('Failed to toggle review status');
       return response.json();
     },
-    onMutate: async (teamId) => {
+    onMutate: async teamId => {
       await queryClient.cancelQueries({ queryKey: ['teams', exercise] });
       const previous = queryClient.getQueryData<TeamDTO[]>(['teams', exercise]);
       queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
@@ -516,7 +516,7 @@ export default function Teams() {
       teams={teams}
       courseAverages={courseAverages}
       onTeamSelect={handleTeamSelect}
-      onToggleReviewed={(teamId) => toggleReviewedMutation.mutate(teamId)}
+      onToggleReviewed={teamId => toggleReviewedMutation.mutate(teamId)}
       onBackToHome={() => navigate('/')}
       onStart={(mode: AnalysisMode) => startMutation.mutate(mode)}
       onCancel={() => cancelMutation.mutate()}
