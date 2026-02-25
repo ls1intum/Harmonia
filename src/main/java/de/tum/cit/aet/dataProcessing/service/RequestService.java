@@ -320,6 +320,14 @@ public class RequestService {
             return;
         }
 
+        // Collect tutor IDs before deleting participations so we can clean up orphans
+        var tutorIds = participations.stream()
+                .map(p -> p.getTutor())
+                .filter(t -> t != null)
+                .map(t -> t.getTutorId())
+                .distinct()
+                .toList();
+
         // Delete child entities first due to foreign key constraints
         for (var participation : participations) {
             // Delete team repository for this participation (references participation)
@@ -332,6 +340,11 @@ public class RequestService {
 
         // Delete the participations themselves
         teamParticipationRepository.deleteAllByExerciseId(exerciseId);
+
+        // Delete tutors that are no longer referenced by any participation
+        if (!tutorIds.isEmpty()) {
+            tutorRepository.deleteOrphanedByIds(tutorIds);
+        }
 
         log.info("Cleared {} participations for exercise {}", participations.size(), exerciseId);
     }
