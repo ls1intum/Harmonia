@@ -88,8 +88,8 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
   };
 
   // Separate team member chunks from external contributor chunks
-  const teamChunks = (chunks ?? []).filter(chunk => !chunk.isExternalContributor);
-  const externalChunks = (chunks ?? []).filter(chunk => chunk.isExternalContributor);
+  const teamChunks = useMemo(() => (chunks ?? []).filter(chunk => !chunk.isExternalContributor), [chunks]);
+  const externalChunks = useMemo(() => (chunks ?? []).filter(chunk => chunk.isExternalContributor), [chunks]);
 
   // Group by author for summary (filtering out errors and external contributors)
   const authorSummary = teamChunks
