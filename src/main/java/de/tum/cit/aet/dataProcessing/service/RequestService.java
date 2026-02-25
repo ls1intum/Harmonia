@@ -1479,8 +1479,7 @@ public class RequestService {
         TeamParticipation participation = teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Team not found for exerciseId=" + exerciseId + ", teamId=" + teamId));
-        Boolean current = participation.getIsReviewed();
-        participation.setIsReviewed(current != null && current ? false : true);
+        participation.setIsReviewed(!Boolean.TRUE.equals(participation.getIsReviewed()));
         teamParticipationRepository.save(participation);
         return mapParticipationToClientResponse(participation);
     }

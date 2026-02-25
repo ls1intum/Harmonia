@@ -234,8 +234,12 @@ public class RequestResource {
             @PathVariable Long exerciseId,
             @PathVariable Long teamId) {
         log.info("PATCH request received: toggleReviewStatus for exerciseId: {}, teamId: {}", exerciseId, teamId);
-        ClientResponseDTO updated = requestService.toggleReviewStatus(exerciseId, teamId);
-        return ResponseEntity.ok(updated);
+        try {
+            ClientResponseDTO updated = requestService.toggleReviewStatus(exerciseId, teamId);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**

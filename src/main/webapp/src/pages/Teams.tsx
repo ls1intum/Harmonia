@@ -132,14 +132,21 @@ export default function Teams() {
       if (!response.ok) throw new Error('Failed to toggle review status');
       return response.json();
     },
-    onSuccess: (updatedDto, teamId) => {
+    onMutate: async (teamId) => {
+      await queryClient.cancelQueries({ queryKey: ['teams', exercise] });
+      const previous = queryClient.getQueryData<TeamDTO[]>(['teams', exercise]);
       queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
-        old.map(t => (String(t.teamId) === teamId ? { ...t, isReviewed: updatedDto.isReviewed ?? false } : t)),
+        old.map(t => (String(t.teamId) === teamId ? { ...t, isReviewed: !t.isReviewed } : t)),
       );
+      return { previous };
     },
-    onError: () => {
+    onError: (_err, _teamId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['teams', exercise], context.previous);
+      }
       toast({ variant: 'destructive', title: 'Failed to toggle review status' });
     },
+    onSuccess: () => {},
   });
 
   // --- Mutations ---
