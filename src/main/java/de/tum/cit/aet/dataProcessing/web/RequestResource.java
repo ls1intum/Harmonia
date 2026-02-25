@@ -1,13 +1,10 @@
 package de.tum.cit.aet.dataProcessing.web;
 
-import de.tum.cit.aet.core.config.ArtemisConfig;
+import de.tum.cit.aet.artemis.CredentialResolverService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
-import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,16 +26,12 @@ import java.util.concurrent.Future;
 public class RequestResource {
 
     private final RequestService requestService;
-    private final CryptoService cryptoService;
-    private final ArtemisConfig artemisConfig;
+    private final CredentialResolverService credentialResolver;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-
-    @Autowired
-    public RequestResource(RequestService requestService, CryptoService cryptoService, ArtemisConfig artemisConfig) {
+    public RequestResource(RequestService requestService, CredentialResolverService credentialResolver) {
         this.requestService = requestService;
-        this.cryptoService = cryptoService;
-        this.artemisConfig = artemisConfig;
+        this.credentialResolver = credentialResolver;
     }
 
     /**
@@ -93,8 +86,7 @@ public class RequestResource {
 
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
 
-        String password = CredentialUtils.decryptPassword(cryptoService, encryptedPassword);
-        ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
+        ArtemisCredentials credentials = credentialResolver.resolve(jwtToken, serverUrl, username, encryptedPassword);
 
         if (!credentials.isValid()) {
             log.warn("No credentials found in cookies. Authentication required.");
@@ -182,22 +174,11 @@ public class RequestResource {
             @CookieValue(value = "artemis_password", required = false) String encryptedPassword) {
         log.info("GET request received: fetchData for exerciseId: {}", exerciseId);
 
-        String password = CredentialUtils.decryptPassword(cryptoService, encryptedPassword);
-        ArtemisCredentials credentials = new ArtemisCredentials(serverUrl, jwtToken, username, password);
+        ArtemisCredentials credentials = credentialResolver.resolve(jwtToken, serverUrl, username, encryptedPassword);
 
-        // Fallback to config if cookies are missing
         if (!credentials.isValid()) {
-            log.info("No credentials in cookies, using config values");
-            credentials = new ArtemisCredentials(
-                    artemisConfig.getBaseUrl(),
-                    artemisConfig.getJwtToken(),
-                    artemisConfig.getUsername(),
-                    artemisConfig.getPassword());
-
-            if (!credentials.isValid()) {
-                log.warn("No valid credentials found. Authentication required.");
-                return ResponseEntity.status(401).build();
-            }
+            log.warn("No valid credentials found. Authentication required.");
+            return ResponseEntity.status(401).build();
         }
 
         requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);

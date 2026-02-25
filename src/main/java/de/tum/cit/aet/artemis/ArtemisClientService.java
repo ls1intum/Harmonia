@@ -1,4 +1,4 @@
-package de.tum.cit.aet.repositoryProcessing.service;
+package de.tum.cit.aet.artemis;
 
 import de.tum.cit.aet.core.config.ArtemisConfig;
 import de.tum.cit.aet.core.exceptions.ArtemisConnectionException;
@@ -197,7 +197,6 @@ public class ArtemisClientService {
                 return Map.of();
             }
 
-            // 1) Iterate over tutorial groups and extract sessions
             Map<String, List<TutorialGroupSessionDTO>> result = new HashMap<>();
             for (JsonNode groupNode : response) {
                 String groupName = firstNonBlank(groupNode, "title", "name", "tutorialGroupName");

@@ -1,7 +1,7 @@
 package de.tum.cit.aet.usermanagement.service;
 
 import de.tum.cit.aet.core.security.CryptoService;
-import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
+import de.tum.cit.aet.artemis.ArtemisClientService;
 import de.tum.cit.aet.usermanagement.dto.LoginRequestDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

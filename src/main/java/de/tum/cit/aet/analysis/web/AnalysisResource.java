@@ -6,7 +6,7 @@ import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,16 +25,16 @@ public class AnalysisResource {
 
     private final AnalysisStateService stateService;
     private final RequestService requestService;
-    private final TeamScheduleService teamScheduleService;
+    private final PairProgrammingService pairProgrammingService;
     private final ExerciseEmailMappingRepository emailMappingRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
 
     public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
-                            TeamScheduleService teamScheduleService, ExerciseEmailMappingRepository emailMappingRepository,
+                            PairProgrammingService pairProgrammingService, ExerciseEmailMappingRepository emailMappingRepository,
                             ExerciseTemplateAuthorRepository templateAuthorRepository) {
         this.stateService = stateService;
         this.requestService = requestService;
-        this.teamScheduleService = teamScheduleService;
+        this.pairProgrammingService = pairProgrammingService;
         this.emailMappingRepository = emailMappingRepository;
         this.templateAuthorRepository = templateAuthorRepository;
     }
@@ -91,7 +91,7 @@ public class AnalysisResource {
 
             // Clear attendance data so pair programming metric won't show on next analysis
             // unless a new Excel file is uploaded
-            teamScheduleService.clear();
+            pairProgrammingService.clear();
             log.info("Attendance data cleared");
 
             if ("db".equals(type) || "both".equals(type)) {

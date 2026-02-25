@@ -1,5 +1,6 @@
 package de.tum.cit.aet.repositoryProcessing.service;
 
+import de.tum.cit.aet.artemis.ArtemisClientService;
 import de.tum.cit.aet.core.config.HarmoniaProperties;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.core.exceptions.GitOperationException;

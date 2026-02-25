@@ -6,7 +6,7 @@ import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
-import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
+import de.tum.cit.aet.artemis.ArtemisClientService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

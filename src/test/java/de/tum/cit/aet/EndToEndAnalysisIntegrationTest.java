@@ -9,7 +9,7 @@ import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
-import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
+import de.tum.cit.aet.artemis.ArtemisClientService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;

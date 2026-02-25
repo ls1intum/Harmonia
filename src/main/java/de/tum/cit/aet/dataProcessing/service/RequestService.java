@@ -10,7 +10,7 @@ import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.*;
-import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
+import de.tum.cit.aet.artemis.ArtemisClientService;
 import de.tum.cit.aet.repositoryProcessing.service.GitOperationsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;

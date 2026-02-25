@@ -4,7 +4,7 @@ import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
-    private final TeamScheduleService teamScheduleService;
+    private final PairProgrammingService pairProgrammingService;
     private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
@@ -81,9 +81,9 @@ public class CQICalculatorService {
         // Edge case: team did not meet the mandatory pair-programming attendance threshold.
         // Only enforce this when attendance data exists and no cancellation warning applies.
         if (teamName != null && !teamName.isEmpty()
-                && teamScheduleService.getTeamAttendance(teamName) != null
-                && !teamScheduleService.hasCancelledSessionWarning(teamName)
-                && !teamScheduleService.isPairedMandatorySessions(teamName)) {
+                && pairProgrammingService.getTeamAttendance(teamName) != null
+                && !pairProgrammingService.hasCancelledSessionWarning(teamName)
+                && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
             log.warn("Team did not meet the mandatory pair-programming attendance threshold.");
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }
@@ -259,12 +259,12 @@ public class CQICalculatorService {
         if (teamName != null && teamSize == 2) {
             try {
                 // Check if attendance data was uploaded at all
-                boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
-                boolean hasTeamAttendance = teamScheduleService.hasTeamAttendance(teamName);
-                boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
+                boolean hasAttendanceData = pairProgrammingService.hasAttendanceData();
+                boolean hasTeamAttendance = pairProgrammingService.hasTeamAttendance(teamName);
+                boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName);
 
-                Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
-                Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
+                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName);
+                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName);
 
                 // Log all session dates for verification
                 log.info("=== Pair Programming Session Dates for team '{}' ===", teamName);

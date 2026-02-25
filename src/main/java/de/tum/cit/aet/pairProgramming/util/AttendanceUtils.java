@@ -1,4 +1,5 @@
-package de.tum.cit.aet.dataProcessing.util;
+package de.tum.cit.aet.pairProgramming.util;
+
 import java.util.Locale;
 import java.util.regex.Pattern;
 import java.text.Normalizer;

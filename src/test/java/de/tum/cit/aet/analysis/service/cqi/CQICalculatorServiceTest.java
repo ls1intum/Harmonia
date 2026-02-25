@@ -8,9 +8,9 @@ import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService.RatedChunk;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
-import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
-import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
+import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -29,15 +29,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class CQICalculatorServiceTest {
 
     private CQICalculatorService cqiService;
-    private TeamScheduleService teamScheduleService;
+    private PairProgrammingService pairProgrammingService;
     private LocalDateTime projectStart;
     private LocalDateTime projectEnd;
     private String teamName;
 
     @BeforeEach
     void setUp() {
-        teamScheduleService = new TeamScheduleService();
-        cqiService = new CQICalculatorService(new CQIConfig(), teamScheduleService, new PairProgrammingCalculator(new AttendanceConfiguration()));
+        pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration(), null);
+        cqiService = new CQICalculatorService(new CQIConfig(), pairProgrammingService, new PairProgrammingCalculator(new AttendanceConfiguration()));
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
         teamName = "team1";
@@ -223,7 +223,7 @@ class CQICalculatorServiceTest {
                 Map.of(session, false),
                 false,
                 List.of());
-        teamScheduleService.update(new TeamsScheduleDTO(Map.of("Team 01", attendance)));
+        pairProgrammingService.updateSchedule(new TeamsScheduleDTO(Map.of("Team 01", attendance)));
 
         List<CommitChunkDTO> chunks = List.of(
                 createChunk(1L, 40, session.toLocalDate().atTime(11, 0)),
@@ -245,7 +245,7 @@ class CQICalculatorServiceTest {
                 Map.of(sessionOne, true, sessionTwo, true),
                 true,
                 List.of(sessionOne, sessionTwo));
-        teamScheduleService.update(new TeamsScheduleDTO(Map.of("  Team\u00A001  ", attendance)));
+        pairProgrammingService.updateSchedule(new TeamsScheduleDTO(Map.of("  Team\u00A001  ", attendance)));
 
         List<CommitChunkDTO> chunks = List.of(
                 createChunk(1L, 30, sessionOne.toLocalDate().atTime(10, 15)),
