@@ -36,6 +36,8 @@ import type { ClientResponseDTO } from '../models';
 // @ts-ignore
 import type { CreateEmailMappingRequest } from '../models';
 // @ts-ignore
+import type { DismissEmailRequest } from '../models';
+// @ts-ignore
 import type { EmailMappingDTO } from '../models';
 // @ts-ignore
 import type { TemplateAuthorDTO } from '../models';
@@ -149,6 +151,49 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
+     * @param {DismissEmailRequest} dismissEmailRequest
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    dismissEmail: async (
+      exerciseId: number,
+      dismissEmailRequest: DismissEmailRequest,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('dismissEmail', 'exerciseId', exerciseId);
+      // verify required parameter 'dismissEmailRequest' is not null or undefined
+      assertParamExists('dismissEmail', 'dismissEmailRequest', dismissEmailRequest);
+      const localVarPath = `/api/exercises/{exerciseId}/email-mappings/dismiss`.replace(
+        `{${'exerciseId'}}`,
+        encodeURIComponent(String(exerciseId)),
+      );
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      localVarHeaderParameter['Content-Type'] = 'application/json';
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+      localVarRequestOptions.data = serializeDataIfNeeded(dismissEmailRequest, localVarRequestOptions, configuration);
 
       return {
         url: toPathString(localVarUrlObj),
@@ -331,6 +376,25 @@ export const EmailMappingResourceApiFp = function (configuration?: Configuration
     /**
      *
      * @param {number} exerciseId
+     * @param {DismissEmailRequest} dismissEmailRequest
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async dismissEmail(
+      exerciseId: number,
+      dismissEmailRequest: DismissEmailRequest,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ClientResponseDTO>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.dismissEmail(exerciseId, dismissEmailRequest, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['EmailMappingResourceApi.dismissEmail']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -426,6 +490,20 @@ export const EmailMappingResourceApiFactory = function (configuration?: Configur
     /**
      *
      * @param {number} exerciseId
+     * @param {DismissEmailRequest} dismissEmailRequest
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    dismissEmail(
+      exerciseId: number,
+      dismissEmailRequest: DismissEmailRequest,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<ClientResponseDTO> {
+      return localVarFp.dismissEmail(exerciseId, dismissEmailRequest, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -497,6 +575,19 @@ export class EmailMappingResourceApi extends BaseAPI {
   public deleteTemplateAuthor(exerciseId: number, options?: RawAxiosRequestConfig) {
     return EmailMappingResourceApiFp(this.configuration)
       .deleteTemplateAuthor(exerciseId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
+   * @param {DismissEmailRequest} dismissEmailRequest
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public dismissEmail(exerciseId: number, dismissEmailRequest: DismissEmailRequest, options?: RawAxiosRequestConfig) {
+    return EmailMappingResourceApiFp(this.configuration)
+      .dismissEmail(exerciseId, dismissEmailRequest, options)
       .then(request => request(this.axios, this.basePath));
   }
 

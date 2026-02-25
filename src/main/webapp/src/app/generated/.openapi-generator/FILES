@@ -19,6 +19,7 @@ docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
 docs/ComponentWeightsDTO.md
 docs/CreateEmailMappingRequest.md
+docs/DismissEmailRequest.md
 docs/EmailMappingDTO.md
 docs/EmailMappingResourceApi.md
 docs/ExportResourceApi.md
@@ -45,6 +46,7 @@ models/component-scores-dto.ts
 models/component-weights-dto.ts
 models/cqiresult-dto.ts
 models/create-email-mapping-request.ts
+models/dismiss-email-request.ts
 models/email-mapping-dto.ts
 models/filter-summary-dto.ts
 models/index.ts

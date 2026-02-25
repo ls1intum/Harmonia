@@ -214,10 +214,11 @@
             <column name="git_email" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
-            <column name="student_id" type="BIGINT">
+            <column name="student_id" type="BIGINT"/>
+            <column name="student_name" type="VARCHAR(255)"/>
+            <column name="is_dismissed" type="BOOLEAN" defaultValueBoolean="false">
                 <constraints nullable="false"/>
             </column>
-            <column name="student_name" type="VARCHAR(255)"/>
         </createTable>
         <addUniqueConstraint tableName="exercise_email_mappings"
             columnNames="exercise_id, git_email"

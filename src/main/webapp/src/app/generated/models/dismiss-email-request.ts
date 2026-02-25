@@ -12,11 +12,7 @@
  * Do not edit the class manually.
  */
 
-export interface EmailMappingDTO {
-  exerciseId?: number;
+export interface DismissEmailRequest {
   gitEmail?: string;
-  id?: string;
-  isDismissed?: boolean;
-  studentId?: number;
-  studentName?: string;
+  teamParticipationId?: number;
 }

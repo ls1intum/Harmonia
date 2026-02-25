@@ -60,7 +60,16 @@ public class EmailMappingResource {
             Long exerciseId,
             String gitEmail,
             Long studentId,
-            String studentName) {
+            String studentName,
+            Boolean isDismissed) {
+    }
+
+    /**
+     * DTO for dismissing an orphan email without student assignment.
+     */
+    public record DismissEmailRequest(
+            String gitEmail,
+            Long teamParticipationId) {
     }
 
     /**
@@ -74,7 +83,8 @@ public class EmailMappingResource {
         List<EmailMappingDTO> dtos = emailMappingRepository.findAllByExerciseId(exerciseId)
                 .stream()
                 .map(m -> new EmailMappingDTO(m.getId(), m.getExerciseId(),
-                        m.getGitEmail(), m.getStudentId(), m.getStudentName()))
+                        m.getGitEmail(), m.getStudentId(), m.getStudentName(),
+                        m.getIsDismissed()))
                 .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -155,6 +165,57 @@ public class EmailMappingResource {
     }
 
     /**
+     * Dismisses an orphan email without assigning it to a student.
+     * The email's chunks are marked as non-external (no longer orphan) but
+     * no stats are added to any student.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    the dismiss request with git email and participation ID
+     * @return updated client response DTO with recalculated CQI
+     */
+    @PostMapping("/dismiss")
+    @Transactional
+    public ResponseEntity<ClientResponseDTO> dismissEmail(
+            @PathVariable Long exerciseId,
+            @RequestBody DismissEmailRequest request) {
+
+        log.info("POST dismissEmail for exerciseId={}, gitEmail={}", exerciseId, request.gitEmail());
+
+        // 1. Normalize and check for duplicates
+        String normalizedEmail = request.gitEmail().toLowerCase(Locale.ROOT);
+        if (emailMappingRepository.existsByExerciseIdAndGitEmail(exerciseId, normalizedEmail)) {
+            return ResponseEntity.status(409).build();
+        }
+
+        // 2. Find the team participation
+        TeamParticipation participation = teamParticipationRepository
+                .findByExerciseIdAndTeam(exerciseId, request.teamParticipationId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "TeamParticipation not found for exercise " + exerciseId
+                                + " and team " + request.teamParticipationId()));
+
+        // 3. Save dismissed mapping (no student)
+        ExerciseEmailMapping mapping = new ExerciseEmailMapping(exerciseId, normalizedEmail, true);
+        emailMappingRepository.save(mapping);
+
+        // 4. Mark matching external chunks as non-external
+        List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+        for (AnalyzedChunk chunk : chunks) {
+            if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
+                    && normalizedEmail.equals(chunk.getAuthorEmail() != null
+                            ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
+                chunk.setIsExternalContributor(false);
+            }
+        }
+        analyzedChunkRepository.saveAll(chunks);
+
+        // 5. Recalculate CQI (no stats added to any student)
+        cqiRecalculationService.recalculateFromChunks(participation, chunks);
+
+        return ResponseEntity.ok(buildResponse(participation));
+    }
+
+    /**
      * Deletes an email mapping and recalculates CQI for affected teams.
      *
      * @param exerciseId the exercise ID
@@ -202,7 +263,9 @@ public class EmailMappingResource {
 
             if (!orphanedChunks.isEmpty()) {
                 analyzedChunkRepository.saveAll(chunks);
-                subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
+                if (!Boolean.TRUE.equals(mapping.getIsDismissed())) {
+                    subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
+                }
                 cqiRecalculationService.recalculateFromChunks(participation, chunks);
                 lastResponse = buildResponse(participation);
             }

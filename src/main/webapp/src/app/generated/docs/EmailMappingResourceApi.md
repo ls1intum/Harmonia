@@ -7,6 +7,7 @@ All URIs are relative to _http://localhost:8080_
 | [**createMapping**](#createmapping)               | **POST** /api/exercises/{exerciseId}/email-mappings                   |             |
 | [**deleteMapping**](#deletemapping)               | **DELETE** /api/exercises/{exerciseId}/email-mappings/{mappingId}     |             |
 | [**deleteTemplateAuthor**](#deletetemplateauthor) | **DELETE** /api/exercises/{exerciseId}/email-mappings/template-author |             |
+| [**dismissEmail**](#dismissemail)                 | **POST** /api/exercises/{exerciseId}/email-mappings/dismiss           |             |
 | [**getAllMappings**](#getallmappings)             | **GET** /api/exercises/{exerciseId}/email-mappings                    |             |
 | [**getTemplateAuthor**](#gettemplateauthor)       | **GET** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
 | [**setTemplateAuthor**](#settemplateauthor)       | **PUT** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
@@ -137,6 +138,52 @@ No authorization required
 ### HTTP request headers
 
 - **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **dismissEmail**
+
+> ClientResponseDTO dismissEmail(dismissEmailRequest)
+
+### Example
+
+```typescript
+import { EmailMappingResourceApi, Configuration, DismissEmailRequest } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new EmailMappingResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+let dismissEmailRequest: DismissEmailRequest; //
+
+const { status, data } = await apiInstance.dismissEmail(exerciseId, dismissEmailRequest);
+```
+
+### Parameters
+
+| Name                    | Type                    | Description | Notes                 |
+| ----------------------- | ----------------------- | ----------- | --------------------- |
+| **dismissEmailRequest** | **DismissEmailRequest** |             |                       |
+| **exerciseId**          | [**number**]            |             | defaults to undefined |
+
+### Return type
+
+**ClientResponseDTO**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: application/json
 - **Accept**: application/json
 
 ### HTTP response details

@@ -298,6 +298,10 @@ const TeamsList = ({
         filtered = filtered.filter(team => team.isSuspicious);
       } else if (statusFilter === 'normal') {
         filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
+      } else if (statusFilter === 'has-unmatched') {
+        filtered = filtered.filter(team => team.orphanCommitCount != null && team.orphanCommitCount > 0);
+      } else if (statusFilter === 'no-unmatched') {
+        filtered = filtered.filter(team => team.orphanCommitCount == null || team.orphanCommitCount === 0);
       }
     }
 

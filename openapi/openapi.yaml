@@ -206,6 +206,26 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/exercises/{exerciseId}/email-mappings/dismiss:
+    post:
+      tags: [email-mapping-resource]
+      operationId: dismissEmail
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DismissEmailRequest'}
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
   /api/exercises/{exerciseId}/email-mappings/template-author:
     get:
       tags: [email-mapping-resource]
@@ -558,12 +578,18 @@ components:
         studentId: {type: integer, format: int64}
         studentName: {type: string}
         teamParticipationId: {type: integer, format: int64}
+    DismissEmailRequest:
+      type: object
+      properties:
+        gitEmail: {type: string}
+        teamParticipationId: {type: integer, format: int64}
     EmailMappingDTO:
       type: object
       properties:
         exerciseId: {type: integer, format: int64}
         gitEmail: {type: string}
         id: {type: string, format: uuid}
+        isDismissed: {type: boolean}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
     FilterSummaryDTO:

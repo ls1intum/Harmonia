@@ -71,7 +71,9 @@ public class CqiRecalculationService {
         List<ExerciseEmailMapping> mappings = emailMappingRepository
                 .findAllByExerciseId(participation.getExerciseId());
         for (ExerciseEmailMapping m : mappings) {
-            emailToStudentId.put(m.getGitEmail().toLowerCase(Locale.ROOT), m.getStudentId());
+            if (m.getStudentId() != null) {
+                emailToStudentId.put(m.getGitEmail().toLowerCase(Locale.ROOT), m.getStudentId());
+            }
         }
 
         // 3) Reconstruct RatedChunks from persisted data

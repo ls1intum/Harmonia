@@ -5,6 +5,7 @@ export * from './client-response-dto';
 export * from './component-scores-dto';
 export * from './component-weights-dto';
 export * from './create-email-mapping-request';
+export * from './dismiss-email-request';
 export * from './email-mapping-dto';
 export * from './filter-summary-dto';
 export * from './llm-token-totals-dto';
