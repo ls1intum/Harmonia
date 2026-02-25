@@ -4,12 +4,13 @@ import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
+import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -33,12 +34,11 @@ class AnalysisResourceTest {
     @Mock
     private ExerciseEmailMappingRepository emailMappingRepository;
 
-    private AnalysisResource resource;
+    @Mock
+    private ExerciseTemplateAuthorRepository templateAuthorRepository;
 
-    @BeforeEach
-    void setUp() {
-        resource = new AnalysisResource(stateService, requestService, teamScheduleService, emailMappingRepository);
-    }
+    @InjectMocks
+    private AnalysisResource resource;
 
     @Test
     void getStatus_validExercise_returns200WithStatus() {
@@ -106,12 +106,13 @@ class AnalysisResourceTest {
     }
 
     @Test
-    void clearData_withClearMappings_deletesEmailMappings() {
+    void clearData_withClearMappings_deletesEmailMappingsAndTemplateAuthor() {
         ResponseEntity<String> response = resource.clearData(123L, "both", true);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).clearDatabaseForExercise(123L);
         verify(emailMappingRepository).deleteAllByExerciseId(123L);
+        verify(templateAuthorRepository).deleteByExerciseId(123L);
     }
 
     @Test

@@ -20,7 +20,13 @@ import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import ExportButton from '@/components/ExportButton';
@@ -454,10 +460,18 @@ const TeamsList = ({
                 <ChevronDown className="h-3 w-3 ml-1" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleClearClick('both', false)}>Clear Analysis</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleClearClick('both', true)} className="text-destructive">
-                Clear All
+            <DropdownMenuContent align="end" className="w-auto min-w-64">
+              <DropdownMenuItem onClick={() => handleClearClick('both', false)} className="flex flex-col items-start gap-0.5">
+                <span>Clear Analysis</span>
+                <span className="text-xs text-muted-foreground font-normal">Removes results and files. Keeps email mappings.</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleClearClick('both', true)}
+                className="flex flex-col items-start gap-0.5 text-destructive"
+              >
+                <span>Clear All</span>
+                <span className="text-xs font-normal text-destructive/70">Removes everything including email mappings.</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

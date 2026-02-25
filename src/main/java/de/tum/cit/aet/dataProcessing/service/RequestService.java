@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.*;
 
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
@@ -320,8 +321,16 @@ public class RequestService {
             return;
         }
 
+        // Collect tutor IDs before deleting participations so we can clean up orphans
+        List<UUID> tutorIds = participations.stream()
+                .map(TeamParticipation::getTutor)
+                .filter(t -> t != null)
+                .map(Tutor::getTutorId)
+                .distinct()
+                .toList();
+
         // Delete child entities first due to foreign key constraints
-        for (var participation : participations) {
+        for (TeamParticipation participation : participations) {
             // Delete team repository for this participation (references participation)
             teamRepositoryRepository.deleteAllByTeamParticipation(participation);
             // Delete analyzed chunks for this participation
@@ -332,6 +341,11 @@ public class RequestService {
 
         // Delete the participations themselves
         teamParticipationRepository.deleteAllByExerciseId(exerciseId);
+
+        // Delete tutors that are no longer referenced by any participation
+        if (!tutorIds.isEmpty()) {
+            tutorRepository.deleteOrphanedByIds(tutorIds);
+        }
 
         log.info("Cleared {} participations for exercise {}", participations.size(), exerciseId);
     }
