@@ -7,6 +7,10 @@ import de.tum.cit.aet.export.dto.ExportData;
 
 import java.io.IOException;
 
+/**
+ * Utility class that serializes {@link ExportData} into pretty-printed JSON.
+ * Uses Jackson with {@link JavaTimeModule} for proper date/time formatting.
+ */
 public final class JsonExporter {
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
@@ -17,6 +21,13 @@ public final class JsonExporter {
     private JsonExporter() {
     }
 
+    /**
+     * Serializes the given export data to a JSON byte array.
+     *
+     * @param data the collected export data
+     * @return the JSON content as a byte array
+     * @throws IOException if serialization fails
+     */
     public static byte[] export(ExportData data) throws IOException {
         return MAPPER.writeValueAsBytes(data);
     }
