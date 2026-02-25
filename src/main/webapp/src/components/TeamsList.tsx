@@ -20,7 +20,13 @@ import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage, writeDevModeToStorage } from '@/lib/devMode';
 import ExportButton from '@/components/ExportButton';
@@ -460,7 +466,10 @@ const TeamsList = ({
                 <span className="text-xs text-muted-foreground font-normal">Removes results and files. Keeps email mappings.</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleClearClick('both', true)} className="flex flex-col items-start gap-0.5 text-destructive">
+              <DropdownMenuItem
+                onClick={() => handleClearClick('both', true)}
+                className="flex flex-col items-start gap-0.5 text-destructive"
+              >
                 <span>Clear All</span>
                 <span className="text-xs font-normal opacity-70">Removes everything including email mappings.</span>
               </DropdownMenuItem>
