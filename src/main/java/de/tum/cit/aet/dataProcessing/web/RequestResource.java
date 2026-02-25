@@ -11,14 +11,17 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
- * REST controller for repository analysis requests.
- * Step 1: Provides endpoints for starting analysis, retrieving data, and
- * streaming results.
+ * REST controller and facade for the main analysis pipeline.
+ * Provides endpoints for starting analysis, retrieving persisted results,
+ * and streaming real-time progress updates via SSE.
+ *
+ * <p>All heavy lifting is delegated to {@link RequestService}.</p>
  */
 @RestController
 @RequestMapping("api/requestResource/")
@@ -35,45 +38,47 @@ public class RequestResource {
     }
 
     /**
-     * Step 1: GET endpoint to fetch teams for an exercise from database.
-     * This should be called first to check if data already exists.
+     * Returns persisted teams for an exercise from the database.
+     * Call this first to check if data already exists.
      *
-     * @param exerciseId The exercise ID to fetch teams for
-     * @return ResponseEntity containing the list of ClientResponseDTO, empty if no
-     *         data
+     * @param exerciseId the exercise ID to fetch teams for
+     * @return list of team results, empty if no data exists
      */
     @GetMapping("teams/{exerciseId}")
     public ResponseEntity<List<ClientResponseDTO>> getTeamsByExercise(@PathVariable Long exerciseId) {
-        log.info("GET request received: getTeamsByExercise for exerciseId: {}", exerciseId);
-        List<ClientResponseDTO> teams = requestService.getTeamsByExerciseId(exerciseId);
-        return ResponseEntity.ok(teams);
+        log.info("GET teams for exerciseId={}", exerciseId);
+        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
     }
 
     /**
-     * Step 2: GET endpoint to check if analyzed data exists for an exercise.
+     * Checks whether analyzed data (with CQI scores) exists for an exercise.
      *
-     * @param exerciseId The exercise ID to check
-     * @return ResponseEntity with true if analyzed data exists, false otherwise
+     * @param exerciseId the exercise ID to check
+     * @return true if at least one team has a CQI value
      */
     @GetMapping("hasData/{exerciseId}")
     public ResponseEntity<Boolean> hasAnalyzedData(@PathVariable Long exerciseId) {
-        log.info("GET request received: hasAnalyzedData for exerciseId: {}", exerciseId);
-        boolean hasData = requestService.hasAnalyzedDataForExercise(exerciseId);
-        return ResponseEntity.ok(hasData);
+        log.info("GET hasData for exerciseId={}", exerciseId);
+        return ResponseEntity.ok(requestService.hasAnalyzedDataForExercise(exerciseId));
     }
 
     /**
-     * Step 3: Endpoint for streaming repository analysis results using Server-Sent
-     * Events.
-     * This is the main entry point for starting a new analysis with real-time
-     * updates.
+     * Starts the full analysis pipeline and streams progress via Server-Sent Events.
+     * This is the main entry point for triggering a new analysis.
      *
-     * @param exerciseId        Exercise ID to analyze
+     * <p>The pipeline runs in three phases:
+     * <ol>
+     *   <li>Clone repositories from Artemis</li>
+     *   <li>Git analysis (commits, lines of code)</li>
+     *   <li>AI analysis (CQI calculation)</li>
+     * </ol>
+     *
+     * @param exerciseId        exercise ID to analyze
      * @param jwtToken          JWT token from cookie
      * @param serverUrl         Artemis server URL from cookie
      * @param username          Artemis username from cookie
-     * @param encryptedPassword Encrypted Artemis password from cookie
-     * @return SSE emitter for streaming results
+     * @param encryptedPassword encrypted Artemis password from cookie
+     * @return SSE emitter for streaming progress events
      */
     @GetMapping(value = "stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamAnalysis(
@@ -82,25 +87,23 @@ public class RequestResource {
             @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
             @CookieValue(value = "artemis_username", required = false) String username,
             @CookieValue(value = "artemis_password", required = false) String encryptedPassword) {
-        log.info("GET request received: streamAnalysis for exerciseId: {}", exerciseId);
+        log.info("GET streamAnalysis for exerciseId={}", exerciseId);
 
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
 
+        // 1) Resolve and validate credentials
         ArtemisCredentials credentials = credentialResolver.resolve(jwtToken, serverUrl, username, encryptedPassword);
-
         if (!credentials.isValid()) {
-            log.warn("No credentials found in cookies. Authentication required.");
+            log.warn("Authentication required for stream analysis (exerciseId={})", exerciseId);
             emitter.completeWithError(new IllegalStateException("Authentication required"));
             return emitter;
         }
 
-        // Check if analysis is already running for this exercise
+        // 2) Check if analysis is already running
         if (requestService.isTaskRunning(exerciseId)) {
-            log.info("Analysis already running for exercise {}, client can poll status", exerciseId);
-            // Send a message that analysis is already running, then complete
-            // The client should poll the status endpoint instead
+            log.info("Analysis already running for exerciseId={}", exerciseId);
             try {
-                emitter.send(java.util.Map.of("type", "ALREADY_RUNNING", "message", "Analysis is already in progress"));
+                emitter.send(Map.of("type", "ALREADY_RUNNING", "message", "Analysis is already in progress"));
                 emitter.complete();
             } catch (Exception e) {
                 log.debug("Could not send ALREADY_RUNNING message: {}", e.getMessage());
@@ -108,62 +111,54 @@ public class RequestResource {
             return emitter;
         }
 
+        // 3) Submit analysis pipeline in a background thread
         Future<?> future = executorService.submit(() -> {
             try {
-                requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, (event) -> {
+                requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, event -> {
                     try {
                         emitter.send(event);
                     } catch (IllegalStateException e) {
-                        // Client disconnected - this is normal when user navigates away or refreshes
-                        // DON'T stop the analysis - let it continue in the background
-                        // The client can reconnect and get the current status
-                        log.debug("Client disconnected for exercise {}, analysis continues in background", exerciseId);
+                        log.debug("Client disconnected for exerciseId={}, analysis continues in background", exerciseId);
                     } catch (Exception e) {
-                        // Check if this is a broken pipe / client abort
                         if (isBrokenPipeException(e)) {
-                            // DON'T stop the analysis - let it continue in the background
-                            log.debug("Client connection closed for exercise {}, analysis continues in background", exerciseId);
+                            log.debug("Client connection closed for exerciseId={}, analysis continues in background", exerciseId);
                         } else {
-                            log.error("Error sending SSE event for exercise {}", exerciseId, e);
+                            log.error("Error sending SSE event for exerciseId={}", exerciseId, e);
                             try {
                                 emitter.completeWithError(e);
                             } catch (Exception ignored) {
-                                // Emitter may already be completed
                             }
                         }
                     }
                 });
                 emitter.complete();
             } catch (Exception e) {
-                log.error("Error in stream processing for exercise {}", exerciseId, e);
+                log.error("Stream processing failed for exerciseId={}", exerciseId, e);
                 try {
                     emitter.completeWithError(e);
                 } catch (Exception ignored) {
-                    // Emitter may already be completed
                 }
             } finally {
-                // Remove from tracking when done
                 requestService.unregisterRunningTask(exerciseId);
             }
         });
 
-        // Track this task in RequestService
+        // 4) Track the task for cancellation support
         requestService.registerRunningTask(exerciseId, future);
 
         return emitter;
     }
 
-
     /**
-     * GET endpoint to fetch, analyze, and save repository data (synchronous).
-     * This is the legacy endpoint - prefer using stream endpoint for new calls.
+     * Synchronous endpoint that fetches, analyzes, and saves repository data.
+     * Prefer the streaming endpoint {@link #streamAnalysis} for new integrations.
      *
-     * @param exerciseId        The exercise ID to fetch participations for
-     * @param jwtToken          The JWT token from the cookie
-     * @param serverUrl         The Artemis server URL from the cookie
-     * @param username          The Artemis username from the cookie
-     * @param encryptedPassword The encrypted Artemis password from the cookie
-     * @return ResponseEntity containing the list of ClientResponseDTO
+     * @param exerciseId        the exercise ID to analyze
+     * @param jwtToken          JWT token from cookie
+     * @param serverUrl         Artemis server URL from cookie
+     * @param username          Artemis username from cookie
+     * @param encryptedPassword encrypted Artemis password from cookie
+     * @return list of analyzed team results
      */
     @GetMapping("fetchData")
     public ResponseEntity<List<ClientResponseDTO>> fetchData(
@@ -172,36 +167,34 @@ public class RequestResource {
             @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
             @CookieValue(value = "artemis_username", required = false) String username,
             @CookieValue(value = "artemis_password", required = false) String encryptedPassword) {
-        log.info("GET request received: fetchData for exerciseId: {}", exerciseId);
+        log.info("GET fetchData for exerciseId={}", exerciseId);
 
+        // 1) Resolve and validate credentials
         ArtemisCredentials credentials = credentialResolver.resolve(jwtToken, serverUrl, username, encryptedPassword);
-
         if (!credentials.isValid()) {
-            log.warn("No valid credentials found. Authentication required.");
+            log.warn("Authentication required for fetchData (exerciseId={})", exerciseId);
             return ResponseEntity.status(401).build();
         }
 
+        // 2) Run synchronous analysis pipeline
         requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
-        List<ClientResponseDTO> clientResponseDTOS = requestService.getTeamsByExerciseId(exerciseId);
-        return ResponseEntity.ok(clientResponseDTOS);
+        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
     }
 
     /**
-     * GET endpoint to retrieve already-analyzed data from database without
-     * re-analyzing, filtered by exercise ID.
+     * Returns already-analyzed data from the database without re-analyzing.
      *
-     * @param exerciseId the Artemis exercise ID to filter by
-     * @return ResponseEntity containing the list of ClientResponseDTO
+     * @param exerciseId the exercise ID to fetch data for
+     * @return list of analyzed team results
      */
     @GetMapping("{exerciseId}/getData")
     public ResponseEntity<List<ClientResponseDTO>> getData(@PathVariable Long exerciseId) {
-        log.info("GET request received: getData (from database) for exercise {}", exerciseId);
-        List<ClientResponseDTO> clientResponseDTOS = requestService.getTeamsByExerciseId(exerciseId);
-        return ResponseEntity.ok(clientResponseDTOS);
+        log.info("GET getData for exerciseId={}", exerciseId);
+        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
     }
 
     /**
-     * Check if an exception is caused by a broken pipe / client disconnect.
+     * Checks if an exception is caused by a broken pipe / client disconnect.
      */
     private boolean isBrokenPipeException(Throwable e) {
         while (e != null) {
