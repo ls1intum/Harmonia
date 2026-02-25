@@ -38,13 +38,12 @@ import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
-import de.tum.cit.aet.ai.dto.LlmTokenUsage;
-import de.tum.cit.aet.ai.dto.LlmTokenTotals;
+import de.tum.cit.aet.ai.dto.LlmTokenUsageDTO;
+import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
 import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
-import de.tum.cit.aet.ai.service.ContributionFairnessService.FairnessReportWithUsage;
+import de.tum.cit.aet.ai.dto.FairnessReportWithUsageDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.CQIPenaltyDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -183,7 +182,7 @@ public class RequestService {
 
         // 3) Save git results + run AI analysis for each team
         List<ClientResponseDTO> results = new ArrayList<>();
-        LlmTokenTotals runTokenTotals = LlmTokenTotals.empty();
+        LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
         for (TeamRepositoryDTO repo : repositories) {
             // Phase 2: Save git analysis
             ClientResponseDTO gitResult = saveGitAnalysisResult(repo, contributionData, exerciseId);
@@ -325,7 +324,7 @@ public class RequestService {
             eventEmitter.accept(Map.of("type", "PHASE", "phase", "AI_ANALYSIS", "total", clonedRepos.size()));
 
             java.util.concurrent.atomic.AtomicInteger aiAnalyzedCount = new java.util.concurrent.atomic.AtomicInteger(0);
-            LlmTokenTotals runTokenTotals = LlmTokenTotals.empty();
+            LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
 
             for (ParticipationDTO participation : validParticipations) {
                 if (!analysisStateService.isRunning(exerciseId) || Thread.currentThread().isInterrupted()) {
@@ -570,7 +569,7 @@ public class RequestService {
         teamParticipation.setTutor(tutor);
         teamParticipation.setSubmissionCount(participation.submissionCount());
         teamParticipation.setAnalysisStatus(AnalysisStatus.GIT_DONE);
-        persistTeamTokenTotals(teamParticipation, LlmTokenTotals.empty());
+        persistTeamTokenTotals(teamParticipation, LlmTokenTotalsDTO.empty());
         teamParticipationRepository.save(teamParticipation);
 
         // 3) Save students with contribution metrics
@@ -653,7 +652,7 @@ public class RequestService {
         List<AnalyzedChunkDTO> analysisHistory = null;
         List<OrphanCommitDTO> orphanCommits = null;
         CQIResultDTO cqiDetails = null;
-        LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
+        LlmTokenTotalsDTO teamTokenTotals = LlmTokenTotalsDTO.empty();
 
         // 1) Detect orphan commits
         try {
@@ -670,16 +669,13 @@ public class RequestService {
         // 2) Try effort-based fairness analysis (primary method)
         boolean fairnessSucceeded = false;
         try {
-            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(
+            FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
                     repo, templateAuthorEmail);
             FairnessReportDTO report = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
 
-            boolean isError = report.flags() != null &&
-                    report.flags().contains(de.tum.cit.aet.ai.domain.FairnessFlag.ANALYSIS_ERROR);
-            if (!isError) {
+            if (!report.error()) {
                 cqi = report.balanceScore();
-                isSuspicious = report.requiresManualReview();
                 analysisHistory = report.analyzedChunks();
                 cqiDetails = report.cqiResult();
                 fairnessSucceeded = true;
@@ -833,10 +829,10 @@ public class RequestService {
     }
 
     /** Processes AI analysis for a single team during streaming. */
-    private LlmTokenTotals processAIAnalysis(ParticipationDTO participation, TeamRepositoryDTO repo,
+    private LlmTokenTotalsDTO processAIAnalysis(ParticipationDTO participation, TeamRepositoryDTO repo,
                                               Long exerciseId,
                                               java.util.concurrent.atomic.AtomicInteger aiAnalyzedCount,
-                                              int total, LlmTokenTotals runTokenTotals,
+                                              int total, LlmTokenTotalsDTO runTokenTotals,
                                               java.util.function.Consumer<Object> eventEmitter) {
         String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
@@ -1055,10 +1051,6 @@ public class RequestService {
         teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
         teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
         teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
-        teamParticipation.setCqiPenaltyMultiplier(cqiDetails.penaltyMultiplier());
-        if (cqiDetails.penalties() != null) {
-            teamParticipation.setCqiPenalties(serializePenalties(cqiDetails.penalties()));
-        }
     }
 
     private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
@@ -1276,7 +1268,7 @@ public class RequestService {
         try {
             List<AnalyzedChunk> entities = chunks.stream()
                     .map(dto -> {
-                        LlmTokenUsage usage = dto.llmTokenUsage();
+                        LlmTokenUsageDTO usage = dto.llmTokenUsage();
                         return new AnalyzedChunk(
                                 participation, dto.id(), dto.authorEmail(), dto.authorName(),
                                 dto.classification(), dto.effortScore(), dto.complexity(),
@@ -1391,7 +1383,7 @@ public class RequestService {
                             Boolean.TRUE.equals(chunk.getIsError()),
                             chunk.getErrorMessage(),
                             Boolean.TRUE.equals(chunk.getIsExternalContributor()),
-                            new LlmTokenUsage(
+                            new LlmTokenUsageDTO(
                                     chunk.getLlmModel() != null ? chunk.getLlmModel() : "unknown",
                                     chunk.getLlmPromptTokens() != null ? chunk.getLlmPromptTokens() : 0L,
                                     chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L,
@@ -1421,15 +1413,11 @@ public class RequestService {
                 participation.getCqiPairProgramming(),
                 participation.getCqiPairProgrammingStatus());
 
-        List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
-
         return new CQIResultDTO(
                 participation.getCqi() != null ? participation.getCqi() : 0.0,
                 components,
                 cqiCalculatorService.buildWeightsDTO(),
-                penalties,
                 participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
-                participation.getCqiPenaltyMultiplier() != null ? participation.getCqiPenaltyMultiplier() : 1.0,
                 null);
     }
 
@@ -1437,14 +1425,14 @@ public class RequestService {
     //  LLM token tracking
     // =====================================================================
 
-    private void logTotalUsage(String scope, Long exerciseId, int analyzedTeams, LlmTokenTotals tokenTotals) {
+    private void logTotalUsage(String scope, Long exerciseId, int analyzedTeams, LlmTokenTotalsDTO tokenTotals) {
         log.info("LLM_USAGE scope={} exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
                 scope, exerciseId, analyzedTeams,
                 tokenTotals.llmCalls(), tokenTotals.promptTokens(),
                 tokenTotals.completionTokens(), tokenTotals.totalTokens());
     }
 
-    private void persistTeamTokenTotals(TeamParticipation tp, LlmTokenTotals totals) {
+    private void persistTeamTokenTotals(TeamParticipation tp, LlmTokenTotalsDTO totals) {
         if (totals == null) {
             tp.setLlmCalls(null);
             tp.setLlmCallsWithUsage(null);
@@ -1460,7 +1448,7 @@ public class RequestService {
         tp.setLlmTotalTokens(totals.totalTokens());
     }
 
-    private LlmTokenTotals readTeamTokenTotals(TeamParticipation tp) {
+    private LlmTokenTotalsDTO readTeamTokenTotals(TeamParticipation tp) {
         if (tp.getLlmCalls() == null && tp.getLlmCallsWithUsage() == null
                 && tp.getLlmPromptTokens() == null && tp.getLlmCompletionTokens() == null
                 && tp.getLlmTotalTokens() == null) {
@@ -1469,13 +1457,13 @@ public class RequestService {
         long prompt = tp.getLlmPromptTokens() != null ? tp.getLlmPromptTokens() : 0L;
         long completion = tp.getLlmCompletionTokens() != null ? tp.getLlmCompletionTokens() : 0L;
         long total = tp.getLlmTotalTokens() != null ? tp.getLlmTotalTokens() : prompt + completion;
-        return new LlmTokenTotals(
+        return new LlmTokenTotalsDTO(
                 tp.getLlmCalls() != null ? tp.getLlmCalls() : 0L,
                 tp.getLlmCallsWithUsage() != null ? tp.getLlmCallsWithUsage() : 0L,
                 prompt, completion, total);
     }
 
-    private record ClientResponseWithUsage(ClientResponseDTO response, LlmTokenTotals tokenTotals) {
+    private record ClientResponseWithUsage(ClientResponseDTO response, LlmTokenTotalsDTO tokenTotals) {
     }
 
     // =====================================================================
@@ -1499,26 +1487,6 @@ public class RequestService {
             return objectMapper.writeValueAsString(messages);
         } catch (Exception e) {
             return "[]";
-        }
-    }
-
-    private String serializePenalties(List<CQIPenaltyDTO> penalties) {
-        try {
-            return objectMapper.writeValueAsString(penalties);
-        } catch (Exception e) {
-            return "[]";
-        }
-    }
-
-    private List<CQIPenaltyDTO> deserializePenalties(String json) {
-        try {
-            if (json == null || json.isEmpty()) {
-                return List.of();
-            }
-            return objectMapper.readValue(json,
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, CQIPenaltyDTO.class));
-        } catch (Exception e) {
-            return List.of();
         }
     }
 

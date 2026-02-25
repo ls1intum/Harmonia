@@ -1,5 +1,7 @@
 package de.tum.cit.aet.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * Aggregated LLM token usage counters.
  *
@@ -9,7 +11,8 @@ package de.tum.cit.aet.ai.dto;
  * @param completionTokens total output tokens
  * @param totalTokens      total tokens
  */
-public record LlmTokenTotals(
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
+public record LlmTokenTotalsDTO(
         long llmCalls,
         long callsWithUsage,
         long promptTokens,
@@ -21,8 +24,8 @@ public record LlmTokenTotals(
      *
      * @return empty totals
      */
-    public static LlmTokenTotals empty() {
-        return new LlmTokenTotals(0, 0, 0, 0, 0);
+    public static LlmTokenTotalsDTO empty() {
+        return new LlmTokenTotalsDTO(0, 0, 0, 0, 0);
     }
 
     /**
@@ -31,12 +34,12 @@ public record LlmTokenTotals(
      * @param usage usage sample from one LLM call
      * @return updated totals
      */
-    public LlmTokenTotals addUsage(LlmTokenUsage usage) {
+    public LlmTokenTotalsDTO addUsage(LlmTokenUsageDTO usage) {
         if (usage == null) {
             return this;
         }
 
-        return new LlmTokenTotals(
+        return new LlmTokenTotalsDTO(
                 llmCalls + 1,
                 callsWithUsage + (usage.usageAvailable() ? 1 : 0),
                 promptTokens + usage.promptTokens(),
@@ -50,12 +53,12 @@ public record LlmTokenTotals(
      * @param other other aggregate
      * @return merged totals
      */
-    public LlmTokenTotals merge(LlmTokenTotals other) {
+    public LlmTokenTotalsDTO merge(LlmTokenTotalsDTO other) {
         if (other == null) {
             return this;
         }
 
-        return new LlmTokenTotals(
+        return new LlmTokenTotalsDTO(
                 llmCalls + other.llmCalls(),
                 callsWithUsage + other.callsWithUsage(),
                 promptTokens + other.promptTokens(),

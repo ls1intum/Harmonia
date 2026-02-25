@@ -80,12 +80,6 @@ public class TeamParticipation {
     @Column(name = "cqi_base_score")
     private Double cqiBaseScore;
 
-    @Column(name = "cqi_penalty_multiplier")
-    private Double cqiPenaltyMultiplier;
-
-    @Column(name = "cqi_penalties", columnDefinition = "TEXT")
-    private String cqiPenalties;
-
     @Column(name = "llm_calls")
     private Long llmCalls;
 

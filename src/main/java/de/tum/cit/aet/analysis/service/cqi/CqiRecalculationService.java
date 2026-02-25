@@ -11,7 +11,6 @@ import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,6 @@ public class CqiRecalculationService {
     private final ExerciseEmailMappingRepository emailMappingRepository;
     private final TeamParticipationRepository teamParticipationRepository;
     private final CQICalculatorService cqiCalculatorService;
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * Recalculates CQI from already-persisted AnalyzedChunk data.
@@ -151,8 +149,7 @@ public class CqiRecalculationService {
                     // Replace the incorrect ownership contribution with the original
                     - weights.ownershipSpread() * cqiResult.components().ownershipSpread()
                     + weights.ownershipSpread() * originalOwnership;
-            finalCqi = Math.max(0, Math.min(100,
-                    finalBaseScore * cqiResult.penaltyMultiplier()));
+            finalCqi = Math.max(0, Math.min(100, finalBaseScore));
         }
 
         participation.setCqi(finalCqi);
@@ -164,10 +161,6 @@ public class CqiRecalculationService {
                 participation.setCqiOwnershipSpread(originalOwnership);
             }
             participation.setCqiBaseScore(finalBaseScore);
-            participation.setCqiPenaltyMultiplier(cqiResult.penaltyMultiplier());
-            if (cqiResult.penalties() != null) {
-                participation.setCqiPenalties(serializePenalties(cqiResult.penalties()));
-            }
         }
         teamParticipationRepository.save(participation);
 
@@ -207,11 +200,4 @@ public class CqiRecalculationService {
         }
     }
 
-    String serializePenalties(List<?> penalties) {
-        try {
-            return OBJECT_MAPPER.writeValueAsString(penalties);
-        } catch (Exception e) {
-            return "[]";
-        }
-    }
 }

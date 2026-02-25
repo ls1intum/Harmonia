@@ -1,5 +1,7 @@
 package de.tum.cit.aet.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * Token usage for a single LLM call.
  *
@@ -9,7 +11,8 @@ package de.tum.cit.aet.ai.dto;
  * @param totalTokens     total tokens (input + output)
  * @param usageAvailable  true when provider returned usage metadata
  */
-public record LlmTokenUsage(
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
+public record LlmTokenUsageDTO(
         String model,
         long promptTokens,
         long completionTokens,
@@ -22,7 +25,7 @@ public record LlmTokenUsage(
      * @param model model identifier
      * @return usage with zero token counts and usageAvailable=false
      */
-    public static LlmTokenUsage unavailable(String model) {
-        return new LlmTokenUsage(model, 0, 0, 0, false);
+    public static LlmTokenUsageDTO unavailable(String model) {
+        return new LlmTokenUsageDTO(model, 0, 0, 0, false);
     }
 }

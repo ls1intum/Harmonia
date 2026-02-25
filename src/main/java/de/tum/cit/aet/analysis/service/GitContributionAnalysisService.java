@@ -444,30 +444,56 @@ public class GitContributionAnalysisService {
 
     /**
      * Result of mapping commits to authors, including orphan commits.
+     *
+     * @param commitToAuthor     hash -> studentId for assigned commits
+     * @param orphanCommitHashes hashes of unassigned, non-template commits
+     * @param orphanCommitEmails hash -> git author email for orphan commits
+     * @param commitToEmail      hash -> display email for assigned commits
      */
-    private record CommitMappingResult(
+    public record CommitMappingResult(
             Map<String, Long> commitToAuthor,
             Set<String> orphanCommitHashes,
+            Map<String, String> orphanCommitEmails,
             Map<String, String> commitToEmail) {
     }
 
     /**
-     * Maps each commit hash to the corresponding author ID based on full git
-     * history walk with 3-tier matching. Also tracks orphan commits.
+     * Maps commits to authors and separates orphan commits (excluding templates).
+     *
+     * @param repo the repository DTO
+     * @return mapping result with assigned and orphan commits
      */
-    private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo) {
+    public CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo) {
         return mapCommitToAuthor(repo, null);
     }
 
-    private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo, String templateAuthorEmail) {
+    /**
+     * Maps commits to authors and separates orphan commits (excluding templates).
+     *
+     * @param repo                the repository DTO
+     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @return mapping result with assigned and orphan commits
+     */
+    public CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo, String templateAuthorEmail) {
         FullCommitMappingResult full = buildFullCommitMap(repo, templateAuthorEmail);
         Set<String> templateHashes = full.templateCommitHashes() != null
                 ? full.templateCommitHashes() : Set.of();
         Set<String> orphanHashes = new HashSet<>(full.orphanCommitEmails().keySet());
         orphanHashes.removeAll(templateHashes);
+
+        // Build orphan email map excluding template commits
+        Map<String, String> orphanEmails = new HashMap<>();
+        for (String hash : orphanHashes) {
+            String email = full.orphanCommitEmails().get(hash);
+            if (email != null) {
+                orphanEmails.put(hash, email);
+            }
+        }
+
         return new CommitMappingResult(
                 new HashMap<>(full.commitToAuthor()),
                 orphanHashes,
+                orphanEmails,
                 new HashMap<>(full.commitToVcsEmail()));
     }
 

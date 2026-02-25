@@ -494,7 +494,7 @@ public class EmailMappingResource {
                         Boolean.TRUE.equals(chunk.getIsError()),
                         chunk.getErrorMessage(),
                         Boolean.TRUE.equals(chunk.getIsExternalContributor()),
-                        new LlmTokenUsage(
+                        new LlmTokenUsageDTO(
                                 chunk.getLlmModel() != null ? chunk.getLlmModel() : "unknown",
                                 chunk.getLlmPromptTokens() != null ? chunk.getLlmPromptTokens() : 0L,
                                 chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L,
@@ -507,11 +507,11 @@ public class EmailMappingResource {
                 .toList();
     }
 
-    private LlmTokenTotals readTeamTokenTotals(TeamParticipation p) {
+    private LlmTokenTotalsDTO readTeamTokenTotals(TeamParticipation p) {
         if (p.getLlmCalls() == null) {
             return null;
         }
-        return new LlmTokenTotals(
+        return new LlmTokenTotalsDTO(
                 p.getLlmCalls() != null ? p.getLlmCalls() : 0L,
                 p.getLlmCallsWithUsage() != null ? p.getLlmCallsWithUsage() : 0L,
                 p.getLlmPromptTokens() != null ? p.getLlmPromptTokens() : 0L,

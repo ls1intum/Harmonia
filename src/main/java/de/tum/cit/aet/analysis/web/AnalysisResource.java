@@ -118,19 +118,6 @@ public class AnalysisResource {
         }
     }
 
-    /**
-     * Legacy recompute endpoint for backwards compatibility.
-     *
-     * @param course   the course identifier
-     * @param exercise the exercise identifier
-     * @return a response entity
-     */
-    @PostMapping("/{course}/{exercise}/recompute")
-    public ResponseEntity<String> recompute(@PathVariable String course, @PathVariable String exercise) {
-        log.info("Recompute requested for course: {}, exercise: {}", course, exercise);
-        return ResponseEntity.ok("Recompute triggered");
-    }
-
     private void clearRepositoryFiles() throws IOException {
         // Clear ~/.harmonia/repos
         Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");

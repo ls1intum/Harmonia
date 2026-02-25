@@ -124,11 +124,4 @@ class AnalysisResourceTest {
         verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
     }
 
-    @Test
-    void recompute_legacyEndpoint_returns200() {
-        ResponseEntity<String> response = resource.recompute("TestCourse", "123");
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Recompute triggered", response.getBody());
-    }
 }

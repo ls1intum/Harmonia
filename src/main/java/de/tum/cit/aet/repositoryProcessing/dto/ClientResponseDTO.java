@@ -2,7 +2,7 @@ package de.tum.cit.aet.repositoryProcessing.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
-import de.tum.cit.aet.ai.dto.LlmTokenTotals;
+import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus;
@@ -26,7 +26,7 @@ public record ClientResponseDTO(
                 CQIResultDTO cqiDetails,
                 List<AnalyzedChunkDTO> analysisHistory,
                 List<OrphanCommitDTO> orphanCommits,
-                LlmTokenTotals llmTokenTotals,
+                LlmTokenTotalsDTO llmTokenTotals,
                 Integer orphanCommitCount) {
 
         /**
@@ -44,7 +44,7 @@ public record ClientResponseDTO(
                         CQIResultDTO cqiDetails,
                         List<AnalyzedChunkDTO> analysisHistory,
                         List<OrphanCommitDTO> orphanCommits,
-                        LlmTokenTotals llmTokenTotals) {
+                        LlmTokenTotalsDTO llmTokenTotals) {
                 this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
                                 cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null);
         }

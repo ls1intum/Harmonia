@@ -1,7 +1,6 @@
 package de.tum.cit.aet.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import de.tum.cit.aet.ai.domain.FairnessFlag;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +15,7 @@ import java.util.Map;
  *                             points
  * @param effortShareByAuthor  Map of author ID to their percentage share
  *                             (0.0-1.0)
- * @param flags                List of fairness flags that were triggered
- * @param requiresManualReview True if any flags indicate the need for manual
- *                             review
+ * @param error                True if the analysis failed with an error
  * @param authorDetails        Detailed breakdown per author
  * @param analysisMetadata     Metadata about the analysis (commit count, chunk
  *                             count, etc.)
@@ -30,8 +27,7 @@ public record FairnessReportDTO(
                 double balanceScore,
                 Map<Long, Double> effortByAuthor,
                 Map<Long, Double> effortShareByAuthor,
-                List<FairnessFlag> flags,
-                boolean requiresManualReview,
+                boolean error,
                 List<AuthorDetailDTO> authorDetails,
                 AnalysisMetadataDTO analysisMetadata,
                 List<AnalyzedChunkDTO> analyzedChunks,
@@ -73,7 +69,6 @@ public record FairnessReportDTO(
                                 0.0,
                                 Map.of(),
                                 Map.of(),
-                                List.of(FairnessFlag.ANALYSIS_ERROR),
                                 true,
                                 List.of(),
                                 new AnalysisMetadataDTO(0, 0, 0, 0.0, 0, 0),

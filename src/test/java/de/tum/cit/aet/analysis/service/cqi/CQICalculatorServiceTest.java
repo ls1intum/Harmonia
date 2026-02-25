@@ -59,7 +59,6 @@ class CQICalculatorServiceTest {
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName);
 
         assertTrue(result.cqi() >= 80, "Perfect balance should score >= 80, got: " + result.cqi());
-        assertTrue(result.penalties().isEmpty(), "Should have no penalties");
     }
 
     @Test

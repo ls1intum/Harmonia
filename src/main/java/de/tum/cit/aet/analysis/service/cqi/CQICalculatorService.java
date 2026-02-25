@@ -115,24 +115,14 @@ public class CQICalculatorService {
         double baseScore = components.weightedSum(
                 weights.getEffort(), weights.getLoc(), weights.getTemporal(), weights.getOwnership());
 
-        // Calculate penalties
-        List<CQIPenaltyDTO> penalties = calculatePenalties(
-                effortByAuthor, commitsByType, ratedChunks, projectStart, projectEnd);
-
-        double penaltyMultiplier = penalties.isEmpty() ? 1.0 :
-                penalties.stream()
-                        .mapToDouble(CQIPenaltyDTO::multiplier)
-                        .reduce(1.0, (a, b) -> a * b);
-
         // Final CQI
-        double cqi = Math.max(0, Math.min(100, baseScore * penaltyMultiplier));
+        double cqi = Math.max(0, Math.min(100, baseScore));
 
-        log.info("CQI calculated: {} (base={}, penalty={})",
+        log.info("CQI calculated: {} (base={})",
                 String.format("%.1f", cqi),
-                String.format("%.1f", baseScore),
-                String.format("%.2f", penaltyMultiplier));
+                String.format("%.1f", baseScore));
 
-        return new CQIResultDTO(cqi, components, weightsDTO, penalties, baseScore, penaltyMultiplier, filterSummary);
+        return new CQIResultDTO(cqi, components, weightsDTO, baseScore, filterSummary);
     }
 
     /**
@@ -567,57 +557,6 @@ public class CQICalculatorService {
 
         double maxPossible = significantFiles.size() * effectiveTeamSize;
         return 100.0 * totalAuthors / maxPossible;
-    }
-
-    // ==================== Penalty Calculations ====================
-
-    /**
-     * Calculate all applicable penalties.
-     */
-    private List<CQIPenaltyDTO> calculatePenalties(
-            Map<Long, Double> effortByAuthor,
-            Map<CommitLabel, Integer> commitsByType,
-            List<RatedChunk> chunks,
-            LocalDateTime projectStart,
-            LocalDateTime projectEnd) {
-
-        // Penalties are disabled - return empty list
-        // The CQI score is now purely based on the component scores
-        return new ArrayList<>();
-    }
-
-    /**
-     * Calculate the ratio of work done in the final 20% of the project.
-     */
-    private double calculateLateWorkRatio(List<RatedChunk> chunks,
-                                          LocalDateTime projectStart,
-                                          LocalDateTime projectEnd) {
-        if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return 0.0;
-        }
-
-        long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
-        if (totalDays <= 0) {
-            return 0.0;
-        }
-
-        long latePeriodStart = (long) (totalDays * 0.8);
-        LocalDateTime lateDate = projectStart.plusDays(latePeriodStart);
-
-        double totalEffort = chunks.stream()
-                .mapToDouble(rc -> rc.rating() != null ? rc.rating().weightedEffort() : 1.0)
-                .sum();
-
-        if (totalEffort == 0) {
-            return 0.0;
-        }
-
-        double lateEffort = chunks.stream()
-                .filter(rc -> rc.chunk().timestamp() != null && rc.chunk().timestamp().isAfter(lateDate))
-                .mapToDouble(rc -> rc.rating() != null ? rc.rating().weightedEffort() : 1.0)
-                .sum();
-
-        return lateEffort / totalEffort;
     }
 
     // ==================== Helper Methods ====================

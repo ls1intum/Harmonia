@@ -30,7 +30,7 @@ public record AnalyzedChunkDTO(
                 boolean isError,
                 String errorMessage,
                 boolean isExternalContributor,
-                LlmTokenUsage llmTokenUsage) {
+                LlmTokenUsageDTO llmTokenUsage) {
 
         /**
          * Constructor for backward compatibility without isExternalContributor.
