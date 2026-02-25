@@ -335,9 +335,7 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">
               Analysis History
-              {hasActiveFilters
-                ? ` (${filteredTeamChunks.length} of ${teamChunks.length} chunks)`
-                : ` (${teamChunks.length} chunks)`}
+              {hasActiveFilters ? ` (${filteredTeamChunks.length} of ${teamChunks.length} chunks)` : ` (${teamChunks.length} chunks)`}
             </h3>
             {hasActiveFilters && (
               <button
