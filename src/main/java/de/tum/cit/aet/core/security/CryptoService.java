@@ -12,6 +12,10 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
 
+/**
+ * Service providing AES-GCM encryption and decryption.
+ * Uses a 128-bit key derived from a configurable secret and a random 12-byte IV per operation.
+ */
 @Service
 public class CryptoService {
 
@@ -22,35 +26,29 @@ public class CryptoService {
     private final SecretKeySpec secretKey;
 
     public CryptoService(@Value("${harmonia.security.secret-key:default-secret-key-change-me-in-prod}") String secret) {
-        this.secretKey = generateKey(secret);
-    }
-
-    private SecretKeySpec generateKey(String myKey) {
-        try {
-            byte[] key = myKey.getBytes(StandardCharsets.UTF_8);
-            MessageDigest sha = MessageDigest.getInstance("SHA-256");
-            key = sha.digest(key);
-            key = Arrays.copyOf(key, 16); // Use only first 128 bit
-            return new SecretKeySpec(key, "AES");
-        } catch (Exception e) {
-            throw new RuntimeException("Error generating security key", e);
-        }
+        this.secretKey = deriveKey(secret);
     }
 
     /**
-     * Encrypts a string using AES encryption.
+     * Encrypts a plaintext string using AES-GCM.
+     * The returned value is Base64-encoded and contains the IV prepended to the ciphertext.
      *
-     * @param strToEncrypt The string to encrypt
-     * @return The encrypted string (Base64 encoded)
+     * @param plaintext the string to encrypt
+     * @return the Base64-encoded ciphertext (IV + encrypted data)
      */
-    public String encrypt(String strToEncrypt) {
+    public String encrypt(String plaintext) {
         try {
+            // 1) Generate a random initialization vector
             byte[] iv = new byte[GCM_IV_LENGTH];
             new SecureRandom().nextBytes(iv);
+
+            // 2) Encrypt the plaintext
             GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec);
-            byte[] cipherText = cipher.doFinal(strToEncrypt.getBytes(StandardCharsets.UTF_8));
+            byte[] cipherText = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+
+            // 3) Prepend IV to ciphertext and encode as Base64
             byte[] encrypted = new byte[iv.length + cipherText.length];
             System.arraycopy(iv, 0, encrypted, 0, iv.length);
             System.arraycopy(cipherText, 0, encrypted, iv.length, cipherText.length);
@@ -61,22 +59,40 @@ public class CryptoService {
     }
 
     /**
-     * Decrypts a string using AES encryption.
+     * Decrypts a Base64-encoded ciphertext that was produced by {@link #encrypt(String)}.
      *
-     * @param strToDecrypt The string to decrypt (Base64 encoded)
-     * @return The decrypted string
+     * @param ciphertext the Base64-encoded string to decrypt (IV + encrypted data)
+     * @return the original plaintext
      */
-    public String decrypt(String strToDecrypt) {
+    public String decrypt(String ciphertext) {
         try {
-            byte[] decoded = Base64.getDecoder().decode(strToDecrypt);
+            // 1) Decode and extract the IV from the first 12 bytes
+            byte[] decoded = Base64.getDecoder().decode(ciphertext);
             byte[] iv = new byte[GCM_IV_LENGTH];
             System.arraycopy(decoded, 0, iv, 0, iv.length);
+
+            // 2) Decrypt the remaining bytes
             GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
             return new String(cipher.doFinal(decoded, GCM_IV_LENGTH, decoded.length - GCM_IV_LENGTH));
         } catch (Exception e) {
             throw new RuntimeException("Error while decrypting", e);
+        }
+    }
+
+    /**
+     * Derives a 128-bit AES key from the given secret using SHA-256.
+     */
+    private SecretKeySpec deriveKey(String secret) {
+        try {
+            byte[] key = secret.getBytes(StandardCharsets.UTF_8);
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            key = sha.digest(key);
+            key = Arrays.copyOf(key, 16);
+            return new SecretKeySpec(key, "AES");
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating security key", e);
         }
     }
 }
