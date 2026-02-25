@@ -3,7 +3,7 @@ import type { TemplateAuthorInfo } from '@/data/dataLoaders';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, Pencil, ChevronDown } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Square, RefreshCw, Trash2, CodeXml, GitBranch, Pencil, ChevronDown, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -97,6 +97,7 @@ const TeamsList = ({
   isAttendanceUploading = false,
   isAttendanceClearing = false,
 }: TeamsListProps) => {
+  const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -253,6 +254,17 @@ const TeamsList = ({
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = [...teams];
 
+    // Apply text search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(team => {
+        if (team.teamName.toLowerCase().includes(q)) return true;
+        if (team.tutor?.toLowerCase().includes(q)) return true;
+        if (team.students.some(s => s.name?.toLowerCase().includes(q))) return true;
+        return false;
+      });
+    }
+
     // Apply status filter
     if (statusFilter !== 'all') {
       if (statusFilter === 'failed') {
@@ -317,7 +329,7 @@ const TeamsList = ({
     }
 
     return filtered;
-  }, [teams, sortColumn, sortDirection, statusFilter]);
+  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter]);
 
   const renderActionButton = () => {
     if (isLoading) {
@@ -722,6 +734,31 @@ const TeamsList = ({
           </div>
         </Card>
       )}
+
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search teams, students, tutors..."
+            className="pl-9 pr-9"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {searchQuery.trim() && (
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Showing {sortedAndFilteredTeams.length} of {teams.length} teams
+          </span>
+        )}
+      </div>
 
       <Card className="overflow-hidden shadow-card">
         <div className="overflow-x-auto">
