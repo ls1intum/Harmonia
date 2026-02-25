@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
+import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
@@ -26,13 +27,16 @@ public class AnalysisResource {
     private final RequestService requestService;
     private final TeamScheduleService teamScheduleService;
     private final ExerciseEmailMappingRepository emailMappingRepository;
+    private final ExerciseTemplateAuthorRepository templateAuthorRepository;
 
     public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
-                            TeamScheduleService teamScheduleService, ExerciseEmailMappingRepository emailMappingRepository) {
+                            TeamScheduleService teamScheduleService, ExerciseEmailMappingRepository emailMappingRepository,
+                            ExerciseTemplateAuthorRepository templateAuthorRepository) {
         this.stateService = stateService;
         this.requestService = requestService;
         this.teamScheduleService = teamScheduleService;
         this.emailMappingRepository = emailMappingRepository;
+        this.templateAuthorRepository = templateAuthorRepository;
     }
 
     /**
@@ -97,7 +101,8 @@ public class AnalysisResource {
 
                 if (clearMappings) {
                     emailMappingRepository.deleteAllByExerciseId(exerciseId);
-                    log.info("Email mappings cleared for exercise {}", exerciseId);
+                    templateAuthorRepository.deleteByExerciseId(exerciseId);
+                    log.info("Email mappings and template author cleared for exercise {}", exerciseId);
                 }
             }
 

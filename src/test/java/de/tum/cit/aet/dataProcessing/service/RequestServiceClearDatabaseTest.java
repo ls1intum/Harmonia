@@ -2,19 +2,16 @@ package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
-import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
-import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.domain.Tutor;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,21 +31,9 @@ class RequestServiceClearDatabaseTest {
     @Mock private StudentRepository studentRepository;
     @Mock private TutorRepository tutorRepository;
     @Mock private ExerciseEmailMappingRepository emailMappingRepository;
-    @Mock private ExerciseTemplateAuthorRepository templateAuthorRepository;
-    @Mock private GitContributionAnalysisService gitContributionAnalysisService;
-    @Mock private CqiRecalculationService cqiRecalculationService;
 
+    @InjectMocks
     private RequestService service;
-
-    @BeforeEach
-    void setUp() {
-        service = new RequestService(
-                null, null, null, null, null,
-                teamRepositoryRepository, teamParticipationRepository, tutorRepository,
-                studentRepository, analyzedChunkRepository, templateAuthorRepository,
-                emailMappingRepository, gitContributionAnalysisService, null, null, null,
-                null, cqiRecalculationService);
-    }
 
     @Test
     void clearDatabase_deletesOrphanedTutors() {
@@ -129,5 +114,28 @@ class RequestServiceClearDatabaseTest {
 
         // Email mappings should NOT be deleted by clearDatabase — controlled by clearMappings flag in AnalysisResource
         verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
+    }
+
+    @Test
+    void clearDatabase_sharedTutor_deduplicatesIds() {
+        Long exerciseId = 1L;
+
+        Tutor tutor = new Tutor(100L, "tutor1", "Tutor One", "tutor@uni.de");
+        UUID tutorId = UUID.randomUUID();
+        tutor.setTutorId(tutorId);
+
+        TeamParticipation p1 = new TeamParticipation(10L, 1L, tutor, "Team A", "team-a", "https://repo-a", 5);
+        TeamParticipation p2 = new TeamParticipation(11L, 1L, tutor, "Team B", "team-b", "https://repo-b", 5);
+
+        when(teamParticipationRepository.findAllByExerciseId(exerciseId))
+                .thenReturn(List.of(p1, p2));
+
+        service.clearDatabaseForExercise(exerciseId);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<UUID>> idsCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(tutorRepository).deleteOrphanedByIds(idsCaptor.capture());
+        assertEquals(1, idsCaptor.getValue().size());
+        assertTrue(idsCaptor.getValue().contains(tutorId));
     }
 }

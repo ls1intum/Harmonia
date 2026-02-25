@@ -322,9 +322,9 @@ public class RequestService {
 
         // Collect tutor IDs before deleting participations so we can clean up orphans
         var tutorIds = participations.stream()
-                .map(p -> p.getTutor())
+                .map(TeamParticipation::getTutor)
                 .filter(t -> t != null)
-                .map(t -> t.getTutorId())
+                .map(Tutor::getTutorId)
                 .distinct()
                 .toList();
 

@@ -460,7 +460,7 @@ const TeamsList = ({
                 <ChevronDown className="h-3 w-3 ml-1" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuContent align="end" className="w-auto min-w-64">
               <DropdownMenuItem onClick={() => handleClearClick('both', false)} className="flex flex-col items-start gap-0.5">
                 <span>Clear Analysis</span>
                 <span className="text-xs text-muted-foreground font-normal">Removes results and files. Keeps email mappings.</span>
@@ -471,7 +471,7 @@ const TeamsList = ({
                 className="flex flex-col items-start gap-0.5 text-destructive"
               >
                 <span>Clear All</span>
-                <span className="text-xs font-normal opacity-70">Removes everything including email mappings.</span>
+                <span className="text-xs font-normal text-destructive/70">Removes everything including email mappings.</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
