@@ -142,15 +142,13 @@ public class EmailMappingResource {
         List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
         List<AnalyzedChunk> remappedChunks = new ArrayList<>();
         for (AnalyzedChunk chunk : chunks) {
-            if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
-                    && normalizedEmail.equals(chunk.getAuthorEmail() != null
-                            ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
+            if (isExternalChunkForEmail(chunk, normalizedEmail)) {
                 chunk.setIsExternalContributor(false);
                 chunk.setAuthorName(request.studentName());
                 remappedChunks.add(chunk);
             }
         }
-        analyzedChunkRepository.saveAll(chunks);
+        analyzedChunkRepository.saveAll(remappedChunks);
 
         // 6. Update target student's commit/line stats with the remapped chunks
         if (!remappedChunks.isEmpty()) {
@@ -187,32 +185,37 @@ public class EmailMappingResource {
             return ResponseEntity.status(409).build();
         }
 
-        // 2. Find the team participation
-        TeamParticipation participation = teamParticipationRepository
-                .findByExerciseIdAndTeam(exerciseId, request.teamParticipationId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "TeamParticipation not found for exercise " + exerciseId
-                                + " and team " + request.teamParticipationId()));
-
-        // 3. Save dismissed mapping (no student)
+        // 2. Save dismissed mapping (no student)
         ExerciseEmailMapping mapping = new ExerciseEmailMapping(exerciseId, normalizedEmail, true);
         emailMappingRepository.save(mapping);
 
-        // 4. Mark matching external chunks as non-external
-        List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
-        for (AnalyzedChunk chunk : chunks) {
-            if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
-                    && normalizedEmail.equals(chunk.getAuthorEmail() != null
-                            ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
-                chunk.setIsExternalContributor(false);
+        // 3. Mark matching external chunks as non-external across ALL participations
+        List<TeamParticipation> participations = teamParticipationRepository
+                .findAllByExerciseId(exerciseId);
+
+        ClientResponseDTO requestedResponse = null;
+        for (TeamParticipation participation : participations) {
+            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+            List<AnalyzedChunk> dismissedChunks = new ArrayList<>();
+            for (AnalyzedChunk chunk : chunks) {
+                if (isExternalChunkForEmail(chunk, normalizedEmail)) {
+                    chunk.setIsExternalContributor(false);
+                    dismissedChunks.add(chunk);
+                }
+            }
+            if (!dismissedChunks.isEmpty()) {
+                analyzedChunkRepository.saveAll(dismissedChunks);
+                cqiRecalculationService.recalculateFromChunks(participation, chunks);
+            }
+            if (participation.getTeam().equals(request.teamParticipationId())) {
+                requestedResponse = buildResponse(participation);
             }
         }
-        analyzedChunkRepository.saveAll(chunks);
 
-        // 5. Recalculate CQI (no stats added to any student)
-        cqiRecalculationService.recalculateFromChunks(participation, chunks);
-
-        return ResponseEntity.ok(buildResponse(participation));
+        if (requestedResponse != null) {
+            return ResponseEntity.ok(requestedResponse);
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -230,6 +233,10 @@ public class EmailMappingResource {
 
         ExerciseEmailMapping mapping = emailMappingRepository.findById(mappingId)
                 .orElseThrow(() -> new IllegalArgumentException("Mapping not found: " + mappingId));
+
+        if (!mapping.getExerciseId().equals(exerciseId)) {
+            return ResponseEntity.notFound().build();
+        }
 
         log.info("DELETE deleteMapping for exerciseId={}, gitEmail={}, studentId={}",
                 exerciseId, mapping.getGitEmail(), mapping.getStudentId());
@@ -262,7 +269,7 @@ public class EmailMappingResource {
             }
 
             if (!orphanedChunks.isEmpty()) {
-                analyzedChunkRepository.saveAll(chunks);
+                analyzedChunkRepository.saveAll(orphanedChunks);
                 if (!Boolean.TRUE.equals(mapping.getIsDismissed())) {
                     subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
                 }
@@ -488,6 +495,12 @@ public class EmailMappingResource {
 
     private static int safe(Integer value) {
         return value != null ? value : 0;
+    }
+
+    private static boolean isExternalChunkForEmail(AnalyzedChunk chunk, String normalizedEmail) {
+        return Boolean.TRUE.equals(chunk.getIsExternalContributor())
+                && normalizedEmail.equals(chunk.getAuthorEmail() != null
+                        ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null);
     }
 
     /**

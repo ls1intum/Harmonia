@@ -1626,14 +1626,17 @@ public class RequestService {
 
             for (ExerciseEmailMapping mapping : mappings) {
                 String emailLower = mapping.getGitEmail().toLowerCase(java.util.Locale.ROOT);
+                boolean dismissed = Boolean.TRUE.equals(mapping.getIsDismissed());
                 for (AnalyzedChunk chunk : chunks) {
                     if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
                             && emailLower.equals(chunk.getAuthorEmail() != null
                                     ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
                         chunk.setIsExternalContributor(false);
-                        chunk.setAuthorName(mapping.getStudentName());
-                        remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
-                                .add(chunk);
+                        if (!dismissed) {
+                            chunk.setAuthorName(mapping.getStudentName());
+                            remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
+                                    .add(chunk);
+                        }
                     }
                 }
             }

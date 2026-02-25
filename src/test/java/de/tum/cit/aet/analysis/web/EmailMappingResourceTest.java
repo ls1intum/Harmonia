@@ -455,6 +455,97 @@ class EmailMappingResourceTest {
     }
 
     // ================================================================
+    //  dismissEmail tests
+    // ================================================================
+
+    @Test
+    void dismissEmail_marksChunksAsNonExternalAcrossAllParticipations() {
+        TeamParticipation p1 = makeParticipation();
+        TeamParticipation p2 = new TeamParticipation(2L, 20L, null, "Team-2", "t2",
+                "https://repo.example.com/t2", 5);
+        p2.setTeamParticipationId(UUID.randomUUID());
+        p2.setExerciseId(EXERCISE_ID);
+
+        AnalyzedChunk chunk1 = makeChunk(p1, "orphan@gmail.com", true);
+        AnalyzedChunk chunk2 = makeChunk(p2, "orphan@gmail.com", true);
+
+        when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
+                .thenReturn(false);
+        when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
+                .thenReturn(List.of(p1, p2));
+        when(analyzedChunkRepository.findByParticipation(p1))
+                .thenReturn(new ArrayList<>(List.of(chunk1)));
+        when(analyzedChunkRepository.findByParticipation(p2))
+                .thenReturn(new ArrayList<>(List.of(chunk2)));
+        when(studentRepository.findAllByTeam(any())).thenReturn(List.of());
+
+        var request = new EmailMappingResource.DismissEmailRequest("orphan@gmail.com", TEAM_ID);
+
+        ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
+
+        assertFalse(chunk1.getIsExternalContributor());
+        assertFalse(chunk2.getIsExternalContributor());
+        // Verify chunks saved for both participations
+        verify(analyzedChunkRepository, times(2)).saveAll(anyList());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void dismissEmail_returns409IfAlreadyMapped() {
+        when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
+                .thenReturn(true);
+
+        var request = new EmailMappingResource.DismissEmailRequest("orphan@gmail.com", TEAM_ID);
+
+        ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+    }
+
+    @Test
+    void dismissEmail_doesNotAddStatsToAnyStudent() {
+        TeamParticipation participation = makeParticipation();
+        AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
+
+        when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
+                .thenReturn(false);
+        when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
+                .thenReturn(List.of(participation));
+        when(analyzedChunkRepository.findByParticipation(participation))
+                .thenReturn(new ArrayList<>(List.of(chunk)));
+        when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
+
+        var request = new EmailMappingResource.DismissEmailRequest("orphan@gmail.com", TEAM_ID);
+
+        resource.dismissEmail(EXERCISE_ID, request);
+
+        // Mapping saved as dismissed
+        ArgumentCaptor<ExerciseEmailMapping> captor = ArgumentCaptor.forClass(ExerciseEmailMapping.class);
+        verify(emailMappingRepository).save(captor.capture());
+        assertTrue(captor.getValue().getIsDismissed());
+        assertNull(captor.getValue().getStudentName());
+    }
+
+    // ================================================================
+    //  deleteMapping – exerciseId validation
+    // ================================================================
+
+    @Test
+    void deleteMapping_returns404WhenExerciseIdMismatch() {
+        ExerciseEmailMapping mapping = new ExerciseEmailMapping(
+                99L, "orphan@gmail.com", 999L, "Alice"); // exerciseId=99, not 42
+        mapping.setId(UUID.randomUUID());
+
+        when(emailMappingRepository.findById(mapping.getId()))
+                .thenReturn(Optional.of(mapping));
+
+        ResponseEntity<ClientResponseDTO> response = resource.deleteMapping(EXERCISE_ID, mapping.getId());
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        verify(emailMappingRepository, never()).delete(any());
+    }
+
+    // ================================================================
     //  getAllMappings test
     // ================================================================
 
