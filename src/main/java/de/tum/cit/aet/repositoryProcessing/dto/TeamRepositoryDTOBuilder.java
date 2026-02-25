@@ -1,10 +1,13 @@
 package de.tum.cit.aet.repositoryProcessing.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.List;
 
 /**
  * Builder for immutable TeamRepositoryDTO records.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TeamRepositoryDTOBuilder {
     private ParticipationDTO participation;
     private List<VCSLogDTO> vcsLogs;

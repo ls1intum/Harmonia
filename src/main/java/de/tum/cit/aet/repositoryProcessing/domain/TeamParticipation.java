@@ -7,6 +7,10 @@ import lombok.Setter;
 
 import java.util.UUID;
 
+/**
+ * JPA entity representing a team's participation in an exercise.
+ * Stores Artemis participation data, analysis status, CQI metrics, and LLM usage statistics.
+ */
 @Getter
 @Setter
 @Entity

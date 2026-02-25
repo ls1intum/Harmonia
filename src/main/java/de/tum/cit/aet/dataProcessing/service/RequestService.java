@@ -10,7 +10,8 @@ import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.*;
-import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
+import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
+import de.tum.cit.aet.repositoryProcessing.service.GitOperationsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +54,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class RequestService {
 
-    private final RepositoryFetchingService repositoryFetchingService;
+    private final ArtemisClientService artemisClientService;
+    private final GitOperationsService gitOperationsService;
     private final AnalysisService analysisService;
     private final de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator;
     private final ContributionFairnessService fairnessService;
@@ -86,7 +88,8 @@ public class RequestService {
 
     @Autowired
     public RequestService(
-            RepositoryFetchingService repositoryFetchingService,
+            ArtemisClientService artemisClientService,
+            GitOperationsService gitOperationsService,
             AnalysisService analysisService,
             de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator,
             ContributionFairnessService fairnessService,
@@ -104,7 +107,8 @@ public class RequestService {
             CommitChunkerService commitChunkerService,
             TransactionTemplate transactionTemplate,
             CqiRecalculationService cqiRecalculationService) {
-        this.repositoryFetchingService = repositoryFetchingService;
+        this.artemisClientService = artemisClientService;
+        this.gitOperationsService = gitOperationsService;
         this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
         this.fairnessService = fairnessService;
@@ -176,15 +180,22 @@ public class RequestService {
     }
 
     /**
-     * Fetches and clones all repositories from Artemis using dynamic credentials.
+     * Fetches participations from Artemis and clones/pulls all team repositories.
      *
-     * @param credentials The Artemis credentials
-     * @param exerciseId  The exercise ID to fetch participations for
-     * @return List of TeamRepositoryDTO containing repository information
+     * @param credentials the Artemis credentials
+     * @param exerciseId  the exercise ID
+     * @return list of {@link TeamRepositoryDTO}s with clone status and VCS logs
      */
     public List<TeamRepositoryDTO> fetchAndCloneRepositories(ArtemisCredentials credentials, Long exerciseId) {
-        log.info("RequestService: Initiating repository fetch and clone process");
-        return repositoryFetchingService.fetchAndCloneRepositories(credentials, exerciseId);
+        // 1) Fetch participations from Artemis
+        List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
+                credentials.serverUrl(), credentials.jwtToken(), exerciseId);
+
+        // 2) Clone repositories and fetch VCS logs in parallel
+        return participations.parallelStream()
+                .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
+                .map(p -> gitOperationsService.cloneAndFetchLogs(p, credentials, exerciseId))
+                .toList();
     }
 
     /**
@@ -1085,8 +1096,8 @@ public class RequestService {
             });
 
             // Step 1: Fetch all participations from Artemis
-            List<ParticipationDTO> participations = repositoryFetchingService.fetchParticipations(credentials,
-                    exerciseId);
+            List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
+                    credentials.serverUrl(), credentials.jwtToken(), exerciseId);
 
             // Step 2: Filter participations with valid repositories
             List<ParticipationDTO> validParticipations = participations.stream()
@@ -1174,7 +1185,7 @@ public class RequestService {
                         // Step 1: Download
                         analysisStateService.updateProgress(exerciseId, teamName, "DOWNLOADING", gitAnalyzedCount.get());
 
-                        TeamRepositoryDTO repo = repositoryFetchingService.cloneTeamRepository(
+                        TeamRepositoryDTO repo = gitOperationsService.cloneAndFetchLogs(
                                 participation, credentials, exerciseId);
 
                         if (repo == null) {

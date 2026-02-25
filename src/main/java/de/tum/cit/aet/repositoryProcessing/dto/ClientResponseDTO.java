@@ -9,6 +9,10 @@ import de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus;
 
 import java.util.List;
 
+/**
+ * Response DTO sent to the client containing a team's full analysis results,
+ * including CQI, student contributions, commit history, and LLM usage.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClientResponseDTO(
                 String tutor,

@@ -7,6 +7,10 @@ import lombok.Setter;
 
 import java.util.UUID;
 
+/**
+ * JPA entity representing a single VCS (Version Control System) log entry
+ * associated with a {@link TeamRepository}.
+ */
 @Getter
 @Setter
 @Entity

@@ -1,9 +1,10 @@
 package de.tum.cit.aet;
 
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
+import de.tum.cit.aet.repositoryProcessing.dto.ParticipationDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
-import de.tum.cit.aet.repositoryProcessing.service.RepositoryFetchingService;
+import de.tum.cit.aet.repositoryProcessing.service.GitOperationsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,7 +18,7 @@ class DynamicAuthTest {
     private ArtemisClientService artemisClientService;
 
     @Autowired
-    private RepositoryFetchingService repositoryFetchingService;
+    private GitOperationsService gitOperationsService;
 
     @Test
     void testDynamicAuthenticationAndCloning() {
@@ -34,9 +35,14 @@ class DynamicAuthTest {
                 loader.getServerUrl(), loader.getUsername(), loader.getPassword());
         System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
 
-        // 2. Fetch and Clone using credentials DTO
+        // 2. Fetch participations and clone repositories
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        List<TeamRepositoryDTO> teamRepositories = repositoryFetchingService.fetchAndCloneRepositories(credentials, 18806L);
+        List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
+                credentials.serverUrl(), credentials.jwtToken(), 18806L);
+        List<TeamRepositoryDTO> teamRepositories = participations.parallelStream()
+                .filter(p -> p.repositoryUri() != null && !p.repositoryUri().isEmpty())
+                .map(p -> gitOperationsService.cloneAndFetchLogs(p, credentials, 18806L))
+                .toList();
 
         System.out.println("Fetched " + teamRepositories.size() + " repositories.");
         teamRepositories.forEach(repo -> {

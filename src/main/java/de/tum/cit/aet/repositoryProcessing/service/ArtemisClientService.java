@@ -7,13 +7,13 @@ import de.tum.cit.aet.repositoryProcessing.dto.TutorialGroupSessionDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.VCSLogDTO;
 import tools.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -26,296 +26,138 @@ import java.util.Set;
 
 /**
  * Service responsible for communicating with the Artemis API.
- * Handles authentication and fetching of participation data.
+ * Handles authentication, participation fetching, VCS access logs,
+ * instructor verification, and tutorial group retrieval.
  */
-@Service
 @Slf4j
+@Service
 public class ArtemisClientService {
+
+    private static final String AUTH_PATH = "/api/core/public/authenticate";
+    private static final int MAX_AUTH_REDIRECTS = 3;
+    private static final Set<String> VALID_VCS_ACTIONS = Set.of("WRITE", "PUSH");
 
     @SuppressWarnings("unused")
     private final ArtemisConfig artemisConfig;
 
-    @Autowired
     public ArtemisClientService(ArtemisConfig artemisConfig) {
         this.artemisConfig = artemisConfig;
     }
 
     /**
-     * Authenticates with the Artemis server and retrieves the JWT cookie.
+     * Authenticates with the Artemis server and retrieves the JWT token.
+     * Follows up to {@value #MAX_AUTH_REDIRECTS} redirects automatically.
      *
-     * @param serverUrl The Artemis server URL
-     * @param username  The username
-     * @param password  The password
-     * @return The JWT cookie string
+     * @param serverUrl the Artemis server URL
+     * @param username  the username
+     * @param password  the password
+     * @return the JWT token string
+     * @throws ArtemisConnectionException if authentication fails or no JWT is returned
      */
     public String authenticate(String serverUrl, String username, String password) {
-        return authenticateInternal(serverUrl, username, password, 0);
-    }
-
-    private String authenticateInternal(String serverUrl, String username, String password, int retryCount) {
-        if (retryCount > 3) {
-            throw new ArtemisConnectionException("Too many redirects during authentication");
-        }
-
-        // Strip /api suffix if present
-        if (serverUrl.endsWith("/api")) {
-            serverUrl = serverUrl.substring(0, serverUrl.length() - 4);
-        } else if (serverUrl.endsWith("/api/")) {
-            serverUrl = serverUrl.substring(0, serverUrl.length() - 5);
-        }
-
-        log.info("Authenticating with Artemis at {} (attempt {})", serverUrl, retryCount + 1);
-
-        Map<String, Object> authRequest = Map.of(
-                "username", username,
-                "password", password,
-                "rememberMe", true
-        );
-
-        try {
-            // Ensure we hit the correct endpoint structure
-            // Modern Artemis uses /api/core/public/authenticate
-            // We try to construct the path carefully
-            String authPath = "/api/core/public/authenticate";
-
-            // If the serverUrl already ends with /api, we should avoid doubling it if we were using /api/...
-            // But here we assume serverUrl is the root (e.g. https://artemis.tum.de)
-
-            ResponseEntity<String> response = RestClient.create(serverUrl).post()
-                    .uri(authPath)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(authRequest)
-                    .retrieve()
-                    .toEntity(String.class);
-
-            if (response.getStatusCode().is3xxRedirection()) {
-                String newLocation = response.getHeaders().getFirst(HttpHeaders.LOCATION);
-                if (newLocation != null) {
-                    // Normalize new location to be a base URL
-                    String newBaseUrl = newLocation;
-                    if (newBaseUrl.endsWith(authPath)) {
-                        newBaseUrl = newBaseUrl.substring(0, newBaseUrl.length() - authPath.length());
-                    }
-                    if (newBaseUrl.endsWith("/")) {
-                        newBaseUrl = newBaseUrl.substring(0, newBaseUrl.length() - 1);
-                    }
-
-                    return authenticateInternal(newBaseUrl, username, password, retryCount + 1);
-                }
-            }
-
-            List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-            if (cookies != null) {
-                for (String cookie : cookies) {
-                    if (cookie.startsWith("jwt=")) {
-                        int start = 4;
-                        int end = cookie.indexOf(';');
-                        if (end == -1) {
-                            end = cookie.length();
-                        }
-                        return cookie.substring(start, end);
-                    }
-                }
-            }
-
-            throw new ArtemisConnectionException("No JWT cookie received from Artemis");
-        } catch (Exception e) {
-            log.error("Authentication failed", e);
-            throw new ArtemisConnectionException("Authentication failed", e);
-        }
+        return authenticateInternal(normalizeServerUrl(serverUrl), username, password, 0);
     }
 
     /**
-     * Fetches all participations for the configured exercise from Artemis using provided credentials.
+     * Fetches all participations for a given exercise from Artemis.
      *
-     * @param serverUrl  The Artemis server URL
-     * @param jwtToken   The JWT token for authentication
-     * @param exerciseId The exercise ID to fetch participations for
-     * @return List of participation DTOs containing team and repository information
+     * @param serverUrl  the Artemis server URL
+     * @param jwtToken   the JWT token for authentication
+     * @param exerciseId the exercise ID
+     * @return list of participation DTOs
+     * @throws ArtemisConnectionException if the request fails
      */
     public List<ParticipationDTO> fetchParticipations(String serverUrl, String jwtToken, Long exerciseId) {
-        log.info("Fetching participations for exercise ID: {} from {}", exerciseId, serverUrl);
-
-        String uri = String.format("/api/exercise/exercises/%d/participations?withLatestResults=false",
-                exerciseId);
+        String uri = String.format("/api/exercise/exercises/%d/participations?withLatestResults=false", exerciseId);
 
         try {
-            RestClient dynamicClient = RestClient.builder()
-                    .baseUrl(serverUrl)
-                    .defaultHeader("Cookie", "jwt=" + jwtToken)
-                    .build();
-
-            List<ParticipationDTO> participations = dynamicClient.get()
+            List<ParticipationDTO> participations = buildClient(serverUrl, jwtToken).get()
                     .uri(uri)
                     .retrieve()
-                    .body(new ParameterizedTypeReference<>() {
-                    });
-
-            log.info("Successfully fetched {} participations",
-                    participations != null ? participations.size() : 0);
+                    .body(new ParameterizedTypeReference<>() {});
 
             return participations;
-
         } catch (Exception e) {
-            log.error("Error fetching participations from Artemis", e);
             throw new ArtemisConnectionException("Failed to fetch participations from Artemis", e);
         }
     }
 
     /**
-     * Fetches a VCS access token for a specific participation.
+     * Fetches the VCS access log for a specific participation and filters for commit actions
+     * ({@code WRITE} and {@code PUSH}).
      *
-     * @param serverUrl       The Artemis server URL
-     * @param jwtToken        The JWT token for authentication
-     * @param participationId The ID of the participation
-     * @return The VCS access token
-     */
-    public String getVcsAccessToken(String serverUrl, String jwtToken, Long participationId) {
-        String uri = "/api/core/account/participation-vcs-access-token?participationId=" + participationId;
-
-        try {
-            RestClient dynamicClient = RestClient.builder()
-                    .baseUrl(serverUrl)
-                    .defaultHeader("Cookie", "jwt=" + jwtToken)
-                    .build();
-
-            // Assuming GET as POST failed with 405
-            String vcsToken = dynamicClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(String.class);
-
-            return vcsToken;
-
-        } catch (Exception e) {
-            log.error("Error fetching VCS access token for participation {}", participationId, e);
-            throw new ArtemisConnectionException("Failed to fetch VCS access token", e);
-        }
-    }
-
-    /**
-     * Fetches the VCS access log for a specific participation.
-     *
-     * @param serverUrl       The Artemis server URL
-     * @param jwtToken        The JWT token for authentication
-     * @param participationId The ID of the participation
-     * @return List of VCS log DTOs filtered for commits
+     * @param serverUrl       the Artemis server URL
+     * @param jwtToken        the JWT token for authentication
+     * @param participationId the participation ID
+     * @return filtered list of VCS log DTOs containing only commit-related entries
+     * @throws ArtemisConnectionException if the request fails
      */
     public List<VCSLogDTO> fetchVCSAccessLog(String serverUrl, String jwtToken, Long participationId) {
-        log.info("Fetching VCS access log for participation ID: {} from {}", participationId, serverUrl + "/api/programming/programming-exercise-participations/" + participationId + "/vcs-access-log");
-
         String uri = String.format("/api/programming/programming-exercise-participations/%d/vcs-access-log", participationId);
+
         try {
-
-            RestClient dynamicClient = RestClient.builder()
-                    .baseUrl(serverUrl)
-                    .defaultHeader("Cookie", "jwt=" + jwtToken)
-                    .build();
-
-            List<VCSLogDTO> vcsLogs = dynamicClient.get()
+            List<VCSLogDTO> vcsLogs = buildClient(serverUrl, jwtToken).get()
                     .uri(uri)
                     .retrieve()
-                    .body(new ParameterizedTypeReference<>() {
-                    });
+                    .body(new ParameterizedTypeReference<>() {});
 
-            log.info("Raw VCS logs received: {} entries", vcsLogs != null ? vcsLogs.size() : 0);
-            if (vcsLogs != null && !vcsLogs.isEmpty()) {
-                log.info("Sample VCS log entry: {}", vcsLogs.get(0));
-                // Log all unique action types
-                List<String> actionTypes = vcsLogs.stream()
-                        .map(VCSLogDTO::repositoryActionType)
-                        .distinct()
-                        .toList();
-                log.info("Action types found: {}", actionTypes);
+            if (vcsLogs == null) {
+                return List.of();
             }
 
-            // Filter the fetched logs
-            if (vcsLogs != null) {
-                Set<String> validActions = Set.of("WRITE", "PUSH");
-                int beforeFilter = vcsLogs.size();
-                vcsLogs = vcsLogs.stream()
-                        .filter(entry -> validActions.contains(entry.repositoryActionType()))
-                        .toList();
-                log.info("After filtering for WRITE actions: {} entries (was {})", vcsLogs.size(), beforeFilter);
-            }
-
-            return vcsLogs;
+            // Filter for commit-relevant actions only
+            return vcsLogs.stream()
+                    .filter(entry -> VALID_VCS_ACTIONS.contains(entry.repositoryActionType()))
+                    .toList();
         } catch (Exception e) {
-            log.error("Error fetching VCS access log from Artemis for participation {}", participationId, e);
             throw new ArtemisConnectionException("Failed to fetch VCS access logs from Artemis", e);
         }
     }
 
     /**
-     * Verifies whether the provided username belongs to the list of instructors for the given course.
-     * Calls the Artemis instructors endpoint and inspects both JSON and XML responses.
+     * Verifies whether the given username is an instructor for the specified course.
      *
-     * @param serverUrl The base Artemis server URL (scheme+host)
-     * @param jwtToken  The JWT token used as cookie (without the "jwt=" prefix)
-     * @param courseId  The numeric course id to check
-     * @param username  The username to verify
-     * @return true if username is present in the instructors list, false otherwise
+     * @param serverUrl the Artemis server URL
+     * @param jwtToken  the JWT token for authentication
+     * @param courseId   the course ID
+     * @param username  the username to verify
+     * @return {@code true} if the user is an instructor, {@code false} otherwise
      */
     public boolean isUserInstructor(String serverUrl, String jwtToken, Long courseId, String username) {
-        log.info("Verifying instructor {} for course {} at {}", username, courseId, serverUrl);
         String uri = String.format("/api/core/courses/%d/instructors", courseId);
-        try {
-            RestClient dynamicClient = RestClient.builder()
-                    .baseUrl(serverUrl)
-                    .defaultHeader("Cookie", "jwt=" + jwtToken)
-                    .build();
 
-            ResponseEntity<String> response = dynamicClient.get()
+        try {
+            ResponseEntity<String> response = buildClient(serverUrl, jwtToken).get()
                     .uri(uri)
                     .retrieve()
                     .toEntity(String.class);
 
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.warn("Instructor check returned non-2xx status: {}", response.getStatusCode().value());
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 return false;
             }
 
-            String contentType = response.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE);
-            String body = response.getBody();
-            if (body == null) {
-                return false;
-            }
-            if (contentType != null && contentType.contains("application/json")) {
-                // Check common representations: "login":"username" or "login": "username"
-                return body.contains("\"login\":\"" + username + "\"") || body.contains("\"login\": \"" + username + "\"");
-            } else {
-                // Try simple substring match for <login>username</login>
-                return body.contains("<login>" + username + "</login>") || body.contains("\"login\": \"" + username + "\"");
-            }
+            return bodyContainsLogin(response.getBody(),
+                    response.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE), username);
         } catch (Exception e) {
-            log.info("Error while verifying instructor membership", e);
+            log.error("Error while verifying instructor membership for user '{}'", username, e);
             return false;
         }
     }
 
     /**
-     * Fetches the submission deadline for a given exercise
+     * Fetches the submission deadline for a given exercise.
      *
-     * @param serverUrl The base Artemis server URL (scheme+host)
-     * @param jwtToken  The JWT token used as cookie (without the "jwt=" prefix)
-     * @param exerciseId  The numeric exerciseId id to check
-     * @return The deadline of the exercise we're checking
+     * @param serverUrl  the Artemis server URL
+     * @param jwtToken   the JWT token for authentication
+     * @param exerciseId the exercise ID
+     * @return the deadline as {@link OffsetDateTime}, or {@code null} if none is set
+     * @throws ArtemisConnectionException if the request fails
      */
-    public OffsetDateTime fetchSubmissionDeadline(
-            String serverUrl,
-            String jwtToken,
-            Long exerciseId
-    ) {
-        log.info("Fetching submission deadline for exercise {} from {}", exerciseId, serverUrl);
-
+    public OffsetDateTime fetchSubmissionDeadline(String serverUrl, String jwtToken, Long exerciseId) {
         String uri = String.format("/api/exercise/exercises/%d/latest-due-date", exerciseId);
-        try {
-            RestClient dynamicClient = RestClient.builder()
-                    .baseUrl(serverUrl)
-                    .defaultHeader("Cookie", "jwt=" + jwtToken)
-                    .build();
 
-            JsonNode response = dynamicClient.get()
+        try {
+            JsonNode response = buildClient(serverUrl, jwtToken).get()
                     .uri(uri)
                     .retrieve()
                     .body(JsonNode.class);
@@ -324,87 +166,144 @@ public class ArtemisClientService {
                 return null;
             }
 
-            ZonedDateTime zonedDateTime = ZonedDateTime.parse(response.asString());
-            ZonedDateTime berlinTime = zonedDateTime.withZoneSameInstant(ZoneId.of("Europe/Berlin"));
-            log.info("Fetched submission deadline for exercise {} - {}", exerciseId, berlinTime);
-
+            ZonedDateTime berlinTime = ZonedDateTime.parse(response.asString())
+                    .withZoneSameInstant(ZoneId.of("Europe/Berlin"));
             return berlinTime.toOffsetDateTime();
-
-
         } catch (Exception e) {
-            log.error("Error fetching submission deadline for exercise {}", exerciseId, e);
-            throw new ArtemisConnectionException("Failed to fetch tutorial groups", e);
+            throw new ArtemisConnectionException("Failed to fetch submission deadline", e);
         }
     }
 
     /**
-     * Fetches tutorial groups and returns a mapping from group name to tutorial sessions.
+     * Fetches tutorial groups for a course and returns a mapping from group name to sessions.
      *
-     * @param serverUrl The Artemis server URL
-     * @param jwtToken  The JWT token for authentication
-     * @param courseId  The course ID to fetch tutorial groups for
-     * @return Map of tutorial group name to tutorial session metadata
+     * @param serverUrl the Artemis server URL
+     * @param jwtToken  the JWT token for authentication
+     * @param courseId   the course ID
+     * @return map of tutorial group name to its sessions
+     * @throws ArtemisConnectionException if the request fails
      */
     public Map<String, List<TutorialGroupSessionDTO>> fetchTutorialGroupSessions(
-            String serverUrl,
-            String jwtToken,
-            Long courseId
-    ) {
-        log.info("Fetching tutorial groups for course {} from {}", courseId, serverUrl);
-
+            String serverUrl, String jwtToken, Long courseId) {
         String uri = String.format("/api/tutorialgroup/courses/%d/tutorial-groups", courseId);
-        try {
-            RestClient dynamicClient = RestClient.builder()
-                    .baseUrl(serverUrl)
-                    .defaultHeader("Cookie", "jwt=" + jwtToken)
-                    .build();
 
-            JsonNode response = dynamicClient.get()
+        try {
+            JsonNode response = buildClient(serverUrl, jwtToken).get()
                     .uri(uri)
                     .retrieve()
                     .body(JsonNode.class);
 
             if (response == null || !response.isArray()) {
-                log.warn("Unexpected tutorial group response shape");
                 return Map.of();
             }
 
+            // 1) Iterate over tutorial groups and extract sessions
             Map<String, List<TutorialGroupSessionDTO>> result = new HashMap<>();
             for (JsonNode groupNode : response) {
                 String groupName = firstNonBlank(groupNode, "title", "name", "tutorialGroupName");
                 if (groupName == null || groupName.isBlank()) {
                     continue;
                 }
-
-                List<TutorialGroupSessionDTO> sessions = extractSessionInfos(groupNode);
-                result.put(groupName, sessions);
+                result.put(groupName, extractSessionInfos(groupNode));
             }
 
-            log.info("Fetched {} tutorial groups", result.size());
             return result;
         } catch (Exception e) {
-            log.error("Error fetching tutorial groups for course {}", courseId, e);
             throw new ArtemisConnectionException("Failed to fetch tutorial groups", e);
         }
+    }
+
+    // ---- Private helpers ----
+
+    private String authenticateInternal(String serverUrl, String username, String password, int retryCount) {
+        if (retryCount > MAX_AUTH_REDIRECTS) {
+            throw new ArtemisConnectionException("Too many redirects during authentication");
+        }
+
+        Map<String, Object> authRequest = Map.of(
+                "username", username,
+                "password", password,
+                "rememberMe", true
+        );
+
+        try {
+            ResponseEntity<String> response = RestClient.create(serverUrl).post()
+                    .uri(AUTH_PATH)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(authRequest)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            // 1) Follow redirects if necessary
+            if (response.getStatusCode().is3xxRedirection()) {
+                String newLocation = response.getHeaders().getFirst(HttpHeaders.LOCATION);
+                if (newLocation != null) {
+                    String newBaseUrl = normalizeRedirectUrl(newLocation);
+                    return authenticateInternal(newBaseUrl, username, password, retryCount + 1);
+                }
+            }
+
+            // 2) Extract JWT from Set-Cookie header
+            return extractJwtFromCookies(response.getHeaders().get(HttpHeaders.SET_COOKIE));
+        } catch (ArtemisConnectionException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ArtemisConnectionException("Authentication failed", e);
+        }
+    }
+
+    private String extractJwtFromCookies(List<String> cookies) {
+        if (cookies != null) {
+            for (String cookie : cookies) {
+                if (cookie.startsWith("jwt=")) {
+                    int end = cookie.indexOf(';');
+                    return cookie.substring(4, end == -1 ? cookie.length() : end);
+                }
+            }
+        }
+        throw new ArtemisConnectionException("No JWT cookie received from Artemis");
+    }
+
+    private String normalizeServerUrl(String serverUrl) {
+        if (serverUrl.endsWith("/api/")) {
+            return serverUrl.substring(0, serverUrl.length() - 5);
+        }
+        if (serverUrl.endsWith("/api")) {
+            return serverUrl.substring(0, serverUrl.length() - 4);
+        }
+        return serverUrl;
+    }
+
+    private String normalizeRedirectUrl(String location) {
+        if (location.endsWith(AUTH_PATH)) {
+            location = location.substring(0, location.length() - AUTH_PATH.length());
+        }
+        if (location.endsWith("/")) {
+            location = location.substring(0, location.length() - 1);
+        }
+        return location;
+    }
+
+    private boolean bodyContainsLogin(String body, String contentType, String username) {
+        if (contentType != null && contentType.contains("application/json")) {
+            return body.contains("\"login\":\"" + username + "\"")
+                    || body.contains("\"login\": \"" + username + "\"");
+        }
+        return body.contains("<login>" + username + "</login>")
+                || body.contains("\"login\": \"" + username + "\"");
+    }
+
+    private RestClient buildClient(String serverUrl, String jwtToken) {
+        return RestClient.builder()
+                .baseUrl(serverUrl)
+                .defaultHeader("Cookie", "jwt=" + jwtToken)
+                .build();
     }
 
     private List<TutorialGroupSessionDTO> extractSessionInfos(JsonNode groupNode) {
         List<TutorialGroupSessionDTO> sessions = new ArrayList<>();
 
-        JsonNode sessionsNode = groupNode.get("tutorialGroupSessions");
-        if (sessionsNode == null || !sessionsNode.isArray()) {
-            sessionsNode = groupNode.get("sessions");
-        }
-        if ((sessionsNode == null || !sessionsNode.isArray())) {
-            JsonNode scheduleNode = groupNode.get("tutorialGroupSchedule");
-            if (scheduleNode != null && !scheduleNode.isNull()) {
-                sessionsNode = scheduleNode.get("tutorialGroupSessions");
-                if (sessionsNode == null || !sessionsNode.isArray()) {
-                    sessionsNode = scheduleNode.get("sessions");
-                }
-            }
-        }
-
+        JsonNode sessionsNode = findSessionsNode(groupNode);
         if (sessionsNode == null || !sessionsNode.isArray()) {
             return sessions;
         }
@@ -417,15 +316,34 @@ public class ArtemisClientService {
             OffsetDateTime parsed = parseOffsetDateTime(startValue);
             if (parsed != null) {
                 sessions.add(new TutorialGroupSessionDTO(
-                        null,
-                        parsed,
-                        null,
-                        null,
-                        isSessionCancelled(sessionNode)));
+                        null, parsed, null, null, isSessionCancelled(sessionNode)));
             }
         }
 
         return sessions;
+    }
+
+    private JsonNode findSessionsNode(JsonNode groupNode) {
+        JsonNode sessionsNode = groupNode.get("tutorialGroupSessions");
+        if (sessionsNode != null && sessionsNode.isArray()) {
+            return sessionsNode;
+        }
+
+        sessionsNode = groupNode.get("sessions");
+        if (sessionsNode != null && sessionsNode.isArray()) {
+            return sessionsNode;
+        }
+
+        JsonNode scheduleNode = groupNode.get("tutorialGroupSchedule");
+        if (scheduleNode != null && !scheduleNode.isNull()) {
+            sessionsNode = scheduleNode.get("tutorialGroupSessions");
+            if (sessionsNode != null && sessionsNode.isArray()) {
+                return sessionsNode;
+            }
+            return scheduleNode.get("sessions");
+        }
+
+        return null;
     }
 
     private boolean isSessionCancelled(JsonNode sessionNode) {
@@ -448,11 +366,11 @@ public class ArtemisClientService {
 
     private OffsetDateTime parseOffsetDateTime(String value) {
         try {
-            OffsetDateTime parsed = OffsetDateTime.parse(value);
-            return parsed.atZoneSameInstant(ZoneId.of("Europe/Berlin")).toOffsetDateTime();
-        } catch (DateTimeParseException ignored) {
+            return OffsetDateTime.parse(value)
+                    .atZoneSameInstant(ZoneId.of("Europe/Berlin"))
+                    .toOffsetDateTime();
+        } catch (DateTimeParseException e) {
             return null;
         }
-
     }
 }
