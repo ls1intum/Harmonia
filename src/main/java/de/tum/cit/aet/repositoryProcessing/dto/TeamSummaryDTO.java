@@ -22,6 +22,7 @@ import java.util.List;
  * @param llmTokenTotals   aggregated LLM token usage
  * @param orphanCommitCount number of orphan commits
  * @param isFailed         whether the analysis failed for this team
+ * @param isReviewed       whether the team has been marked as reviewed
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TeamSummaryDTO(
@@ -35,7 +36,8 @@ public record TeamSummaryDTO(
         CQIResultDTO cqiDetails,
         LlmTokenTotalsDTO llmTokenTotals,
         Integer orphanCommitCount,
-        Boolean isFailed
+        Boolean isFailed,
+        Boolean isReviewed
 ) {
     /**
      * Create a summary from a full ClientResponseDTO.
@@ -56,6 +58,7 @@ public record TeamSummaryDTO(
                 dto.cqiDetails(),
                 dto.llmTokenTotals(),
                 dto.orphanCommitCount(),
-                dto.isFailed());
+                dto.isFailed(),
+                dto.isReviewed());
     }
 }

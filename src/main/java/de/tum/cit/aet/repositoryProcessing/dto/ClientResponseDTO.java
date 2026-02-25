@@ -27,6 +27,7 @@ import java.util.List;
  * @param llmTokenTotals   aggregated LLM token usage
  * @param orphanCommitCount number of orphan commits
  * @param isFailed         whether the analysis failed for this team
+ * @param isReviewed       whether the team has been marked as reviewed
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClientResponseDTO(
@@ -43,5 +44,67 @@ public record ClientResponseDTO(
                 List<OrphanCommitDTO> orphanCommits,
                 LlmTokenTotalsDTO llmTokenTotals,
                 Integer orphanCommitCount,
-                Boolean isFailed) {
+                Boolean isFailed,
+                Boolean isReviewed) {
+
+        /**
+         * Constructor for backward compatibility without isReviewed.
+         */
+        public ClientResponseDTO(
+                        String tutor,
+                        Long teamId,
+                        String teamName,
+                        Integer submissionCount,
+                        List<StudentAnalysisDTO> students,
+                        Double cqi,
+                        Boolean isSuspicious,
+                        TeamAnalysisStatus analysisStatus,
+                        CQIResultDTO cqiDetails,
+                        List<AnalyzedChunkDTO> analysisHistory,
+                        List<OrphanCommitDTO> orphanCommits,
+                        LlmTokenTotalsDTO llmTokenTotals,
+                        Integer orphanCommitCount,
+                        Boolean isFailed) {
+                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
+                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, orphanCommitCount, isFailed, null);
+        }
+
+        /**
+         * Constructor for backward compatibility without orphanCommitCount, isFailed, or isReviewed.
+         */
+        public ClientResponseDTO(
+                        String tutor,
+                        Long teamId,
+                        String teamName,
+                        Integer submissionCount,
+                        List<StudentAnalysisDTO> students,
+                        Double cqi,
+                        Boolean isSuspicious,
+                        TeamAnalysisStatus analysisStatus,
+                        CQIResultDTO cqiDetails,
+                        List<AnalyzedChunkDTO> analysisHistory,
+                        List<OrphanCommitDTO> orphanCommits,
+                        LlmTokenTotalsDTO llmTokenTotals) {
+                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
+                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null, null, null);
+        }
+
+        /**
+         * Constructor for backward compatibility without llmTokenTotals.
+         */
+        public ClientResponseDTO(
+                        String tutor,
+                        Long teamId,
+                        String teamName,
+                        Integer submissionCount,
+                        List<StudentAnalysisDTO> students,
+                        Double cqi,
+                        Boolean isSuspicious,
+                        TeamAnalysisStatus analysisStatus,
+                        CQIResultDTO cqiDetails,
+                        List<AnalyzedChunkDTO> analysisHistory,
+                        List<OrphanCommitDTO> orphanCommits) {
+                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
+                                cqiDetails, analysisHistory, orphanCommits, null, null, null, null);
+        }
 }

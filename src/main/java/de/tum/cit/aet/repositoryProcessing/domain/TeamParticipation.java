@@ -101,6 +101,9 @@ public class TeamParticipation {
     @Column(name = "is_failed")
     private Boolean isFailed;
 
+    @Column(name = "is_reviewed")
+    private Boolean isReviewed = false;
+
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
             String repositoryUrl, Integer submissionCount) {
         this.participation = participation;

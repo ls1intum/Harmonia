@@ -1466,6 +1466,30 @@ public class RequestService {
         return true;
     }
 
+
+    /**
+     * Toggles the review status of a team participation.
+     *
+     * @param exerciseId The Artemis exercise ID
+     * @param teamId     The Artemis team ID
+     * @return Updated ClientResponseDTO
+     */
+    @Transactional
+    public ClientResponseDTO toggleReviewStatus(Long exerciseId, Long teamId) {
+        TeamParticipation participation = teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Team not found for exerciseId=" + exerciseId + ", teamId=" + teamId));
+        Boolean current = participation.getIsReviewed();
+        participation.setIsReviewed(current != null && current ? false : true);
+        teamParticipationRepository.save(participation);
+        return mapParticipationToClientResponse(participation);
+    }
+
+    /**
+     * Helper method to map a TeamParticipation entity to ClientResponseDTO.
+     * Reduces code duplication between getAllRepositoryData and
+     * getTeamsByExerciseId.
+     */
     private ClientResponseDTO mapParticipationToClientResponse(TeamParticipation participation) {
         List<Student> students = studentRepository.findAllByTeam(participation);
         Tutor tutor = participation.getTutor();
@@ -1492,7 +1516,8 @@ public class RequestService {
                 null, // Orphan commits not persisted
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     private void initializePendingTeams(List<ParticipationDTO> participations, Long exerciseId, boolean isResume) {
