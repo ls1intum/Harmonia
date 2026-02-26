@@ -13,6 +13,7 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -48,7 +49,7 @@ public class PairProgrammingService {
 
     public PairProgrammingService(ArtemisClientService artemisClientService,
                                   AttendanceConfiguration attendanceConfiguration,
-                                  RequestService requestService) {
+                                  @Lazy RequestService requestService) {
         this.artemisClientService = artemisClientService;
         this.attendanceConfiguration = attendanceConfiguration;
         this.requestService = requestService;
