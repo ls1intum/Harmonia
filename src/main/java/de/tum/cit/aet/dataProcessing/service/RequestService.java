@@ -434,15 +434,11 @@ public class RequestService {
         TeamRepository teamRepository = teamRepositoryOptional.get();
         String localPath = teamRepository.getLocalPath();
         if (localPath == null || localPath.isBlank() || !Files.exists(Path.of(localPath, ".git"))) {
-            log.debug("Repository path unavailable for participation {} (path={}), skipping pair programming recomputation",
-                    participation.getParticipation(), localPath);
             return false;
         }
 
         Map<String, Long> commitToAuthor = buildCommitToAuthorMap(teamRepository, students);
         if (commitToAuthor.isEmpty()) {
-            log.debug("No commit-to-author mapping available for participation {}, skipping pair programming recomputation",
-                    participation.getParticipation());
             return false;
         }
 
