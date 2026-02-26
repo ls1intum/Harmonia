@@ -1,23 +1,26 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom/vitest';
 import TeamDetail from '../TeamDetail';
-import type { Team, CourseAverages } from '@/types/team';
+import type { TeamDTO } from '@/data/dataLoaders';
+import type { CourseAverages } from '@/lib/courseAverages';
 
 afterEach(cleanup);
 
-const baseTeam: Team = {
-  id: '1',
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+const baseTeam: TeamDTO = {
+  teamId: 1,
   teamName: 'Team Alpha',
   tutor: 'Dr. Smith',
   students: [
-    { name: 'Alice', commitCount: 25, linesAdded: 100, linesDeleted: 20, linesChanged: 120 } as never,
-    { name: 'Bob', commitCount: 30, linesAdded: 200, linesDeleted: 50, linesChanged: 250 } as never,
+    { name: 'Alice', commitCount: 25, linesAdded: 100, linesDeleted: 20, linesChanged: 120 },
+    { name: 'Bob', commitCount: 30, linesAdded: 200, linesDeleted: 50, linesChanged: 250 },
   ],
   analysisStatus: 'DONE',
   cqi: 75,
-  basicMetrics: { totalCommits: 55, totalLines: 370 },
   isSuspicious: false,
 };
 
@@ -31,11 +34,13 @@ const courseAverages: CourseAverages = {
   gitAnalyzedTeams: 9,
 };
 
-const renderDetail = (props: { team?: Team; courseAverages?: CourseAverages | null }) =>
+const renderDetail = (props: { team?: TeamDTO; courseAverages?: CourseAverages | null }) =>
   render(
-    <MemoryRouter>
-      <TeamDetail team={props.team ?? baseTeam} onBack={() => {}} courseAverages={props.courseAverages} />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <TeamDetail team={props.team ?? baseTeam} onBack={() => {}} courseAverages={props.courseAverages} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 describe('TeamDetail — Course Comparison card', () => {
@@ -59,12 +64,12 @@ describe('TeamDetail — Course Comparison card', () => {
     renderDetail({ courseAverages });
     const card = screen.getByTestId('course-comparison-card');
     const cardScope = within(card);
-    // Team commits
+    // Team commits (25+30=55)
     expect(cardScope.getByText('55')).toBeInTheDocument();
     // Course avg commits
     expect(cardScope.getByText('Course avg: 42')).toBeInTheDocument();
-    // Team lines
-    expect(cardScope.getByText('370')).toBeInTheDocument();
+    // Team lines (100+200=300)
+    expect(cardScope.getByText('300')).toBeInTheDocument();
     // Course avg lines
     expect(cardScope.getByText('Course avg: 300')).toBeInTheDocument();
     // Team CQI

@@ -2,12 +2,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
 import TeamsList from '@/components/TeamsList';
-import type { Team } from '@/types/team';
+import type { ClientResponseDTO, TeamAttendanceDTO, TeamsScheduleDTO } from '@/app/generated';
 import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
-import { loadBasicTeamDataStream, transformToComplexTeamData, type TemplateAuthorInfo } from '@/data/dataLoaders';
-import { AttendanceResourceApi, Configuration, type TeamAttendanceDTO, type TeamsScheduleDTO } from '@/app/generated';
+import { loadBasicTeamDataStream, transformToComplexTeamData, type TemplateAuthorInfo, type TeamDTO } from '@/data/dataLoaders';
 import { normalizeTeamName } from '@/lib/utils';
 import {
   getPairProgrammingAttendanceFileStorageKey,
@@ -16,14 +15,7 @@ import {
   type PairProgrammingAttendanceMap,
   type PairProgrammingBadgeStatus,
 } from '@/lib/pairProgramming';
-
-const apiConfig = new Configuration({
-  basePath: window.location.origin,
-  baseOptions: {
-    withCredentials: true,
-  },
-});
-const attendanceApi = new AttendanceResourceApi(apiConfig);
+import { pairProgrammingApi, emailMappingApi, requestApi } from '@/lib/apiClient';
 
 type NullableAttendanceMap = Record<string, boolean | null>;
 
@@ -53,6 +45,13 @@ const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairPro
   }, {});
 };
 
+/**
+ * Teams page — the main analysis dashboard.
+ *
+ * Fetches teams for the selected exercise, manages analysis lifecycle
+ * (start / cancel / recompute / clear), pair-programming attendance
+ * upload, and template-author assignment.
+ */
 export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -78,17 +77,20 @@ export default function Teams() {
   // Template author candidates — no server endpoint, managed purely via query cache
   const templateAuthorCandidates = queryClient.getQueryData<string[] | null>(['templateAuthorCandidates', exercise]) ?? null;
 
-  // Load template author from server — derived directly from query cache
+  // --- Queries ---
+
   const { data: templateAuthor = null } = useQuery<TemplateAuthorInfo | null>({
     queryKey: ['templateAuthor', exercise],
     queryFn: async () => {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
-        credentials: 'include',
-      });
-      if (response.status === 404) return null;
-      if (!response.ok) return null;
-      const data = await response.json();
-      return { email: data.templateEmail, autoDetected: data.autoDetected };
+      try {
+        const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise));
+        const data = response.data;
+        return { email: data.templateEmail ?? '', autoDetected: data.autoDetected ?? false };
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError.response?.status === 404) return null;
+        return null;
+      }
     },
     enabled: !!exercise,
     staleTime: 60 * 1000,
@@ -107,15 +109,15 @@ export default function Teams() {
   // Fetch teams from database on load
   // During analysis, this shows already-analyzed teams
   const isAnalysisRunning = status.state === 'RUNNING';
-  const { data: teams = [] } = useQuery<Team[]>({
+  const { data: teams = [] } = useQuery<TeamDTO[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
-      // Fetch already-analyzed teams from database (filtered by exerciseId)
-      const response = await fetch(`/api/requestResource/${exercise}/getData`);
-      if (!response.ok) return [];
-      const data = await response.json();
-      // Transform to Team type
-      return data.map(transformToComplexTeamData);
+      try {
+        const response = await requestApi.getData(parseInt(exercise));
+        return response.data.map(transformToComplexTeamData);
+      } catch {
+        return [];
+      }
     },
     staleTime: isAnalysisRunning ? 2000 : 30 * 1000, // Faster updates during analysis
     gcTime: 10 * 60 * 1000,
@@ -124,6 +126,8 @@ export default function Teams() {
     refetchOnWindowFocus: !isAnalysisRunning,
   });
 
+  // --- Mutations ---
+
   const attendanceUploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const courseId = Number.parseInt(course ?? '', 10);
@@ -131,7 +135,7 @@ export default function Teams() {
       if (Number.isNaN(courseId) || Number.isNaN(exerciseId)) {
         throw new Error('Invalid course or exercise ID');
       }
-      return attendanceApi.uploadAttendance(courseId, exerciseId, file);
+      return pairProgrammingApi.uploadAttendance(courseId, exerciseId, file);
     },
     onSuccess: (response, file) => {
       const pairProgrammingAttendanceMap = buildPairProgrammingAttendanceMap(response.data);
@@ -161,15 +165,7 @@ export default function Teams() {
         throw new Error('Invalid exercise ID');
       }
 
-      const response = await fetch(`/api/attendance/clear?exerciseId=${exerciseId}`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorMessage = (await response.text()) || response.statusText;
-        throw new Error(`Could not clear attendance data (${response.status}): ${errorMessage}`);
-      }
+      await pairProgrammingApi.clearAttendance(exerciseId);
     },
     onSuccess: () => {
       setAttendanceFile(null);
@@ -217,23 +213,20 @@ export default function Teams() {
           () => {}, // onTotal
           // onInit: Add team with pending status
           team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const exists = old.some(t => t.id === (team as unknown as Team).id);
+            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
+              const exists = old.some(t => t.teamId === team.teamId);
               if (exists) return old;
-              return [...old, team as unknown as Team];
+              return [...old, team];
             });
           },
           // onUpdate: Update existing team with new data (merge for partial updates like ANALYZING)
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const teamData = team as unknown as Team;
-              const existingTeam = old.find(t => t.id === teamData.id);
-              if (existingTeam) {
-                // Merge: keep existing data, override with new data
-                // This handles partial updates (ANALYZING) and full updates (UPDATE)
-                return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
+          update => {
+            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
+              const existing = old.find(t => t.teamId === update.teamId);
+              if (existing) {
+                return old.map(t => (t.teamId === update.teamId ? { ...t, ...update } : t));
               }
-              return [...old, teamData];
+              return [...old, update as TeamDTO];
             });
           },
           () => {
@@ -317,21 +310,19 @@ export default function Teams() {
           exercise,
           () => {},
           team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const exists = old.some(t => t.id === (team as unknown as Team).id);
+            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
+              const exists = old.some(t => t.teamId === team.teamId);
               if (exists) return old;
-              return [...old, team as unknown as Team];
+              return [...old, team];
             });
           },
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: Team[] = []) => {
-              const teamData = team as unknown as Team;
-              const existingTeam = old.find(t => t.id === teamData.id);
-              if (existingTeam) {
-                // Merge: keep existing data, override with new data
-                return old.map(t => (t.id === teamData.id ? { ...t, ...teamData } : t));
+          update => {
+            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
+              const existing = old.find(t => t.teamId === update.teamId);
+              if (existing) {
+                return old.map(t => (t.teamId === update.teamId ? { ...t, ...update } : t));
               }
-              return [...old, teamData];
+              return [...old, update as TeamDTO];
             });
           },
           () => {
@@ -398,8 +389,10 @@ export default function Teams() {
     return null;
   }
 
-  const handleTeamSelect = (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
-    navigate(`/teams/${team.id}`, {
+  // --- Handlers ---
+
+  const handleTeamSelect = (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
+    navigate(`/teams/${String(team.teamId)}`, {
       state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages },
     });
   };
@@ -420,40 +413,45 @@ export default function Teams() {
     clearAttendanceMutation.mutate();
   };
 
-  const handleTemplateAuthorSet = async (email: string) => {
-    try {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ templateEmail: email }),
-      });
-      if (response.ok) {
-        queryClient.setQueryData(['templateAuthor', exercise], { email, autoDetected: false });
-        queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
-        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-        toast({ title: 'Template author set', description: email });
-      }
-    } catch {
+  const setTemplateAuthorMutation = useMutation({
+    mutationFn: async (email: string) => {
+      await emailMappingApi.setTemplateAuthor(parseInt(exercise), { templateEmail: email });
+      return email;
+    },
+    onSuccess: (email) => {
+      queryClient.setQueryData(['templateAuthor', exercise], { email, autoDetected: false });
+      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      toast({ title: 'Template author set', description: email });
+    },
+    onError: () => {
       toast({ variant: 'destructive', title: 'Failed to set template author' });
-    }
+    },
+  });
+
+  const removeTemplateAuthorMutation = useMutation({
+    mutationFn: async () => {
+      await emailMappingApi.deleteTemplateAuthor(parseInt(exercise));
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      toast({ title: 'Template author removed' });
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Failed to remove template author' });
+    },
+  });
+
+  const handleTemplateAuthorSet = (email: string) => {
+    setTemplateAuthorMutation.mutate(email);
   };
 
-  const handleTemplateAuthorRemove = async () => {
-    try {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (response.ok || response.status === 204) {
-        queryClient.setQueryData(['templateAuthor', exercise], null);
-        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-        toast({ title: 'Template author removed' });
-      }
-    } catch {
-      toast({ variant: 'destructive', title: 'Failed to remove template author' });
-    }
+  const handleTemplateAuthorRemove = () => {
+    removeTemplateAuthorMutation.mutate();
   };
+
+  // --- Render ---
 
   return (
     <TeamsList

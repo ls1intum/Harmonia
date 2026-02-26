@@ -2,8 +2,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import TeamDetail from '@/components/TeamDetail';
 import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
-import type { Team, CourseAverages } from '@/types/team';
+import type { TeamDTO } from '@/data/dataLoaders';
+import type { CourseAverages } from '@/lib/courseAverages';
 
+/** Route page for a single team. Reads the team from router location state and delegates to TeamDetail. */
 export default function TeamDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,7 +17,7 @@ export default function TeamDetailPage() {
     pairProgrammingBadgeStatus,
     courseAverages,
   } = (location.state || {}) as {
-    team?: Team;
+    team?: TeamDTO;
     course?: string;
     exercise?: string;
     pairProgrammingEnabled?: boolean;
@@ -23,7 +25,7 @@ export default function TeamDetailPage() {
     courseAverages?: CourseAverages | null;
   };
 
-  const [team, setTeam] = useState<Team | undefined>(initialTeam);
+  const [team, setTeam] = useState<TeamDTO | undefined>(initialTeam);
 
   if (!team) {
     return (

@@ -1,16 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { AnalysisResourceApi, Configuration } from '@/app/generated';
 import type { AnalysisStatusDTO } from '@/app/generated';
-import type { AnalysisStatus } from '@/components/ActivityLog';
+import { analysisApi } from '@/lib/apiClient';
 
-// Initialize API client
-const apiConfig = new Configuration({
-  basePath: window.location.origin,
-  baseOptions: {
-    withCredentials: true,
-  },
-});
-const analysisApi = new AnalysisResourceApi(apiConfig);
+export type AnalysisState = 'IDLE' | 'RUNNING' | 'CANCELLED' | 'DONE' | 'ERROR';
+export type AnalysisStatus = Omit<AnalysisStatusDTO, 'state'> & { state: AnalysisState };
 
 /**
  * Fetches analysis status from the server using generated API.

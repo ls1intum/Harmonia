@@ -1,5 +1,6 @@
-import type { Team, CourseAverages } from '@/types/team';
-import type { TemplateAuthorInfo } from '@/data/dataLoaders';
+import type { TemplateAuthorInfo, TeamDTO } from '@/data/dataLoaders';
+import type { CourseAverages } from '@/lib/courseAverages';
+import { computeBasicMetrics } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,8 @@ import {
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
-import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
+import { ActivityLog } from '@/components/ActivityLog';
+import type { AnalysisStatus } from '@/hooks/useAnalysisStatus';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import {
   DropdownMenu,
@@ -54,9 +56,9 @@ import {
 } from '@/lib/pairProgramming';
 
 interface TeamsListProps {
-  teams: Team[];
+  teams: TeamDTO[];
   courseAverages: CourseAverages | null;
-  onTeamSelect: (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
+  onTeamSelect: (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
   onBackToHome: () => void;
   onStart: () => void;
   onCancel: () => void;
@@ -85,6 +87,10 @@ interface TeamsListProps {
   isAttendanceClearing?: boolean;
 }
 
+/**
+ * Presentational list of teams with sorting, filtering, search,
+ * attendance upload, template-author management, and analysis controls.
+ */
 const TeamsList = ({
   teams,
   courseAverages,
@@ -159,11 +165,11 @@ const TeamsList = ({
   };
 
   // Helper to determine if a team is 'failed' (any student with <10 commits)
-  const isTeamFailed = (team: Team) => {
+  const isTeamFailed = (team: TeamDTO) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
 
-  const renderAnalysisStatusBadge = (team: Team) => {
+  const renderAnalysisStatusBadge = (team: TeamDTO) => {
     if (
       (team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') &&
       isTeamFailed(team)
@@ -309,7 +315,7 @@ const TeamsList = ({
     // Then apply column sorting within each status group
     if (sortColumn) {
       // Create a stable sort that preserves status priority
-      const statusGroups = new Map<number, Team[]>();
+      const statusGroups = new Map<number, TeamDTO[]>();
       filtered.forEach(team => {
         const priority = getStatusPriority(team.analysisStatus);
         if (!statusGroups.has(priority)) {
@@ -325,8 +331,8 @@ const TeamsList = ({
           if (sortColumn === 'name') {
             comparison = a.teamName.localeCompare(b.teamName);
           } else if (sortColumn === 'commitCount') {
-            const aCommits = a.basicMetrics?.totalCommits || 0;
-            const bCommits = b.basicMetrics?.totalCommits || 0;
+            const aCommits = computeBasicMetrics(a.students).totalCommits;
+            const bCommits = computeBasicMetrics(b.students).totalCommits;
             comparison = aCommits - bCommits;
           } else if (sortColumn === 'cqi') {
             const aCqi = a.cqi || 0;
@@ -837,7 +843,7 @@ const TeamsList = ({
 
                 return (
                   <tr
-                    key={team.id}
+                    key={String(team.teamId)}
                     onClick={() => onTeamSelect(team, pairProgrammingBadgeStatus)}
                     className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
                   >
@@ -866,11 +872,10 @@ const TeamsList = ({
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') &&
-                      team.basicMetrics ? (
+                      {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') ? (
                         <div className="space-y-1">
-                          <p className="font-medium">{team.basicMetrics.totalCommits}</p>
-                          <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
+                          <p className="font-medium">{computeBasicMetrics(team.students).totalCommits}</p>
+                          <p className="text-xs text-muted-foreground">{computeBasicMetrics(team.students).totalLines} lines</p>
                         </div>
                       ) : team.analysisStatus === 'PENDING' ||
                         team.analysisStatus === 'DOWNLOADING' ||

@@ -2,18 +2,11 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, AlertTriangle, GitCommit, User, FileCode, Check, X } from 'lucide-react';
-import type { OrphanCommitDTO, AnalyzedChunkDTO } from '@/app/generated';
+import type { OrphanCommitDTO, AnalyzedChunkDTO, EmailMappingDTO, StudentAnalysisDTO } from '@/app/generated';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { StudentAnalysisDTO } from '@/app/generated';
-
-export interface EmailMapping {
-  id: string;
-  exerciseId: number;
-  gitEmail: string;
-  studentId: number;
-  studentName: string;
-}
+import { emailMappingApi } from '@/lib/apiClient';
+import { useMutation } from '@tanstack/react-query';
 
 interface OrphanCommitsPanelProps {
   commits: OrphanCommitDTO[];
@@ -21,11 +14,17 @@ interface OrphanCommitsPanelProps {
   students: StudentAnalysisDTO[];
   exerciseId?: string;
   teamParticipationId?: string;
-  emailMappings: EmailMapping[];
+  emailMappings: EmailMappingDTO[];
   onMappingChange: () => void;
   templateAuthorEmail?: string;
 }
 
+/**
+ * Collapsible panel for orphan (unmatched-email) commits.
+ *
+ * Allows tutors to assign orphan emails to known students
+ * and to remove existing mappings.
+ */
 const OrphanCommitsPanel = ({
   commits,
   analysisHistory,
@@ -38,8 +37,37 @@ const OrphanCommitsPanel = ({
 }: OrphanCommitsPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<Record<string, string>>({});
-  const [loadingEmails, setLoadingEmails] = useState<Set<string>>(new Set());
-  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ email, studentName }: { email: string; studentName: string }) => {
+      if (!exerciseId || !teamParticipationId) throw new Error('Missing IDs');
+      await emailMappingApi.createMapping(parseInt(exerciseId), {
+        gitEmail: email,
+        studentId: 0,
+        studentName,
+        teamParticipationId: parseInt(teamParticipationId),
+      });
+      return email;
+    },
+    onSuccess: (email) => {
+      onMappingChange();
+      setSelectedStudents(prev => {
+        const next = { ...prev };
+        delete next[email];
+        return next;
+      });
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (mappingId: string) => {
+      if (!exerciseId) throw new Error('Missing exercise ID');
+      await emailMappingApi.deleteMapping(parseInt(exerciseId), mappingId);
+    },
+    onSuccess: () => {
+      onMappingChange();
+    },
+  });
 
   const templateEmailLower = templateAuthorEmail?.toLowerCase();
 
@@ -57,8 +85,8 @@ const OrphanCommitsPanel = ({
   const allOrphanEmails = new Set([...orphanEmailsFromCommits, ...orphanEmailsFromChunks]);
 
   // Mapped emails for this team (from exercise-wide mappings that match orphan emails here)
-  const mappedEmails = emailMappings.filter(m => allOrphanEmails.has(m.gitEmail.toLowerCase()));
-  const mappedEmailSet = new Set(mappedEmails.map(m => m.gitEmail.toLowerCase()));
+  const mappedEmails = emailMappings.filter(m => m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
+  const mappedEmailSet = new Set(mappedEmails.map(m => (m.gitEmail ?? '').toLowerCase()));
 
   // Unmapped orphan emails
   const unmappedEmails = [...allOrphanEmails].filter(e => e && !mappedEmailSet.has(e));
@@ -83,69 +111,15 @@ const OrphanCommitsPanel = ({
 
   const totalLines = commits.reduce((sum, c) => sum + (c.linesAdded ?? 0) + (c.linesDeleted ?? 0), 0);
 
-  const handleAssign = async (email: string) => {
+  const handleAssign = (email: string) => {
     const studentName = selectedStudents[email];
     if (!studentName || !exerciseId || !teamParticipationId) return;
-
-    // Find student ID - we need to look up by name since StudentAnalysisDTO doesn't have ID
-    // The backend will use studentId=0 as a placeholder since we pass the name
-    setLoadingEmails(prev => new Set(prev).add(email));
-
-    try {
-      const response = await fetch(`/api/exercises/${exerciseId}/email-mappings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          gitEmail: email,
-          studentId: 0, // We use name-based lookup on the backend
-          studentName: studentName,
-          teamParticipationId: teamParticipationId,
-        }),
-      });
-
-      if (response.ok) {
-        onMappingChange();
-        setSelectedStudents(prev => {
-          const next = { ...prev };
-          delete next[email];
-          return next;
-        });
-      }
-    } catch (error) {
-      console.error('Failed to create email mapping:', error);
-    } finally {
-      setLoadingEmails(prev => {
-        const next = new Set(prev);
-        next.delete(email);
-        return next;
-      });
-    }
+    assignMutation.mutate({ email, studentName });
   };
 
-  const handleRemove = async (mappingId: string) => {
+  const handleRemove = (mappingId: string) => {
     if (!exerciseId) return;
-
-    setRemovingIds(prev => new Set(prev).add(mappingId));
-
-    try {
-      const response = await fetch(`/api/exercises/${exerciseId}/email-mappings/${mappingId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (response.ok || response.status === 204) {
-        onMappingChange();
-      }
-    } catch (error) {
-      console.error('Failed to remove email mapping:', error);
-    } finally {
-      setRemovingIds(prev => {
-        const next = new Set(prev);
-        next.delete(mappingId);
-        return next;
-      });
-    }
+    removeMutation.mutate(mappingId);
   };
 
   return (
@@ -189,25 +163,25 @@ const OrphanCommitsPanel = ({
               <div className="space-y-2">
                 {mappedEmails.map(mapping => (
                   <div
-                    key={mapping.id}
+                    key={mapping.id ?? ''}
                     className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 p-3"
                   >
                     <div className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-600" />
-                      <code className="text-sm">{mapping.gitEmail}</code>
+                      <code className="text-sm">{mapping.gitEmail ?? ''}</code>
                       <span className="text-sm text-muted-foreground">→</span>
-                      <span className="text-sm font-medium">{mapping.studentName}</span>
+                      <span className="text-sm font-medium">{mapping.studentName ?? ''}</span>
                       <Badge className="bg-green-100 text-green-700 border-green-200">Mapped</Badge>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemove(mapping.id)}
-                      disabled={removingIds.has(mapping.id)}
+                      onClick={() => handleRemove(mapping.id ?? '')}
+                      disabled={removeMutation.isPending && removeMutation.variables === (mapping.id ?? '')}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <X className="h-4 w-4 mr-1" />
-                      {removingIds.has(mapping.id) ? 'Removing...' : 'Remove'}
+                      {removeMutation.isPending && removeMutation.variables === (mapping.id ?? '') ? 'Removing...' : 'Remove'}
                     </Button>
                   </div>
                 ))}
@@ -256,9 +230,9 @@ const OrphanCommitsPanel = ({
                                 size="sm"
                                 className="h-8 text-xs"
                                 onClick={() => handleAssign(email)}
-                                disabled={!selectedStudents[email] || loadingEmails.has(email)}
+                                disabled={!selectedStudents[email] || (assignMutation.isPending && assignMutation.variables?.email === email)}
                               >
-                                {loadingEmails.has(email) ? 'Assigning...' : 'Assign'}
+                                {assignMutation.isPending && assignMutation.variables?.email === email ? 'Assigning...' : 'Assign'}
                               </Button>
                             </div>
                           )}

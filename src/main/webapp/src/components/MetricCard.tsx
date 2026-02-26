@@ -1,4 +1,4 @@
-import type { SubMetric } from '@/types/team';
+import type { SubMetric } from '@/data/dataLoaders';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { AlertTriangle } from 'lucide-react';
@@ -7,6 +7,11 @@ interface MetricCardProps {
   metric: SubMetric;
 }
 
+/**
+ * Card displaying a single CQI sub-metric with a progress bar and detail text.
+ *
+ * @param props.metric - the sub-metric to render
+ */
 const MetricCard = ({ metric }: MetricCardProps) => {
   const isPending = metric.value === -1;
   const isNotFound = metric.value === -2 || metric.status === 'NOT_FOUND';

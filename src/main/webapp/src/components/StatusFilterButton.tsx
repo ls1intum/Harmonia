@@ -17,6 +17,12 @@ interface StatusFilterButtonProps {
   setStatusFilter: (value: StatusFilter) => void;
 }
 
+/**
+ * Dropdown filter for team status (all / normal / suspicious / failed).
+ *
+ * @param props.statusFilter - currently active filter value
+ * @param props.setStatusFilter - callback to change the filter
+ */
 export const StatusFilterButton = ({ statusFilter, setStatusFilter }: StatusFilterButtonProps) => {
   const isActive = statusFilter !== 'all';
 

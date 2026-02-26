@@ -1,26 +1,19 @@
-import { Loader2, CheckCircle, XCircle, Search, Ban, GitBranch, Brain } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, Ban } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-export interface AnalysisStatus {
-  state: 'IDLE' | 'RUNNING' | 'CANCELLED' | 'DONE' | 'ERROR';
-  totalTeams: number;
-  processedTeams: number;
-  currentTeamName?: string;
-  currentStage?: string;
-  errorMessage?: string;
-  currentPhase?: 'GIT_ANALYSIS' | 'AI_ANALYSIS';
-  gitProcessedTeams?: number;
-}
+import type { AnalysisStatus } from '@/hooks/useAnalysisStatus';
 
 interface ActivityLogProps {
   status: AnalysisStatus;
 }
 
 /**
- * Collapsible activity log showing current analysis progress.
- * Shows current team being analyzed and stage (downloading/analyzing).
- * Supports phased analysis: Git Analysis → AI Analysis
+ * Activity log card showing current analysis progress.
+ *
+ * Displays the current team being analyzed, the active phase
+ * (Git Analysis / AI Analysis), and an animated progress bar.
+ *
+ * @param props.status - current analysis status object
  */
 export function ActivityLog({ status }: ActivityLogProps) {
   // Don't show anything if idle
@@ -43,32 +36,9 @@ export function ActivityLog({ status }: ActivityLogProps) {
     }
   };
 
-  const getPhaseIcon = () => {
-    if (status.currentPhase === 'GIT_ANALYSIS') {
-      return <GitBranch className="h-3 w-3 text-blue-500" />;
-    } else if (status.currentPhase === 'AI_ANALYSIS') {
-      return <Brain className="h-3 w-3 text-purple-500" />;
-    }
-    return null;
-  };
-
-  const getPhaseLabel = () => {
-    if (status.currentPhase === 'GIT_ANALYSIS') {
-      return 'Git Analysis';
-    } else if (status.currentPhase === 'AI_ANALYSIS') {
-      return 'AI Analysis';
-    }
-    return '';
-  };
-
   const getStatusText = () => {
     switch (status.state) {
       case 'RUNNING':
-        if (status.currentPhase === 'GIT_ANALYSIS') {
-          return `Git Analysis: ${status.processedTeams} / ${status.totalTeams} teams`;
-        } else if (status.currentPhase === 'AI_ANALYSIS') {
-          return `AI Analysis: ${status.processedTeams} / ${status.totalTeams} teams`;
-        }
         return `Analyzing ${status.processedTeams} / ${status.totalTeams} teams`;
       case 'CANCELLED':
         return `Cancelled: ${status.processedTeams} / ${status.totalTeams} teams processed`;
@@ -98,15 +68,6 @@ export function ActivityLog({ status }: ActivityLogProps) {
           <div className="flex items-center gap-3">
             {getStatusIcon()}
             <span className="text-sm font-medium">{getStatusText()}</span>
-            {status.state === 'RUNNING' && status.currentPhase && (
-              <Badge
-                variant="outline"
-                className={`text-xs gap-1 ${status.currentPhase === 'GIT_ANALYSIS' ? 'border-blue-500/50 text-blue-500' : 'border-purple-500/50 text-purple-500'}`}
-              >
-                {getPhaseIcon()}
-                {getPhaseLabel()}
-              </Badge>
-            )}
             {status.state === 'RUNNING' && (
               <Badge variant="secondary" className="text-xs">
                 {progress}%
@@ -130,7 +91,7 @@ export function ActivityLog({ status }: ActivityLogProps) {
             {/* Progress Bar */}
             <div className="w-full bg-muted rounded-full h-2">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ease-in-out ${status.currentPhase === 'AI_ANALYSIS' ? 'bg-purple-500' : 'bg-primary'}`}
+                className="h-2 rounded-full transition-all duration-300 ease-in-out bg-primary"
                 style={{ width: `${progress}%` }}
               />
             </div>

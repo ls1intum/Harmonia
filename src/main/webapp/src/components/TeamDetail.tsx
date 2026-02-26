@@ -1,6 +1,10 @@
-import type { Team, SubMetric, CourseAverages } from '@/types/team';
 import type { AnalyzedChunkDTO } from '@/app/generated';
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import type { TeamDTO, SubMetric } from '@/data/dataLoaders';
+import type { CourseAverages } from '@/lib/courseAverages';
+import { computeBasicMetrics } from '@/lib/utils';
+import { emailMappingApi, requestApi } from '@/lib/apiClient';
+import { useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +13,7 @@ import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
-import type { EmailMapping } from './OrphanCommitsPanel';
+import type { EmailMappingDTO } from '@/app/generated';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
 import { getFailedReason } from '@/lib/utils.ts';
@@ -17,15 +21,22 @@ import PairProgrammingBadge from '@/components/PairProgrammingBadge';
 import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface TeamDetailProps {
-  team: Team;
+  team: TeamDTO;
   onBack: () => void;
   course?: string;
   exercise?: string;
   pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
   courseAverages?: CourseAverages | null;
-  onTeamUpdate?: (team: Team) => void;
+  onTeamUpdate?: (team: TeamDTO) => void;
 }
 
+/**
+ * Full detail view for a single team — CQI score, student list, metrics cards,
+ * orphan-commit mapping, and the AI analysis feed.
+ *
+ * @param props.team - team to display
+ * @param props.onBack - navigate back to the teams list
+ */
 const TeamDetail = ({
   team,
   onBack,
@@ -36,66 +47,50 @@ const TeamDetail = ({
   onTeamUpdate,
 }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
-  const [emailMappings, setEmailMappings] = useState<EmailMapping[]>([]);
-  const [templateAuthorEmail, setTemplateAuthorEmail] = useState<string | undefined>();
+  const queryClient = useQueryClient();
 
-  const loadEmailMappings = useCallback(async () => {
-    if (!exercise) return;
-    try {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setEmailMappings(data);
-      }
-    } catch (error) {
-      console.error('Failed to load email mappings:', error);
-    }
-  }, [exercise]);
+  const { data: emailMappings = [] } = useQuery<EmailMappingDTO[]>({
+    queryKey: ['emailMappings', exercise],
+    queryFn: async () => {
+      const response = await emailMappingApi.getAllMappings(parseInt(exercise!));
+      return response.data;
+    },
+    enabled: !!exercise,
+  });
 
-  const loadTemplateAuthor = useCallback(async () => {
-    if (!exercise) return;
-    try {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTemplateAuthorEmail(data.templateEmail);
-      }
-    } catch {
-      // Template author not configured — that's fine
-    }
-  }, [exercise]);
-
-  useEffect(() => {
-    loadEmailMappings();
-    loadTemplateAuthor();
-  }, [loadEmailMappings, loadTemplateAuthor]);
-
-  const handleMappingChange = useCallback(async () => {
-    await loadEmailMappings();
-    // Refresh team data from server
-    if (onTeamUpdate && exercise) {
+  const { data: templateAuthorEmail } = useQuery<string | undefined>({
+    queryKey: ['templateAuthorEmail', exercise],
+    queryFn: async () => {
       try {
-        const response = await fetch(`/api/requestResource/${exercise}/getData`, {
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (response.ok) {
-          const { transformToComplexTeamData } = await import('@/data/dataLoaders');
-          const data = await response.json();
-          const updatedTeam = data.find((d: { teamId?: number }) => d.teamId?.toString() === team.id);
-          if (updatedTeam) {
-            onTeamUpdate(transformToComplexTeamData(updatedTeam));
-          }
-        }
-      } catch (error) {
-        console.error('Failed to refresh team data:', error);
+        const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise!));
+        return response.data.templateEmail;
+      } catch {
+        return undefined;
       }
-    }
-  }, [loadEmailMappings, onTeamUpdate, exercise, team.id]);
+    },
+    enabled: !!exercise,
+  });
+
+  const mappingChangeMutation = useMutation({
+    mutationFn: async () => {
+      // Refresh team data from server after a mapping change
+      if (onTeamUpdate && exercise) {
+        const response = await requestApi.getData(parseInt(exercise));
+        const { transformToComplexTeamData } = await import('@/data/dataLoaders');
+        const updatedTeam = response.data.find(d => d.teamId === team.teamId);
+        if (updatedTeam) {
+          onTeamUpdate(transformToComplexTeamData(updatedTeam));
+        }
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['emailMappings', exercise] });
+    },
+  });
+
+  const handleMappingChange = useCallback(() => {
+    mappingChangeMutation.mutate();
+  }, [mappingChangeMutation]);
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -117,7 +112,7 @@ const TeamDetail = ({
     team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE';
 
   // Team is 'failed' if any student has <10 commits (only check if git analysis is complete)
-  const isTeamFailed = (team: Team) => {
+  const isTeamFailed = (team: TeamDTO) => {
     if (!isGitAnalysisComplete) return false;
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
@@ -207,7 +202,7 @@ const TeamDetail = ({
                 <h3 className="text-xl font-bold">Team Members</h3>
               </div>
               <div className="space-y-2 pl-7">
-                {team.students.map((student, index) => (
+                {(team.students || []).map((student, index) => (
                   <div key={index} className="space-y-0.5">
                     <p className={`text-lg font-medium ${isAnalysisComplete && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
                       {student.name}
@@ -228,7 +223,7 @@ const TeamDetail = ({
               </div>
               <div className="flex items-center gap-2 mt-5">
                 <ClipboardCheck className="h-5 w-5 text-primary" />
-                <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
+                <h3 className="text-sm font-medium">Tutor: {team.tutor ?? 'Unassigned'}</h3>
               </div>
               {isDevMode && (
                 <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -360,14 +355,14 @@ const TeamDetail = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Commits</p>
-              <p className="text-2xl font-bold">{team.basicMetrics?.totalCommits ?? '—'}</p>
+              <p className="text-2xl font-bold">{computeBasicMetrics(team.students).totalCommits || '—'}</p>
               <p className="text-xs text-muted-foreground">
                 Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgCommits : 'Pending'}
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Lines</p>
-              <p className="text-2xl font-bold">{team.basicMetrics?.totalLines?.toLocaleString() ?? '—'}</p>
+              <p className="text-2xl font-bold">{computeBasicMetrics(team.students).totalLines.toLocaleString() || '—'}</p>
               <p className="text-xs text-muted-foreground">
                 Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgLines.toLocaleString() : 'Pending'}
               </p>
@@ -500,7 +495,7 @@ const TeamDetail = ({
               analysisHistory={team.analysisHistory}
               students={team.students}
               exerciseId={exercise}
-              teamParticipationId={team.id}
+              teamParticipationId={String(team.teamId)}
               emailMappings={emailMappings}
               onMappingChange={handleMappingChange}
               templateAuthorEmail={templateAuthorEmail}
