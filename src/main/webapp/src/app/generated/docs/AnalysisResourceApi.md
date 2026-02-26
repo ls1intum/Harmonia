@@ -1,41 +1,35 @@
 # AnalysisResourceApi
 
-All URIs are relative to *http://localhost:8080*
+All URIs are relative to _http://localhost:8080_
 
-|Method | HTTP request | Description|
-|------------- | ------------- | -------------|
-|[**cancelAnalysis**](#cancelanalysis) | **POST** /api/analysis/{exerciseId}/cancel | |
-|[**clearData**](#cleardata) | **DELETE** /api/analysis/{exerciseId}/clear | |
-|[**getStatus**](#getstatus) | **GET** /api/analysis/{exerciseId}/status | |
+| Method                                | HTTP request                                | Description |
+| ------------------------------------- | ------------------------------------------- | ----------- |
+| [**cancelAnalysis**](#cancelanalysis) | **POST** /api/analysis/{exerciseId}/cancel  |             |
+| [**clearData**](#cleardata)           | **DELETE** /api/analysis/{exerciseId}/clear |             |
+| [**getStatus**](#getstatus)           | **GET** /api/analysis/{exerciseId}/status   |             |
 
 # **cancelAnalysis**
-> AnalysisStatusDTO cancelAnalysis()
 
+> AnalysisStatusDTO cancelAnalysis()
 
 ### Example
 
 ```typescript
-import {
-    AnalysisResourceApi,
-    Configuration
-} from './api';
+import { AnalysisResourceApi, Configuration } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new AnalysisResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
 
-const { status, data } = await apiInstance.cancelAnalysis(
-    exerciseId
-);
+const { status, data } = await apiInstance.cancelAnalysis(exerciseId);
 ```
 
 ### Parameters
 
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **exerciseId** | [**number**] |  | defaults to undefined|
-
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
 
 ### Return type
 
@@ -47,28 +41,25 @@ No authorization required
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
 ### HTTP response details
+
 | Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | OK |  -  |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **clearData**
-> string clearData()
 
+> string clearData()
 
 ### Example
 
 ```typescript
-import {
-    AnalysisResourceApi,
-    Configuration
-} from './api';
+import { AnalysisResourceApi, Configuration } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new AnalysisResourceApi(configuration);
@@ -77,21 +68,16 @@ let exerciseId: number; // (default to undefined)
 let type: string; // (optional) (default to 'both')
 let clearMappings: boolean; // (optional) (default to false)
 
-const { status, data } = await apiInstance.clearData(
-    exerciseId,
-    type,
-    clearMappings
-);
+const { status, data } = await apiInstance.clearData(exerciseId, type, clearMappings);
 ```
 
 ### Parameters
 
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **exerciseId** | [**number**] |  | defaults to undefined|
-| **type** | [**string**] |  | (optional) defaults to 'both'|
-| **clearMappings** | [**boolean**] |  | (optional) defaults to false|
-
+| Name              | Type          | Description | Notes                         |
+| ----------------- | ------------- | ----------- | ----------------------------- |
+| **exerciseId**    | [**number**]  |             | defaults to undefined         |
+| **type**          | [**string**]  |             | (optional) defaults to 'both' |
+| **clearMappings** | [**boolean**] |             | (optional) defaults to false  |
 
 ### Return type
 
@@ -103,45 +89,39 @@ No authorization required
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
 ### HTTP response details
+
 | Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | OK |  -  |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getStatus**
-> AnalysisStatusDTO getStatus()
 
+> AnalysisStatusDTO getStatus()
 
 ### Example
 
 ```typescript
-import {
-    AnalysisResourceApi,
-    Configuration
-} from './api';
+import { AnalysisResourceApi, Configuration } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new AnalysisResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
 
-const { status, data } = await apiInstance.getStatus(
-    exerciseId
-);
+const { status, data } = await apiInstance.getStatus(exerciseId);
 ```
 
 ### Parameters
 
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **exerciseId** | [**number**] |  | defaults to undefined|
-
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
 
 ### Return type
 
@@ -153,14 +133,13 @@ No authorization required
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
 ### HTTP response details
+
 | Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | OK |  -  |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-

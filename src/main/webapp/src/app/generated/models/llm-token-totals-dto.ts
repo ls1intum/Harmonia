@@ -12,10 +12,10 @@
  * Do not edit the class manually.
  */
 
-export interface EmailMappingDTO {
-  exerciseId?: number;
-  gitEmail?: string;
-  id?: string;
-  studentId?: number;
-  studentName?: string;
+export interface LlmTokenTotalsDTO {
+  callsWithUsage?: number;
+  completionTokens?: number;
+  llmCalls?: number;
+  promptTokens?: number;
+  totalTokens?: number;
 }
