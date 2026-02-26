@@ -35,14 +35,10 @@ public class AnalysisStateService {
     public void cleanupOrphanedAnalyses() {
         List<AnalysisStatus> runningAnalyses = statusRepository.findByState(AnalysisState.RUNNING);
         if (!runningAnalyses.isEmpty()) {
-            log.info("Found {} orphaned RUNNING analyses, setting to CANCELLED",
-                    runningAnalyses.size());
             for (AnalysisStatus status : runningAnalyses) {
                 status.setState(AnalysisState.CANCELLED);
                 status.setLastUpdatedAt(Instant.now());
                 statusRepository.save(status);
-                log.info("Cancelled orphaned analysis for exercise {} (processed: {}/{})",
-                        status.getExerciseId(), status.getProcessedTeams(), status.getTotalTeams());
             }
         }
     }

@@ -2,9 +2,7 @@ package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentWeightsDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.ai.dto.*;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
@@ -44,15 +42,14 @@ public class CqiRecalculationService {
     public void recalculateFromChunks(TeamParticipation participation,
             List<AnalyzedChunk> allChunks) {
 
+        // 1) Separate team chunks from external (orphan) chunks
         List<Student> students = studentRepository.findAllByTeam(participation);
         int teamSize = students.size();
 
-        // Collect non-external chunks for CQI
         List<AnalyzedChunk> teamChunks = allChunks.stream()
                 .filter(c -> !Boolean.TRUE.equals(c.getIsExternalContributor()))
                 .toList();
 
-        // Count remaining external chunks as orphans
         long orphanCount = allChunks.stream()
                 .filter(c -> Boolean.TRUE.equals(c.getIsExternalContributor()))
                 .count();
@@ -64,7 +61,7 @@ public class CqiRecalculationService {
             return;
         }
 
-        // Build email -> studentId map from students + mappings
+        // 2) Build email -> studentId lookup (students + manual mappings)
         Map<String, Long> emailToStudentId = new HashMap<>();
         for (Student s : students) {
             if (s.getEmail() != null && s.getId() != null) {
@@ -77,8 +74,8 @@ public class CqiRecalculationService {
             emailToStudentId.put(m.getGitEmail().toLowerCase(Locale.ROOT), m.getStudentId());
         }
 
-        // Reconstruct RatedChunks from DB data
-        List<CQICalculatorService.RatedChunk> ratedChunks = teamChunks.stream()
+        // 3) Reconstruct RatedChunks from persisted data
+        List<CqiRatedChunkDTO> ratedChunks = teamChunks.stream()
                 .map(chunk -> {
                     String chunkEmail = chunk.getAuthorEmail() != null
                             ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : "";
@@ -88,10 +85,10 @@ public class CqiRecalculationService {
                             chunk.getCommitShas() != null ? chunk.getCommitShas().split(",")[0] : "",
                             authorId,
                             chunk.getAuthorEmail(),
-                            "", // commit message not needed for CQI
+                            "",
                             chunk.getTimestamp(),
-                            List.of(), // files not needed
-                            "", // diff not needed
+                            List.of(),
+                            "",
                             chunk.getLinesChanged() != null ? chunk.getLinesChanged() : 0,
                             0);
 
@@ -112,11 +109,11 @@ public class CqiRecalculationService {
                             Boolean.TRUE.equals(chunk.getIsError()),
                             chunk.getErrorMessage());
 
-                    return new CQICalculatorService.RatedChunk(chunkDTO, rating);
+                    return new CqiRatedChunkDTO(chunkDTO, rating);
                 })
                 .toList();
 
-        // Calculate date range
+        // 4) Calculate CQI
         LocalDateTime projectStart = teamChunks.stream()
                 .map(AnalyzedChunk::getTimestamp)
                 .filter(Objects::nonNull)
@@ -133,10 +130,7 @@ public class CqiRecalculationService {
                 ratedChunks, teamSize, projectStart, projectEnd,
                 FilterSummaryDTO.empty(), participation.getName());
 
-        // Preserve ownership spread from original analysis because we don't
-        // have the file list for recalculation (chunks are rebuilt without files).
-        // Recompute the CQI using the original ownership so the final score is
-        // consistent with the displayed component scores.
+        // 5) Preserve original ownership spread (file list not available during recalc)
         Double originalOwnership = participation.getCqiOwnershipSpread();
         double finalCqi = cqiResult.cqi();
         double finalBaseScore = cqiResult.baseScore();
@@ -146,12 +140,12 @@ public class CqiRecalculationService {
             finalBaseScore = cqiResult.components().weightedSum(
                     weights.effortBalance(), weights.locBalance(),
                     weights.temporalSpread(), weights.ownershipSpread())
-                    // Replace the incorrect ownership contribution with the original
                     - weights.ownershipSpread() * cqiResult.components().ownershipSpread()
                     + weights.ownershipSpread() * originalOwnership;
             finalCqi = Math.max(0, Math.min(100, finalBaseScore));
         }
 
+        // 6) Persist updated scores
         participation.setCqi(finalCqi);
         if (cqiResult.components() != null) {
             participation.setCqiEffortBalance(cqiResult.components().effortBalance());
@@ -163,9 +157,6 @@ public class CqiRecalculationService {
             participation.setCqiBaseScore(finalBaseScore);
         }
         teamParticipationRepository.save(participation);
-
-        log.info("Recalculated CQI for team {}: {} (from {} team chunks, {} orphan)",
-                participation.getName(), finalCqi, teamChunks.size(), orphanCount);
     }
 
     /**

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.List;
 
 /**
@@ -11,6 +13,7 @@ import java.util.List;
  * @param baseScore         Score before any adjustments
  * @param filterSummary     Summary of filtered commits
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record CQIResultDTO(
         double cqi,
         ComponentScoresDTO components,

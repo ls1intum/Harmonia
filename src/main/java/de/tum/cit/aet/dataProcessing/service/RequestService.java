@@ -3,7 +3,6 @@ package de.tum.cit.aet.dataProcessing.service;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
-import de.tum.cit.aet.analysis.service.AnalysisService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
@@ -43,8 +42,7 @@ import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
 import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
 import de.tum.cit.aet.ai.dto.FairnessReportWithUsageDTO;
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -56,7 +54,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li><b>Repository download</b> — clones team repos from Artemis via
  *       {@link GitOperationsService}</li>
  *   <li><b>Git analysis</b> — extracts commit metrics (lines, authors) via
- *       {@link AnalysisService} / {@link GitContributionAnalysisService}</li>
+ *       {@link GitContributionAnalysisService}</li>
  *   <li><b>AI analysis</b> — computes CQI scores via
  *       {@link ContributionFairnessService}</li>
  * </ol>
@@ -70,7 +68,6 @@ public class RequestService {
 
     private final ArtemisClientService artemisClientService;
     private final GitOperationsService gitOperationsService;
-    private final AnalysisService analysisService;
     private final de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator;
     private final ContributionFairnessService fairnessService;
     private final AnalysisStateService analysisStateService;
@@ -103,7 +100,6 @@ public class RequestService {
     public RequestService(
             ArtemisClientService artemisClientService,
             GitOperationsService gitOperationsService,
-            AnalysisService analysisService,
             de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator balanceCalculator,
             ContributionFairnessService fairnessService,
             AnalysisStateService analysisStateService,
@@ -122,7 +118,6 @@ public class RequestService {
             CqiRecalculationService cqiRecalculationService) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
-        this.analysisService = analysisService;
         this.balanceCalculator = balanceCalculator;
         this.fairnessService = fairnessService;
         this.analysisStateService = analysisStateService;
@@ -178,7 +173,7 @@ public class RequestService {
         }
 
         // 2) Analyze git contributions
-        Map<Long, AuthorContributionDTO> contributionData = analysisService.analyzeContributions(repositories);
+        Map<Long, AuthorContributionDTO> contributionData = gitContributionAnalysisService.processAllRepositories(repositories);
 
         // 3) Save git results + run AI analysis for each team
         List<ClientResponseDTO> results = new ArrayList<>();
@@ -695,9 +690,9 @@ public class RequestService {
             cqi = calculateFallbackCqi(repo, team, students);
             if (cqi != null) {
                 try {
-                    Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
+                    Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildFullCommitMap(repo, null).commitToAuthor();
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
-                    CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+                    PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
                     cqiDetails = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
                     cqi = cqiDetails.cqi();
@@ -786,7 +781,7 @@ public class RequestService {
                     "teamId", participation.team().id(), "teamName", teamName));
         }
 
-        Map<Long, AuthorContributionDTO> contributions = analysisService.analyzeRepository(repo);
+        Map<Long, AuthorContributionDTO> contributions = gitContributionAnalysisService.analyzeRepository(repo);
 
         final TeamRepositoryDTO finalRepo = repo;
         ClientResponseDTO gitDto = transactionTemplate
@@ -1000,9 +995,9 @@ public class RequestService {
     private CQIResultDTO calculateGitOnlyCqi(TeamRepositoryDTO repo, TeamParticipation teamParticipation,
                                               TeamDTO team, List<Student> students) {
         try {
-            Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
+            Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildFullCommitMap(repo, null).commitToAuthor();
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
-            CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+            PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
 
             var gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
                     filterResult.chunksToAnalyze(), students.size(), null, null, team.name());
@@ -1029,9 +1024,9 @@ public class RequestService {
             return null;
         }
         try {
-            Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildCommitToAuthorMap(repo);
+            Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildFullCommitMap(repo, null).commitToAuthor();
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
-            CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+            PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             CQIResultDTO result = cqiCalculatorService.calculateFallback(
                     filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
             return result.cqi();
@@ -1076,7 +1071,7 @@ public class RequestService {
         }
 
         List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
-        CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+        PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
         ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
                 filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName());
 
@@ -1122,7 +1117,7 @@ public class RequestService {
             participantDTOs.add(new ParticipantDTO(authorId, student.getLogin(), student.getName(), student.getEmail()));
         }
 
-        var result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs);
+        var result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs, Map.of(), null);
         return new HashMap<>(result.commitToAuthor());
     }
 

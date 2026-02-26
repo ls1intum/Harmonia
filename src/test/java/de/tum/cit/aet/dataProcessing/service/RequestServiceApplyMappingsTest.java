@@ -58,7 +58,7 @@ class RequestServiceApplyMappingsTest {
     @BeforeEach
     void setUp() {
         service = new RequestService(
-                null, null, null, null, fairnessService, null,
+                null, null, null, fairnessService, null,
                 null, teamParticipationRepository, null, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
                 gitContributionAnalysisService, null, null, null, null,

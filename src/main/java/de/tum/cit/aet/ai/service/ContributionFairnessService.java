@@ -2,10 +2,9 @@ package de.tum.cit.aet.ai.service;
 
 import de.tum.cit.aet.ai.dto.*;
 
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.CommitMappingResult;
+import de.tum.cit.aet.analysis.dto.CommitMappingResultDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
@@ -115,7 +114,7 @@ public class ContributionFairnessService {
             }
 
             // 3) Pre-filter trivial commits before LLM analysis
-            CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+            PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             List<CommitChunkDTO> chunksToAnalyze = filterResult.chunksToAnalyze();
             FilterSummaryDTO filterSummary = filterResult.summary();
 
@@ -140,8 +139,8 @@ public class ContributionFairnessService {
                     .max(LocalDateTime::compareTo)
                     .orElse(LocalDateTime.now());
 
-            List<CQICalculatorService.RatedChunk> cqiRatedChunks = ratedChunks.stream()
-                    .map(rc -> new CQICalculatorService.RatedChunk(rc.chunk(), rc.rating()))
+            List<CqiRatedChunkDTO> cqiRatedChunks = ratedChunks.stream()
+                    .map(rc -> new CqiRatedChunkDTO(rc.chunk(), rc.rating()))
                     .toList();
 
             CQIResultDTO cqiResult = cqiCalculatorService.calculate(
@@ -198,7 +197,7 @@ public class ContributionFairnessService {
     private AuthorMappingResult mapCommitsToAuthors(TeamRepositoryDTO repositoryDTO,
             String templateAuthorEmail) {
         // 1) Delegate commit mapping to analysis service (single git walk)
-        CommitMappingResult mapping = gitContributionAnalysisService.mapCommitToAuthor(
+        CommitMappingResultDTO mapping = gitContributionAnalysisService.mapCommitToAuthor(
                 repositoryDTO, templateAuthorEmail);
 
         // 2) Filter assigned commits to team members only
@@ -222,8 +221,9 @@ public class ContributionFairnessService {
         Map<String, Long> emailToExternalId = new HashMap<>();
         long externalIdCounter = -1;
 
-        for (String orphanHash : mapping.orphanCommitHashes()) {
-            String email = mapping.orphanCommitEmails().getOrDefault(orphanHash, "unknown");
+        for (Map.Entry<String, String> orphanEntry : mapping.orphanCommitEmails().entrySet()) {
+            String orphanHash = orphanEntry.getKey();
+            String email = orphanEntry.getValue() != null ? orphanEntry.getValue() : "unknown";
             Long externalId = emailToExternalId.get(email);
             if (externalId == null) {
                 externalId = externalIdCounter--;
@@ -266,7 +266,7 @@ public class ContributionFairnessService {
             return List.of();
         }
 
-        CommitPreFilterService.PreFilterResult extFilter = commitPreFilterService.preFilter(externalChunks);
+        PreFilterResultDTO extFilter = commitPreFilterService.preFilter(externalChunks);
 
         // 1) Pre-filtered chunks get trivial rating
         List<RatedChunkDTO> trivialRated = extFilter.filteredChunks().stream()

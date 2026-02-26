@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * Individual component scores for CQI calculation.
  *
@@ -12,6 +14,7 @@ package de.tum.cit.aet.analysis.dto.cqi;
  *                              "NOT_FOUND" if Excel uploaded but team missing, "WARNING" if
  *                              cancelled sessions affected mandatory attendance, null if no Excel
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ComponentScoresDTO(
         double effortBalance,
         double locBalance,

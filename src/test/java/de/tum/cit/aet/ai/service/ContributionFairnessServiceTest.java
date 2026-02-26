@@ -1,11 +1,9 @@
 package de.tum.cit.aet.ai.service;
 
 import de.tum.cit.aet.ai.dto.*;
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.dto.CommitMappingResultDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.CommitMappingResult;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
@@ -23,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -76,9 +74,8 @@ class ContributionFairnessServiceTest {
         dummyRepo = new TeamRepositoryDTO(participationDTO, logs, "/tmp/repo", true, null);
 
         // Mock mapCommitToAuthor to return hash1 -> student 1, hash2 -> student 2
-        CommitMappingResult commitMapping = new CommitMappingResult(
+        CommitMappingResultDTO commitMapping = new CommitMappingResultDTO(
                 Map.of("hash1", 1L, "hash2", 2L),
-                Set.of(),
                 Map.of(),
                 Map.of("hash1", "student1@tum.de", "hash2", "student2@tum.de"));
         when(gitContributionAnalysisService.mapCommitToAuthor(any(TeamRepositoryDTO.class),
@@ -102,8 +99,8 @@ class ContributionFairnessServiceTest {
         // Mock pre-filter to return all chunks
         FilterSummaryDTO filterSummary = new FilterSummaryDTO(
                 chunks.size(), chunks.size(), 0, 0, 0, 0, 0, 0, 0, 0);
-        CommitPreFilterService.PreFilterResult preFilterResult =
-                new CommitPreFilterService.PreFilterResult(chunks, List.of(), filterSummary);
+        PreFilterResultDTO preFilterResult =
+                new PreFilterResultDTO(chunks, List.of(), filterSummary);
         when(commitPreFilterService.preFilter(any())).thenReturn(preFilterResult);
     }
 
@@ -223,8 +220,8 @@ class ContributionFairnessServiceTest {
     void testAnalyzeFairness_noCommitsReturnsError() {
         // Clear the setUp stub and return empty mapping instead
         reset(gitContributionAnalysisService);
-        CommitMappingResult emptyMapping = new CommitMappingResult(
-                Map.of(), Set.of(), Map.of(), Map.of());
+        CommitMappingResultDTO emptyMapping = new CommitMappingResultDTO(
+                Map.of(), Map.of(), Map.of());
         when(gitContributionAnalysisService.mapCommitToAuthor(any(TeamRepositoryDTO.class),
                 nullable(String.class)))
                 .thenReturn(emptyMapping);

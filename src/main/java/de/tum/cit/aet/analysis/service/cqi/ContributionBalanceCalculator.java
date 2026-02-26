@@ -10,51 +10,41 @@ import java.util.Map;
 public class ContributionBalanceCalculator {
 
     /**
-     * Calculates contribution balance score (0-100) based on commit distribution
+     * Calculates contribution balance score (0-100) based on commit distribution.
      * Formula: 100 * (1 - stdev(commit_frequency) / max_stdev)
-     * Applies 10% penalty if any member contributes > 70%
+     * Applies a 10% reduction if any single member contributes > 70%.
      *
      * @param commitCounts Map of contributor names to their commit counts
      * @return Contribution balance score between 0 and 100
      */
     public double calculate(Map<String, Integer> commitCounts) {
-        if (commitCounts == null || commitCounts.isEmpty()) {
-            log.warn("No commit data provided for contribution balance calculation");
+        // 1) Validate input
+        if (commitCounts == null || commitCounts.isEmpty() || commitCounts.size() == 1) {
             return 0.0;
         }
 
-        if (commitCounts.size() == 1) {
-            log.info("Single contributor detected, returning score of 0");
-            return 0.0; // No collaboration possible with one person
-        }
-
-        // Check if total commits is zero
         int totalCommits = commitCounts.values().stream()
                 .mapToInt(Integer::intValue)
                 .sum();
-
         if (totalCommits == 0) {
-            // log.info("No commits detected, returning score of 0");
             return 0.0;
         }
 
+        // 2) Compute balance via standard deviation
         double[] frequencies = commitCounts.values().stream()
                 .mapToDouble(Integer::doubleValue)
                 .toArray();
 
         double stdev = calculateStandardDeviation(frequencies);
         double maxStdev = calculateMaxStandardDeviation(frequencies.length);
-
-        // Avoid division by zero
         if (maxStdev == 0) {
             return 100.0;
         }
 
         double balanceScore = 100.0 * (1.0 - stdev / maxStdev);
 
-        // Apply 70% over-contribution penalty
+        // 3) Apply 10% reduction if any member contributes > 70%
         if (hasOverContributor(commitCounts)) {
-            // log.info("Over-contributor detected (>70%), applying 10% penalty");
             balanceScore *= 0.9;
         }
 

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * Summary of commit filtering results.
  *
@@ -14,6 +16,7 @@ package de.tum.cit.aet.analysis.dto.cqi;
  * @param formatOnlyCount    Format/whitespace-only commits filtered
  * @param massReformatCount  Mass reformat commits filtered
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record FilterSummaryDTO(
         int totalCommits,
         int productiveCommits,
