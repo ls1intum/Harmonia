@@ -1,10 +1,11 @@
 # TeamsScheduleDTO
 
+
 ## Properties
 
-| Name      | Type                                                              | Description | Notes                             |
-| --------- | ----------------------------------------------------------------- | ----------- | --------------------------------- |
-| **teams** | [**{ [key: string]: TeamAttendanceDTO; }**](TeamAttendanceDTO.md) |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**teams** | [**{ [key: string]: TeamAttendanceDTO; }**](TeamAttendanceDTO.md) |  | [optional] [default to undefined]
 
 ## Example
 
@@ -12,7 +13,7 @@
 import { TeamsScheduleDTO } from './api';
 
 const instance: TeamsScheduleDTO = {
-  teams,
+    teams,
 };
 ```
 

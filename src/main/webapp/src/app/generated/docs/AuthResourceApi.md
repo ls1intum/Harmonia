@@ -1,33 +1,40 @@
 # AuthResourceApi
 
-All URIs are relative to _http://localhost:8080_
+All URIs are relative to *http://localhost:8080*
 
-| Method              | HTTP request             | Description |
-| ------------------- | ------------------------ | ----------- |
-| [**login**](#login) | **POST** /api/auth/login |             |
+|Method | HTTP request | Description|
+|------------- | ------------- | -------------|
+|[**login**](#login) | **POST** /api/auth/login | |
 
 # **login**
-
 > login(loginRequestDTO)
+
 
 ### Example
 
 ```typescript
-import { AuthResourceApi, Configuration, LoginRequestDTO } from './api';
+import {
+    AuthResourceApi,
+    Configuration,
+    LoginRequestDTO
+} from './api';
 
 const configuration = new Configuration();
 const apiInstance = new AuthResourceApi(configuration);
 
 let loginRequestDTO: LoginRequestDTO; //
 
-const { status, data } = await apiInstance.login(loginRequestDTO);
+const { status, data } = await apiInstance.login(
+    loginRequestDTO
+);
 ```
 
 ### Parameters
 
-| Name                | Type                | Description | Notes |
-| ------------------- | ------------------- | ----------- | ----- |
-| **loginRequestDTO** | **LoginRequestDTO** |             |       |
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **loginRequestDTO** | **LoginRequestDTO**|  | |
+
 
 ### Return type
 
@@ -39,13 +46,14 @@ No authorization required
 
 ### HTTP request headers
 
-- **Content-Type**: application/json
-- **Accept**: Not defined
+ - **Content-Type**: application/json
+ - **Accept**: Not defined
+
 
 ### HTTP response details
-
 | Status code | Description | Response headers |
-| ----------- | ----------- | ---------------- |
-| **200**     | OK          | -                |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+

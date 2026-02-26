@@ -1,6 +1,5 @@
 export * from './analysis-status-dto';
 export * from './analyzed-chunk-dto';
-export * from './cqipenalty-dto';
 export * from './cqiresult-dto';
 export * from './client-response-dto';
 export * from './component-scores-dto';
@@ -8,8 +7,8 @@ export * from './component-weights-dto';
 export * from './create-email-mapping-request';
 export * from './email-mapping-dto';
 export * from './filter-summary-dto';
-export * from './llm-token-totals';
-export * from './llm-token-usage';
+export * from './llm-token-totals-dto';
+export * from './llm-token-usage-dto';
 export * from './login-request-dto';
 export * from './orphan-commit-dto';
 export * from './project';

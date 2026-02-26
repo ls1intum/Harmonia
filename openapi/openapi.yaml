@@ -3,25 +3,6 @@ info: {title: OpenAPI definition, version: v0}
 servers:
 - {url: 'http://localhost:8080', description: Generated server url}
 paths:
-  /api/analysis/{course}/{exercise}/recompute:
-    post:
-      tags: [analysis-resource]
-      operationId: recompute
-      parameters:
-      - name: course
-        in: path
-        required: true
-        schema: {type: string}
-      - name: exercise
-        in: path
-        required: true
-        schema: {type: string}
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema: {type: string}
   /api/analysis/{exerciseId}/cancel:
     post:
       tags: [analysis-resource]
@@ -77,8 +58,8 @@ paths:
               schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
   /api/attendance/clear:
     post:
-      tags: [attendance-resource]
-      operationId: clearAttendancePost
+      tags: [pair-programming-resource]
+      operationId: clearAttendance
       parameters:
       - name: exerciseId
         in: query
@@ -91,8 +72,8 @@ paths:
             application/json:
               schema: {type: string}
     delete:
-      tags: [attendance-resource]
-      operationId: clearAttendance
+      tags: [pair-programming-resource]
+      operationId: clearAttendance_1
       parameters:
       - name: exerciseId
         in: query
@@ -106,7 +87,7 @@ paths:
               schema: {type: string}
   /api/attendance/upload:
     post:
-      tags: [attendance-resource]
+      tags: [pair-programming-resource]
       operationId: uploadAttendance
       parameters:
       - name: courseId
@@ -467,17 +448,11 @@ components:
         isError: {type: boolean}
         isExternalContributor: {type: boolean}
         linesChanged: {type: integer, format: int32}
-        llmTokenUsage: {$ref: '#/components/schemas/LlmTokenUsage'}
+        llmTokenUsage: {$ref: '#/components/schemas/LlmTokenUsageDTO'}
         novelty: {type: number, format: double}
         reasoning: {type: string}
         timestamp: {type: string, format: date-time}
         totalChunks: {type: integer, format: int32}
-    CQIPenaltyDTO:
-      type: object
-      properties:
-        multiplier: {type: number, format: double}
-        reason: {type: string}
-        type: {type: string}
     CQIResultDTO:
       type: object
       properties:
@@ -485,10 +460,6 @@ components:
         components: {$ref: '#/components/schemas/ComponentScoresDTO'}
         cqi: {type: number, format: double}
         filterSummary: {$ref: '#/components/schemas/FilterSummaryDTO'}
-        penalties:
-          type: array
-          items: {$ref: '#/components/schemas/CQIPenaltyDTO'}
-        penaltyMultiplier: {type: number, format: double}
         weights: {$ref: '#/components/schemas/ComponentWeightsDTO'}
     ClientResponseDTO:
       type: object
@@ -503,7 +474,7 @@ components:
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isSuspicious: {type: boolean}
-        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotals'}
+        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}
         orphanCommits:
           type: array
@@ -561,7 +532,7 @@ components:
         totalCommits: {type: integer, format: int32}
         totalFiltered: {type: integer, format: int32}
         trivialCount: {type: integer, format: int32}
-    LlmTokenTotals:
+    LlmTokenTotalsDTO:
       type: object
       properties:
         callsWithUsage: {type: integer, format: int64}
@@ -569,7 +540,7 @@ components:
         llmCalls: {type: integer, format: int64}
         promptTokens: {type: integer, format: int64}
         totalTokens: {type: integer, format: int64}
-    LlmTokenUsage:
+    LlmTokenUsageDTO:
       type: object
       properties:
         completionTokens: {type: integer, format: int64}
