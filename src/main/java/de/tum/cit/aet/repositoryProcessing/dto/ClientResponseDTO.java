@@ -13,6 +13,7 @@ import java.util.List;
 public record ClientResponseDTO(
                 String tutor,
                 Long teamId,
+                Long participationId,
                 String teamName,
                 Integer submissionCount,
                 List<StudentAnalysisDTO> students,
@@ -31,6 +32,7 @@ public record ClientResponseDTO(
         public ClientResponseDTO(
                         String tutor,
                         Long teamId,
+                        Long participationId,
                         String teamName,
                         Integer submissionCount,
                         List<StudentAnalysisDTO> students,
@@ -41,8 +43,8 @@ public record ClientResponseDTO(
                         List<AnalyzedChunkDTO> analysisHistory,
                         List<OrphanCommitDTO> orphanCommits,
                         LlmTokenTotals llmTokenTotals) {
-                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
-                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null);
+                this(tutor, teamId, participationId, teamName, submissionCount, students, cqi, isSuspicious,
+                                analysisStatus, cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null);
         }
 
         /**
@@ -51,6 +53,7 @@ public record ClientResponseDTO(
         public ClientResponseDTO(
                         String tutor,
                         Long teamId,
+                        Long participationId,
                         String teamName,
                         Integer submissionCount,
                         List<StudentAnalysisDTO> students,
@@ -60,7 +63,7 @@ public record ClientResponseDTO(
                         CQIResultDTO cqiDetails,
                         List<AnalyzedChunkDTO> analysisHistory,
                         List<OrphanCommitDTO> orphanCommits) {
-                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
-                                cqiDetails, analysisHistory, orphanCommits, null, null);
+                this(tutor, teamId, participationId, teamName, submissionCount, students, cqi, isSuspicious,
+                                analysisStatus, cqiDetails, analysisHistory, orphanCommits, null, null);
         }
 }

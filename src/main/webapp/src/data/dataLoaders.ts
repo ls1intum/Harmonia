@@ -84,6 +84,7 @@ function transformToBasicTeamData(dto: ClientResponseDTO): BasicTeamData {
 
   return {
     id: dto.teamId?.toString() || 'unknown',
+    participationId: dto.participationId,
     teamName,
     tutor: dto.tutor || 'Unassigned',
     students: studentData,

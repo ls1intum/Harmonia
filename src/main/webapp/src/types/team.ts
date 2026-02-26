@@ -34,6 +34,7 @@ export interface AnalysisError {
 
 export interface Team {
   id: string;
+  participationId?: number;
   teamName: string;
   tutor: string;
   submissionCount?: number;

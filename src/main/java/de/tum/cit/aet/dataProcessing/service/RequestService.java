@@ -635,6 +635,7 @@ public class RequestService {
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
                 participation.team().id(),
+                participation.id(),
                 participation.team().name(),
                 participation.submissionCount(),
                 studentAnalysisDTOS,
@@ -808,6 +809,7 @@ public class RequestService {
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
                         participation.team().id(),
+                        participation.id(),
                         participation.team().name(),
                         participation.submissionCount(),
                         studentAnalysisDTOS,
@@ -1046,6 +1048,7 @@ public class RequestService {
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
                         participation.team().id(),
+                        participation.id(),
                         participation.team().name(),
                         participation.submissionCount(),
                         studentAnalysisDTOS,
@@ -1117,6 +1120,7 @@ public class RequestService {
                     pendingTeam.put("repositoryUri", participation.repositoryUri());
                     pendingTeam.put("submissionCount", participation.submissionCount());
                     pendingTeam.put("tutor", team.owner() != null ? team.owner().name() : "Unassigned");
+                    pendingTeam.put("participationId", participation.id());
 
                     List<Map<String, Object>> students = new java.util.ArrayList<>();
                     if (team.students() != null) {
@@ -1561,6 +1565,7 @@ public class RequestService {
                     return new ClientResponseDTO(
                             tutor != null ? tutor.getName() : "Unassigned",
                             participation.getTeam(),
+                            participation.getParticipation(),
                             participation.getName(),
                             participation.getSubmissionCount(),
                             studentAnalysisDTOS,
@@ -1665,6 +1670,7 @@ public class RequestService {
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
                 participation.getTeam(),
+                participation.getParticipation(),
                 participation.getName(),
                 participation.getSubmissionCount(),
                 studentAnalysisDTOS,
