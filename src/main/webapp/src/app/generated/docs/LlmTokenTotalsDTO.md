@@ -1,14 +1,15 @@
 # LlmTokenTotalsDTO
 
+
 ## Properties
 
-| Name                 | Type       | Description | Notes                             |
-| -------------------- | ---------- | ----------- | --------------------------------- |
-| **callsWithUsage**   | **number** |             | [optional] [default to undefined] |
-| **completionTokens** | **number** |             | [optional] [default to undefined] |
-| **llmCalls**         | **number** |             | [optional] [default to undefined] |
-| **promptTokens**     | **number** |             | [optional] [default to undefined] |
-| **totalTokens**      | **number** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**callsWithUsage** | **number** |  | [optional] [default to undefined]
+**completionTokens** | **number** |  | [optional] [default to undefined]
+**llmCalls** | **number** |  | [optional] [default to undefined]
+**promptTokens** | **number** |  | [optional] [default to undefined]
+**totalTokens** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -16,11 +17,11 @@
 import { LlmTokenTotalsDTO } from './api';
 
 const instance: LlmTokenTotalsDTO = {
-  callsWithUsage,
-  completionTokens,
-  llmCalls,
-  promptTokens,
-  totalTokens,
+    callsWithUsage,
+    completionTokens,
+    llmCalls,
+    promptTokens,
+    totalTokens,
 };
 ```
 
