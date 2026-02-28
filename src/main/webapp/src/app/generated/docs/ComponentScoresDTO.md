@@ -1,17 +1,16 @@
 # ComponentScoresDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**effortBalance** | **number** |  | [optional] [default to undefined]
-**locBalance** | **number** |  | [optional] [default to undefined]
-**ownershipSpread** | **number** |  | [optional] [default to undefined]
-**pairProgramming** | **number** |  | [optional] [default to undefined]
-**pairProgrammingStatus** | **string** |  | [optional] [default to undefined]
-**temporalSpread** | **number** |  | [optional] [default to undefined]
-**weeklyDistribution** | **Array&lt;number&gt;** |  | [optional] [default to undefined]
+| Name                      | Type                    | Description | Notes                             |
+| ------------------------- | ----------------------- | ----------- | --------------------------------- |
+| **effortBalance**         | **number**              |             | [optional] [default to undefined] |
+| **locBalance**            | **number**              |             | [optional] [default to undefined] |
+| **ownershipSpread**       | **number**              |             | [optional] [default to undefined] |
+| **pairProgramming**       | **number**              |             | [optional] [default to undefined] |
+| **pairProgrammingStatus** | **string**              |             | [optional] [default to undefined] |
+| **temporalSpread**        | **number**              |             | [optional] [default to undefined] |
+| **weeklyDistribution**    | **Array&lt;number&gt;** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -19,13 +18,13 @@ Name | Type | Description | Notes
 import { ComponentScoresDTO } from './api';
 
 const instance: ComponentScoresDTO = {
-    effortBalance,
-    locBalance,
-    ownershipSpread,
-    pairProgramming,
-    pairProgrammingStatus,
-    temporalSpread,
-    weeklyDistribution,
+  effortBalance,
+  locBalance,
+  ownershipSpread,
+  pairProgramming,
+  pairProgrammingStatus,
+  temporalSpread,
+  weeklyDistribution,
 };
 ```
 

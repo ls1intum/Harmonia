@@ -1,17 +1,16 @@
 # OrphanCommitDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**authorEmail** | **string** |  | [optional] [default to undefined]
-**authorName** | **string** |  | [optional] [default to undefined]
-**commitHash** | **string** |  | [optional] [default to undefined]
-**linesAdded** | **number** |  | [optional] [default to undefined]
-**linesDeleted** | **number** |  | [optional] [default to undefined]
-**message** | **string** |  | [optional] [default to undefined]
-**timestamp** | **string** |  | [optional] [default to undefined]
+| Name             | Type       | Description | Notes                             |
+| ---------------- | ---------- | ----------- | --------------------------------- |
+| **authorEmail**  | **string** |             | [optional] [default to undefined] |
+| **authorName**   | **string** |             | [optional] [default to undefined] |
+| **commitHash**   | **string** |             | [optional] [default to undefined] |
+| **linesAdded**   | **number** |             | [optional] [default to undefined] |
+| **linesDeleted** | **number** |             | [optional] [default to undefined] |
+| **message**      | **string** |             | [optional] [default to undefined] |
+| **timestamp**    | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -19,13 +18,13 @@ Name | Type | Description | Notes
 import { OrphanCommitDTO } from './api';
 
 const instance: OrphanCommitDTO = {
-    authorEmail,
-    authorName,
-    commitHash,
-    linesAdded,
-    linesDeleted,
-    message,
-    timestamp,
+  authorEmail,
+  authorName,
+  commitHash,
+  linesAdded,
+  linesDeleted,
+  message,
+  timestamp,
 };
 ```
 
