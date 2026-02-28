@@ -8,6 +8,7 @@ import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService.RatedChunk;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
+import de.tum.cit.aet.core.enums.PairProgrammingStatus;
 import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
@@ -215,7 +216,7 @@ class CQICalculatorServiceTest {
     }
 
     @Test
-    void testGitOnlyComponents_FoundTeamWithoutPairedSessions_IsFoundWithZeroScore() {
+    void testGitOnlyComponents_FoundTeamWithoutPairedSessions_IsFailWithZeroScore() {
         OffsetDateTime session = OffsetDateTime.parse("2025-01-13T10:00:00+01:00");
 
         TeamAttendanceDTO attendance = new TeamAttendanceDTO(
@@ -231,7 +232,7 @@ class CQICalculatorServiceTest {
 
         ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, null, null, "Team 01");
 
-        assertEquals("FOUND", components.pairProgrammingStatus());
+        assertEquals(PairProgrammingStatus.FAIL, components.pairProgrammingStatus());
         assertEquals(0.0, components.pairProgramming(), 0.001);
     }
 
@@ -255,7 +256,7 @@ class CQICalculatorServiceTest {
 
         ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, null, null, "team   01");
 
-        assertEquals("FOUND", components.pairProgrammingStatus());
+        assertEquals(PairProgrammingStatus.PASS, components.pairProgrammingStatus());
         assertNotNull(components.pairProgramming());
         assertEquals(100.0, components.pairProgramming(), 0.001);
     }

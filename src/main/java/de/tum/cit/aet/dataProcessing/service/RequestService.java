@@ -7,6 +7,7 @@ import de.tum.cit.aet.analysis.service.AnalysisService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
+import de.tum.cit.aet.core.enums.PairProgrammingStatus;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.*;
@@ -454,7 +455,7 @@ public class RequestService {
         Double previousScore = participation.getCqiPairProgramming();
         String previousStatus = participation.getCqiPairProgrammingStatus();
         Double nextScore = components.pairProgramming();
-        String nextStatus = components.pairProgrammingStatus();
+        String nextStatus = components.pairProgrammingStatus() != null ? components.pairProgrammingStatus().name() : null;
 
         boolean changed = !java.util.Objects.equals(previousScore, nextScore)
                 || !java.util.Objects.equals(previousStatus, nextStatus);
@@ -605,8 +606,9 @@ public class RequestService {
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
-                // Always set the status (FOUND, NOT_FOUND, WARNING, or null)
-                teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                // Always set the status (PASS/FAIL, NOT_FOUND, WARNING, or null)
+                teamParticipation.setCqiPairProgrammingStatus(
+                        gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
@@ -1887,6 +1889,18 @@ public class RequestService {
         }
     }
 
+    private PairProgrammingStatus parsePairProgrammingStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return PairProgrammingStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown pair programming status '{}' in persisted data, ignoring", status);
+            return null;
+        }
+    }
+
     /**
      * Reconstructs a CQIResultDTO from persisted TeamParticipation fields.
      * Returns null if no CQI components were stored.
@@ -1905,7 +1919,7 @@ public class RequestService {
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
                 participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus()));
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());

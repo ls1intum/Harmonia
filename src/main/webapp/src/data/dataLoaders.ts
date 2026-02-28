@@ -129,8 +129,8 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
   // Pair programming: show card when attendance status is available (Excel was uploaded)
   const weights = serverCqiDetails?.weights;
   const pairProgrammingStatus = serverCqiDetails?.components?.pairProgrammingStatus;
-  const showPairProgramming =
-    pairProgrammingStatus === 'FOUND' || pairProgrammingStatus === 'NOT_FOUND' || pairProgrammingStatus === 'WARNING';
+  const hasScoredPairProgrammingStatus = pairProgrammingStatus === 'PASS' || pairProgrammingStatus === 'FAIL';
+  const showPairProgramming = hasScoredPairProgrammingStatus || pairProgrammingStatus === 'NOT_FOUND' || pairProgrammingStatus === 'WARNING';
 
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? [
@@ -169,7 +169,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
               {
                 name: 'Pair Programming',
                 value:
-                  pairProgrammingStatus === 'FOUND'
+                  hasScoredPairProgrammingStatus
                     ? Math.round(serverCqiDetails.components.pairProgramming ?? 0)
                     : pairProgrammingStatus === 'WARNING'
                       ? -3 // -3 indicates cancelled-session warning
@@ -177,12 +177,12 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
                 weight: 0,
                 description: 'Did both students commit during pair programming sessions?',
                 details:
-                  pairProgrammingStatus === 'FOUND'
+                  hasScoredPairProgrammingStatus
                     ? 'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.'
                     : pairProgrammingStatus === 'WARNING'
                       ? 'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.'
                       : 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
-                status: pairProgrammingStatus as 'FOUND' | 'NOT_FOUND' | 'WARNING',
+                status: pairProgrammingStatus as 'PASS' | 'FAIL' | 'NOT_FOUND' | 'WARNING',
               },
             ]
           : []),

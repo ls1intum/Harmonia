@@ -4,6 +4,7 @@ import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
+import de.tum.cit.aet.core.enums.PairProgrammingStatus;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -254,7 +255,7 @@ public class CQICalculatorService {
 
         // Calculate pair programming score if team name is provided
         Double pairProgrammingScore = null;
-        String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = in Excel, "NOT_FOUND" = missing, "WARNING" = cancelled-session edge case
+        PairProgrammingStatus pairProgrammingStatus = null; // null = no Excel uploaded
         log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
         if (teamName != null && teamSize == 2) {
             try {
@@ -262,6 +263,7 @@ public class CQICalculatorService {
                 boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
                 boolean hasTeamAttendance = teamScheduleService.hasTeamAttendance(teamName);
                 boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
+                boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName);
 
                 Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
                 Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
@@ -277,15 +279,15 @@ public class CQICalculatorService {
                         log.info("  Paired session: {}", date));
 
                 if (hasTeamAttendance) {
-                    pairProgrammingStatus = hasCancelledSessionWarning ? "WARNING" : "FOUND";
+                    pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(
+                            hasAttendanceData,
+                            hasCancelledSessionWarning,
+                            pairedMandatorySessions);
                     if (hasCancelledSessionWarning) {
                         log.info("Team '{}' has cancelled tutorial sessions affecting mandatory attendance; setting pair programming status to WARNING", teamName);
                     } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
                         pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
                                 pairedSessions, allSessions, chunks, teamSize);
-                        log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
-                                teamName,
-                                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
                     } else {
                         pairProgrammingScore = 0.0;
                         if (allSessions.isEmpty()) {
@@ -295,13 +297,11 @@ public class CQICalculatorService {
                         }
                     }
                 } else if (hasAttendanceData) {
-                    pairProgrammingStatus = "NOT_FOUND";
+                    pairProgrammingStatus = PairProgrammingStatus.NOT_FOUND;
                     log.info("Team '{}' not found in attendance Excel file", teamName);
                 } else {
                     log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
                 }
-                log.info("Session availability for team {}: paired={}, all={}, hasTeamAttendance={}, hasCancelledSessionWarning={}",
-                        teamName, pairedSessions.size(), allSessions.size(), hasTeamAttendance, hasCancelledSessionWarning);
             } catch (Exception e) {
                 log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
             }

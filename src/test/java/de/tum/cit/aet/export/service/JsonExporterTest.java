@@ -21,7 +21,7 @@ class JsonExporterTest {
         ExportData data = new ExportData(
                 List.of(new TeamExportRow("Team1", "t1", "Tutor1", "https://git.example.com/team1",
                         5, "DONE", 0.85,
-                        0.9, 0.8, 0.7, 0.6, 0.55, "FOUND", false, 1000L)),
+                        0.9, 0.8, 0.7, 0.6, 0.55, "PASS", false, 1000L)),
                 List.of(new StudentExportRow("Team1", "Alice", "alice01", "alice@test.com", 10, 200, 50, 250)),
                 List.of(new ChunkExportRow("Team1", "Alice", "alice@test.com", "FEATURE",
                         0.9, 0.8, 0.7, 0.95, "Good work", "abc123", "[\"init commit\"]",
@@ -45,7 +45,7 @@ class JsonExporterTest {
         assertEquals(0.7, team.get("cqiTemporalSpread").asDouble(), 0.001);
         assertEquals(0.6, team.get("cqiOwnershipSpread").asDouble(), 0.001);
         assertEquals(0.55, team.get("cqiPairProgramming").asDouble(), 0.001);
-        assertEquals("FOUND", team.get("cqiPairProgrammingStatus").asText());
+        assertEquals("PASS", team.get("cqiPairProgrammingStatus").asText());
         assertFalse(team.get("isSuspicious").asBoolean());
         assertEquals(1000, team.get("llmTotalTokens").asLong());
 

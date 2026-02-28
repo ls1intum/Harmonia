@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import de.tum.cit.aet.core.enums.PairProgrammingStatus;
+
 /**
  * Individual component scores for CQI calculation.
  *
@@ -8,9 +10,12 @@ package de.tum.cit.aet.analysis.dto.cqi;
  * @param temporalSpread  Temporal distribution of work (0-100)
  * @param ownershipSpread File ownership distribution (0-100)
  * @param pairProgramming   Pair programming collaboration verification (0-100, nullable)
- * @param pairProgrammingStatus Status of pair programming metric: "FOUND" if team in Excel,
- *                              "NOT_FOUND" if Excel uploaded but team missing, "WARNING" if
- *                              cancelled sessions affected mandatory attendance, null if no Excel
+ * @param pairProgrammingStatus Status of pair programming metric:
+ *                              PASS/FAIL (team found and attendance threshold passed/failed),
+ *                              NOT_FOUND (Excel uploaded but team missing),
+ *                              WARNING (cancelled sessions affected evaluation),
+ *                              null if no Excel uploaded.
+ *                              Legacy persisted value FOUND may still appear temporarily.
  */
 public record ComponentScoresDTO(
         double effortBalance,
@@ -18,7 +23,7 @@ public record ComponentScoresDTO(
         double temporalSpread,
         double ownershipSpread,
         Double pairProgramming,
-        String pairProgrammingStatus
+        PairProgrammingStatus pairProgrammingStatus
 ) {
     /**
      * Create zero scores.
