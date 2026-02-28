@@ -1,5 +1,6 @@
-import type { AnalyzedChunkDTO } from '@/app/generated';
+import type { AnalyzedChunkDTO, EmailMappingDTO } from '@/app/generated';
 import type { TeamDTO, SubMetric } from '@/data/dataLoaders';
+import { transformToComplexTeamData } from '@/data/dataLoaders';
 import type { CourseAverages } from '@/lib/courseAverages';
 import { computeBasicMetrics } from '@/lib/utils';
 import { emailMappingApi, requestApi, analysisApi } from '@/lib/apiClient';
@@ -13,7 +14,6 @@ import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
-import type { EmailMappingDTO } from '@/app/generated';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
 import { getFailedReason } from '@/lib/utils.ts';
@@ -74,7 +74,6 @@ const TeamDetail = ({
       // Refresh team data from server after a mapping change
       if (onTeamUpdate && exercise) {
         const response = await requestApi.getData(parseInt(exercise));
-        const { transformToComplexTeamData } = await import('@/data/dataLoaders');
         const updatedTeam = response.data.find(d => d.teamId === team.teamId);
         if (updatedTeam) {
           onTeamUpdate(transformToComplexTeamData(updatedTeam));
@@ -140,9 +139,7 @@ const TeamDetail = ({
     },
     onSuccess: data => {
       if (onTeamUpdate && exercise) {
-        import('@/data/dataLoaders').then(({ transformToComplexTeamData }) => {
-          onTeamUpdate(transformToComplexTeamData(data));
-        });
+        onTeamUpdate(transformToComplexTeamData(data));
       }
       queryClient.invalidateQueries({ queryKey: ['teamDetail', exercise, team.teamId] });
     },

@@ -580,16 +580,6 @@ public class RequestService {
         clearDatabaseForExerciseInternal(exerciseId);
     }
 
-    /**
-     * Clears all data from the database (all exercises).
-     */
-    public void clearDatabase() {
-        analyzedChunkRepository.deleteAll();
-        teamRepositoryRepository.deleteAll();
-        studentRepository.deleteAll();
-        teamParticipationRepository.deleteAll();
-        tutorRepository.deleteAll();
-    }
 
     // =====================================================================
     //  Pair programming support

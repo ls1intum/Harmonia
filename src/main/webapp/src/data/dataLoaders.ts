@@ -40,7 +40,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
     pairProgrammingStatus === 'FOUND' || pairProgrammingStatus === 'NOT_FOUND' || pairProgrammingStatus === 'WARNING';
 
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
-    ? [
+    ? ([
         {
           name: 'Effort Balance',
           value: !isFullyAnalyzed
@@ -77,7 +77,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
-      ].concat(
+      ] as SubMetric[]).concat(
         showPairProgramming
           ? [
               {

@@ -9,6 +9,8 @@ import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
+import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
+import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
 import de.tum.cit.aet.artemis.ArtemisClientService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -63,6 +65,12 @@ class EndToEndAnalysisIntegrationTest {
 
     @Autowired
     private AnalyzedChunkRepository analyzedChunkRepository;
+
+    @Autowired
+    private TeamRepositoryRepository teamRepositoryRepository;
+
+    @Autowired
+    private TutorRepository tutorRepository;
 
     // Test configuration from environment
     private static final String ARTEMIS_URL = System.getenv("ARTEMIS_TEST_URL");
@@ -131,7 +139,11 @@ class EndToEndAnalysisIntegrationTest {
         logResult("Participations before clear", participationsBefore);
 
         log.info("Clearing database...");
-        requestService.clearDatabase();
+        analyzedChunkRepository.deleteAll();
+        teamRepositoryRepository.deleteAll();
+        studentRepository.deleteAll();
+        teamParticipationRepository.deleteAll();
+        tutorRepository.deleteAll();
 
         long chunksAfter = analyzedChunkRepository.count();
         long studentsAfter = studentRepository.count();
