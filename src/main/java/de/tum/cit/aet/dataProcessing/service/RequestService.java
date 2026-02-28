@@ -470,18 +470,32 @@ public class RequestService {
         }
     }
 
-    /** Checks if an analysis task is currently running. */
+    /**
+     * Checks if an analysis task is currently running.
+     *
+     * @param exerciseId the exercise ID to check
+     * @return true if a task is running for the given exercise
+     */
     public boolean isTaskRunning(Long exerciseId) {
         Future<?> future = runningFutures.get(exerciseId);
         return future != null && !future.isDone();
     }
 
-    /** Registers a running task for tracking and cancellation. */
+    /**
+     * Registers a running task for tracking and cancellation.
+     *
+     * @param exerciseId the exercise ID
+     * @param future     the future representing the running task
+     */
     public void registerRunningTask(Long exerciseId, Future<?> future) {
         runningFutures.put(exerciseId, future);
     }
 
-    /** Unregisters a completed task. */
+    /**
+     * Unregisters a completed task.
+     *
+     * @param exerciseId the exercise ID to unregister
+     */
     public void unregisterRunningTask(Long exerciseId) {
         runningFutures.remove(exerciseId);
     }
@@ -646,6 +660,15 @@ public class RequestService {
         return saveGitAnalysisResult(repo, contributionData, exerciseId, null);
     }
 
+    /**
+     * Saves git analysis results for a single team, with mode-aware weight renormalization.
+     *
+     * @param repo             repository data
+     * @param contributionData contribution metrics by student ID
+     * @param exerciseId       exercise ID
+     * @param mode             analysis mode (SIMPLE sends renormalized weights, FULL sends original)
+     * @return client response with git metrics, or null if cancelled
+     */
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
                                                     Map<Long, AuthorContributionDTO> contributionData,
                                                     Long exerciseId, AnalysisMode mode) {
@@ -1911,7 +1934,9 @@ public class RequestService {
         // 1) Check if any student has < 10 commits (= "Failed" badge)
         boolean hasFailedStudent = students.stream()
                 .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 10);
-        if (hasFailedStudent) hasFailed = true;
+        if (hasFailedStudent) {
+            hasFailed = true;
+        }
 
         // 2) Check pair programming attendance (= "PP Failed" badge)
         if (!hasFailed) {

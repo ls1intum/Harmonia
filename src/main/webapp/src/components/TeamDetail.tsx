@@ -166,24 +166,24 @@ const TeamDetail = ({
 
   // Show Pair Programming card from server subMetrics when present; otherwise from attendance badge when available (e.g. when analysis failed)
   const isSimpleMode = analysisMode === 'SIMPLE';
-  const effortBalancePlaceholder: SubMetric = isAiComputing
-    ? { name: 'Effort Balance', value: -1, weight: 0, description: 'Is effort distributed fairly among team members?',
-        details: 'AI analysis is in progress. This metric will be available when computation completes.' }
-    : isSimpleMode
-      ? { name: 'Effort Balance', value: -5, weight: 0, description: 'Is effort distributed fairly among team members?',
-          details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.' }
-      : { name: 'Effort Balance', value: -1, weight: 0, description: 'Is effort distributed fairly among team members?',
-          details: 'Will be calculated after analysis completes.' };
-  const pendingPlaceholderMetrics: SubMetric[] = [
-    effortBalancePlaceholder,
-    { name: 'Lines of Code Balance', value: -1, weight: 0, description: 'Are code contributions balanced?',
-      details: 'Will be calculated after analysis completes.' },
-    { name: 'Temporal Spread', value: -1, weight: 0, description: 'Is work spread over time or crammed at deadline?',
-      details: 'Will be calculated after analysis completes.' },
-    { name: 'File Ownership Spread', value: -1, weight: 0, description: 'Are files owned by multiple team members?',
-      details: 'Will be calculated after analysis completes.' },
-  ];
   const metricsToShow = useMemo((): SubMetric[] => {
+    const effortBalancePlaceholder: SubMetric = isAiComputing
+      ? { name: 'Effort Balance', value: -1, weight: 0, description: 'Is effort distributed fairly among team members?',
+          details: 'AI analysis is in progress. This metric will be available when computation completes.' }
+      : isSimpleMode
+        ? { name: 'Effort Balance', value: -5, weight: 0, description: 'Is effort distributed fairly among team members?',
+            details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.' }
+        : { name: 'Effort Balance', value: -1, weight: 0, description: 'Is effort distributed fairly among team members?',
+            details: 'Will be calculated after analysis completes.' };
+    const pendingPlaceholderMetrics: SubMetric[] = [
+      effortBalancePlaceholder,
+      { name: 'Lines of Code Balance', value: -1, weight: 0, description: 'Are code contributions balanced?',
+        details: 'Will be calculated after analysis completes.' },
+      { name: 'Temporal Spread', value: -1, weight: 0, description: 'Is work spread over time or crammed at deadline?',
+        details: 'Will be calculated after analysis completes.' },
+      { name: 'File Ownership Spread', value: -1, weight: 0, description: 'Are files owned by multiple team members?',
+        details: 'Will be calculated after analysis completes.' },
+    ];
     let fromServer = team.subMetrics ?? [];
     // When no metrics from server yet (PENDING/DOWNLOADING/GIT_ANALYZING), show placeholders
     if (fromServer.length === 0) {

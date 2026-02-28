@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
 import TeamsList from '@/components/TeamsList';
-import type { ClientResponseDTO, TeamAttendanceDTO, TeamsScheduleDTO } from '@/app/generated';
+import type { TeamAttendanceDTO, TeamsScheduleDTO } from '@/app/generated';
 import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
@@ -409,36 +409,6 @@ export default function Teams() {
 
   const courseAverages = useMemo(() => computeCourseAverages(teams), [teams]);
 
-  // Redirect if no course/exercise
-  if (!course || !exercise) {
-    navigate('/');
-    return null;
-  }
-
-  // --- Handlers ---
-
-  const handleTeamSelect = (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
-    navigate(`/teams/${String(team.teamId)}`, {
-      state: { teamId: team.teamId, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages, analysisMode: status.analysisMode },
-    });
-  };
-
-  const handleAttendanceUpload = () => {
-    if (!attendanceFile) {
-      toast({
-        variant: 'destructive',
-        title: 'No file selected',
-        description: 'Please select an XLSX file before uploading.',
-      });
-      return;
-    }
-    attendanceUploadMutation.mutate(attendanceFile);
-  };
-
-  const handleRemoveUploadedAttendanceFile = () => {
-    clearAttendanceMutation.mutate();
-  };
-
   const setTemplateAuthorMutation = useMutation({
     mutationFn: async (email: string) => {
       await emailMappingApi.setTemplateAuthor(parseInt(exercise), { templateEmail: email });
@@ -468,6 +438,36 @@ export default function Teams() {
       toast({ variant: 'destructive', title: 'Failed to remove template author' });
     },
   });
+
+  // Redirect if no course/exercise
+  if (!course || !exercise) {
+    navigate('/');
+    return null;
+  }
+
+  // --- Handlers ---
+
+  const handleTeamSelect = (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
+    navigate(`/teams/${String(team.teamId)}`, {
+      state: { teamId: team.teamId, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages, analysisMode: status.analysisMode },
+    });
+  };
+
+  const handleAttendanceUpload = () => {
+    if (!attendanceFile) {
+      toast({
+        variant: 'destructive',
+        title: 'No file selected',
+        description: 'Please select an XLSX file before uploading.',
+      });
+      return;
+    }
+    attendanceUploadMutation.mutate(attendanceFile);
+  };
+
+  const handleRemoveUploadedAttendanceFile = () => {
+    clearAttendanceMutation.mutate();
+  };
 
   const handleTemplateAuthorSet = (email: string) => {
     setTemplateAuthorMutation.mutate(email);

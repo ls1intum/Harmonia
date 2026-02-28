@@ -262,16 +262,27 @@ public class CommitEffortRaterService {
             if (c == '"') {
                 inString = !inString;
             } else if (!inString) {
-                if (c == '{') openBraces++;
-                else if (c == '}') openBraces--;
-                else if (c == '[') openBrackets++;
-                else if (c == ']') openBrackets--;
+                if (c == '{') {
+                    openBraces++;
+                } else if (c == '}') {
+                    openBraces--;
+                } else if (c == '[') {
+                    openBrackets++;
+                } else if (c == ']') {
+                    openBrackets--;
+                }
             }
         }
 
-        if (inString) repaired.append("\"");
-        while (openBrackets-- > 0) repaired.append("]");
-        while (openBraces-- > 0) repaired.append("}");
+        if (inString) {
+            repaired.append("\"");
+        }
+        while (openBrackets-- > 0) {
+            repaired.append("]");
+        }
+        while (openBraces-- > 0) {
+            repaired.append("}");
+        }
 
         return repaired.toString();
     }

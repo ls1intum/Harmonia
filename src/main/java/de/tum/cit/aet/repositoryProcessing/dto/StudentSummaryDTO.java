@@ -14,6 +14,12 @@ public record StudentSummaryDTO(
         Integer linesDeleted,
         Integer linesChanged
 ) {
+    /**
+     * Creates a summary DTO from a full student analysis DTO.
+     *
+     * @param student the full student analysis DTO
+     * @return a lean summary containing only the fields needed for the Teams list
+     */
     public static StudentSummaryDTO from(StudentAnalysisDTO student) {
         return new StudentSummaryDTO(
                 student.name(),
