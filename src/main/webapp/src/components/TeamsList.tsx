@@ -1,5 +1,6 @@
-import type { Team, CourseAverages } from '@/types/team';
-import type { TemplateAuthorInfo } from '@/data/dataLoaders';
+import type { TemplateAuthorInfo, TeamDTO } from '@/data/dataLoaders';
+import type { CourseAverages } from '@/lib/courseAverages';
+import { computeBasicMetrics } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,8 @@ import {
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
-import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
+import { ActivityLog } from '@/components/ActivityLog';
+import type { AnalysisMode, AnalysisStatus } from '@/hooks/useAnalysisStatus';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import {
   DropdownMenu,
@@ -54,13 +56,13 @@ import {
 } from '@/lib/pairProgramming';
 
 interface TeamsListProps {
-  teams: Team[];
+  teams: TeamDTO[];
   courseAverages: CourseAverages | null;
-  onTeamSelect: (team: Team, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
+  onTeamSelect: (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
   onBackToHome: () => void;
-  onStart: () => void;
+  onStart: (mode: AnalysisMode) => void;
   onCancel: () => void;
-  onRecompute: () => void;
+  onRecompute: (mode: AnalysisMode) => void;
   onClear: (type: 'db' | 'files' | 'both', clearMappings?: boolean) => void;
   course: string;
   exercise: string;
@@ -85,6 +87,10 @@ interface TeamsListProps {
   isAttendanceClearing?: boolean;
 }
 
+/**
+ * Presentational list of teams with sorting, filtering, search,
+ * attendance upload, template-author management, and analysis controls.
+ */
 const TeamsList = ({
   teams,
   courseAverages,
@@ -120,12 +126,15 @@ const TeamsList = ({
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
   const [clearMappings, setClearMappings] = useState(false);
   const [removeAttendanceDialogOpen, setRemoveAttendanceDialogOpen] = useState(false);
   const [isDevMode, setIsDevMode] = useState<boolean>(readDevModeFromStorage);
   const [startWithoutAttendanceDialogOpen, setStartWithoutAttendanceDialogOpen] = useState(false);
+  const [pendingStartMode, setPendingStartMode] = useState<AnalysisMode>('FULL');
+  const [pendingStartAction, setPendingStartAction] = useState<((mode: AnalysisMode) => void) | null>(null);
   const [templateAuthorDialogOpen, setTemplateAuthorDialogOpen] = useState(false);
   const [templateAuthorInput, setTemplateAuthorInput] = useState('');
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
@@ -159,11 +168,11 @@ const TeamsList = ({
   };
 
   // Helper to determine if a team is 'failed' (any student with <10 commits)
-  const isTeamFailed = (team: Team) => {
+  const isTeamFailed = (team: TeamDTO) => {
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
 
-  const renderAnalysisStatusBadge = (team: Team) => {
+  const renderAnalysisStatusBadge = (team: TeamDTO) => {
     if (
       (team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE') &&
       isTeamFailed(team)
@@ -237,49 +246,46 @@ const TeamsList = ({
 
     return (
       <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-        {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
-          ? 'Pending'
-          : team.analysisStatus === 'GIT_ANALYZING'
-            ? 'Git Analysis'
-            : 'Analyzing'}
+        {team.analysisStatus === 'GIT_ANALYZING' ? 'Git Analysis' : 'Pending'}
       </Badge>
     );
   };
 
   // Get priority for analysis status (lower = shown first)
-  const getStatusPriority = (status: string | undefined): number => {
-    switch (status) {
+  // Failed teams (isFailed) get a separate priority so they sort below teams with real CQI scores
+  const getStatusPriority = (team: TeamDTO): number => {
+    if (team.isFailed) return 1; // Failed teams after successful DONE teams
+    switch (team.analysisStatus) {
       case 'DONE':
         return 0; // Fully completed - show first
       case 'AI_ANALYZING':
-        return 1; // AI analysis in progress
+        return 2; // AI analysis in progress
       case 'GIT_DONE':
-        return 2; // Git analysis done, waiting for AI
+        return 3; // Git analysis done, waiting for AI
       case 'GIT_ANALYZING':
-      case 'ANALYZING':
-        return 3; // Currently analyzing
+        return 4; // Currently analyzing
       case 'PENDING':
       case 'DOWNLOADING':
-        return 4; // Waiting to be analyzed
+        return 5; // Waiting to be analyzed
       case 'ERROR':
-        return 5; // Failed
+        return 6; // Failed
       case 'CANCELLED':
-        return 6; // Cancelled
+        return 7; // Cancelled
       default:
-        return 7; // Unknown
+        return 8; // Unknown
     }
   };
 
   const sortedAndFilteredTeams = useMemo(() => {
-    let filtered = [...teams];
+    let filtered = teams.slice();
 
     // Apply text search filter
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       filtered = filtered.filter(team => {
-        if (team.teamName.toLowerCase().includes(q)) return true;
+        if (team.teamName?.toLowerCase().includes(q)) return true;
         if (team.tutor?.toLowerCase().includes(q)) return true;
-        if (team.students.some(s => s.name?.toLowerCase().includes(q))) return true;
+        if (team.students?.some(s => s.name?.toLowerCase().includes(q))) return true;
         return false;
       });
     }
@@ -295,10 +301,10 @@ const TeamsList = ({
       }
     }
 
-    // First, sort by analysis status priority (ANALYZING > PENDING > DONE)
+    // First, sort by analysis status priority (DONE first, then in-progress, then pending)
     filtered.sort((a, b) => {
-      const aPriority = getStatusPriority(a.analysisStatus);
-      const bPriority = getStatusPriority(b.analysisStatus);
+      const aPriority = getStatusPriority(a);
+      const bPriority = getStatusPriority(b);
       if (aPriority !== bPriority) {
         return aPriority - bPriority;
       }
@@ -309,9 +315,9 @@ const TeamsList = ({
     // Then apply column sorting within each status group
     if (sortColumn) {
       // Create a stable sort that preserves status priority
-      const statusGroups = new Map<number, Team[]>();
+      const statusGroups = new Map<number, TeamDTO[]>();
       filtered.forEach(team => {
-        const priority = getStatusPriority(team.analysisStatus);
+        const priority = getStatusPriority(team);
         if (!statusGroups.has(priority)) {
           statusGroups.set(priority, []);
         }
@@ -323,10 +329,10 @@ const TeamsList = ({
         group.sort((a, b) => {
           let comparison = 0;
           if (sortColumn === 'name') {
-            comparison = a.teamName.localeCompare(b.teamName);
+            comparison = (a.teamName ?? '').localeCompare(b.teamName ?? '');
           } else if (sortColumn === 'commitCount') {
-            const aCommits = a.basicMetrics?.totalCommits || 0;
-            const bCommits = b.basicMetrics?.totalCommits || 0;
+            const aCommits = computeBasicMetrics(a.students).totalCommits;
+            const bCommits = computeBasicMetrics(b.students).totalCommits;
             comparison = aCommits - bCommits;
           } else if (sortColumn === 'cqi') {
             const aCqi = a.cqi || 0;
@@ -342,13 +348,46 @@ const TeamsList = ({
       [0, 1, 2, 3, 4, 5, 6, 7].forEach(priority => {
         const group = statusGroups.get(priority);
         if (group) {
-          filtered.push(...group);
+          filtered = filtered.concat(group);
         }
       });
     }
 
     return filtered;
   }, [teams, searchQuery, sortColumn, sortDirection, statusFilter]);
+
+  const renderStartDropdown = (label: string, isPending: boolean, onAction: (mode: AnalysisMode) => void) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button disabled={isPending || isClearing}>
+          {isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+          {isPending ? 'Starting...' : label}
+          <ChevronDown className="h-3 w-3 ml-1" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto min-w-64">
+        <DropdownMenuItem onClick={() => handleStartWithMode('FULL', onAction)} className="flex flex-col items-start gap-0.5">
+          <span>Full Analysis</span>
+          <span className="text-xs text-muted-foreground font-normal">Git + AI analysis with comprehensive CQI</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleStartWithMode('SIMPLE', onAction)} className="flex flex-col items-start gap-0.5">
+          <span>Simple Analysis</span>
+          <span className="text-xs text-muted-foreground font-normal">Git analysis only, no LLM calls (faster)</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const handleStartWithMode = (mode: AnalysisMode, onAction: (mode: AnalysisMode) => void) => {
+    if (pairProgrammingEnabled && !hasUploadedAttendanceDocument) {
+      setPendingStartMode(mode);
+      setPendingStartAction(() => onAction);
+      setStartWithoutAttendanceDialogOpen(true);
+      return;
+    }
+    onAction(mode);
+  };
 
   const renderActionButton = () => {
     if (isLoading) {
@@ -363,27 +402,17 @@ const TeamsList = ({
     switch (analysisStatus.state) {
       case 'IDLE':
       case 'CANCELLED':
-        return (
-          <Button onClick={handleStartClick} disabled={isStarting || isClearing}>
-            {isStarting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {isStarting ? 'Starting...' : 'Start Analysis'}
-          </Button>
-        );
+        return renderStartDropdown('Start Analysis', isStarting, onStart);
       case 'RUNNING':
         return (
-          <Button variant="destructive" onClick={onCancel} disabled={isCancelling}>
+          <Button variant="destructive" onClick={() => setCancelDialogOpen(true)} disabled={isCancelling}>
             {isCancelling ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
             {isCancelling ? 'Cancelling...' : 'Cancel'}
           </Button>
         );
       case 'DONE':
       case 'ERROR':
-        return (
-          <Button variant="secondary" onClick={onRecompute} disabled={isRecomputing || isClearing}>
-            <RefreshCw className={`h-4 w-4 ${isRecomputing ? 'animate-spin' : ''}`} />
-            {isRecomputing ? 'Recomputing...' : 'Force Recompute'}
-          </Button>
-        );
+        return renderStartDropdown('Force Recompute', isRecomputing, onRecompute);
     }
   };
 
@@ -397,14 +426,6 @@ const TeamsList = ({
     const next = !isDevMode;
     setIsDevMode(next);
     writeDevModeToStorage(next);
-  };
-
-  const handleStartClick = () => {
-    if (pairProgrammingEnabled && !hasUploadedAttendanceDocument) {
-      setStartWithoutAttendanceDialogOpen(true);
-      return;
-    }
-    onStart();
   };
 
   const overallTokenTotals = useMemo(
@@ -442,7 +463,7 @@ const TeamsList = ({
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
-      <Button variant="ghost" onClick={onBackToHome} className="mb-4 text-muted-foreground hover:text-accent-foreground hover:bg-accent">
+      <Button variant="outline" onClick={onBackToHome} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Home
       </Button>
@@ -534,7 +555,7 @@ const TeamsList = ({
               </p>
               {hasUploadedAttendanceDocument && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => setRemoveAttendanceDialogOpen(true)}
                   disabled={isAttendanceUploading || isAttendanceClearing}
                 >
@@ -547,44 +568,43 @@ const TeamsList = ({
         </Card>
       )}
 
-      {templateAuthor ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
-          <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
-          <span>
-            Template author: <span className="font-medium text-foreground">{templateAuthor.email}</span>
-          </span>
-          {templateAuthor.autoDetected && (
-            <Badge variant="outline" className="text-xs py-0 h-5">
-              auto-detected
-            </Badge>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={openTemplateAuthorDialog}
-            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground px-1.5"
-          >
-            <Pencil className="h-3 w-3" />
-            Edit
+      <Card className="p-6 shadow-card">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <GitBranch className="h-4 w-4" />
+            {templateAuthor ? (
+              <>
+                <span>
+                  Template author: <span className="font-medium text-foreground">{templateAuthor.email}</span>
+                </span>
+                {templateAuthor.autoDetected && (
+                  <Badge variant="outline" className="text-xs py-0 h-5">
+                    auto-detected
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span>No template author configured</span>
+            )}
+          </div>
+          <Button variant="outline" onClick={openTemplateAuthorDialog}>
+            <Pencil className="h-4 w-4" />
+            {templateAuthor ? 'Edit' : 'Set'}
           </Button>
         </div>
-      ) : (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
-          <GitBranch className="h-3.5 w-3.5 text-muted-foreground/70" />
-          <span>No template author configured</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={openTemplateAuthorDialog}
-            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground px-1.5"
-          >
-            <Pencil className="h-3 w-3" />
-            Set
-          </Button>
-        </div>
-      )}
+      </Card>
 
       <ActivityLog status={analysisStatus} />
+
+      <ConfirmationDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        title="Cancel Analysis?"
+        description="Are you sure you want to cancel the analysis? This is a time-consuming task and any unprocessed teams will not be analyzed."
+        confirmLabel="Yes, Cancel"
+        variant="destructive"
+        onConfirm={onCancel}
+      />
 
       <ConfirmationDialog
         open={clearDialogOpen}
@@ -606,7 +626,7 @@ const TeamsList = ({
         title="Start without pair programming document?"
         description="Pair programming is enabled, but no attendance document has been uploaded. You can continue now and upload it later."
         confirmLabel="Start Anyway"
-        onConfirm={onStart}
+        onConfirm={() => pendingStartAction?.(pendingStartMode)}
       />
 
       <ConfirmationDialog
@@ -769,7 +789,7 @@ const TeamsList = ({
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search teams, students, tutors..."
-            className="pl-9 pr-9"
+            className="pl-9 pr-9 bg-white"
           />
           {searchQuery && (
             <button
@@ -790,7 +810,7 @@ const TeamsList = ({
       <Card className="overflow-hidden shadow-card">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50 border-b">
+            <thead className="bg-primary/10 border-b">
               <tr>
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <SortableHeader
@@ -830,23 +850,23 @@ const TeamsList = ({
             <tbody>
               {sortedAndFilteredTeams.map(team => {
                 const pairProgrammingBadgeStatus = getPairProgrammingBadgeStatus(
-                  team.teamName,
+                  team.teamName ?? '',
                   hasValidPairProgrammingData,
                   pairProgrammingAttendanceByTeamName,
                 );
 
                 return (
                   <tr
-                    key={team.id}
+                    key={String(team.teamId)}
                     onClick={() => onTeamSelect(team, pairProgrammingBadgeStatus)}
                     className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
                   >
                     <td className="py-4 px-6">
-                      <p className="font-semibold">{team.teamName.replace('Team ', '')}</p>
+                      <p className="font-semibold">{(team.teamName ?? '').replace('Team ', '')}</p>
                     </td>
                     <td className="py-4 px-6">
                       <div className="space-y-1">
-                        {team.students.map((student, idx) => (
+                        {(team.students ?? []).map((student, idx) => (
                           <p
                             key={idx}
                             className={`text-sm ${(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}
@@ -866,16 +886,19 @@ const TeamsList = ({
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') &&
-                      team.basicMetrics ? (
-                        <div className="space-y-1">
-                          <p className="font-medium">{team.basicMetrics.totalCommits}</p>
-                          <p className="text-xs text-muted-foreground">{team.basicMetrics.totalLines} lines</p>
-                        </div>
+                      {team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' ? (
+                        (() => {
+                          const metrics = computeBasicMetrics(team.students);
+                          return (
+                            <div className="space-y-1">
+                              <p className="font-medium">{metrics.totalCommits}</p>
+                              <p className="text-xs text-muted-foreground">{metrics.totalLines} lines</p>
+                            </div>
+                          );
+                        })()
                       ) : team.analysisStatus === 'PENDING' ||
                         team.analysisStatus === 'DOWNLOADING' ||
-                        team.analysisStatus === 'GIT_ANALYZING' ||
-                        team.analysisStatus === 'ANALYZING' ? (
+                        team.analysisStatus === 'GIT_ANALYZING' ? (
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Analyzing...' : 'Pending'}</span>
                         </div>
@@ -886,7 +909,11 @@ const TeamsList = ({
                       )}
                     </td>
                     <td className="py-4 px-6">
-                      {team.analysisStatus === 'DONE' && team.cqi !== undefined ? (
+                      {team.isFailed ? (
+                        <div className="flex items-center gap-2 text-destructive">
+                          <span className="text-sm">Failed</span>
+                        </div>
+                      ) : team.analysisStatus === 'DONE' && team.cqi !== undefined ? (
                         <div className="flex items-center gap-3">
                           <div className={`flex items-center justify-center w-16 h-16 rounded-lg ${getCQIBgColor(team.cqi)}`}>
                             <span className={`text-2xl font-bold ${getCQIColor(team.cqi)}`}>{team.cqi}</span>
@@ -907,13 +934,7 @@ const TeamsList = ({
                         <span className="text-sm text-muted-foreground">Cancelled</span>
                       ) : (
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <span className="text-sm">
-                            {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
-                              ? 'Pending'
-                              : team.analysisStatus === 'GIT_ANALYZING'
-                                ? 'Git Analysis...'
-                                : 'Analyzing...'}
-                          </span>
+                          <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Git Analysis...' : 'Pending'}</span>
                         </div>
                       )}
                     </td>

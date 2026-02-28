@@ -12,7 +12,7 @@ import java.util.Properties;
  * <pre>
  *     TestCredentialsLoader loader = new TestCredentialsLoader();
  *     if (!loader.isAvailable()) {
- *         System.out.println("Skipping test: " + loader.getSkipMessage());
+ *         log.info("Skipping test: {}", loader.getSkipMessage());
  *         return;
  *     }
  *     ArtemisCredentials credentials = loader.getCredentials(jwtToken);

@@ -1,25 +1,23 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
-import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 
 /**
  * Result of CQI calculation with component breakdown.
  *
- * @param cqi               Final CQI score (0-100)
- * @param components        Individual component scores
- * @param weights           Component weights used in calculation
- * @param penalties         Applied penalties (empty - penalties are disabled)
- * @param baseScore         Score before penalties
- * @param penaltyMultiplier Combined penalty multiplier (always 1.0)
- * @param filterSummary     Summary of filtered commits
+ * @param cqi           final CQI score (0-100)
+ * @param components    individual component scores
+ * @param weights       component weights used in calculation
+ * @param baseScore     score before any adjustments
+ * @param filterSummary summary of filtered commits
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record CQIResultDTO(
         double cqi,
         ComponentScoresDTO components,
         ComponentWeightsDTO weights,
-        List<CQIPenaltyDTO> penalties,
         double baseScore,
-        double penaltyMultiplier,
         FilterSummaryDTO filterSummary) {
     /**
      * Create result for single contributor (no collaboration possible).
@@ -30,9 +28,7 @@ public record CQIResultDTO(
                 0.0, // No collaboration possible = 0
                 ComponentScoresDTO.zero(),
                 weights,
-                List.of(), // No penalties
                 0.0,
-                1.0,
                 null);
     }
 
@@ -44,9 +40,7 @@ public record CQIResultDTO(
                 0.0, // No collaboration
                 ComponentScoresDTO.zero(),
                 weights,
-                List.of(), // No penalties
                 0.0,
-                1.0,
                 null);
     }
 
@@ -59,9 +53,7 @@ public record CQIResultDTO(
                 0.0,
                 ComponentScoresDTO.zero(),
                 weights,
-                List.of(), // No penalties
                 0.0,
-                1.0,
                 filterSummary);
     }
 
@@ -73,9 +65,7 @@ public record CQIResultDTO(
                 locScore,
                 new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, null),
                 weights,
-                List.of(), // No penalties
                 locScore,
-                1.0,
                 filterSummary);
     }
 
@@ -90,9 +80,7 @@ public record CQIResultDTO(
                 -1.0,  // CQI not calculated yet - client can check for this
                 gitComponents,
                 weights,
-                List.of(),
                 0.0,
-                1.0,
                 filterSummary);
     }
 }

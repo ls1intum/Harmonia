@@ -1,12 +1,10 @@
 package de.tum.cit.aet.ai.service;
 
-import de.tum.cit.aet.ai.domain.FairnessFlag;
 import de.tum.cit.aet.ai.dto.*;
 
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.FullCommitMappingResult;
+import de.tum.cit.aet.analysis.dto.CommitMappingResultDTO;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.repositoryProcessing.dto.ParticipantDTO;
@@ -21,9 +19,17 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Orchestrator service for contribution fairness analysis.
- * Integrates Git analysis, commit chunking, pre-filtering, LLM effort rating,
- * and CQI calculation to generate a fairness report.
+ * Orchestrates the full contribution fairness analysis pipeline for a team repository.
+ * <p>
+ * Pipeline steps:
+ * <ol>
+ *   <li>Map commits to authors via git history walk</li>
+ *   <li>Chunk and bundle commits</li>
+ *   <li>Pre-filter trivial commits (saves LLM costs)</li>
+ *   <li>Rate effort per chunk with LLM</li>
+ *   <li>Calculate CQI score</li>
+ *   <li>Build fairness report</li>
+ * </ol>
  */
 @Service
 @Slf4j
@@ -36,46 +42,45 @@ public class ContributionFairnessService {
     private final CQICalculatorService cqiCalculatorService;
     private final GitContributionAnalysisService gitContributionAnalysisService;
 
+    // ── Public API ───────────────────────────────────────────────────────
+
     /**
-     * Analyzes a repository for contribution fairness.
-     * Uses pre-filtering, LLM rating, and CQI calculation.
-     * Only commits from registered team members are included in CQI calculation.
+     * Analyses a repository for contribution fairness.
      *
-     * @param repositoryDTO the repository data transfer object to analyze
-     * @return a FairnessReportDTO containing the analysis results
+     * @param repositoryDTO the repository to analyse
+     * @return fairness report
      */
     public FairnessReportDTO analyzeFairness(TeamRepositoryDTO repositoryDTO) {
         return analyzeFairnessWithUsage(repositoryDTO).report();
     }
 
     /**
-     * Analyzes a repository and returns both fairness report and team token totals.
+     * Analyses a repository and returns both fairness report and LLM token totals.
      *
-     * @param repositoryDTO the repository data transfer object to analyze
-     * @return fairness report plus aggregated LLM token usage for this team
+     * @param repositoryDTO the repository to analyse
+     * @return fairness report plus token usage
      */
-    public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
+    public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
         return analyzeFairnessWithUsage(repositoryDTO, null);
     }
 
     /**
-     * Analyzes a repository with optional template author email.
-     * When provided, all commits from the template author are excluded from analysis.
+     * Analyses a repository with optional template author exclusion.
      *
-     * @param repositoryDTO       the repository data transfer object to analyze
-     * @param templateAuthorEmail email of the template author (lowercase), or null
-     * @return fairness report plus aggregated LLM token usage for this team
+     * @param repositoryDTO       the repository to analyse
+     * @param templateAuthorEmail email of the template author to exclude (lowercase), or {@code null}
+     * @return fairness report plus token usage
      */
-    public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
+    public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
             String templateAuthorEmail) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         int teamSize = repositoryDTO.participation().team().students().size();
         List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
-        LlmTokenTotals teamTokenTotals = LlmTokenTotals.empty();
+        LlmTokenTotalsDTO teamTokenTotals = LlmTokenTotalsDTO.empty();
 
         if (repoPath == null) {
-            return new FairnessReportWithUsage(
+            return new FairnessReportWithUsageDTO(
                     FairnessReportDTO.error(teamName, "Repository not cloned locally"),
                     teamTokenTotals);
         }
@@ -83,433 +88,315 @@ public class ContributionFairnessService {
         long startTime = System.currentTimeMillis();
 
         try {
-            // 1. Map commits to authors using full git history walk
-            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO,
-                    templateAuthorEmail);
+            // 1) Map commits to authors using full git history walk
+            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO, templateAuthorEmail);
 
             if (authorMapping.teamMemberCommits.isEmpty()) {
-                return new FairnessReportWithUsage(
+                return new FairnessReportWithUsageDTO(
                         FairnessReportDTO.error(teamName, "No commits found from team members in repository history"),
                         teamTokenTotals);
             }
 
-            if (!authorMapping.externalCommitEmails.isEmpty()) {
-                log.info("Team {}: Found {} external contributor(s): {}",
-                        teamName, authorMapping.externalCommitEmails.size(), authorMapping.externalCommitEmails);
-            }
-
-            // 2. Chunk and bundle commits (team members only for CQI calculation)
-            // Pass commitToEmail to use VCS emails instead of Git emails
+            // 2) Chunk and bundle commits (team members only for CQI)
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(
                     repoPath, authorMapping.teamMemberCommits, authorMapping.commitToEmail);
 
-            // 2b. Also chunk external contributor commits (for display only, not CQI)
             List<CommitChunkDTO> externalChunks = Collections.emptyList();
             if (!authorMapping.externalCommits.isEmpty()) {
                 externalChunks = commitChunkerService.processRepository(
                         repoPath, authorMapping.externalCommits, authorMapping.commitToEmail);
-                log.info("Team {}: {} external contributor chunks identified", teamName, externalChunks.size());
             }
 
             if (allChunks.isEmpty()) {
-                return new FairnessReportWithUsage(
+                return new FairnessReportWithUsageDTO(
                         FairnessReportDTO.error(teamName, "No analyzable code changes found"),
                         teamTokenTotals);
             }
 
-            // 3. PRE-FILTER: Remove trivial commits BEFORE LLM analysis (saves API costs)
-            CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+            // 3) Pre-filter trivial commits before LLM analysis
+            PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             List<CommitChunkDTO> chunksToAnalyze = filterResult.chunksToAnalyze();
             FilterSummaryDTO filterSummary = filterResult.summary();
 
-            log.info("Pre-filter for team {}: {} of {} commits will be analyzed (saved {}%)",
-                    teamName, chunksToAnalyze.size(), allChunks.size(),
-                    String.format("%.0f", filterSummary.getFilteredPercentage()));
-
             if (chunksToAnalyze.isEmpty()) {
-                return new FairnessReportWithUsage(
+                return new FairnessReportWithUsageDTO(
                         FairnessReportDTO.error(teamName, "All commits were filtered as non-productive"),
                         teamTokenTotals);
             }
 
-            // 4. Rate effort for each chunk with LLM (only non-trivial commits)
-            RatedChunksWithUsage ratedChunksWithUsage = rateChunks(chunksToAnalyze);
-            List<RatedChunk> ratedChunks = ratedChunksWithUsage.ratedChunks();
+            // 4) Rate effort for each chunk with LLM
+            RatedChunksWithUsageDTO ratedChunksWithUsage = rateChunks(chunksToAnalyze);
+            List<RatedChunkDTO> ratedChunks = ratedChunksWithUsage.ratedChunks();
             teamTokenTotals = ratedChunksWithUsage.tokenTotals();
 
-            // 5. Calculate CQI using the 4-component formula
+            // 5) Calculate CQI score
             LocalDateTime projectStart = chunksToAnalyze.stream()
-                    .map(CommitChunkDTO::timestamp)
-                    .filter(Objects::nonNull)
+                    .map(CommitChunkDTO::timestamp).filter(Objects::nonNull)
                     .min(LocalDateTime::compareTo)
                     .orElse(LocalDateTime.now().minusDays(30));
-
             LocalDateTime projectEnd = chunksToAnalyze.stream()
-                    .map(CommitChunkDTO::timestamp)
-                    .filter(Objects::nonNull)
+                    .map(CommitChunkDTO::timestamp).filter(Objects::nonNull)
                     .max(LocalDateTime::compareTo)
                     .orElse(LocalDateTime.now());
 
-            // Convert to CQI RatedChunks
-            List<CQICalculatorService.RatedChunk> cqiRatedChunks = ratedChunks.stream()
-                    .map(rc -> new CQICalculatorService.RatedChunk(rc.chunk, rc.rating))
+            List<CqiRatedChunkDTO> cqiRatedChunks = ratedChunks.stream()
+                    .map(rc -> new CqiRatedChunkDTO(rc.chunk(), rc.rating()))
                     .toList();
 
             CQIResultDTO cqiResult = cqiCalculatorService.calculate(
-                    cqiRatedChunks,
-                    teamSize,
-                    projectStart,
-                    projectEnd,
-                    filterSummary,
-                    teamName);
+                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName);
 
-            double balanceScore = cqiResult.cqi();
-            log.info("CQI calculated for team {}: {} (base={}, penalty={})",
-                    teamName, String.format("%.1f", balanceScore),
-                    String.format("%.1f", cqiResult.baseScore()),
-                    String.format("%.2f", cqiResult.penaltyMultiplier()));
-
-            // 6. Aggregate stats for report (legacy compatibility)
+            // 6) Aggregate author stats
             Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);
             double totalEffort = authorStats.values().stream().mapToDouble(s -> s.totalEffort).sum();
             Map<Long, Double> effortShare = calculateShares(authorStats, totalEffort);
 
-            // 7. Generate flags from CQI penalties
-            List<FairnessFlag> flags = generateFlagsFromCQI(cqiResult, effortShare);
-
-            // 7b. Rate external chunks with full LLM analysis (scores stored for
-            //     later CQI recalculation when manually mapped to a student)
-            List<RatedChunk> externalRatedChunks;
+            // 7) Rate external contributor chunks (for display, not CQI)
+            List<RatedChunkDTO> externalRatedChunks = rateExternalChunks(externalChunks);
             if (!externalChunks.isEmpty()) {
-                CommitPreFilterService.PreFilterResult extFilterResult = commitPreFilterService
-                        .preFilter(externalChunks);
-                List<CommitChunkDTO> externalToAnalyze = extFilterResult.chunksToAnalyze();
-
-                // Pre-filtered external chunks get trivial rating
-                List<RatedChunk> extTrivial = extFilterResult.filteredChunks().stream()
-                        .map(pfc -> new RatedChunk(pfc.chunk(),
-                                EffortRatingDTO.trivial("Pre-filtered external commit"),
-                                LlmTokenUsage.unavailable("external-filtered")))
-                        .toList();
-
-                if (!externalToAnalyze.isEmpty()) {
-                    RatedChunksWithUsage externalRatedWithUsage = rateChunks(externalToAnalyze);
-                    teamTokenTotals = teamTokenTotals.merge(externalRatedWithUsage.tokenTotals());
-                    List<RatedChunk> combined = new ArrayList<>(externalRatedWithUsage.ratedChunks());
-                    combined.addAll(extTrivial);
-                    externalRatedChunks = combined;
-                } else {
-                    externalRatedChunks = extTrivial;
-                }
-            } else {
-                externalRatedChunks = List.of();
+                teamTokenTotals = recalculateExternalTokens(teamTokenTotals, externalRatedChunks);
             }
 
-            // 8. Build report
+            // 8) Build report
             long duration = System.currentTimeMillis() - startTime;
-            log.info(
-                    "Fairness analysis completed for team {}: CQI={}, chunks={}, filtered={}, external={}, duration={}ms",
-                    teamName, String.format("%.1f", balanceScore), chunksToAnalyze.size(),
-                    filterSummary.getTotalFiltered(), externalChunks.size(), duration);
 
-            // Build email → real name lookup from team members
-            Map<String, String> emailToName = new HashMap<>();
-            for (ParticipantDTO member : teamMembers) {
-                if (member.email() != null && member.name() != null) {
-                    emailToName.put(member.email().toLowerCase(), member.name());
-                }
-            }
+            Map<String, String> emailToName = buildEmailToNameMap(teamMembers);
+            FairnessReportDTO report = buildReport(teamName, cqiResult.cqi(), authorStats, effortShare,
+                    allChunks.size(), ratedChunks, externalRatedChunks, duration, cqiResult, emailToName);
 
-            FairnessReportDTO report = buildReport(
-                    teamName,
-                    balanceScore,
-                    authorStats,
-                    effortShare,
-                    flags,
-                    allChunks.size(),
-                    ratedChunks,
-                    externalRatedChunks,
-                    duration,
-                    cqiResult,
-                    emailToName);
-            logTeamUsage(teamName, teamTokenTotals);
-            return new FairnessReportWithUsage(report, teamTokenTotals);
+            return new FairnessReportWithUsageDTO(report, teamTokenTotals);
 
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Preserve interrupt status
-            log.info("Fairness analysis cancelled for team {}", teamName);
-            logTeamUsage(teamName, teamTokenTotals);
-            return new FairnessReportWithUsage(FairnessReportDTO.error(teamName, "Analysis cancelled"), teamTokenTotals);
+            Thread.currentThread().interrupt();
+            return new FairnessReportWithUsageDTO(
+                    FairnessReportDTO.error(teamName, "Analysis cancelled"), teamTokenTotals);
         } catch (Exception e) {
             log.error("Fairness analysis failed for team {}: {}", teamName, e.getMessage(), e);
-            logTeamUsage(teamName, teamTokenTotals);
-            return new FairnessReportWithUsage(
-                    FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage()),
-                    teamTokenTotals);
+            return new FairnessReportWithUsageDTO(
+                    FairnessReportDTO.error(teamName, "Analysis error: " + e.getMessage()), teamTokenTotals);
         }
     }
 
-    /**
-     * Generate fairness flags from CQI penalties.
-     */
-    private List<FairnessFlag> generateFlagsFromCQI(CQIResultDTO cqiResult, Map<Long, Double> effortShare) {
-        List<FairnessFlag> flags = new ArrayList<>();
+    // ── Author mapping ───────────────────────────────────────────────────
 
-        if (cqiResult.penalties() != null) {
-            for (var penalty : cqiResult.penalties()) {
-                switch (penalty.type()) {
-                    case "SOLO_DEVELOPMENT" -> flags.add(FairnessFlag.SOLO_CONTRIBUTOR);
-                    case "SEVERE_IMBALANCE" -> flags.add(FairnessFlag.UNEVEN_DISTRIBUTION);
-                    case "HIGH_TRIVIAL_RATIO" -> flags.add(FairnessFlag.HIGH_TRIVIAL_RATIO);
-                    case "LOW_CONFIDENCE" -> flags.add(FairnessFlag.LOW_CONFIDENCE);
-                    case "LATE_WORK" -> flags.add(FairnessFlag.LATE_WORK);
-                    default -> log.debug("Unknown penalty type: {}", penalty.type());
-                }
-            }
-        }
-
-        // Deduplicate flags
-        return new ArrayList<>(new LinkedHashSet<>(flags));
-    }
-
-    private void logTeamUsage(String teamName, LlmTokenTotals tokenTotals) {
-        log.info("LLM_USAGE team team={} llmCalls={} callsWithUsage={} promptTokens={} completionTokens={} totalTokens={}",
-                teamName,
-                tokenTotals.llmCalls(),
-                tokenTotals.callsWithUsage(),
-                tokenTotals.promptTokens(),
-                tokenTotals.completionTokens(),
-                tokenTotals.totalTokens());
-    }
-
-    /**
-     * Result of author mapping, separating team member commits from external
-     * commits.
-     * Also includes a map of commit hash to VCS email for overriding Git emails.
-     */
     private record AuthorMappingResult(
             Map<String, Long> teamMemberCommits,
             Map<String, Long> externalCommits,
             Set<String> externalCommitEmails,
-            Map<String, String> commitToEmail // Maps commit hash to VCS email (from Artemis)
+            Map<String, String> commitToEmail
     ) {
     }
 
     /**
-     * Maps commits to authors using full git history walk (via
-     * GitContributionAnalysisService), separating team member commits from
-     * external/orphan commits.
-     * Uses 3-tier matching: VCS anchor -> learned mapping -> direct email match.
-     *
-     * @param repositoryDTO       the repository DTO
-     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * Maps commits to authors, separating team member commits from external/orphan commits.
+     * Delegates the git history walk to {@link GitContributionAnalysisService#mapCommitToAuthor}
+     * and assigns synthetic negative IDs for external contributors (grouped by email).
      */
     private AuthorMappingResult mapCommitsToAuthors(TeamRepositoryDTO repositoryDTO,
             String templateAuthorEmail) {
-        List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
+        // 1) Delegate commit mapping to analysis service (single git walk)
+        CommitMappingResultDTO mapping = gitContributionAnalysisService.mapCommitToAuthor(
+                repositoryDTO, templateAuthorEmail);
 
-        // Build team member ID set for partitioning
+        // 2) Filter assigned commits to team members only
         Set<Long> teamMemberIds = new HashSet<>();
-        for (ParticipantDTO member : teamMembers) {
+        for (ParticipantDTO member : repositoryDTO.participation().team().students()) {
             if (member.id() != null) {
                 teamMemberIds.add(member.id());
             }
         }
 
-        FullCommitMappingResult fullMap = gitContributionAnalysisService.buildFullCommitMap(
-                repositoryDTO, templateAuthorEmail);
-
         Map<String, Long> teamMemberCommits = new HashMap<>();
-        Map<String, Long> externalCommits = new HashMap<>();
-        Set<String> externalEmails = new HashSet<>();
-
-        // Partition assigned commits into team members vs external
-        for (Map.Entry<String, Long> entry : fullMap.commitToAuthor().entrySet()) {
+        for (Map.Entry<String, Long> entry : mapping.commitToAuthor().entrySet()) {
             if (teamMemberIds.contains(entry.getValue())) {
                 teamMemberCommits.put(entry.getKey(), entry.getValue());
             }
-            // Commits assigned to unknown IDs are ignored (shouldn't happen)
         }
 
-        // Orphan commits become external with synthetic negative IDs (grouped by email)
-        // Template commits (unassigned root commits) are excluded entirely
-        Set<String> templateHashes = fullMap.templateCommitHashes() != null
-                ? fullMap.templateCommitHashes() : Set.of();
+        // 3) Assign synthetic negative IDs to orphan commits (grouped by email)
+        Map<String, Long> externalCommits = new HashMap<>();
+        Set<String> externalEmails = new HashSet<>();
         Map<String, Long> emailToExternalId = new HashMap<>();
         long externalIdCounter = -1;
-        for (Map.Entry<String, String> entry : fullMap.orphanCommitEmails().entrySet()) {
-            if (templateHashes.contains(entry.getKey())) {
-                continue; // Skip template commits
-            }
-            String email = entry.getValue();
+
+        for (Map.Entry<String, String> orphanEntry : mapping.orphanCommitEmails().entrySet()) {
+            String orphanHash = orphanEntry.getKey();
+            String email = orphanEntry.getValue() != null ? orphanEntry.getValue() : "unknown";
             Long externalId = emailToExternalId.get(email);
             if (externalId == null) {
                 externalId = externalIdCounter--;
                 emailToExternalId.put(email, externalId);
                 externalEmails.add(email);
             }
-            externalCommits.put(entry.getKey(), externalId);
+            externalCommits.put(orphanHash, externalId);
         }
 
-        log.debug("Full history mapping: {} team member commits, {} orphan/external commits",
-                teamMemberCommits.size(), externalCommits.size());
-
         return new AuthorMappingResult(teamMemberCommits, externalCommits, externalEmails,
-                new HashMap<>(fullMap.commitToVcsEmail()));
+                new HashMap<>(mapping.commitToEmail()));
     }
 
-    private RatedChunksWithUsage rateChunks(List<CommitChunkDTO> chunks) throws InterruptedException {
-        List<RatedChunk> ratedChunks = new ArrayList<>();
-        LlmTokenTotals tokenTotals = LlmTokenTotals.empty();
+    // ── Chunk rating ─────────────────────────────────────────────────────
+
+    private RatedChunksWithUsageDTO rateChunks(List<CommitChunkDTO> chunks) throws InterruptedException {
+        List<RatedChunkDTO> ratedChunks = new ArrayList<>();
+        LlmTokenTotalsDTO tokenTotals = LlmTokenTotalsDTO.empty();
+
         for (CommitChunkDTO chunk : chunks) {
-            // Check if cancelled
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException("Analysis cancelled during chunk rating");
             }
-            CommitEffortRaterService.RatingWithUsage ratingWithUsage = commitEffortRaterService.rateChunkWithUsage(chunk);
-            ratedChunks.add(new RatedChunk(chunk, ratingWithUsage.rating(), ratingWithUsage.tokenUsage()));
+            CommitEffortRaterService.RatingWithUsage ratingWithUsage =
+                    commitEffortRaterService.rateChunkWithUsage(chunk);
+            ratedChunks.add(new RatedChunkDTO(chunk, ratingWithUsage.rating(), ratingWithUsage.tokenUsage()));
             tokenTotals = tokenTotals.addUsage(ratingWithUsage.tokenUsage());
         }
-        return new RatedChunksWithUsage(ratedChunks, tokenTotals);
+
+        return new RatedChunksWithUsageDTO(ratedChunks, tokenTotals);
     }
 
-    private Map<Long, AuthorStats> aggregateStats(List<RatedChunk> ratedChunks) {
+    /**
+     * Rates external contributor chunks with full LLM analysis.
+     * Scores are stored for later CQI recalculation when manually mapped to a student.
+     */
+    private List<RatedChunkDTO> rateExternalChunks(List<CommitChunkDTO> externalChunks)
+            throws InterruptedException {
+        if (externalChunks.isEmpty()) {
+            return List.of();
+        }
+
+        PreFilterResultDTO extFilter = commitPreFilterService.preFilter(externalChunks);
+
+        // 1) Pre-filtered chunks get trivial rating
+        List<RatedChunkDTO> trivialRated = extFilter.filteredChunks().stream()
+                .map(pfc -> new RatedChunkDTO(pfc.chunk(),
+                        EffortRatingDTO.trivial("Pre-filtered external commit"),
+                        LlmTokenUsageDTO.unavailable("external-filtered")))
+                .toList();
+
+        // 2) Remaining chunks get full LLM analysis
+        if (!extFilter.chunksToAnalyze().isEmpty()) {
+            RatedChunksWithUsageDTO externalRated = rateChunks(extFilter.chunksToAnalyze());
+            List<RatedChunkDTO> combined = new ArrayList<>(externalRated.ratedChunks());
+            combined.addAll(trivialRated);
+            return combined;
+        }
+
+        return trivialRated;
+    }
+
+    /**
+     * Recalculates team token totals after adding external chunk ratings.
+     */
+    private LlmTokenTotalsDTO recalculateExternalTokens(LlmTokenTotalsDTO base, List<RatedChunkDTO> externalRated) {
+        LlmTokenTotalsDTO external = LlmTokenTotalsDTO.empty();
+        for (RatedChunkDTO rc : externalRated) {
+            external = external.addUsage(rc.tokenUsage());
+        }
+        return base.merge(external);
+    }
+
+    // ── Stats aggregation ────────────────────────────────────────────────
+
+    private Map<Long, AuthorStats> aggregateStats(List<RatedChunkDTO> ratedChunks) {
         Map<Long, AuthorStats> stats = new HashMap<>();
-
-        for (RatedChunk rc : ratedChunks) {
-            AuthorStats s = stats.computeIfAbsent(rc.chunk.authorId(), k -> new AuthorStats());
-            double weightedEffort = rc.rating.weightedEffort();
-
-            s.totalEffort += weightedEffort;
+        for (RatedChunkDTO rc : ratedChunks) {
+            AuthorStats s = stats.computeIfAbsent(rc.chunk().authorId(), _ -> new AuthorStats());
+            s.totalEffort += rc.rating().weightedEffort();
             s.chunkCount++;
-            s.commitsByType.merge(rc.rating.type(), 1, Integer::sum);
-            s.email = rc.chunk.authorEmail(); // Capture email
-
-            if (rc.rating.confidence() < 0.7) {
+            s.commitsByType.merge(rc.rating().type(), 1, Integer::sum);
+            s.email = rc.chunk().authorEmail();
+            if (rc.rating().confidence() < 0.7) {
                 s.lowConfidenceCount++;
             }
         }
-
         return stats;
     }
 
     private Map<Long, Double> calculateShares(Map<Long, AuthorStats> stats, double totalEffort) {
-        Map<Long, Double> shares = new HashMap<>();
         if (totalEffort == 0) {
-            return shares;
+            return Map.of();
         }
-
+        Map<Long, Double> shares = new HashMap<>();
         stats.forEach((id, stat) -> shares.put(id, stat.totalEffort / totalEffort));
         return shares;
     }
 
-    private FairnessReportDTO buildReport(
-            String teamId,
-            double score,
-            Map<Long, AuthorStats> stats,
-            Map<Long, Double> shares,
-            List<FairnessFlag> flags,
-            int totalChunks,
-            List<RatedChunk> ratedChunks,
-            List<RatedChunk> externalRatedChunks,
-            long duration,
-            CQIResultDTO cqiResult,
-            Map<String, String> emailToName) {
-        List<FairnessReportDTO.AuthorDetailDTO> details = new ArrayList<>();
+    // ── Report building ──────────────────────────────────────────────────
 
-        stats.forEach((id, stat) -> {
-            details.add(new FairnessReportDTO.AuthorDetailDTO(
-                    id,
-                    stat.email,
-                    stat.totalEffort,
-                    shares.getOrDefault(id, 0.0),
-                    stat.commitsByType.values().stream().mapToInt(i -> i).sum(), // Appox commit count
-                    stat.chunkCount,
-                    stat.chunkCount > 0 ? stat.totalEffort / stat.chunkCount : 0,
-                    stat.commitsByType));
-        });
-
-        // Metadata
-        int lowConf = stats.values().stream().mapToInt(s -> s.lowConfidenceCount).sum();
-        double avgConf = ratedChunks.stream().mapToDouble(c -> c.rating.confidence()).average().orElse(0.0);
-
-        FairnessReportDTO.AnalysisMetadataDTO metadata = new FairnessReportDTO.AnalysisMetadataDTO(
-                ratedChunks.size(), // Total commits approx
-                totalChunks,
-                0, // Bundled count tracked elsewhere or calculated
-                avgConf,
-                lowConf,
-                duration);
-
-        // Convert RatedChunks to AnalyzedChunkDTOs for client (team members)
-        List<AnalyzedChunkDTO> analyzedChunks = ratedChunks.stream()
-                .map(rc -> new AnalyzedChunkDTO(
-                        rc.chunk.commitSha(),
-                        rc.chunk.authorEmail(),
-                        emailToName.getOrDefault(rc.chunk.authorEmail().toLowerCase(), rc.chunk.authorEmail()),
-                        rc.rating.type().name(),
-                        rc.rating.weightedEffort(),
-                        rc.rating.complexity(),
-                        rc.rating.novelty(),
-                        rc.rating.confidence(),
-                        rc.rating.reasoning(),
-                        List.of(rc.chunk.commitSha()),
-                        List.of(rc.chunk.commitMessage()),
-                        rc.chunk.timestamp(),
-                        rc.chunk.linesAdded() + rc.chunk.linesDeleted(),
-                        rc.chunk.isBundled(),
-                        rc.chunk.chunkIndex(),
-                        rc.chunk.totalChunks(),
-                        rc.rating.isError(),
-                        rc.rating.errorMessage(),
-                        false,
-                        rc.tokenUsage)) // isExternalContributor = false
-                .collect(Collectors.toList());
-
-        // Add external contributor chunks with real LLM ratings (marked as external)
-        List<AnalyzedChunkDTO> externalChunks = externalRatedChunks.stream()
-                .map(rc -> new AnalyzedChunkDTO(
-                        rc.chunk.commitSha(),
-                        rc.chunk.authorEmail(),
-                        emailToName.getOrDefault(rc.chunk.authorEmail().toLowerCase(), rc.chunk.authorEmail()),
-                        rc.rating.type().name(),
-                        rc.rating.weightedEffort(),
-                        rc.rating.complexity(),
-                        rc.rating.novelty(),
-                        rc.rating.confidence(),
-                        rc.rating.reasoning(),
-                        List.of(rc.chunk.commitSha()),
-                        List.of(rc.chunk.commitMessage()),
-                        rc.chunk.timestamp(),
-                        rc.chunk.linesAdded() + rc.chunk.linesDeleted(),
-                        rc.chunk.isBundled(),
-                        rc.chunk.chunkIndex(),
-                        rc.chunk.totalChunks(),
-                        rc.rating.isError(),
-                        rc.rating.errorMessage(),
-                        true,
-                        rc.tokenUsage)) // isExternalContributor = true
-                .toList();
-
-        // Combine team member and external chunks
-        analyzedChunks.addAll(externalChunks);
-
-        return new FairnessReportDTO(
-                teamId,
-                score,
-                stats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().totalEffort)),
-                shares,
-                flags,
-                !flags.isEmpty(),
-                details,
-                metadata,
-                analyzedChunks,
-                cqiResult);
+    private Map<String, String> buildEmailToNameMap(List<ParticipantDTO> teamMembers) {
+        Map<String, String> emailToName = new HashMap<>();
+        for (ParticipantDTO member : teamMembers) {
+            if (member.email() != null && member.name() != null) {
+                emailToName.put(member.email().toLowerCase(), member.name());
+            }
+        }
+        return emailToName;
     }
 
-    // --- Helper Classes ---
+    private FairnessReportDTO buildReport(
+            String teamId, double score,
+            Map<Long, AuthorStats> stats, Map<Long, Double> shares,
+            int totalChunks, List<RatedChunkDTO> ratedChunks,
+            List<RatedChunkDTO> externalRatedChunks, long duration,
+            CQIResultDTO cqiResult, Map<String, String> emailToName) {
 
-    // Using record would be cleaner but inner class works for aggregator state
+        // 1) Author details
+        List<FairnessReportDTO.AuthorDetailDTO> details = new ArrayList<>();
+        stats.forEach((id, stat) -> details.add(new FairnessReportDTO.AuthorDetailDTO(
+                id, stat.email, stat.totalEffort, shares.getOrDefault(id, 0.0),
+                stat.commitsByType.values().stream().mapToInt(i -> i).sum(),
+                stat.chunkCount,
+                stat.chunkCount > 0 ? stat.totalEffort / stat.chunkCount : 0,
+                stat.commitsByType)));
+
+        // 2) Analysis metadata
+        int lowConf = stats.values().stream().mapToInt(s -> s.lowConfidenceCount).sum();
+        double avgConf = ratedChunks.stream().mapToDouble(c -> c.rating().confidence()).average().orElse(0.0);
+        FairnessReportDTO.AnalysisMetadataDTO metadata = new FairnessReportDTO.AnalysisMetadataDTO(
+                ratedChunks.size(), totalChunks, 0, avgConf, lowConf, duration);
+
+        // 3) Convert rated chunks to client DTOs
+        List<AnalyzedChunkDTO> analyzedChunks = ratedChunks.stream()
+                .map(rc -> toAnalyzedChunkDTO(rc, emailToName, false))
+                .collect(Collectors.toList());
+        List<AnalyzedChunkDTO> externalAnalyzed = externalRatedChunks.stream()
+                .map(rc -> toAnalyzedChunkDTO(rc, emailToName, true))
+                .toList();
+        analyzedChunks.addAll(externalAnalyzed);
+
+        return new FairnessReportDTO(
+                teamId, score,
+                stats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().totalEffort)),
+                shares, false, details, metadata, analyzedChunks, cqiResult);
+    }
+
+    private AnalyzedChunkDTO toAnalyzedChunkDTO(RatedChunkDTO rc, Map<String, String> emailToName,
+            boolean isExternal) {
+        return new AnalyzedChunkDTO(
+                rc.chunk().commitSha(),
+                rc.chunk().authorEmail(),
+                emailToName.getOrDefault(rc.chunk().authorEmail().toLowerCase(), rc.chunk().authorEmail()),
+                rc.rating().type().name(),
+                rc.rating().weightedEffort(),
+                rc.rating().complexity(),
+                rc.rating().novelty(),
+                rc.rating().confidence(),
+                rc.rating().reasoning(),
+                List.of(rc.chunk().commitSha()),
+                List.of(rc.chunk().commitMessage()),
+                rc.chunk().timestamp(),
+                rc.chunk().linesAdded() + rc.chunk().linesDeleted(),
+                rc.chunk().isBundled(),
+                rc.chunk().chunkIndex(),
+                rc.chunk().totalChunks(),
+                rc.rating().isError(),
+                rc.rating().errorMessage(),
+                isExternal,
+                rc.tokenUsage());
+    }
+
+    // ── Inner types ──────────────────────────────────────────────────────
+
     private static class AuthorStats {
         String email;
         double totalEffort = 0;
@@ -518,18 +405,4 @@ public class ContributionFairnessService {
         Map<CommitLabel, Integer> commitsByType = new HashMap<>();
     }
 
-    /**
-     * Fairness report plus aggregated token totals for one team.
-     *
-     * @param report      fairness report payload
-     * @param tokenTotals token totals for all LLM calls of this team
-     */
-    public record FairnessReportWithUsage(FairnessReportDTO report, LlmTokenTotals tokenTotals) {
-    }
-
-    private record RatedChunk(CommitChunkDTO chunk, EffortRatingDTO rating, LlmTokenUsage tokenUsage) {
-    }
-
-    private record RatedChunksWithUsage(List<RatedChunk> ratedChunks, LlmTokenTotals tokenTotals) {
-    }
 }

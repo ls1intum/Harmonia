@@ -1,7 +1,7 @@
 package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -166,70 +166,29 @@ public class CommitPreFilterService {
     private static final double MASS_REFORMAT_AVG_LINES_THRESHOLD = 5.0;
 
     /**
-     * Result of the pre-filtering process.
-     */
-    public record PreFilterResult(
-            List<CommitChunkDTO> chunksToAnalyze,
-            List<PreFilteredCommit> filteredChunks,
-            FilterSummaryDTO summary
-    ) {
-    }
-
-    /**
-     * A commit that was filtered out with the reason.
-     */
-    public record PreFilteredCommit(
-            CommitChunkDTO chunk,
-            FilterReason reason,
-            String details
-    ) {
-    }
-
-    /**
-     * Reasons why a commit was filtered.
-     */
-    public enum FilterReason {
-        EMPTY,
-        MERGE_COMMIT,
-        REVERT_COMMIT,
-        RENAME_ONLY,
-        FORMAT_ONLY,
-        MASS_REFORMAT,
-        GENERATED_FILES_ONLY,
-        TRIVIAL_MESSAGE,
-        SMALL_TRIVIAL_COMMIT
-    }
-
-    /**
      * Filter commits BEFORE sending them to LLM analysis.
      *
      * @param chunks Raw commit chunks from Git analysis
-     * @return PreFilterResult with chunks to analyze and filtered commits
+     * @return PreFilterResultDTO with chunks to analyze and filtered commits
      */
-    public PreFilterResult preFilter(List<CommitChunkDTO> chunks) {
+    public PreFilterResultDTO preFilter(List<CommitChunkDTO> chunks) {
+        // 1) Handle empty input
         if (chunks == null || chunks.isEmpty()) {
-            log.warn("No commits provided for pre-filtering");
-            return new PreFilterResult(List.of(), List.of(), FilterSummaryDTO.empty());
+            return new PreFilterResultDTO(List.of(), List.of(), FilterSummaryDTO.empty());
         }
 
+        // 2) Evaluate each chunk against filter rules
         List<CommitChunkDTO> toAnalyze = new ArrayList<>();
-        List<PreFilteredCommit> filtered = new ArrayList<>();
+        List<PreFilteredCommitDTO> filtered = new ArrayList<>();
 
-        int emptyCount = 0;
-        int mergeCount = 0;
-        int revertCount = 0;
-        int renameCount = 0;
-        int formatCount = 0;
-        int massReformatCount = 0;
-        int generatedCount = 0;
-        int trivialCount = 0;
+        int emptyCount = 0, mergeCount = 0, revertCount = 0, renameCount = 0;
+        int formatCount = 0, massReformatCount = 0, generatedCount = 0, trivialCount = 0;
 
         for (CommitChunkDTO chunk : chunks) {
             FilterDecision decision = evaluateChunk(chunk);
 
             if (decision.shouldFilter()) {
-                filtered.add(new PreFilteredCommit(chunk, decision.reason(), decision.details()));
-
+                filtered.add(new PreFilteredCommitDTO(chunk, decision.reason(), decision.details()));
                 switch (decision.reason()) {
                     case EMPTY -> emptyCount++;
                     case MERGE_COMMIT -> mergeCount++;
@@ -245,83 +204,69 @@ public class CommitPreFilterService {
             }
         }
 
+        // 3) Build summary
         FilterSummaryDTO summary = new FilterSummaryDTO(
-                chunks.size(),
-                toAnalyze.size(),
-                trivialCount,
-                generatedCount,
-                emptyCount,
-                mergeCount,
-                revertCount,
-                renameCount,
-                formatCount,
-                massReformatCount
-        );
-
-        log.info("Pre-filter complete: {} of {} commits will be analyzed. {}",
-                toAnalyze.size(), chunks.size(), summary.toSummary());
-
-        return new PreFilterResult(toAnalyze, filtered, summary);
+                chunks.size(), toAnalyze.size(), trivialCount, generatedCount,
+                emptyCount, mergeCount, revertCount, renameCount,
+                formatCount, massReformatCount);
+        return new PreFilterResultDTO(toAnalyze, filtered, summary);
     }
 
     /**
      * Evaluate a single chunk and decide if it should be filtered.
      */
     private FilterDecision evaluateChunk(CommitChunkDTO chunk) {
-        // 1. Empty commit
+        // 1) Empty commit
         if (chunk.totalLinesChanged() == 0) {
             return FilterDecision.filter(FilterReason.EMPTY, "No code changes");
         }
 
-        // 2. Merge commit
+        // 2) Merge commit
         if (isMergeCommit(chunk.commitMessage())) {
             return FilterDecision.filter(FilterReason.MERGE_COMMIT, "Merge commit");
         }
 
-        // 3. Revert commit
+        // 3) Revert commit
         if (isRevertCommit(chunk.commitMessage())) {
             return FilterDecision.filter(FilterReason.REVERT_COMMIT, "Revert commit");
         }
 
-        // 4. Rename-only commit (all files are renames with no content change)
+        // 4) Rename-only commit
         if (isRenameOnly(chunk)) {
             return FilterDecision.filter(FilterReason.RENAME_ONLY,
                     "Rename-only: " + chunk.files().size() + " files renamed");
         }
 
-        // 5. Format/whitespace-only commit
+        // 5) Format/whitespace-only commit
         if (isFormatOnly(chunk)) {
             return FilterDecision.filter(FilterReason.FORMAT_ONLY,
                     "Format/whitespace-only changes");
         }
 
-        // 6. Mass reformat commit (many files, uniform small changes, format message)
+        // 6) Mass reformat commit
         if (isMassReformat(chunk)) {
             return FilterDecision.filter(FilterReason.MASS_REFORMAT,
                     "Mass reformat: " + chunk.files().size() + " files with avg " +
                             String.format("%.1f", getAvgLinesPerFile(chunk)) + " lines each");
         }
 
-        // 7. Only generated/lock files modified
+        // 7) Only generated/lock files modified
         if (hasOnlyGeneratedFiles(chunk.files())) {
             return FilterDecision.filter(FilterReason.GENERATED_FILES_ONLY,
                     "Only generated files: " + String.join(", ", chunk.files()));
         }
 
-        // 8. Trivial commit message pattern
+        // 8) Trivial commit message pattern
         String trivialMatch = matchesTrivialPattern(chunk.commitMessage());
         if (trivialMatch != null) {
-            // For small commits with trivial messages, always filter
             if (chunk.totalLinesChanged() <= SMALL_COMMIT_THRESHOLD) {
                 return FilterDecision.filter(FilterReason.SMALL_TRIVIAL_COMMIT,
                         "Small commit (" + chunk.totalLinesChanged() + " lines) with trivial message: " + trivialMatch);
             }
-            // For larger commits with trivial messages, still filter but log
             return FilterDecision.filter(FilterReason.TRIVIAL_MESSAGE,
                     "Trivial message pattern: " + trivialMatch);
         }
 
-        // Keep the commit for LLM analysis
         return FilterDecision.keep();
     }
 

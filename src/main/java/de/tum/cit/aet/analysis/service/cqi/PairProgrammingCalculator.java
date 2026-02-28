@@ -1,6 +1,7 @@
 package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
+import de.tum.cit.aet.analysis.dto.cqi.CqiRatedChunkDTO;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,58 +46,42 @@ public class PairProgrammingCalculator {
      */
     public Double calculate(
             Set<OffsetDateTime> pairedSessions,
-            List<CQICalculatorService.RatedChunk> ratedChunks,
+            List<CqiRatedChunkDTO> ratedChunks,
             int teamSize) {
 
-        // Metric only applies to 2-person teams
+        // 1) Validate preconditions
         if (teamSize != 2) {
-            log.debug("Pair programming metric not applicable: team size is {}, requires 2", teamSize);
             return null;
         }
-
-        // Metric only applies if there are paired sessions
         if (pairedSessions == null || pairedSessions.isEmpty()) {
-            log.debug("Pair programming metric not applicable: no paired sessions");
             return null;
         }
-
-        // Handle empty commits
         if (ratedChunks == null || ratedChunks.isEmpty()) {
-            log.debug("No commits found for pair programming calculation");
             return 0.0;
         }
 
-        // Extract unique student IDs from commits
+        // 2) Extract unique student IDs
         Set<Long> studentIds = new HashSet<>();
-        for (CQICalculatorService.RatedChunk rc : ratedChunks) {
+        for (CqiRatedChunkDTO rc : ratedChunks) {
             if (rc.chunk().authorId() != null) {
                 studentIds.add(rc.chunk().authorId());
             }
         }
-
-        // If 0 or 1 unique students committed, no collaboration possible → score 0
         if (studentIds.size() < 2) {
-            log.debug("No pair programming possible: only {} unique student(s) committed", studentIds.size());
             return 0.0;
         }
-
-        // If more than 2 unique students but team size is 2, there's a data inconsistency
         if (studentIds.size() > 2) {
-            log.debug("Pair programming metric cannot be applied: {} unique students found but team size is 2", studentIds.size());
             return null;
         }
 
         Long student1 = studentIds.stream().findFirst().orElse(null);
         Long student2 = studentIds.stream().skip(1).findFirst().orElse(null);
 
-
-        // Count sessions where both students committed
+        // 3) Count sessions where both students committed
         int sessionsWithBothCommitted = 0;
-
         for (OffsetDateTime sessionDateTime : pairedSessions) {
             LocalDate sessionDate = sessionDateTime.toLocalDate();
 
-            // Check if each student has at least one commit on this date
             boolean student1Committed = ratedChunks.stream()
                     .anyMatch(rc -> rc.chunk().authorId().equals(student1)
                             && rc.chunk().timestamp() != null
@@ -112,12 +97,7 @@ public class PairProgrammingCalculator {
             }
         }
 
-        double score = (double) sessionsWithBothCommitted / pairedSessions.size() * 100.0;
-
-        log.debug("Pair programming score: {}/{}={}",
-                sessionsWithBothCommitted, pairedSessions.size(), String.format("%.1f", score));
-
-        return score;
+        return (double) sessionsWithBothCommitted / pairedSessions.size() * 100.0;
     }
 
     /**
@@ -138,62 +118,44 @@ public class PairProgrammingCalculator {
             List<CommitChunkDTO> chunks,
             int teamSize) {
 
-        // Metric only applies to 2-person teams
+        // 1) Validate preconditions
         if (teamSize != 2) {
-            log.debug("Pair programming metric not applicable: team size is {}, requires 2", teamSize);
             return null;
         }
-
-        // Metric only applies if there are paired sessions
         if (pairedSessions == null || pairedSessions.isEmpty()) {
-            log.debug("Pair programming metric not applicable: no paired sessions");
             return null;
         }
-
-        // Metric only applies if there are any sessions at all
         if (allSessions == null || allSessions.isEmpty()) {
-            log.debug("Pair programming metric not applicable: no sessions found");
             return null;
         }
-
-        // Handle empty commits
         if (chunks == null || chunks.isEmpty()) {
-            log.debug("No commits found for pair programming calculation");
             return 0.0;
         }
 
-        // Extract unique student IDs from commits
+        // 2) Extract unique student IDs
         Set<Long> studentIds = new HashSet<>();
         for (CommitChunkDTO chunk : chunks) {
             if (chunk.authorId() != null) {
                 studentIds.add(chunk.authorId());
             }
         }
-
-        // If 0 or 1 unique students committed, no collaboration possible → score 0
         if (studentIds.size() < 2) {
-            log.debug("No pair programming possible: only {} unique student(s) committed", studentIds.size());
             return 0.0;
         }
-
-        // If more than 2 unique students but team size is 2, there's a data inconsistency
         if (studentIds.size() > 2) {
-            log.debug("Pair programming metric cannot be applied: {} unique students found but team size is 2", studentIds.size());
             return null;
         }
 
         Long student1 = studentIds.stream().findFirst().orElse(null);
         Long student2 = studentIds.stream().skip(1).findFirst().orElse(null);
 
-        // Count sessions by commitment type
-        int sessionsBothCommitted = 0;    // Both students committed = full credit (1.0)
-        int sessionsOnlyOneCommitted = 0; // Only 1 student committed = half credit (0.5)
+        // 3) Count sessions by commitment type
+        int sessionsBothCommitted = 0;
+        int sessionsOnlyOneCommitted = 0;
 
-        log.info("=== Checking commits for paired sessions ===");
         for (OffsetDateTime sessionDateTime : pairedSessions.stream().sorted().toList()) {
             LocalDate sessionDate = sessionDateTime.toLocalDate();
 
-            // Check if each student has at least one commit on this date
             boolean student1Committed = chunks.stream()
                     .anyMatch(c -> c.authorId().equals(student1)
                             && c.timestamp() != null
@@ -204,37 +166,16 @@ public class PairProgrammingCalculator {
                             && c.timestamp() != null
                             && c.timestamp().toLocalDate().equals(sessionDate));
 
-            String status;
             if (student1Committed && student2Committed) {
-                status = "✓ BOTH COMMITTED (full credit)";
                 sessionsBothCommitted++;
             } else if (student1Committed || student2Committed) {
-                status = "⚠ ONLY 1 COMMITTED (50% credit)";
                 sessionsOnlyOneCommitted++;
-            } else {
-                status = "✗ NEITHER COMMITTED";
             }
-
-            log.info("Session {}: {} (S1={}, S2={})",
-                    sessionDate, status, student1Committed, student2Committed);
         }
 
-        // Score calculation:
-        // Full credit = 1.0 per session (both committed)
-        // Half credit = 0.5 per session (only one committed)
-        // Minimum requirement is configurable.
-        // Score = (full + 0.5*half) / mandatory * 100, capped at 100%
+        // 4) Compute score: full credit (both) + half credit (one) / mandatory sessions
         int minimumRequiredSessions = attendanceConfiguration.getMandatoryProgrammingSessions();
         double totalCredit = sessionsBothCommitted + (0.5 * sessionsOnlyOneCommitted);
-        double score = Math.min(100.0, (totalCredit / minimumRequiredSessions) * 100.0);
-
-        log.info("Pair programming result:");
-        log.info("  Sessions with both committed: {} (full credit = 1.0 each)", sessionsBothCommitted);
-        log.info("  Sessions with only 1 committed: {} (half credit = 0.5 each)", sessionsOnlyOneCommitted);
-        log.info("  Total credit: {}", String.format("%.1f", totalCredit));
-        log.info("  Minimum requirement: {} sessions", minimumRequiredSessions);
-        log.info("Final score: {}%", String.format("%.1f", score));
-
-        return score;
+        return Math.min(100.0, (totalCredit / minimumRequiredSessions) * 100.0);
     }
 }

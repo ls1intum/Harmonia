@@ -7,13 +7,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * DTO for Artemis API tutorial group session response.
- * Represents a tutorial group session, which includes the date when pair programming tutorials occur.
  *
- * @param id The unique identifier of the session.
- * @param start The start time of the tutorial session.
- * @param end The end time of the tutorial session.
- * @param location Optional location where the session takes place.
- * @param cancelled Whether the session was cancelled.
+ * @param id        the unique session identifier
+ * @param start     the session start time
+ * @param end       the session end time
+ * @param location  the session location (optional)
+ * @param cancelled whether the session was cancelled
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record TutorialGroupSessionDTO(

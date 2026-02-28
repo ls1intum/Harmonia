@@ -8,6 +8,9 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Spring Data repository for {@link TeamRepository} entities.
+ */
 @Repository
 public interface TeamRepositoryRepository extends JpaRepository<TeamRepository, UUID> {
 

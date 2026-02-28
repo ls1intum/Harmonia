@@ -12,7 +12,7 @@
     "prettier:check": "prettier --check .",
     "prettier:fix": "prettier --write .",
     "compile:ts": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --config ../../test/webapp/vitest.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.15",

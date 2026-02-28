@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,7 +30,7 @@ class ExportResourceTest {
     }
 
     @Test
-    void exportData_excel_returns200WithExcelHeaders() throws IOException {
+    void exportData_excel_returns200WithExcelHeaders() {
         when(exportService.exportData(eq(1L), eq(ExportFormat.EXCEL), any()))
                 .thenReturn(new byte[]{1, 2, 3});
 
@@ -43,7 +44,7 @@ class ExportResourceTest {
     }
 
     @Test
-    void exportData_json_returns200WithJsonHeaders() throws IOException {
+    void exportData_json_returns200WithJsonHeaders() {
         when(exportService.exportData(eq(1L), eq(ExportFormat.JSON), any()))
                 .thenReturn("{}".getBytes());
 
@@ -55,9 +56,9 @@ class ExportResourceTest {
     }
 
     @Test
-    void exportData_serviceThrows_returns500() throws IOException {
+    void exportData_serviceThrows_returns500() {
         when(exportService.exportData(eq(1L), eq(ExportFormat.EXCEL), any()))
-                .thenThrow(new IOException("Export failed"));
+                .thenThrow(new UncheckedIOException(new IOException("Export failed")));
 
         ResponseEntity<byte[]> response = exportResource.exportData(1L, ExportFormat.EXCEL, List.of("teams"));
 

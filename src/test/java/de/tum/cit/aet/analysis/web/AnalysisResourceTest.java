@@ -7,7 +7,7 @@ import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,7 +29,7 @@ class AnalysisResourceTest {
     private RequestService requestService;
 
     @Mock
-    private TeamScheduleService teamScheduleService;
+    private PairProgrammingService pairProgrammingService;
 
     @Mock
     private ExerciseEmailMappingRepository emailMappingRepository;
@@ -75,7 +75,7 @@ class AnalysisResourceTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
-        verify(teamScheduleService).clear();  // Always clears attendance data
+        verify(pairProgrammingService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
         verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
@@ -87,7 +87,7 @@ class AnalysisResourceTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
-        verify(teamScheduleService).clear();  // Always clears attendance data
+        verify(pairProgrammingService).clear();  // Always clears attendance data
         verify(requestService, never()).clearDatabaseForExercise(any());
         verify(stateService, never()).resetStatus(any());
         verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
@@ -99,7 +99,7 @@ class AnalysisResourceTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
-        verify(teamScheduleService).clear();  // Always clears attendance data
+        verify(pairProgrammingService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
         verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
@@ -124,11 +124,4 @@ class AnalysisResourceTest {
         verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
     }
 
-    @Test
-    void recompute_legacyEndpoint_returns200() {
-        ResponseEntity<String> response = resource.recompute("TestCourse", "123");
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Recompute triggered", response.getBody());
-    }
 }

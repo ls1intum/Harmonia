@@ -7,6 +7,10 @@ import lombok.Setter;
 
 import java.util.UUID;
 
+/**
+ * JPA entity representing a student linked to a {@link TeamParticipation}.
+ * Stores Artemis identity data and contribution metrics (commit count, lines added/deleted/changed).
+ */
 @Getter
 @Setter
 @Entity
