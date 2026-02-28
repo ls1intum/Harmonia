@@ -14,10 +14,11 @@
 
 
 
-export interface LoginRequestDTO {
-    'courseId': string;
-    'password': string;
-    'serverUrl': string;
-    'username': string;
+export interface CqiWeightsDTO {
+    'effortBalance'?: number;
+    'isDefault'?: boolean;
+    'locBalance'?: number;
+    'ownershipSpread'?: number;
+    'temporalSpread'?: number;
 }
 

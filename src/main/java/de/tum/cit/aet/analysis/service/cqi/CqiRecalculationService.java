@@ -133,7 +133,8 @@ public class CqiRecalculationService {
 
         CQIResultDTO cqiResult = cqiCalculatorService.calculate(
                 ratedChunks, teamSize, projectStart, projectEnd,
-                FilterSummaryDTO.empty(), participation.getName());
+                FilterSummaryDTO.empty(), participation.getName(),
+                participation.getExerciseId());
 
         // Preserve ownership spread from original analysis because we don't
         // have the file list for recalculation (chunks are rebuilt without files).
@@ -144,7 +145,7 @@ public class CqiRecalculationService {
         double finalBaseScore = cqiResult.baseScore();
 
         if (originalOwnership != null && cqiResult.components() != null) {
-            ComponentWeightsDTO weights = cqiCalculatorService.buildWeightsDTO();
+            ComponentWeightsDTO weights = cqiCalculatorService.buildWeightsDTO(participation.getExerciseId());
             finalBaseScore = cqiResult.components().weightedSum(
                     weights.effortBalance(), weights.locBalance(),
                     weights.temporalSpread(), weights.ownershipSpread())

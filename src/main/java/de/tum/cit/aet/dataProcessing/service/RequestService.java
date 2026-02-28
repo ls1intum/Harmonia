@@ -614,7 +614,7 @@ public class RequestService {
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
-                gitCqiDetails = CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
+                gitCqiDetails = CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(exerciseId), gitComponents, filterResult.summary());
 
                 log.debug("Git-only metrics for team {}: LoC={}, Temporal={}, Ownership={}, PairProgramming={}, Status={}",
                         team.name(),
@@ -701,7 +701,7 @@ public class RequestService {
         boolean fairnessAnalysisSucceeded = false;
         try {
             FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(
-                    repo, templateAuthorEmail);
+                    repo, templateAuthorEmail, exerciseId);
             FairnessReportDTO fairnessReport = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
             boolean isErrorReport = fairnessReport.flags() != null &&
@@ -738,7 +738,8 @@ public class RequestService {
                     CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(),
                             students.size(),
-                            filterResult.summary());
+                            filterResult.summary(),
+                            exerciseId);
 
                     cqi = cqiResult.cqi();
                     cqiDetails = cqiResult;
@@ -926,7 +927,7 @@ public class RequestService {
         // Step 5b: Try effort-based fairness analysis (primary method)
         boolean fairnessAnalysisSucceeded = false;
         try {
-            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(repo);
+            FairnessReportWithUsage fairnessResult = fairnessService.analyzeFairnessWithUsage(repo, templateAuthorEmail, exerciseId);
             FairnessReportDTO fairnessReport = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
             // Check if this is an error report (has ANALYSIS_ERROR flag) or a valid
@@ -975,7 +976,8 @@ public class RequestService {
                     CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(),
                             students.size(),
-                            filterResult.summary());
+                            filterResult.summary(),
+                            exerciseId);
 
                     cqi = cqiResult.cqi();
                     cqiDetails = cqiResult;
@@ -1918,7 +1920,7 @@ public class RequestService {
         return new CQIResultDTO(
                 participation.getCqi() != null ? participation.getCqi() : 0.0,
                 components,
-                cqiCalculatorService.buildWeightsDTO(),
+                cqiCalculatorService.buildWeightsDTO(participation.getExerciseId()),
                 penalties,
                 participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
                 participation.getCqiPenaltyMultiplier() != null ? participation.getCqiPenaltyMultiplier() : 1.0,

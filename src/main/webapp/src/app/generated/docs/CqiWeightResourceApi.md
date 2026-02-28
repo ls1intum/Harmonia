@@ -1,32 +1,31 @@
-# AnalysisResourceApi
+# CqiWeightResourceApi
 
 All URIs are relative to *http://localhost:8080*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
-|[**cancelAnalysis**](#cancelanalysis) | **POST** /api/analysis/{exerciseId}/cancel | |
-|[**clearData**](#cleardata) | **DELETE** /api/analysis/{exerciseId}/clear | |
-|[**getStatus**](#getstatus) | **GET** /api/analysis/{exerciseId}/status | |
-|[**recompute**](#recompute) | **POST** /api/analysis/{course}/{exercise}/recompute | |
+|[**getWeights**](#getweights) | **GET** /api/exercises/{exerciseId}/cqi-weights | |
+|[**resetWeights**](#resetweights) | **DELETE** /api/exercises/{exerciseId}/cqi-weights | |
+|[**saveWeights**](#saveweights) | **PUT** /api/exercises/{exerciseId}/cqi-weights | |
 
-# **cancelAnalysis**
-> AnalysisStatusDTO cancelAnalysis()
+# **getWeights**
+> CqiWeightsDTO getWeights()
 
 
 ### Example
 
 ```typescript
 import {
-    AnalysisResourceApi,
+    CqiWeightResourceApi,
     Configuration
 } from './api';
 
 const configuration = new Configuration();
-const apiInstance = new AnalysisResourceApi(configuration);
+const apiInstance = new CqiWeightResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
 
-const { status, data } = await apiInstance.cancelAnalysis(
+const { status, data } = await apiInstance.getWeights(
     exerciseId
 );
 ```
@@ -40,7 +39,7 @@ const { status, data } = await apiInstance.cancelAnalysis(
 
 ### Return type
 
-**AnalysisStatusDTO**
+**CqiWeightsDTO**
 
 ### Authorization
 
@@ -59,29 +58,78 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **clearData**
-> string clearData()
+# **resetWeights**
+> CqiWeightsDTO resetWeights()
 
 
 ### Example
 
 ```typescript
 import {
-    AnalysisResourceApi,
+    CqiWeightResourceApi,
     Configuration
 } from './api';
 
 const configuration = new Configuration();
-const apiInstance = new AnalysisResourceApi(configuration);
+const apiInstance = new CqiWeightResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
-let type: string; // (optional) (default to 'both')
-let clearMappings: boolean; // (optional) (default to false)
 
-const { status, data } = await apiInstance.clearData(
+const { status, data } = await apiInstance.resetWeights(
+    exerciseId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **exerciseId** | [**number**] |  | defaults to undefined|
+
+
+### Return type
+
+**CqiWeightsDTO**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **saveWeights**
+> CqiWeightsDTO saveWeights(cqiWeightsDTO)
+
+
+### Example
+
+```typescript
+import {
+    CqiWeightResourceApi,
+    Configuration,
+    CqiWeightsDTO
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new CqiWeightResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+let cqiWeightsDTO: CqiWeightsDTO; //
+
+const { status, data } = await apiInstance.saveWeights(
     exerciseId,
-    type,
-    clearMappings
+    cqiWeightsDTO
 );
 ```
 
@@ -89,64 +137,13 @@ const { status, data } = await apiInstance.clearData(
 
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
-| **exerciseId** | [**number**] |  | defaults to undefined|
-| **type** | [**string**] |  | (optional) defaults to 'both'|
-| **clearMappings** | [**boolean**] |  | (optional) defaults to false|
-
-
-### Return type
-
-**string**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | OK |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **getStatus**
-> AnalysisStatusDTO getStatus()
-
-
-### Example
-
-```typescript
-import {
-    AnalysisResourceApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new AnalysisResourceApi(configuration);
-
-let exerciseId: number; // (default to undefined)
-
-const { status, data } = await apiInstance.getStatus(
-    exerciseId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
+| **cqiWeightsDTO** | **CqiWeightsDTO**|  | |
 | **exerciseId** | [**number**] |  | defaults to undefined|
 
 
 ### Return type
 
-**AnalysisStatusDTO**
+**CqiWeightsDTO**
 
 ### Authorization
 
@@ -154,60 +151,7 @@ No authorization required
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | OK |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **recompute**
-> string recompute()
-
-
-### Example
-
-```typescript
-import {
-    AnalysisResourceApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new AnalysisResourceApi(configuration);
-
-let course: string; // (default to undefined)
-let exercise: string; // (default to undefined)
-
-const { status, data } = await apiInstance.recompute(
-    course,
-    exercise
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **course** | [**string**] |  | defaults to undefined|
-| **exercise** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**string**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 

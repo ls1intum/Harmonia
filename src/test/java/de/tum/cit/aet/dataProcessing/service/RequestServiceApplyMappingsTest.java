@@ -209,7 +209,7 @@ class RequestServiceApplyMappingsTest {
                 "Team Alpha", 75.0, Map.of(), Map.of(),
                 List.of(), false, List.of(), null,
                 List.of(externalChunkDTO), null);
-        when(fairnessService.analyzeFairnessWithUsage(eq(repo), isNull()))
+        when(fairnessService.analyzeFairnessWithUsage(eq(repo), isNull(), any()))
                 .thenReturn(new FairnessReportWithUsage(fairnessReport, LlmTokenTotals.empty()));
 
         // saveAll for chunks: capture and return the same list

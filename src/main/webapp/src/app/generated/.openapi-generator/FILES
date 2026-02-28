@@ -5,6 +5,7 @@ apis/analysis-resource-api.ts
 apis/attendance-resource-api.ts
 apis/auth-resource-api.ts
 apis/config-resource-api.ts
+apis/cqi-weight-resource-api.ts
 apis/email-mapping-resource-api.ts
 apis/export-resource-api.ts
 apis/request-resource-api.ts
@@ -22,6 +23,8 @@ docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
 docs/ComponentWeightsDTO.md
 docs/ConfigResourceApi.md
+docs/CqiWeightResourceApi.md
+docs/CqiWeightsDTO.md
 docs/CreateEmailMappingRequest.md
 docs/EmailMappingDTO.md
 docs/EmailMappingResourceApi.md
@@ -45,6 +48,7 @@ models/analyzed-chunk-dto.ts
 models/client-response-dto.ts
 models/component-scores-dto.ts
 models/component-weights-dto.ts
+models/cqi-weights-dto.ts
 models/cqipenalty-dto.ts
 models/cqiresult-dto.ts
 models/create-email-mapping-request.ts

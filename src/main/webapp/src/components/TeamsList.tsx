@@ -1,5 +1,6 @@
 import type { Team, CourseAverages } from '@/types/team';
 import type { TemplateAuthorInfo } from '@/data/dataLoaders';
+import CqiWeightsPanel from '@/components/CqiWeightsPanel';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -546,6 +547,8 @@ const TeamsList = ({
           </div>
         </Card>
       )}
+
+      <CqiWeightsPanel exerciseId={exercise} disabled={analysisStatus?.state === 'RUNNING'} />
 
       {templateAuthor ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">

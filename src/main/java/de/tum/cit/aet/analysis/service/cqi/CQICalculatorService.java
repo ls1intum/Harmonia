@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
+    private final CqiWeightService cqiWeightService;
     private final TeamScheduleService teamScheduleService;
     private final PairProgrammingCalculator pairProgrammingCalculator;
 
@@ -54,6 +55,7 @@ public class CQICalculatorService {
      * @param projectEnd    Project end date
      * @param filterSummary Summary from pre-filtering (optional)
      * @param teamName      The team name
+     * @param exerciseId    The exercise ID for resolving per-exercise weight configuration
      * @return CQI result with component scores and penalties
      */
     public CQIResultDTO calculate(
@@ -62,9 +64,10 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
             FilterSummaryDTO filterSummary,
-            String teamName) {
+            String teamName,
+            Long exerciseId) {
 
-        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO(exerciseId);
 
         // Edge case: single contributor
         if (teamSize <= 1) {
@@ -111,7 +114,7 @@ public class CQICalculatorService {
         log.debug("Component scores: {}", components.toSummary());
 
         // Calculate base score (weighted sum)
-        CQIConfig.Weights weights = cqiConfig.getWeights();
+        CQIConfig.Weights weights = cqiWeightService.getWeightsForExercise(exerciseId);
         double baseScore = components.weightedSum(
                 weights.getEffort(), weights.getLoc(), weights.getTemporal(), weights.getOwnership());
 
@@ -144,14 +147,16 @@ public class CQICalculatorService {
      * @param chunks        Pre-filtered commit chunks (not rated)
      * @param teamSize      Number of team members
      * @param filterSummary Summary from pre-filtering
+     * @param exerciseId    The exercise ID for resolving per-exercise weight configuration
      * @return CQI result based on LoC only
      */
     public CQIResultDTO calculateFallback(
             List<CommitChunkDTO> chunks,
             int teamSize,
-            FilterSummaryDTO filterSummary) {
+            FilterSummaryDTO filterSummary,
+            Long exerciseId) {
 
-        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO(exerciseId);
 
         if (teamSize <= 1) {
             return CQIResultDTO.singleContributor(weightsDTO);
@@ -343,12 +348,13 @@ public class CQICalculatorService {
     }
 
     /**
-     * Build a {@link ComponentWeightsDTO} from the current configuration.
+     * Build a {@link ComponentWeightsDTO} from the exercise-specific or default configuration.
      *
+     * @param exerciseId The exercise ID for resolving per-exercise weight configuration
      * @return DTO containing the configured weights for all CQI components
      */
-    public ComponentWeightsDTO buildWeightsDTO() {
-        CQIConfig.Weights w = cqiConfig.getWeights();
+    public ComponentWeightsDTO buildWeightsDTO(Long exerciseId) {
+        CQIConfig.Weights w = cqiWeightService.getWeightsForExercise(exerciseId);
         return new ComponentWeightsDTO(w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership());
     }
 

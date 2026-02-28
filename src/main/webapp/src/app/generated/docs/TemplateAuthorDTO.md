@@ -1,11 +1,12 @@
 # TemplateAuthorDTO
 
+
 ## Properties
 
-| Name              | Type        | Description | Notes                             |
-| ----------------- | ----------- | ----------- | --------------------------------- |
-| **autoDetected**  | **boolean** |             | [optional] [default to undefined] |
-| **templateEmail** | **string**  |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**autoDetected** | **boolean** |  | [optional] [default to undefined]
+**templateEmail** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -13,8 +14,8 @@
 import { TemplateAuthorDTO } from './api';
 
 const instance: TemplateAuthorDTO = {
-  autoDetected,
-  templateEmail,
+    autoDetected,
+    templateEmail,
 };
 ```
 

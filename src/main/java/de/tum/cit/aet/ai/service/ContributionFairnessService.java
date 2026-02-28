@@ -55,7 +55,7 @@ public class ContributionFairnessService {
      * @return fairness report plus aggregated LLM token usage for this team
      */
     public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
-        return analyzeFairnessWithUsage(repositoryDTO, null);
+        return analyzeFairnessWithUsage(repositoryDTO, null, null);
     }
 
     /**
@@ -64,10 +64,11 @@ public class ContributionFairnessService {
      *
      * @param repositoryDTO       the repository data transfer object to analyze
      * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @param exerciseId          the exercise ID for per-exercise CQI weight resolution
      * @return fairness report plus aggregated LLM token usage for this team
      */
     public FairnessReportWithUsage analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
-            String templateAuthorEmail) {
+            String templateAuthorEmail, Long exerciseId) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         int teamSize = repositoryDTO.participation().team().students().size();
@@ -161,7 +162,8 @@ public class ContributionFairnessService {
                     projectStart,
                     projectEnd,
                     filterSummary,
-                    teamName);
+                    teamName,
+                    exerciseId);
 
             double balanceScore = cqiResult.cqi();
             log.info("CQI calculated for team {}: {} (base={}, penalty={})",
