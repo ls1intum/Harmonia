@@ -13,6 +13,9 @@ public class CqiWeightService {
 
     /**
      * Resolve weights for an exercise. Checks DB first, falls back to application.yml defaults.
+     *
+     * @param exerciseId the exercise ID to resolve weights for, or null for defaults
+     * @return the resolved weights configuration
      */
     public CQIConfig.Weights getWeightsForExercise(Long exerciseId) {
         if (exerciseId == null) {

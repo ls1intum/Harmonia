@@ -26,6 +26,12 @@ public class CqiWeightResource {
             boolean isDefault
     ) {}
 
+    /**
+     * Get the CQI weights for an exercise, falling back to defaults if none are configured.
+     *
+     * @param exerciseId the exercise ID
+     * @return the current weights configuration
+     */
     @GetMapping
     public ResponseEntity<CqiWeightsDTO> getWeights(@PathVariable Long exerciseId) {
         return weightConfigRepository.findByExerciseId(exerciseId)
@@ -39,6 +45,13 @@ public class CqiWeightResource {
                 });
     }
 
+    /**
+     * Save custom CQI weights for an exercise. Weights must sum to 1.0 and be non-negative.
+     *
+     * @param exerciseId the exercise ID
+     * @param request the weights to save
+     * @return the saved weights configuration
+     */
     @PutMapping
     @Transactional
     public ResponseEntity<CqiWeightsDTO> saveWeights(
@@ -73,6 +86,12 @@ public class CqiWeightResource {
                 config.getTemporalWeight(), config.getOwnershipWeight(), false));
     }
 
+    /**
+     * Reset CQI weights for an exercise back to the application defaults.
+     *
+     * @param exerciseId the exercise ID
+     * @return the default weights configuration
+     */
     @DeleteMapping
     @Transactional
     public ResponseEntity<CqiWeightsDTO> resetWeights(@PathVariable Long exerciseId) {
