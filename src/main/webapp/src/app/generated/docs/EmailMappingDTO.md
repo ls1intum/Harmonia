@@ -1,15 +1,14 @@
 # EmailMappingDTO
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**exerciseId** | **number** |  | [optional] [default to undefined]
-**gitEmail** | **string** |  | [optional] [default to undefined]
-**id** | **string** |  | [optional] [default to undefined]
-**studentId** | **number** |  | [optional] [default to undefined]
-**studentName** | **string** |  | [optional] [default to undefined]
+| Name            | Type       | Description | Notes                             |
+| --------------- | ---------- | ----------- | --------------------------------- |
+| **exerciseId**  | **number** |             | [optional] [default to undefined] |
+| **gitEmail**    | **string** |             | [optional] [default to undefined] |
+| **id**          | **string** |             | [optional] [default to undefined] |
+| **studentId**   | **number** |             | [optional] [default to undefined] |
+| **studentName** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -17,11 +16,11 @@ Name | Type | Description | Notes
 import { EmailMappingDTO } from './api';
 
 const instance: EmailMappingDTO = {
-    exerciseId,
-    gitEmail,
-    id,
-    studentId,
-    studentName,
+  exerciseId,
+  gitEmail,
+  id,
+  studentId,
+  studentName,
 };
 ```
 
