@@ -12,7 +12,7 @@ public enum PairProgrammingStatus {
      * @param hasAttendanceData whether any attendance file has been uploaded
      * @param hasCancelledSessionWarning whether cancelled sessions make evaluation unreliable
      * @param pairedMandatorySessions whether the team attended the mandatory number of paired sessions
-     * @return PASS, FAIL, NOT_FOUND, WARNING, or null when no attendance data exists
+     * @return PASS, FAIL, NOT_FOUND, WARNING
      */
     public static PairProgrammingStatus fromAttendanceState(
             boolean hasAttendanceData,
@@ -20,7 +20,7 @@ public enum PairProgrammingStatus {
             boolean pairedMandatorySessions) {
 
         if (!hasAttendanceData) {
-            return null;
+            return NOT_FOUND;
         }
         if (hasCancelledSessionWarning) {
             return WARNING;

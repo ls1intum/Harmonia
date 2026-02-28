@@ -606,7 +606,7 @@ public class RequestService {
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
-                // Always set the status (PASS/FAIL, NOT_FOUND, WARNING, or null)
+                // Always set the status (PASS/FAIL, NOT_FOUND, WARNING)
                 teamParticipation.setCqiPairProgrammingStatus(
                         gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
                 teamParticipationRepository.save(teamParticipation);
@@ -736,7 +736,8 @@ public class RequestService {
                     CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(),
                             students.size(),
-                            filterResult.summary());
+                            filterResult.summary(),
+                            team.name());
 
                     cqi = cqiResult.cqi();
                     cqiDetails = cqiResult;
@@ -973,7 +974,8 @@ public class RequestService {
                     CQIResultDTO cqiResult = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(),
                             students.size(),
-                            filterResult.summary());
+                            filterResult.summary(),
+                            team.name());
 
                     cqi = cqiResult.cqi();
                     cqiDetails = cqiResult;

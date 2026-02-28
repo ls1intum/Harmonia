@@ -167,7 +167,7 @@ class CQICalculatorServiceTest {
         );
 
         FilterSummaryDTO summary = FilterSummaryDTO.empty();
-        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, summary);
+        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, summary, "teamName");
 
         assertTrue(result.cqi() >= 80, "Equal LoC should score well, got: " + result.cqi());
     }
@@ -180,7 +180,7 @@ class CQICalculatorServiceTest {
                 createChunk(2L, 50)
         );
 
-        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, null);
+        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, null, "teamName");
 
         assertTrue(result.cqi() < 60, "Imbalanced LoC should score low, got: " + result.cqi());
     }

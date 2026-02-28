@@ -66,38 +66,40 @@ public class CQICalculatorService {
             String teamName) {
 
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+        boolean hasAttendanceData = teamScheduleService.hasTeamAttendance(teamName);
+        boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
+        boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName);
+        PairProgrammingStatus pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
 
         // Edge case: single contributor
         if (teamSize <= 1) {
             log.info("Single contributor detected - CQI = 0");
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         // Edge case: no commits to analyze
         if (ratedChunks == null || ratedChunks.isEmpty()) {
             log.warn("No rated commits provided");
-            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary, pairProgrammingStatus);
         }
 
         // Edge case: team did not meet the mandatory pair-programming attendance threshold.
         // Only enforce this when attendance data exists and no cancellation warning applies.
-        if (teamName != null && !teamName.isEmpty()
-                && teamScheduleService.getTeamAttendance(teamName) != null
-                && !teamScheduleService.hasCancelledSessionWarning(teamName)
-                && !teamScheduleService.isPairedMandatorySessions(teamName)) {
-            log.warn("Team did not meet the mandatory pair-programming attendance threshold.");
-            return CQIResultDTO.noPairProgramming(weightsDTO);
-        }
+//        if (pairProgrammingStatus == PairProgrammingStatus.FAIL) {
+//            log.warn("Team did not meet the mandatory pair-programming attendance threshold.");
+//            return CQIResultDTO.noPairProgramming(weightsDTO, pairProgrammingStatus);
+//        }
 
         // Aggregate metrics by author
         Map<Long, Double> effortByAuthor = aggregateEffort(ratedChunks);
         Map<Long, Integer> locByAuthor = aggregateLoc(ratedChunks);
         Map<CommitLabel, Integer> commitsByType = aggregateCommitTypes(ratedChunks);
 
+
         // Check if we have actual contributors
         if (effortByAuthor.size() <= 1) {
             log.info("Only one contributor found in commits - CQI = 0");
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         // Calculate component scores
@@ -150,16 +152,21 @@ public class CQICalculatorService {
     public CQIResultDTO calculateFallback(
             List<CommitChunkDTO> chunks,
             int teamSize,
-            FilterSummaryDTO filterSummary) {
+            FilterSummaryDTO filterSummary,
+            String teamName) {
 
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+        boolean hasAttendanceData = teamScheduleService.hasTeamAttendance(teamName);
+        boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
+        boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName);
+        PairProgrammingStatus pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
 
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         if (chunks == null || chunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary, pairProgrammingStatus);
         }
 
         // Aggregate LoC by author from raw chunks
@@ -171,14 +178,14 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         double locScore = calculateLocBalance(locByAuthor);
 
         log.info("Fallback CQI calculated (LoC only): {}", String.format("%.1f", locScore));
 
-        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary);
+        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary, pairProgrammingStatus);
     }
 
     /**
@@ -207,8 +214,17 @@ public class CQICalculatorService {
             LocalDateTime projectEnd,
             String teamName) {
 
+        // Calculate pair programming score if team name is provided
+        Double pairProgrammingScore = null;
+        // Check if attendance data was uploaded at all
+        boolean hasAttendanceData = teamScheduleService.hasTeamAttendance(teamName);
+        boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
+        boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName);
+        PairProgrammingStatus pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
+
+
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
-            return ComponentScoresDTO.zero();
+            return ComponentScoresDTO.zero(pairProgrammingStatus);
         }
 
         // Aggregate LoC by author
@@ -220,7 +236,7 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return ComponentScoresDTO.zero();
+            return ComponentScoresDTO.zero(pairProgrammingStatus);
         }
 
         // Calculate LoC balance
@@ -253,55 +269,32 @@ public class CQICalculatorService {
         // Calculate ownership spread using raw chunks
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
-        // Calculate pair programming score if team name is provided
-        Double pairProgrammingScore = null;
-        PairProgrammingStatus pairProgrammingStatus = null; // null = no Excel uploaded
         log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
         if (teamName != null && teamSize == 2) {
             try {
-                // Check if attendance data was uploaded at all
-                boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
-                boolean hasTeamAttendance = teamScheduleService.hasTeamAttendance(teamName);
-                boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
-                boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName);
-
                 Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
                 Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
 
                 // Log all session dates for verification
                 log.info("=== Pair Programming Session Dates for team '{}' ===", teamName);
                 log.info("Total sessions: {}", allSessions.size());
-                allSessions.stream().sorted().forEach(date ->
-                        log.info("  All session: {}", date));
-
+                allSessions.stream().sorted().forEach(date -> log.info("  All session: {}", date));
                 log.info("Paired sessions (both students attended): {}", pairedSessions.size());
-                pairedSessions.stream().sorted().forEach(date ->
-                        log.info("  Paired session: {}", date));
+                pairedSessions.stream().sorted().forEach(date -> log.info("  Paired session: {}", date));
 
-                if (hasTeamAttendance) {
-                    pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(
-                            hasAttendanceData,
-                            hasCancelledSessionWarning,
-                            pairedMandatorySessions);
+                if (hasAttendanceData) {
                     if (hasCancelledSessionWarning) {
-                        log.info("Team '{}' has cancelled tutorial sessions affecting mandatory attendance; setting pair programming status to WARNING", teamName);
+                        log.warn("Team '{}' has cancelled tutorial sessions; pair programming status set to WARNING", teamName);
                     } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
                         pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
                                 pairedSessions, allSessions, chunks, teamSize);
                     } else {
                         pairProgrammingScore = 0.0;
-                        if (allSessions.isEmpty()) {
-                            log.info("Team '{}' found in attendance Excel file but has no mapped tutorial sessions; treating as failed (score 0)", teamName);
-                        } else {
-                            log.info("Team '{}' found in attendance Excel file but has no paired sessions; treating as failed (score 0)", teamName);
-                        }
+                        log.warn("Team '{}' found in attendance but has no {} sessions; treating as failed (score 0)",
+                                teamName, allSessions.isEmpty() ? "mapped tutorial" : "paired");
                     }
-                } else if (hasAttendanceData) {
-                    pairProgrammingStatus = PairProgrammingStatus.NOT_FOUND;
-                    log.info("Team '{}' not found in attendance Excel file", teamName);
-                } else {
-                    log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
                 }
+
             } catch (Exception e) {
                 log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
             }
@@ -328,10 +321,10 @@ public class CQICalculatorService {
      * Backward compatible overload for calculateGitOnlyComponents without teamName.
      * Use the 5-parameter version when pair programming needs to be calculated.
      *
-     * @param chunks List of raw commit chunks from repository
-     * @param teamSize Number of team members
+     * @param chunks       List of raw commit chunks from repository
+     * @param teamSize     Number of team members
      * @param projectStart Start date/time of the project
-     * @param projectEnd End date/time of the project
+     * @param projectEnd   End date/time of the project
      * @return ComponentScoresDTO containing git-based metrics (locBalance, temporalSpread, ownershipSpread)
      */
     public ComponentScoresDTO calculateGitOnlyComponents(

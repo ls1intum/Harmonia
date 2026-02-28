@@ -28,8 +28,8 @@ public record ComponentScoresDTO(
     /**
      * Create zero scores.
      */
-    public static ComponentScoresDTO zero() {
-        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, null);
+    public static ComponentScoresDTO zero(PairProgrammingStatus pairProgrammingStatus) {
+        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, pairProgrammingStatus);
     }
 
     /**

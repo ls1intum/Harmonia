@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import de.tum.cit.aet.core.enums.PairProgrammingStatus;
+
 import java.util.List;
 
 /**
@@ -25,10 +27,10 @@ public record CQIResultDTO(
      * Create result for single contributor (no collaboration possible).
      * Returns 0 since no collaboration is possible.
      */
-    public static CQIResultDTO singleContributor(ComponentWeightsDTO weights) {
+    public static CQIResultDTO singleContributor(ComponentWeightsDTO weights, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 0.0, // No collaboration possible = 0
-                ComponentScoresDTO.zero(),
+                ComponentScoresDTO.zero(pairProgrammingStatus),
                 weights,
                 List.of(), // No penalties
                 0.0,
@@ -39,10 +41,10 @@ public record CQIResultDTO(
     /**
      * Create result when mandatory pair-programming attendance was not met.
      */
-    public static CQIResultDTO noPairProgramming(ComponentWeightsDTO weights) {
+    public static CQIResultDTO noPairProgramming(ComponentWeightsDTO weights, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 0.0, // No collaboration
-                ComponentScoresDTO.zero(),
+                ComponentScoresDTO.zero(pairProgrammingStatus),
                 weights,
                 List.of(), // No penalties
                 0.0,
@@ -54,10 +56,10 @@ public record CQIResultDTO(
     /**
      * Create result when no productive work was found.
      */
-    public static CQIResultDTO noProductiveWork(ComponentWeightsDTO weights, FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO noProductiveWork(ComponentWeightsDTO weights, FilterSummaryDTO filterSummary, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 0.0,
-                ComponentScoresDTO.zero(),
+                ComponentScoresDTO.zero(pairProgrammingStatus),
                 weights,
                 List.of(), // No penalties
                 0.0,
@@ -68,10 +70,10 @@ public record CQIResultDTO(
     /**
      * Create result for fallback calculation (LoC-based).
      */
-    public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 locScore,
-                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, null),
+                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, pairProgrammingStatus),
                 weights,
                 List.of(), // No penalties
                 locScore,
