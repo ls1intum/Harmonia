@@ -22,11 +22,7 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
         {data.map((value, idx) => {
           const heightPercent = max > 0 ? Math.max((value / max) * 100, 2) : 2;
           return (
-            <div
-              key={idx}
-              className="flex-1 min-w-0 group relative"
-              style={{ height: '100%' }}
-            >
+            <div key={idx} className="flex-1 min-w-0 group relative" style={{ height: '100%' }}>
               <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full">
                 <div
                   className={`w-full rounded-sm ${getBarColor(value)} transition-colors group-hover:ring-1 group-hover:ring-primary/40`}
@@ -44,9 +40,7 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
       </div>
       <div className="flex justify-between mt-1">
         <span className="text-[10px] text-muted-foreground">Week 1</span>
-        {data.length > 1 && (
-          <span className="text-[10px] text-muted-foreground">Week {data.length}</span>
-        )}
+        {data.length > 1 && <span className="text-[10px] text-muted-foreground">Week {data.length}</span>}
       </div>
     </div>
   );
