@@ -52,7 +52,7 @@ const OrphanCommitsPanel = ({
     onSuccess: email => {
       onMappingChange();
       setSelectedStudents(prev => {
-        const next = { ...prev };
+        const next = Object.assign({}, prev);
         delete next[email];
         return next;
       });
@@ -82,14 +82,14 @@ const OrphanCommitsPanel = ({
   const orphanEmailsFromChunks = new Set(
     externalChunks.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
   );
-  const allOrphanEmails = new Set([...orphanEmailsFromCommits, ...orphanEmailsFromChunks]);
+  const allOrphanEmails = new Set(Array.from(orphanEmailsFromCommits).concat(Array.from(orphanEmailsFromChunks)));
 
   // Mapped emails for this team (from exercise-wide mappings that match orphan emails here)
   const mappedEmails = emailMappings.filter(m => m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
   const mappedEmailSet = new Set(mappedEmails.map(m => (m.gitEmail ?? '').toLowerCase()));
 
   // Unmapped orphan emails
-  const unmappedEmails = [...allOrphanEmails].filter(e => e && !mappedEmailSet.has(e));
+  const unmappedEmails = Array.from(allOrphanEmails).filter(e => e && !mappedEmailSet.has(e));
 
   // Group commits by email
   const commitsByEmail = new Map<string, OrphanCommitDTO[]>();
@@ -213,7 +213,7 @@ const OrphanCommitsPanel = ({
                             <div className="flex items-center gap-2">
                               <Select
                                 value={selectedStudents[email] || ''}
-                                onValueChange={v => setSelectedStudents(prev => ({ ...prev, [email]: v }))}
+                                onValueChange={v => setSelectedStudents(prev => Object.assign({}, prev, { [email]: v }))}
                               >
                                 <SelectTrigger className="h-8 w-[180px] text-xs">
                                   <SelectValue placeholder="Assign to student..." />

@@ -7,15 +7,21 @@ import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.artemis.ArtemisClientService;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 import java.util.Map;
 
+@Tag("integration")
 @SpringBootTest
 class GitContributionAnalysisServiceTest {
+
+    private static final Logger log = LoggerFactory.getLogger(GitContributionAnalysisServiceTest.class);
 
     @Autowired
     private ArtemisClientService artemisClientService;
@@ -29,16 +35,16 @@ class GitContributionAnalysisServiceTest {
     void testFetchingAndAnalyzing() {
         TestCredentialsLoader loader = new TestCredentialsLoader();
         if (!loader.isAvailable()) {
-            System.out.println("Skipping test: " + loader.getSkipMessage());
+            log.info("Skipping test: {}", loader.getSkipMessage());
             return;
         }
 
-        System.out.println("Starting VCS Access Log Test...");
+        log.info("Starting VCS Access Log Test...");
 
         // 1. Authenticate
         String jwtToken = artemisClientService.authenticate(
                 loader.getServerUrl(), loader.getUsername(), loader.getPassword());
-        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
+        log.info("Authentication successful. JWT: {}...", jwtToken.substring(0, Math.min(jwtToken.length(), 10)));
 
         // 2. Fetch and Clone using credentials DTO
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
@@ -47,9 +53,9 @@ class GitContributionAnalysisServiceTest {
         // 3. Analyze contributions
         Map<Long, AuthorContributionDTO> map = gitContributionAnalysisService.processAllRepositories(repos);
         for (Long studentId : map.keySet()) {
-            System.out.println("Processed student ID: " + studentId);
+            log.info("Processed student ID: {}", studentId);
             AuthorContributionDTO contributions = map.get(studentId);
-            System.out.println("Added = " + contributions.linesAdded() + ", Deleted = " + contributions.linesDeleted());
+            log.info("Added = {}, Deleted = {}", contributions.linesAdded(), contributions.linesDeleted());
         }
     }
 
@@ -57,16 +63,16 @@ class GitContributionAnalysisServiceTest {
     void testSaving() {
         TestCredentialsLoader loader = new TestCredentialsLoader();
         if (!loader.isAvailable()) {
-            System.out.println("Skipping test: " + loader.getSkipMessage());
+            log.info("Skipping test: {}", loader.getSkipMessage());
             return;
         }
 
-        System.out.println("Starting Dynamic Auth Test...");
+        log.info("Starting Dynamic Auth Test...");
 
         // 1. Authenticate
         String jwtToken = artemisClientService.authenticate(
                 loader.getServerUrl(), loader.getUsername(), loader.getPassword());
-        System.out.println("Authentication successful. JWT: " + jwtToken.substring(0, Math.min(jwtToken.length(), 10)) + "...");
+        log.info("Authentication successful. JWT: {}...", jwtToken.substring(0, Math.min(jwtToken.length(), 10)));
 
         // 2. Fetch, Analyze and Save
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
@@ -79,6 +85,6 @@ class GitContributionAnalysisServiceTest {
 
         // 3. Fetch from database
         List<ClientResponseDTO> test = requestService.getAllRepositoryData();
-        System.out.println("Fetched " + test.size() + " entries from database.");
+        log.info("Fetched {} entries from database.", test.size());
     }
 }

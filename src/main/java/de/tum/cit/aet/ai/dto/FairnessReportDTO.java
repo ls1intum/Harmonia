@@ -8,18 +8,15 @@ import java.util.Map;
 /**
  * Final fairness analysis report for a team repository.
  *
- * @param teamId               The team identifier
- * @param balanceScore         Overall balance score (0-100). 100 = perfectly
- *                             balanced.
- * @param effortByAuthor       Map of author ID to their total weighted effort
- *                             points
- * @param effortShareByAuthor  Map of author ID to their percentage share
- *                             (0.0-1.0)
- * @param error                True if the analysis failed with an error
- * @param authorDetails        Detailed breakdown per author
- * @param analysisMetadata     Metadata about the analysis (commit count, chunk
- *                             count, etc.)
- * @param cqiResult            Detailed CQI calculation result with components
+ * @param teamId              the team identifier
+ * @param balanceScore        overall balance score (0-100, 100 = perfectly balanced)
+ * @param effortByAuthor      map of author ID to their total weighted effort points
+ * @param effortShareByAuthor map of author ID to their percentage share (0.0-1.0)
+ * @param error               true if the analysis failed with an error
+ * @param authorDetails       detailed contribution breakdown per author
+ * @param analysisMetadata    metadata about the analysis process
+ * @param analyzedChunks      list of analyzed chunks for this team
+ * @param cqiResult           detailed CQI calculation result with components
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FairnessReportDTO(
@@ -34,6 +31,15 @@ public record FairnessReportDTO(
                 CQIResultDTO cqiResult) {
         /**
          * Detailed contribution breakdown for a single author.
+         *
+         * @param authorId             the author's student ID
+         * @param authorEmail          the author's email
+         * @param totalEffort          total weighted effort points
+         * @param effortShare          percentage share of total effort (0.0-1.0)
+         * @param commitCount          number of commits
+         * @param chunkCount           number of analyzed chunks
+         * @param averageEffortPerChunk average effort score per chunk
+         * @param commitsByType        breakdown of commits by classification type
          */
         @JsonIgnoreProperties(ignoreUnknown = true)
         public record AuthorDetailDTO(
@@ -49,6 +55,13 @@ public record FairnessReportDTO(
 
         /**
          * Metadata about the analysis process.
+         *
+         * @param totalCommits        total commits analyzed
+         * @param totalChunks         total chunks created
+         * @param bundledCommitGroups number of bundled commit groups
+         * @param averageConfidence   average AI confidence across all ratings
+         * @param lowConfidenceRatings number of ratings with low confidence
+         * @param analysisTimeMs      total analysis time in milliseconds
          */
         @JsonIgnoreProperties(ignoreUnknown = true)
         public record AnalysisMetadataDTO(

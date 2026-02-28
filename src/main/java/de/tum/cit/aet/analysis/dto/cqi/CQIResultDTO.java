@@ -6,11 +6,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 /**
  * Result of CQI calculation with component breakdown.
  *
- * @param cqi               Final CQI score (0-100)
- * @param components        Individual component scores
- * @param weights           Component weights used in calculation
- * @param baseScore         Score before any adjustments
- * @param filterSummary     Summary of filtered commits
+ * @param cqi           final CQI score (0-100)
+ * @param components    individual component scores
+ * @param weights       component weights used in calculation
+ * @param baseScore     score before any adjustments
+ * @param filterSummary summary of filtered commits
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CQIResultDTO(

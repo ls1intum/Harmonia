@@ -43,7 +43,6 @@ class ContributionBalanceCalculatorTest {
         );
 
         double score = calculator.calculate(commits);
-        System.out.println("Moderate imbalance score: " + score);
         assertTrue(score >= 0 && score <= 100); // More lenient test
     }
 

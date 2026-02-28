@@ -79,17 +79,15 @@ class EndToEndAnalysisIntegrationTest {
 
     @BeforeAll
     static void printTestConfiguration() {
-        System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════════════════╗");
-        System.out.println("║           E2E ANALYSIS INTEGRATION TEST                      ║");
-        System.out.println("╠══════════════════════════════════════════════════════════════╣");
-        System.out.println("║ Configuration:                                               ║");
-        System.out.println("║   Artemis URL:  " + padRight(ARTEMIS_URL, 44) + "║");
-        System.out.println("║   Username:     " + padRight(USERNAME, 44) + "║");
-        System.out.println("║   Exercise ID:  " + padRight(String.valueOf(EXERCISE_ID), 44) + "║");
-        System.out.println("║   Max Teams:    " + padRight(String.valueOf(MAX_TEAMS), 44) + "║");
-        System.out.println("╚══════════════════════════════════════════════════════════════╝");
-        System.out.println();
+        log.info("╔══════════════════════════════════════════════════════════════╗");
+        log.info("║           E2E ANALYSIS INTEGRATION TEST                      ║");
+        log.info("╠══════════════════════════════════════════════════════════════╣");
+        log.info("║ Configuration:                                               ║");
+        log.info("║   Artemis URL:  {}║", padRight(ARTEMIS_URL, 44));
+        log.info("║   Username:     {}║", padRight(USERNAME, 44));
+        log.info("║   Exercise ID:  {}║", padRight(String.valueOf(EXERCISE_ID), 44));
+        log.info("║   Max Teams:    {}║", padRight(String.valueOf(MAX_TEAMS), 44));
+        log.info("╚══════════════════════════════════════════════════════════════╝");
     }
 
     private static String padRight(String s, int n) {

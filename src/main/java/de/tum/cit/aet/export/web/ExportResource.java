@@ -8,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Set;
 
@@ -36,26 +36,30 @@ public class ExportResource {
      * @param format     the export format ({@code EXCEL} or {@code JSON}), defaults to {@code EXCEL}
      * @param include    data scopes to include, defaults to all (teams, students, chunks, commits)
      * @return the exported file with appropriate content headers
-     * @throws IOException if the export serialization fails
      */
     @GetMapping("/{exerciseId}")
     public ResponseEntity<byte[]> exportData(
             @PathVariable Long exerciseId,
             @RequestParam(defaultValue = "EXCEL") ExportFormat format,
-            @RequestParam(defaultValue = "teams,students,chunks,commits") List<String> include) throws IOException {
-        log.info("GET /api/export/{} format={} include={}", exerciseId, format, include);
+            @RequestParam(defaultValue = "teams,students,chunks,commits") List<String> include) {
+        log.info("GET exportData for exerciseId={}, format={}, include={}", exerciseId, format, include);
 
-        // 1) Delegate data collection and serialization to the service
-        Set<String> includeSet = Set.copyOf(include);
-        byte[] data = exportService.exportData(exerciseId, format, includeSet);
+        try {
+            // 1) Delegate data collection and serialization to the service
+            Set<String> includeSet = Set.copyOf(include);
+            byte[] data = exportService.exportData(exerciseId, format, includeSet);
 
-        // 2) Build response with format-specific headers
-        String filename = "export-" + exerciseId + (format == ExportFormat.EXCEL ? ".xlsx" : ".json");
-        String contentType = format == ExportFormat.EXCEL ? EXCEL_CONTENT_TYPE : MediaType.APPLICATION_JSON_VALUE;
+            // 2) Build response with format-specific headers
+            String filename = "export-" + exerciseId + (format == ExportFormat.EXCEL ? ".xlsx" : ".json");
+            String contentType = format == ExportFormat.EXCEL ? EXCEL_CONTENT_TYPE : MediaType.APPLICATION_JSON_VALUE;
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(data);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(data);
+        } catch (UncheckedIOException e) {
+            log.error("Export failed for exerciseId={}", exerciseId, e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

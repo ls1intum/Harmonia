@@ -34,6 +34,7 @@ import java.util.function.Consumer;
 
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
+import de.tum.cit.aet.analysis.dto.FullCommitMappingResultDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
@@ -690,7 +691,7 @@ public class RequestService {
         teamParticipation.setExerciseId(exerciseId);
         teamParticipation.setTutor(tutor);
         teamParticipation.setSubmissionCount(participation.submissionCount());
-        teamParticipation.setAnalysisStatus(AnalysisStatus.GIT_DONE);
+        teamParticipation.setAnalysisStatus(TeamAnalysisStatus.GIT_DONE);
         persistTeamTokenTotals(teamParticipation, LlmTokenTotalsDTO.empty());
         teamParticipationRepository.save(teamParticipation);
 
@@ -728,7 +729,7 @@ public class RequestService {
             return new ClientResponseDTO(
                     tutor != null ? tutor.getName() : "Unassigned",
                     team.id(), team.name(), participation.submissionCount(),
-                    studentDtos, 0.0, false, AnalysisStatus.DONE,
+                    studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
                     null, null, null, null, 0, true);
         }
 
@@ -747,11 +748,13 @@ public class RequestService {
                 studentDtos,
                 null,  // CQI — Phase 3
                 null,  // isSuspicious — Phase 3
-                AnalysisStatus.GIT_DONE,
+                TeamAnalysisStatus.GIT_DONE,
                 finalDetails,
                 null,  // analysisHistory — Phase 3
                 null,  // orphanCommits
-                readTeamTokenTotals(teamParticipation));
+                readTeamTokenTotals(teamParticipation),
+                null,  // orphanCommitCount — Phase 3
+                null); // isFailed
     }
 
     // =====================================================================
@@ -777,7 +780,7 @@ public class RequestService {
         TeamParticipation teamParticipation = teamParticipationRepository.findByParticipation(participation.id())
                 .orElseThrow(() -> new IllegalStateException("Team participation not found for AI analysis"));
 
-        teamParticipation.setAnalysisStatus(AnalysisStatus.AI_ANALYZING);
+        teamParticipation.setAnalysisStatus(TeamAnalysisStatus.AI_ANALYZING);
         teamParticipationRepository.save(teamParticipation);
 
         List<Student> students = studentRepository.findAllByTeam(teamParticipation);
@@ -860,7 +863,7 @@ public class RequestService {
         teamParticipation.setOrphanCommitCount(orphanCommits != null ? orphanCommits.size() : 0);
         persistCqiComponents(teamParticipation, cqiDetails);
         persistTeamTokenTotals(teamParticipation, teamTokenTotals);
-        teamParticipation.setAnalysisStatus(AnalysisStatus.DONE);
+        teamParticipation.setAnalysisStatus(TeamAnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
         // 6) Apply existing email mappings (may recalculate CQI)
@@ -885,9 +888,9 @@ public class RequestService {
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
                         team.id(), team.name(), participation.submissionCount(),
-                        studentDtos, finalCqi, isSuspicious, AnalysisStatus.DONE,
+                        studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
-                        teamTokenTotals, teamParticipation.getOrphanCommitCount()),
+                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
                 teamTokenTotals);
     }
 
@@ -965,7 +968,7 @@ public class RequestService {
 
         // If the team was marked as failed (DONE with CQI=0) during git analysis,
         // emit as AI_UPDATE so the client treats it as a completed team
-        if (gitDto.analysisStatus() == AnalysisStatus.DONE) {
+        if (gitDto.analysisStatus() == TeamAnalysisStatus.DONE) {
             analysisStateService.updateProgress(exerciseId, teamName, "DONE", current);
             emitStatusUpdate(eventEmitter, teamName, "DONE", current, total);
             synchronized (eventEmitter) {
@@ -1192,7 +1195,7 @@ public class RequestService {
         persistCqiComponents(teamParticipation, gitCqiDetails);
         teamParticipation.setCqi(cqi);
         teamParticipation.setIsSuspicious(false);
-        teamParticipation.setAnalysisStatus(AnalysisStatus.DONE);
+        teamParticipation.setAnalysisStatus(TeamAnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
 
         // 4) Build response
@@ -1207,8 +1210,8 @@ public class RequestService {
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
                 team.id(), team.name(), participation.submissionCount(),
-                studentDtos, cqi, false, AnalysisStatus.DONE,
-                finalDetails, null, null, null);
+                studentDtos, cqi, false, TeamAnalysisStatus.DONE,
+                finalDetails, null, null, null, null, null);
     }
 
     /** Emits INIT events for all pending teams. */
@@ -1306,7 +1309,7 @@ public class RequestService {
     // =====================================================================
 
     private void clearDatabaseForExerciseInternal(Long exerciseId) {
-        var participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
+        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
         if (participations.isEmpty()) {
             return;
         }
@@ -1341,7 +1344,7 @@ public class RequestService {
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
 
-            var gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
+            ComponentScoresDTO gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
                     filterResult.chunksToAnalyze(), students.size(), null, null, team.name());
 
             if (gitComponents != null) {
@@ -1396,7 +1399,7 @@ public class RequestService {
             return clearPairProgrammingFields(participation);
         }
 
-        var teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
+        Optional<TeamRepository> teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
         if (teamRepositoryOptional.isEmpty()) {
             return false;
         }
@@ -1459,7 +1462,7 @@ public class RequestService {
             participantDTOs.add(new ParticipantDTO(authorId, student.getLogin(), student.getName(), student.getEmail()));
         }
 
-        var result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs, Map.of(), null);
+        FullCommitMappingResultDTO result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs, Map.of(), null);
         return new HashMap<>(result.commitToAuthor());
     }
 
@@ -1485,15 +1488,6 @@ public class RequestService {
         Double cqi = participation.getCqi();
         Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious() : false;
 
-        // Fallback: recalculate CQI for legacy data (skip for failed teams — their CQI is intentionally 0)
-        if (cqi == null && !Boolean.TRUE.equals(participation.getIsFailed())) {
-            Map<String, Integer> commitCounts = new HashMap<>();
-            students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-            if (!commitCounts.isEmpty()) {
-                cqi = balanceCalculator.calculate(commitCounts);
-            }
-        }
-
         AnalysisMode mode = analysisStateService.getStatus(participation.getExerciseId()).getAnalysisMode();
         CQIResultDTO cqiDetails = reconstructCqiDetails(participation, mode);
 
@@ -1517,22 +1511,22 @@ public class RequestService {
                 continue;
             }
 
-            var existing = teamParticipationRepository.findByParticipation(participation.id());
+            Optional<TeamParticipation> existing = teamParticipationRepository.findByParticipation(participation.id());
 
             if (existing.isPresent()) {
                 TeamParticipation tp = existing.get();
 
                 // Preserve already-analyzed teams with valid CQI
-                if (tp.getCqi() != null && tp.getCqi() > 0 && tp.getAnalysisStatus() == AnalysisStatus.DONE) {
+                if (tp.getCqi() != null && tp.getCqi() > 0 && tp.getAnalysisStatus() == TeamAnalysisStatus.DONE) {
                     continue;
                 }
 
                 if (!isResume) {
-                    tp.setAnalysisStatus(AnalysisStatus.PENDING);
+                    tp.setAnalysisStatus(TeamAnalysisStatus.PENDING);
                     tp.setTutor(ensureTutor(participation.team()));
                     teamParticipationRepository.save(tp);
                 } else if (tp.getAnalysisStatus() == null) {
-                    tp.setAnalysisStatus(AnalysisStatus.PENDING);
+                    tp.setAnalysisStatus(TeamAnalysisStatus.PENDING);
                     teamParticipationRepository.save(tp);
                 }
             } else {
@@ -1542,7 +1536,7 @@ public class RequestService {
                         participation.team().name(), participation.team().shortName(),
                         participation.repositoryUri(), participation.submissionCount());
                 tp.setExerciseId(exerciseId);
-                tp.setAnalysisStatus(AnalysisStatus.PENDING);
+                tp.setAnalysisStatus(TeamAnalysisStatus.PENDING);
                 teamParticipationRepository.save(tp);
 
                 // Save students with basic info so names are visible for pending teams
@@ -1566,7 +1560,7 @@ public class RequestService {
                             team.shortName(), participation.repositoryUri(), participation.submissionCount()));
 
             tp.setExerciseId(exerciseId);
-            tp.setAnalysisStatus(AnalysisStatus.ERROR);
+            tp.setAnalysisStatus(TeamAnalysisStatus.ERROR);
             teamParticipationRepository.save(tp);
         } catch (Exception e) {
             log.error("Failed to mark team {} as failed", participation.team().name(), e);
@@ -1576,10 +1570,10 @@ public class RequestService {
     private void markPendingTeamsAsCancelled(Long exerciseId) {
         try {
             List<TeamParticipation> pendingTeams = teamParticipationRepository
-                    .findAllByExerciseIdAndAnalysisStatus(exerciseId, AnalysisStatus.PENDING);
+                    .findAllByExerciseIdAndAnalysisStatus(exerciseId, TeamAnalysisStatus.PENDING);
 
             for (TeamParticipation team : pendingTeams) {
-                team.setAnalysisStatus(AnalysisStatus.CANCELLED);
+                team.setAnalysisStatus(TeamAnalysisStatus.CANCELLED);
                 teamParticipationRepository.save(team);
             }
 
@@ -1759,7 +1753,7 @@ public class RequestService {
         } else if (mode == AnalysisMode.SIMPLE) {
             weights = cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
         } else {
-            // Legacy fallback: infer from whether effort balance was computed
+            // Null mode fallback: infer from whether effort balance was computed
             boolean hasEffortBalance = participation.getCqiEffortBalance() != null
                     && participation.getCqiEffortBalance() > 0;
             weights = hasEffortBalance
@@ -1878,7 +1872,7 @@ public class RequestService {
             }
 
             // Mark as AI_ANALYZING so a page refresh shows the right state
-            tp.setAnalysisStatus(AnalysisStatus.AI_ANALYZING);
+            tp.setAnalysisStatus(TeamAnalysisStatus.AI_ANALYZING);
             teamParticipationRepository.save(tp);
 
             // Clear previous analyzed chunks so AI re-runs cleanly
@@ -1961,7 +1955,7 @@ public class RequestService {
             tp.setIsFailed(true);
             tp.setCqi(0.0);
             tp.setIsSuspicious(false);
-            tp.setAnalysisStatus(AnalysisStatus.DONE);
+            tp.setAnalysisStatus(TeamAnalysisStatus.DONE);
             // Clear any stale CQI component fields from previous analyses
             tp.setCqiEffortBalance(null);
             tp.setCqiLocBalance(null);

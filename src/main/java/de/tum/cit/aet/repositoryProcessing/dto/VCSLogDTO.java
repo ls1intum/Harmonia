@@ -3,11 +3,11 @@ package de.tum.cit.aet.repositoryProcessing.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
- * DTO for a VCS Log entry.
+ * DTO for a VCS log entry.
  *
- * @param email                The email of the committer.
- * @param repositoryActionType The type of action performed in the repository.
- * @param commitHash           The hash of the commit.
+ * @param email                the committer's email
+ * @param repositoryActionType the type of repository action performed
+ * @param commitHash           the commit SHA hash
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record VCSLogDTO(

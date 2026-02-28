@@ -42,7 +42,6 @@ export const TeamSummaryDTOAnalysisStatusEnum = {
   GitAnalyzing: 'GIT_ANALYZING',
   GitDone: 'GIT_DONE',
   AiAnalyzing: 'AI_ANALYZING',
-  Analyzing: 'ANALYZING',
   Done: 'DONE',
   Error: 'ERROR',
   Cancelled: 'CANCELLED',

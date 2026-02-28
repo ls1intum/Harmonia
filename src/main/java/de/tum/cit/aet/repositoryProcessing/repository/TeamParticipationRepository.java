@@ -62,5 +62,5 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
      * @return list of pending TeamParticipation entities
      */
     List<TeamParticipation> findAllByExerciseIdAndAnalysisStatus(Long exerciseId,
-            de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus status);
+            de.tum.cit.aet.repositoryProcessing.domain.TeamAnalysisStatus status);
 }

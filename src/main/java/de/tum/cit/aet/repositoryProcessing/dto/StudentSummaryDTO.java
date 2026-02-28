@@ -4,7 +4,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
  * Lean student DTO for the teams summary endpoint.
- * Contains only the fields needed for the Teams list page.
+ *
+ * @param name         the student's display name
+ * @param commitCount  number of commits
+ * @param linesAdded   lines added
+ * @param linesDeleted lines deleted
+ * @param linesChanged total lines changed
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record StudentSummaryDTO(

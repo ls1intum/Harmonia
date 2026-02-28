@@ -34,8 +34,6 @@
             <column name="cqi_pair_programming" type="DOUBLE"/>
             <column name="cqi_pair_programming_status" type="VARCHAR(255)"/>
             <column name="cqi_base_score" type="DOUBLE"/>
-            <column name="cqi_penalty_multiplier" type="DOUBLE"/>
-            <column name="cqi_penalties" type="TEXT"/>
 
             <!-- LLM token usage aggregate columns -->
             <column name="llm_calls" type="BIGINT"/>
@@ -74,15 +72,6 @@
         </createTable>
     </changeSet>
 
-    <!-- initial-schema-c: teamanalysis table (reserved) -->
-    <changeSet id="initial-schema-c" author="Cathy">
-        <createTable tableName="teamanalysis">
-            <column name="team_analysis_id" type="UUID">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_teamanalysis"/>
-            </column>
-        </createTable>
-    </changeSet>
-
     <!-- initial-schema-d: teamrepository table and constraint -->
     <changeSet id="initial-schema-d" author="Cathy">
         <createTable tableName="teamrepository">
@@ -110,15 +99,6 @@
             <column name="login" type="VARCHAR(255)"/>
             <column name="name" type="VARCHAR(255)"/>
             <column name="email" type="VARCHAR(255)"/>
-        </createTable>
-    </changeSet>
-
-    <!-- initial-schema-f: user table -->
-    <changeSet id="initial-schema-f" author="Cathy">
-        <createTable tableName="user">
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_user"/>
-            </column>
         </createTable>
     </changeSet>
 

@@ -12,7 +12,6 @@ import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,10 +48,10 @@ public class ExportService {
      * @param format     the desired output format ({@link ExportFormat#EXCEL} or {@link ExportFormat#JSON})
      * @param include    set of data scopes to include (e.g. "teams", "students", "chunks", "commits")
      * @return the serialized file content as a byte array
-     * @throws IOException if serialization fails
+     * @throws java.io.UncheckedIOException if serialization fails
      */
     @Transactional(readOnly = true)
-    public byte[] exportData(Long exerciseId, ExportFormat format, Set<String> include) throws IOException {
+    public byte[] exportData(Long exerciseId, ExportFormat format, Set<String> include) {
         // 1) Load all team participations for the exercise
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
 

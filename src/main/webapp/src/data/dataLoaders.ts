@@ -77,7 +77,8 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
           description: 'Are files owned by multiple team members?',
           details: 'Measures how well files are shared among team members (based on git blame analysis).',
         },
-        ...(showPairProgramming
+      ].concat(
+        showPairProgramming
           ? [
               {
                 name: 'Pair Programming',
@@ -98,16 +99,15 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
                 status: pairProgrammingStatus as 'FOUND' | 'NOT_FOUND' | 'WARNING',
               },
             ]
-          : []),
-      ]
+          : [],
+      )
     : undefined;
 
-  return {
-    ...dto,
+  return Object.assign({}, dto, {
     cqi,
     isSuspicious,
     subMetrics,
-  };
+  });
 }
 
 /**
@@ -201,7 +201,7 @@ export function loadBasicTeamDataStream(
       } else if (data.type === 'GIT_UPDATE') {
         // Git analysis complete for this team - has commits/lines but no CQI
         const team = transformToComplexTeamData(data.data);
-        onUpdate({ ...team, analysisStatus: 'GIT_DONE', cqi: undefined, isSuspicious: undefined });
+        onUpdate(Object.assign({}, team, { analysisStatus: 'GIT_DONE', cqi: undefined, isSuspicious: undefined }));
       } else if (data.type === 'GIT_DONE') {
         // All git analysis complete
         if (onGitDone) {
@@ -227,7 +227,7 @@ export function loadBasicTeamDataStream(
       } else if (data.type === 'AI_UPDATE') {
         // AI analysis complete for this team - has CQI
         const team = transformToComplexTeamData(data.data);
-        onUpdate({ ...team, analysisStatus: 'DONE' });
+        onUpdate(Object.assign({}, team, { analysisStatus: 'DONE' }));
       } else if (data.type === 'AI_ERROR') {
         // AI analysis failed for this team - keep git data
         onUpdate({
@@ -236,16 +236,6 @@ export function loadBasicTeamDataStream(
           analysisStatus: 'GIT_DONE' as const,
           cqi: undefined,
         });
-      } else if (data.type === 'ANALYZING') {
-        // Legacy: A specific team is now being analyzed - update its status
-        onUpdate({
-          teamId: data.teamId,
-          teamName: data.teamName,
-          analysisStatus: 'ANALYZING' as const,
-        });
-      } else if (data.type === 'UPDATE') {
-        // Legacy: Server sends ClientResponseDTO with CQI and isSuspicious
-        onUpdate(transformToComplexTeamData(data.data));
       } else if (data.type === 'DONE') {
         eventSource.close();
         onComplete();
@@ -255,7 +245,6 @@ export function loadBasicTeamDataStream(
         onComplete();
       } else if (data.type === 'ALREADY_RUNNING') {
         // Analysis is already running (started by another user or before refresh)
-        console.log('Analysis already running, switching to polling mode');
         eventSource.close();
         onError(new Error('ALREADY_RUNNING'));
       } else if (data.type === 'STATUS') {
@@ -267,13 +256,11 @@ export function loadBasicTeamDataStream(
         });
       }
     } catch (e) {
-      console.error('Error parsing SSE event:', e);
       onError(e);
     }
   };
 
   eventSource.onerror = error => {
-    console.error('SSE Error:', error);
     eventSource.close();
     onError(error);
   };

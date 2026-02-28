@@ -92,8 +92,8 @@ public class EmailMappingResource {
             @PathVariable Long exerciseId,
             @RequestBody CreateEmailMappingRequest request) {
 
-        log.info("Creating email mapping: {} -> studentId {} for exercise {}",
-                request.gitEmail(), request.studentId(), exerciseId);
+        log.info("POST createMapping for exerciseId={}, gitEmail={}, studentId={}",
+                exerciseId, request.gitEmail(), request.studentId());
 
         // 1. Find the team participation (must exist before we resolve the student ID)
         TeamParticipation participation = teamParticipationRepository
@@ -170,8 +170,8 @@ public class EmailMappingResource {
         ExerciseEmailMapping mapping = emailMappingRepository.findById(mappingId)
                 .orElseThrow(() -> new IllegalArgumentException("Mapping not found: " + mappingId));
 
-        log.info("Removing email mapping: {} -> studentId {} for exercise {}",
-                mapping.getGitEmail(), mapping.getStudentId(), exerciseId);
+        log.info("DELETE deleteMapping for exerciseId={}, gitEmail={}, studentId={}",
+                exerciseId, mapping.getGitEmail(), mapping.getStudentId());
 
         emailMappingRepository.delete(mapping);
 
@@ -255,7 +255,7 @@ public class EmailMappingResource {
             @RequestBody TemplateAuthorDTO request) {
 
         String newEmail = request.templateEmail().toLowerCase(Locale.ROOT);
-        log.info("Setting template author for exercise {}: {}", exerciseId, newEmail);
+        log.info("PUT setTemplateAuthor for exerciseId={}, email={}", exerciseId, newEmail);
 
         // Load or create template author entity
         ExerciseTemplateAuthor ta = templateAuthorRepository.findByExerciseId(exerciseId)
@@ -325,7 +325,7 @@ public class EmailMappingResource {
         }
 
         String oldEmail = ta.getTemplateEmail().toLowerCase(Locale.ROOT);
-        log.info("Removing template author for exercise {}: {}", exerciseId, oldEmail);
+        log.info("DELETE deleteTemplateAuthor for exerciseId={}, email={}", exerciseId, oldEmail);
         templateAuthorRepository.delete(ta);
 
         // Recalculate CQI for all teams — old template chunks stay as external/orphan
@@ -465,7 +465,8 @@ public class EmailMappingResource {
                 loadAnalyzedChunkDTOs(participation),
                 null, // orphan commits not persisted
                 readTeamTokenTotals(participation),
-                participation.getOrphanCommitCount());
+                participation.getOrphanCommitCount(),
+                participation.getIsFailed());
     }
 
     private List<AnalyzedChunkDTO> loadAnalyzedChunkDTOs(TeamParticipation participation) {

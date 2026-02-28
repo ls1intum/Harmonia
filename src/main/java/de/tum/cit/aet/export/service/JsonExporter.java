@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.tum.cit.aet.export.dto.ExportData;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 /**
  * Utility class that serializes {@link ExportData} into pretty-printed JSON.
@@ -26,9 +27,13 @@ public final class JsonExporter {
      *
      * @param data the collected export data
      * @return the JSON content as a byte array
-     * @throws IOException if serialization fails
+     * @throws UncheckedIOException if serialization fails
      */
-    public static byte[] export(ExportData data) throws IOException {
-        return MAPPER.writeValueAsBytes(data);
+    public static byte[] export(ExportData data) {
+        try {
+            return MAPPER.writeValueAsBytes(data);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to generate JSON export", e);
+        }
     }
 }

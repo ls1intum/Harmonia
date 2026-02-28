@@ -56,7 +56,7 @@ public class TeamParticipation {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "analysis_status")
-    private AnalysisStatus analysisStatus;
+    private TeamAnalysisStatus analysisStatus;
 
     // CQI component fields for persistence
     @Column(name = "cqi_effort_balance")

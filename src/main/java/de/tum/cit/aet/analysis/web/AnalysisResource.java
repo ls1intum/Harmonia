@@ -61,7 +61,7 @@ public class AnalysisResource {
      */
     @PostMapping("/{exerciseId}/cancel")
     public ResponseEntity<AnalysisStatusDTO> cancelAnalysis(@PathVariable Long exerciseId) {
-        log.info("Cancel requested for exercise: {}", exerciseId);
+        log.info("POST cancelAnalysis for exerciseId={}", exerciseId);
 
         // First, stop the active executor to interrupt running threads
         requestService.stopAnalysis(exerciseId);
@@ -84,7 +84,7 @@ public class AnalysisResource {
             @PathVariable Long exerciseId,
             @RequestParam(defaultValue = "both") String type,
             @RequestParam(defaultValue = "false") boolean clearMappings) {
-        log.info("Clear requested for exercise: {}, type: {}, clearMappings: {}", exerciseId, type, clearMappings);
+        log.info("DELETE clearData for exerciseId={}, type={}, clearMappings={}", exerciseId, type, clearMappings);
 
         try {
             // First, stop any running analysis task to prevent it from continuing
@@ -93,28 +93,28 @@ public class AnalysisResource {
             // Clear attendance data so pair programming metric won't show on next analysis
             // unless a new Excel file is uploaded
             pairProgrammingService.clear();
-            log.info("Attendance data cleared");
+            log.info("Attendance data cleared for exerciseId={}", exerciseId);
 
             if ("db".equals(type) || "both".equals(type)) {
                 requestService.clearDatabaseForExercise(exerciseId);
                 stateService.resetStatus(exerciseId);
-                log.info("Database cleared for exercise {}", exerciseId);
+                log.info("Database cleared for exerciseId={}", exerciseId);
 
                 if (clearMappings) {
                     emailMappingRepository.deleteAllByExerciseId(exerciseId);
                     templateAuthorRepository.deleteByExerciseId(exerciseId);
-                    log.info("Email mappings and template author cleared for exercise {}", exerciseId);
+                    log.info("Email mappings and template author cleared for exerciseId={}", exerciseId);
                 }
             }
 
             if ("files".equals(type) || "both".equals(type)) {
                 clearRepositoryFiles();
-                log.info("Repository files cleared");
+                log.info("Repository files cleared for exerciseId={}", exerciseId);
             }
 
             return ResponseEntity.ok("Data cleared successfully");
         } catch (Exception e) {
-            log.error("Failed to clear data for exercise {}", exerciseId, e);
+            log.error("Failed to clear data for exerciseId={}", exerciseId, e);
             return ResponseEntity.internalServerError().body("Failed to clear data: " + e.getMessage());
         }
     }
@@ -129,13 +129,13 @@ public class AnalysisResource {
     @PostMapping("/{exerciseId}/teams/{teamId}/compute-ai")
     public ResponseEntity<ClientResponseDTO> computeAiForTeam(
             @PathVariable Long exerciseId, @PathVariable Long teamId) {
-        log.info("Compute AI requested for exercise {} team {}", exerciseId, teamId);
+        log.info("POST computeAiForTeam for exerciseId={}, teamId={}", exerciseId, teamId);
         return requestService.runSingleTeamAIAnalysis(exerciseId, teamId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    private void clearRepositoryFiles() throws IOException {
+    private void clearRepositoryFiles() {
         // Clear ~/.harmonia/repos
         Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");
         deleteDirectoryContents(reposDir, "~/.harmonia/repos");
@@ -145,7 +145,7 @@ public class AnalysisResource {
         deleteDirectoryContents(projectsDir, "Projects");
     }
 
-    private void deleteDirectoryContents(Path dir, String dirName) throws IOException {
+    private void deleteDirectoryContents(Path dir, String dirName) {
         if (Files.exists(dir)) {
             log.info("Clearing directory: {}", dir.toAbsolutePath());
             try (Stream<Path> walk = Files.walk(dir)) {
@@ -158,6 +158,8 @@ public class AnalysisResource {
                                 log.warn("Failed to delete {}: {}", path, e.getMessage());
                             }
                         });
+            } catch (IOException e) {
+                log.error("Failed to walk directory {}: {}", dirName, e.getMessage());
             }
             log.info("Cleared {} successfully", dirName);
         } else {

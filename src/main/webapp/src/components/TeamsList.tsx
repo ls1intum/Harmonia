@@ -246,11 +246,7 @@ const TeamsList = ({
 
     return (
       <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
-        {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
-          ? 'Pending'
-          : team.analysisStatus === 'GIT_ANALYZING'
-            ? 'Git Analysis'
-            : 'Analyzing'}
+        {team.analysisStatus === 'GIT_ANALYZING' ? 'Git Analysis' : 'Pending'}
       </Badge>
     );
   };
@@ -267,7 +263,6 @@ const TeamsList = ({
       case 'GIT_DONE':
         return 3; // Git analysis done, waiting for AI
       case 'GIT_ANALYZING':
-      case 'ANALYZING':
         return 4; // Currently analyzing
       case 'PENDING':
       case 'DOWNLOADING':
@@ -282,7 +277,7 @@ const TeamsList = ({
   };
 
   const sortedAndFilteredTeams = useMemo(() => {
-    let filtered = [...teams];
+    let filtered = teams.slice();
 
     // Apply text search filter
     if (searchQuery.trim()) {
@@ -306,7 +301,7 @@ const TeamsList = ({
       }
     }
 
-    // First, sort by analysis status priority (ANALYZING > PENDING > DONE)
+    // First, sort by analysis status priority (DONE first, then in-progress, then pending)
     filtered.sort((a, b) => {
       const aPriority = getStatusPriority(a);
       const bPriority = getStatusPriority(b);
@@ -353,7 +348,7 @@ const TeamsList = ({
       [0, 1, 2, 3, 4, 5, 6, 7].forEach(priority => {
         const group = statusGroups.get(priority);
         if (group) {
-          filtered.push(...group);
+          filtered = filtered.concat(group);
         }
       });
     }
@@ -892,14 +887,18 @@ const TeamsList = ({
                     </td>
                     <td className="py-4 px-6">
                       {team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' ? (
-                        <div className="space-y-1">
-                          <p className="font-medium">{computeBasicMetrics(team.students).totalCommits}</p>
-                          <p className="text-xs text-muted-foreground">{computeBasicMetrics(team.students).totalLines} lines</p>
-                        </div>
+                        (() => {
+                          const metrics = computeBasicMetrics(team.students);
+                          return (
+                            <div className="space-y-1">
+                              <p className="font-medium">{metrics.totalCommits}</p>
+                              <p className="text-xs text-muted-foreground">{metrics.totalLines} lines</p>
+                            </div>
+                          );
+                        })()
                       ) : team.analysisStatus === 'PENDING' ||
                         team.analysisStatus === 'DOWNLOADING' ||
-                        team.analysisStatus === 'GIT_ANALYZING' ||
-                        team.analysisStatus === 'ANALYZING' ? (
+                        team.analysisStatus === 'GIT_ANALYZING' ? (
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Analyzing...' : 'Pending'}</span>
                         </div>
@@ -935,13 +934,7 @@ const TeamsList = ({
                         <span className="text-sm text-muted-foreground">Cancelled</span>
                       ) : (
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <span className="text-sm">
-                            {team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING'
-                              ? 'Pending'
-                              : team.analysisStatus === 'GIT_ANALYZING'
-                                ? 'Git Analysis...'
-                                : 'Analyzing...'}
-                          </span>
+                          <span className="text-sm">{team.analysisStatus === 'GIT_ANALYZING' ? 'Git Analysis...' : 'Pending'}</span>
                         </div>
                       )}
                     </td>

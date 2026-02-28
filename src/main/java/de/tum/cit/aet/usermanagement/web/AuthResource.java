@@ -41,7 +41,7 @@ public class AuthResource {
      */
     @PostMapping("/login")
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
-        log.info("POST /api/auth/login for server {}", loginRequest.serverUrl());
+        log.info("POST login for serverUrl={}", loginRequest.serverUrl());
 
         // 1) Delegate authentication and cookie creation to the service
         List<ResponseCookie> cookies = authService.login(loginRequest, isSecureCookies);

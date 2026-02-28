@@ -127,14 +127,15 @@ const TeamDetail = ({
     onMutate: () => {
       // Optimistically show AI_ANALYZING state so all sections reflect computing
       if (onTeamUpdate) {
-        onTeamUpdate({
-          ...team,
-          analysisStatus: 'AI_ANALYZING',
-          cqi: undefined,
-          isSuspicious: undefined,
-          subMetrics: undefined,
-          analysisHistory: undefined,
-        });
+        onTeamUpdate(
+          Object.assign({}, team, {
+            analysisStatus: 'AI_ANALYZING',
+            cqi: undefined,
+            isSuspicious: undefined,
+            subMetrics: undefined,
+            analysisHistory: undefined,
+          }),
+        );
       }
     },
     onSuccess: data => {
@@ -230,10 +231,16 @@ const TeamDetail = ({
       fromServer = fromServer.map(m => {
         if (m.name !== 'Effort Balance') return m;
         if (isAiComputing) {
-          return { ...m, value: -1, details: 'AI analysis is in progress. This metric will be available when computation completes.' };
+          return Object.assign({}, m, {
+            value: -1,
+            details: 'AI analysis is in progress. This metric will be available when computation completes.',
+          });
         }
         if (isSimpleMode) {
-          return { ...m, value: -5, details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.' };
+          return Object.assign({}, m, {
+            value: -5,
+            details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
+          });
         }
         return m;
       });
@@ -277,7 +284,7 @@ const TeamDetail = ({
                   details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
                   status: 'NOT_FOUND',
                 };
-      return [...fromServer, synthetic];
+      return fromServer.concat(synthetic);
     }
     return fromServer;
   }, [team.subMetrics, pairProgrammingBadgeStatus, isSimpleMode, hasAiResult, isAiComputing]);

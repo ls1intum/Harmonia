@@ -69,12 +69,6 @@ public class CommitChunkerService {
         public int totalLinesChanged() {
             return fileChanges.stream().mapToInt(f -> f.linesAdded + f.linesDeleted).sum();
         }
-
-        /** Convenience constructor without detection flags. */
-        public RawCommitData(String sha, Long authorId, String authorEmail, String message,
-                             LocalDateTime timestamp, List<FileChange> fileChanges) {
-            this(sha, authorId, authorEmail, message, timestamp, fileChanges, false, false, false);
-        }
     }
 
     /**
@@ -90,11 +84,6 @@ public class CommitChunkerService {
 
         public int totalLines() {
             return linesAdded + linesDeleted;
-        }
-
-        /** Convenience constructor without detection flags. */
-        public FileChange(String filePath, String diffContent, int linesAdded, int linesDeleted) {
-            this(filePath, diffContent, linesAdded, linesDeleted, false, 0);
         }
     }
 
@@ -318,7 +307,7 @@ public class CommitChunkerService {
     // ── Bundling ─────────────────────────────────────────────────────────
 
     /**
-     * Bundles small commits ({@code ≤30 LoC}) from the same author within 60 minutes.
+     * Bundles small commits from the same author within 60 minutes.
      */
     private List<RawCommitData> bundleSmallCommits(List<RawCommitData> commits) {
         if (commits.isEmpty()) {
@@ -393,7 +382,7 @@ public class CommitChunkerService {
     // ── Chunking ─────────────────────────────────────────────────────────
 
     /**
-     * Chunks a single commit into {@code ≤500 LoC} pieces.
+     * Chunks a single commit into pieces.
      */
     private List<CommitChunkDTO> chunkCommit(RawCommitData commit) {
         if (commit.totalLinesChanged() <= MAX_LINES_PER_CHUNK) {

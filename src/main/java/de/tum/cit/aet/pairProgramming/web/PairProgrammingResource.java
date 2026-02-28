@@ -64,7 +64,7 @@ public class PairProgrammingResource {
             @RequestParam(value = "username", required = false) String requestUsername,
             @RequestParam(value = "password", required = false) String requestPassword
     ) {
-        log.info("Attendance upload requested for exercise {} (course={})", exerciseId, courseId);
+        log.info("POST uploadAttendance for exerciseId={}, courseId={}", exerciseId, courseId);
 
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().build();
@@ -76,7 +76,7 @@ public class PairProgrammingResource {
                 requestServerUrl, requestUsername, requestPassword);
 
         if (!credentials.isValid()) {
-            log.warn("No valid credentials found for attendance upload");
+            log.warn("Authentication required for uploadAttendance (exerciseId={})", exerciseId);
             return ResponseEntity.status(401).build();
         }
 
@@ -98,7 +98,7 @@ public class PairProgrammingResource {
     public ResponseEntity<String> clearAttendance(@RequestParam("exerciseId") Long exerciseId) {
         pairProgrammingService.clear();
         int updatedTeams = requestService.clearPairProgrammingForExercise(exerciseId);
-        log.info("Cleared attendance and pair programming metrics for exercise {} ({} teams updated)", exerciseId, updatedTeams);
+        log.info("DELETE clearAttendance for exerciseId={}, teamsUpdated={}", exerciseId, updatedTeams);
         return ResponseEntity.ok("Attendance cleared successfully");
     }
 }

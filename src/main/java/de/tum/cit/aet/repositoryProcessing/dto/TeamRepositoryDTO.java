@@ -7,11 +7,11 @@ import java.util.List;
 /**
  * DTO representing a team's repository information and analysis results.
  *
- * @param participation The participation details, including the team and repository URI.
- * @param vcsLogs       A list of VCS log entries associated with the repository.
- * @param localPath     The path to the local copy of the repository, if successfully cloned.
- * @param isCloned      A flag indicating whether the repository was successfully cloned locally.
- * @param error         Any error message encountered during processing (e.g., cloning failure).
+ * @param participation the participation details including team and repository URI
+ * @param vcsLogs       list of VCS log entries associated with the repository
+ * @param localPath     local filesystem path of the cloned repository
+ * @param isCloned      whether the repository was successfully cloned
+ * @param error         error message if processing failed (e.g. cloning failure)
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TeamRepositoryDTO(

@@ -159,8 +159,6 @@ public class ContributionFairnessService {
 
             // 8) Build report
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Fairness analysis completed for team {}: CQI={}, chunks={}, duration={}ms",
-                    teamName, String.format("%.1f", cqiResult.cqi()), chunksToAnalyze.size(), duration);
 
             Map<String, String> emailToName = buildEmailToNameMap(teamMembers);
             FairnessReportDTO report = buildReport(teamName, cqiResult.cqi(), authorStats, effortShare,

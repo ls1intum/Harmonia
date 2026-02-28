@@ -8,6 +8,27 @@ import java.util.List;
  * DTO representing a single analyzed chunk sent to the client.
  * Contains the AI's classification, reasoning, and the commits that were
  * analyzed together.
+ *
+ * @param id                    unique chunk identifier
+ * @param authorEmail           the chunk author's email
+ * @param authorName            the chunk author's display name
+ * @param classification        AI classification label
+ * @param effortScore           effort score (1-10)
+ * @param complexity            complexity score (1-10)
+ * @param novelty               novelty score (1-10)
+ * @param confidence            AI confidence (0.0-1.0)
+ * @param reasoning             AI reasoning explanation
+ * @param commitShas            list of commit SHAs in this chunk
+ * @param commitMessages        list of commit messages in this chunk
+ * @param timestamp             chunk timestamp (earliest if bundled)
+ * @param linesChanged          total lines changed
+ * @param isBundled             whether multiple commits were bundled together
+ * @param chunkIndex            index of this chunk within a split commit
+ * @param totalChunks           total chunks for the parent commit
+ * @param isError               whether AI analysis failed for this chunk
+ * @param errorMessage          error message if analysis failed
+ * @param isExternalContributor whether the author is an external contributor
+ * @param llmTokenUsage         token usage metadata for this chunk's analysis
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record AnalyzedChunkDTO(
@@ -31,38 +52,6 @@ public record AnalyzedChunkDTO(
                 String errorMessage,
                 boolean isExternalContributor,
                 LlmTokenUsageDTO llmTokenUsage) {
-
-        /**
-         * Constructor for backward compatibility without isExternalContributor.
-         */
-        public AnalyzedChunkDTO(
-                        String id, String authorEmail, String authorName,
-                        String classification, double effortScore, double complexity, double novelty,
-                        double confidence, String reasoning,
-                        List<String> commitShas, List<String> commitMessages,
-                        LocalDateTime timestamp, int linesChanged,
-                        boolean isBundled, int chunkIndex, int totalChunks,
-                        boolean isError, String errorMessage) {
-                this(id, authorEmail, authorName, classification, effortScore, complexity, novelty,
-                        confidence, reasoning, commitShas, commitMessages, timestamp, linesChanged,
-                        isBundled, chunkIndex, totalChunks, isError, errorMessage, false, null);
-        }
-
-        /**
-         * Constructor for backward compatibility without llmTokenUsage.
-         */
-        public AnalyzedChunkDTO(
-                        String id, String authorEmail, String authorName,
-                        String classification, double effortScore, double complexity, double novelty,
-                        double confidence, String reasoning,
-                        List<String> commitShas, List<String> commitMessages,
-                        LocalDateTime timestamp, int linesChanged,
-                        boolean isBundled, int chunkIndex, int totalChunks,
-                        boolean isError, String errorMessage, boolean isExternalContributor) {
-                this(id, authorEmail, authorName, classification, effortScore, complexity, novelty,
-                        confidence, reasoning, commitShas, commitMessages, timestamp, linesChanged,
-                        isBundled, chunkIndex, totalChunks, isError, errorMessage, isExternalContributor, null);
-        }
 
         /**
          * Creates a simple chunk for a single commit analysis.

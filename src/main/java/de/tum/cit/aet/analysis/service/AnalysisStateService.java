@@ -60,25 +60,12 @@ public class AnalysisStateService {
     }
 
     /**
-     * Start an analysis for the given exercise. Always starts fresh.
+     * Start an analysis for the given exercise with a specific analysis mode. Always starts fresh.
      *
-     * @param exerciseId The ID of the exercise
-     * @param totalTeams The total number of teams to process
-     * @return The updated analysis status
-     * @throws IllegalStateException if analysis is already running
-     */
-    @Transactional
-    public AnalysisStatus startAnalysis(Long exerciseId, int totalTeams) {
-        return startAnalysis(exerciseId, totalTeams, AnalysisMode.FULL);
-    }
-
-    /**
-     * Start an analysis for the given exercise with a specific analysis mode.
-     *
-     * @param exerciseId The ID of the exercise
-     * @param totalTeams The total number of teams to process
-     * @param mode       The analysis mode (SIMPLE for git-only, FULL for git + AI)
-     * @return The updated analysis status
+     * @param exerciseId the exercise ID
+     * @param totalTeams the total number of teams to process
+     * @param mode       the analysis mode (SIMPLE for git-only, FULL for git + AI)
+     * @return the updated analysis status
      * @throws IllegalStateException if analysis is already running
      */
     @Transactional

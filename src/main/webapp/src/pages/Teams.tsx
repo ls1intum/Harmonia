@@ -23,7 +23,9 @@ type NullableAttendanceMap = Record<string, boolean | null>;
 const hasCancelledSessionAttendance = (attendance?: TeamAttendanceDTO): boolean => {
   const student1Attendance = (attendance?.student1Attendance ?? {}) as NullableAttendanceMap;
   const student2Attendance = (attendance?.student2Attendance ?? {}) as NullableAttendanceMap;
-  return [...Object.values(student1Attendance), ...Object.values(student2Attendance)].some(value => value === null);
+  return Object.values(student1Attendance)
+    .concat(Object.values(student2Attendance))
+    .some(value => value === null);
 };
 
 const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairProgrammingAttendanceMap => {
@@ -212,17 +214,17 @@ export default function Teams() {
             queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
               const exists = old.some(t => t.teamId === team.teamId);
               if (exists) return old;
-              return [...old, team];
+              return old.concat(team);
             });
           },
-          // onUpdate: Update existing team with new data (merge for partial updates like ANALYZING)
+          // onUpdate: Update existing team with new data
           update => {
             queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
               const existing = old.find(t => t.teamId === update.teamId);
               if (existing) {
-                return old.map(t => (t.teamId === update.teamId ? { ...t, ...update } : t));
+                return old.map(t => (t.teamId === update.teamId ? Object.assign({}, t, update) : t));
               }
-              return [...old, update as TeamDTO];
+              return old.concat(update as TeamDTO);
             });
           },
           () => {
@@ -238,15 +240,16 @@ export default function Teams() {
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
           statusUpdate => {
-            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) => ({
-              ...old,
-              state: 'RUNNING' as const,
-              analysisMode: mode,
-              processedTeams: statusUpdate.processedTeams,
-              totalTeams: statusUpdate.totalTeams,
-              currentTeamName: statusUpdate.currentTeamName,
-              currentStage: statusUpdate.currentStage,
-            }));
+            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
+              Object.assign({}, old, {
+                state: 'RUNNING' as const,
+                analysisMode: mode,
+                processedTeams: statusUpdate.processedTeams,
+                totalTeams: statusUpdate.totalTeams,
+                currentTeamName: statusUpdate.currentTeamName,
+                currentStage: statusUpdate.currentStage,
+              }),
+            );
           },
         );
       });
@@ -276,10 +279,9 @@ export default function Teams() {
   const cancelMutation = useMutation({
     mutationFn: async () => {
       // Optimistically update status to CANCELLED immediately
-      queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) => ({
-        ...old,
-        state: 'CANCELLED' as const,
-      }));
+      queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
+        Object.assign({}, old, { state: 'CANCELLED' as const }),
+      );
       toast({ title: 'Cancelling analysis...' });
       return cancelAnalysis(exercise);
     },
@@ -322,16 +324,16 @@ export default function Teams() {
             queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
               const exists = old.some(t => t.teamId === team.teamId);
               if (exists) return old;
-              return [...old, team];
+              return old.concat(team);
             });
           },
           update => {
             queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
               const existing = old.find(t => t.teamId === update.teamId);
               if (existing) {
-                return old.map(t => (t.teamId === update.teamId ? { ...t, ...update } : t));
+                return old.map(t => (t.teamId === update.teamId ? Object.assign({}, t, update) : t));
               }
-              return [...old, update as TeamDTO];
+              return old.concat(update as TeamDTO);
             });
           },
           () => {
@@ -347,15 +349,16 @@ export default function Teams() {
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
           statusUpdate => {
-            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) => ({
-              ...old,
-              state: 'RUNNING' as const,
-              analysisMode: mode,
-              processedTeams: statusUpdate.processedTeams,
-              totalTeams: statusUpdate.totalTeams,
-              currentTeamName: statusUpdate.currentTeamName,
-              currentStage: statusUpdate.currentStage,
-            }));
+            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
+              Object.assign({}, old, {
+                state: 'RUNNING' as const,
+                analysisMode: mode,
+                processedTeams: statusUpdate.processedTeams,
+                totalTeams: statusUpdate.totalTeams,
+                currentTeamName: statusUpdate.currentTeamName,
+                currentStage: statusUpdate.currentStage,
+              }),
+            );
           },
         );
       });

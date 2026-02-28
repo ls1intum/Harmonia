@@ -7,6 +7,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 /**
  * Utility class that serializes {@link ExportData} into an Excel workbook (.xlsx).
@@ -22,9 +23,9 @@ public final class ExcelExporter {
      *
      * @param data the collected export data
      * @return the XLSX content as a byte array
-     * @throws IOException if writing the workbook fails
+     * @throws UncheckedIOException if writing the workbook fails
      */
-    public static byte[] export(ExportData data) throws IOException {
+    public static byte[] export(ExportData data) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             // 1) Write each data scope into its own sheet
             writeTeamsSheet(workbook, data);
@@ -36,6 +37,8 @@ public final class ExcelExporter {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to generate Excel export", e);
         }
     }
 

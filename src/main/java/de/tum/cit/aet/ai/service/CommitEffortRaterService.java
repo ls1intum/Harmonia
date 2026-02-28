@@ -25,7 +25,6 @@ public class CommitEffortRaterService {
     private final ChatClient chatClient;
     private final AiProperties aiProperties;
 
-    private static final double LOW_CONFIDENCE_THRESHOLD = 0.7;
     private static final int MAX_DIFF_CHARS = 10_000;
 
     private static final String EFFORT_RATING_PROMPT = """
@@ -122,10 +121,6 @@ public class CommitEffortRaterService {
             }
 
             EffortRatingDTO rating = parseJsonWithRepair(rawResponse, chunk.commitSha());
-
-            if (rating.confidence() < LOW_CONFIDENCE_THRESHOLD) {
-                log.warn("Low confidence ({}) for commit {}", rating.confidence(), chunk.commitSha());
-            }
 
             return new RatingWithUsage(rating, tokenUsage);
 

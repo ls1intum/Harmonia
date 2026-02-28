@@ -5,6 +5,12 @@ import org.springframework.data.domain.Sort;
 
 import java.util.Set;
 
+/**
+ * Sorting parameters for sorted API requests.
+ *
+ * @param sortBy    the field name to sort by
+ * @param direction the sort direction (ASC or DESC)
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record SortDTO(String sortBy, Direction direction) {
     public enum Direction {
