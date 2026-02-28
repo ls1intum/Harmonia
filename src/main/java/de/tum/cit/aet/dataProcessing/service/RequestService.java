@@ -876,7 +876,7 @@ public class RequestService {
 
         Tutor tutor = teamParticipation.getTutor();
         Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
-        CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation);
+        CQIResultDTO finalCqiDetails = reconstructCqiDetails(teamParticipation, AnalysisMode.FULL);
         if (finalCqiDetails == null) {
             finalCqiDetails = cqiDetails;
         }
@@ -1202,7 +1202,7 @@ public class RequestService {
                 .toList();
 
         Tutor tutor = teamParticipation.getTutor();
-        CQIResultDTO finalDetails = simpleCqiDetails != null ? simpleCqiDetails : reconstructCqiDetails(teamParticipation);
+        CQIResultDTO finalDetails = simpleCqiDetails != null ? simpleCqiDetails : reconstructCqiDetails(teamParticipation, AnalysisMode.SIMPLE);
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
@@ -1494,7 +1494,8 @@ public class RequestService {
             }
         }
 
-        CQIResultDTO cqiDetails = reconstructCqiDetails(participation);
+        AnalysisMode mode = analysisStateService.getStatus(participation.getExerciseId()).getAnalysisMode();
+        CQIResultDTO cqiDetails = reconstructCqiDetails(participation, mode);
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
@@ -1737,7 +1738,7 @@ public class RequestService {
         }
     }
 
-    private CQIResultDTO reconstructCqiDetails(TeamParticipation participation) {
+    private CQIResultDTO reconstructCqiDetails(TeamParticipation participation, AnalysisMode mode) {
         if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
                 && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
             return null;
@@ -1751,12 +1752,20 @@ public class RequestService {
                 participation.getCqiPairProgramming(),
                 participation.getCqiPairProgrammingStatus());
 
-        // If effort balance was not computed (no AI), use renormalized weights
-        boolean hasEffortBalance = participation.getCqiEffortBalance() != null
-                && participation.getCqiEffortBalance() > 0;
-        ComponentWeightsDTO weights = hasEffortBalance
-                ? cqiCalculatorService.buildWeightsDTO()
-                : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+        // Determine weights based on analysis mode
+        ComponentWeightsDTO weights;
+        if (mode == AnalysisMode.FULL) {
+            weights = cqiCalculatorService.buildWeightsDTO();
+        } else if (mode == AnalysisMode.SIMPLE) {
+            weights = cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+        } else {
+            // Legacy fallback: infer from whether effort balance was computed
+            boolean hasEffortBalance = participation.getCqiEffortBalance() != null
+                    && participation.getCqiEffortBalance() > 0;
+            weights = hasEffortBalance
+                    ? cqiCalculatorService.buildWeightsDTO()
+                    : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+        }
 
         return new CQIResultDTO(
                 participation.getCqi() != null ? participation.getCqi() : 0.0,

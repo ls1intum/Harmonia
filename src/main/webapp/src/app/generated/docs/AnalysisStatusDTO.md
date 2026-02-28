@@ -1,19 +1,20 @@
 # AnalysisStatusDTO
 
+
 ## Properties
 
-| Name                | Type       | Description | Notes                             |
-| ------------------- | ---------- | ----------- | --------------------------------- |
-| **analysisMode**    | **string** |             | [optional] [default to undefined] |
-| **currentStage**    | **string** |             | [optional] [default to undefined] |
-| **currentTeamName** | **string** |             | [optional] [default to undefined] |
-| **errorMessage**    | **string** |             | [optional] [default to undefined] |
-| **exerciseId**      | **number** |             | [optional] [default to undefined] |
-| **lastUpdatedAt**   | **string** |             | [optional] [default to undefined] |
-| **processedTeams**  | **number** |             | [optional] [default to undefined] |
-| **startedAt**       | **string** |             | [optional] [default to undefined] |
-| **state**           | **string** |             | [optional] [default to undefined] |
-| **totalTeams**      | **number** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**analysisMode** | **string** |  | [optional] [default to undefined]
+**currentStage** | **string** |  | [optional] [default to undefined]
+**currentTeamName** | **string** |  | [optional] [default to undefined]
+**errorMessage** | **string** |  | [optional] [default to undefined]
+**exerciseId** | **number** |  | [optional] [default to undefined]
+**lastUpdatedAt** | **string** |  | [optional] [default to undefined]
+**processedTeams** | **number** |  | [optional] [default to undefined]
+**startedAt** | **string** |  | [optional] [default to undefined]
+**state** | **string** |  | [optional] [default to undefined]
+**totalTeams** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -21,16 +22,16 @@
 import { AnalysisStatusDTO } from './api';
 
 const instance: AnalysisStatusDTO = {
-  analysisMode,
-  currentStage,
-  currentTeamName,
-  errorMessage,
-  exerciseId,
-  lastUpdatedAt,
-  processedTeams,
-  startedAt,
-  state,
-  totalTeams,
+    analysisMode,
+    currentStage,
+    currentTeamName,
+    errorMessage,
+    exerciseId,
+    lastUpdatedAt,
+    processedTeams,
+    startedAt,
+    state,
+    totalTeams,
 };
 ```
 

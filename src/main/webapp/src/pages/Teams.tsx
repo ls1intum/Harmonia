@@ -83,15 +83,10 @@ export default function Teams() {
   const { data: templateAuthor = null } = useQuery<TemplateAuthorInfo | null>({
     queryKey: ['templateAuthor', exercise],
     queryFn: async () => {
-      try {
-        const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise));
-        const data = response.data;
-        return { email: data.templateEmail ?? '', autoDetected: data.autoDetected ?? false };
-      } catch (error: unknown) {
-        const axiosError = error as { response?: { status?: number } };
-        if (axiosError.response?.status === 404) return null;
-        return null;
-      }
+      const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise));
+      const data = response.data;
+      if (!data) return null;
+      return { email: data.templateEmail ?? '', autoDetected: data.autoDetected ?? false };
     },
     enabled: !!exercise,
     staleTime: 60 * 1000,

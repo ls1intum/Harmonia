@@ -63,12 +63,8 @@ const TeamDetail = ({
   const { data: templateAuthorEmail } = useQuery<string | undefined>({
     queryKey: ['templateAuthorEmail', exercise],
     queryFn: async () => {
-      try {
-        const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise!));
-        return response.data.templateEmail;
-      } catch {
-        return undefined;
-      }
+      const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise!));
+      return response.data?.templateEmail;
     },
     enabled: !!exercise,
   });

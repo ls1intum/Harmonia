@@ -1,14 +1,15 @@
 # StudentSummaryDTO
 
+
 ## Properties
 
-| Name             | Type       | Description | Notes                             |
-| ---------------- | ---------- | ----------- | --------------------------------- |
-| **commitCount**  | **number** |             | [optional] [default to undefined] |
-| **linesAdded**   | **number** |             | [optional] [default to undefined] |
-| **linesChanged** | **number** |             | [optional] [default to undefined] |
-| **linesDeleted** | **number** |             | [optional] [default to undefined] |
-| **name**         | **string** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**commitCount** | **number** |  | [optional] [default to undefined]
+**linesAdded** | **number** |  | [optional] [default to undefined]
+**linesChanged** | **number** |  | [optional] [default to undefined]
+**linesDeleted** | **number** |  | [optional] [default to undefined]
+**name** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -16,11 +17,11 @@
 import { StudentSummaryDTO } from './api';
 
 const instance: StudentSummaryDTO = {
-  commitCount,
-  linesAdded,
-  linesChanged,
-  linesDeleted,
-  name,
+    commitCount,
+    linesAdded,
+    linesChanged,
+    linesDeleted,
+    name,
 };
 ```
 

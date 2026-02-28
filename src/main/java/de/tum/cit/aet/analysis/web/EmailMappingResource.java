@@ -230,14 +230,14 @@ public class EmailMappingResource {
      * Returns the configured template author for the given exercise.
      *
      * @param exerciseId the exercise ID
-     * @return template author DTO, or 404 if not configured
+     * @return template author DTO, or 200 with null body if not configured
      */
     @GetMapping("/template-author")
     public ResponseEntity<TemplateAuthorDTO> getTemplateAuthor(@PathVariable Long exerciseId) {
         return templateAuthorRepository.findByExerciseId(exerciseId)
                 .map(ta -> ResponseEntity.ok(
                         new TemplateAuthorDTO(ta.getTemplateEmail(), ta.getAutoDetected())))
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.ok(null));
     }
 
     /**
