@@ -40,44 +40,46 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
     pairProgrammingStatus === 'FOUND' || pairProgrammingStatus === 'NOT_FOUND' || pairProgrammingStatus === 'WARNING';
 
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
-    ? ([
-        {
-          name: 'Effort Balance',
-          value: !isFullyAnalyzed
-            ? -1
-            : serverCqiDetails.components.effortBalance != null && serverCqiDetails.components.effortBalance > 0
-              ? Math.round(serverCqiDetails.components.effortBalance)
-              : -5,
-          weight: Math.round((weights?.effortBalance ?? 0) * 100),
-          description: 'Is effort distributed fairly among team members?',
-          details: !isFullyAnalyzed
-            ? 'Will be calculated after analysis completes.'
-            : serverCqiDetails.components.effortBalance != null && serverCqiDetails.components.effortBalance > 0
-              ? 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.'
-              : 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
-        },
-        {
-          name: 'Lines of Code Balance',
-          value: Math.round(serverCqiDetails.components.locBalance ?? 0),
-          weight: Math.round((weights?.locBalance ?? 0) * 100),
-          description: 'Are code contributions balanced?',
-          details: 'Measures the distribution of lines added/deleted across team members.',
-        },
-        {
-          name: 'Temporal Spread',
-          value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
-          weight: Math.round((weights?.temporalSpread ?? 0) * 100),
-          description: 'Is work spread over time or crammed at deadline?',
-          details: 'Higher scores mean work was spread consistently throughout the project period.',
-        },
-        {
-          name: 'File Ownership Spread',
-          value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
-          weight: Math.round((weights?.ownershipSpread ?? 0) * 100),
-          description: 'Are files owned by multiple team members?',
-          details: 'Measures how well files are shared among team members (based on git blame analysis).',
-        },
-      ] as SubMetric[]).concat(
+    ? (
+        [
+          {
+            name: 'Effort Balance',
+            value: !isFullyAnalyzed
+              ? -1
+              : serverCqiDetails.components.effortBalance != null && serverCqiDetails.components.effortBalance > 0
+                ? Math.round(serverCqiDetails.components.effortBalance)
+                : -5,
+            weight: Math.round((weights?.effortBalance ?? 0) * 100),
+            description: 'Is effort distributed fairly among team members?',
+            details: !isFullyAnalyzed
+              ? 'Will be calculated after analysis completes.'
+              : serverCqiDetails.components.effortBalance != null && serverCqiDetails.components.effortBalance > 0
+                ? 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.'
+                : 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
+          },
+          {
+            name: 'Lines of Code Balance',
+            value: Math.round(serverCqiDetails.components.locBalance ?? 0),
+            weight: Math.round((weights?.locBalance ?? 0) * 100),
+            description: 'Are code contributions balanced?',
+            details: 'Measures the distribution of lines added/deleted across team members.',
+          },
+          {
+            name: 'Temporal Spread',
+            value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
+            weight: Math.round((weights?.temporalSpread ?? 0) * 100),
+            description: 'Is work spread over time or crammed at deadline?',
+            details: 'Higher scores mean work was spread consistently throughout the project period.',
+          },
+          {
+            name: 'File Ownership Spread',
+            value: Math.round(serverCqiDetails.components.ownershipSpread ?? 0),
+            weight: Math.round((weights?.ownershipSpread ?? 0) * 100),
+            description: 'Are files owned by multiple team members?',
+            details: 'Measures how well files are shared among team members (based on git blame analysis).',
+          },
+        ] as SubMetric[]
+      ).concat(
         showPairProgramming
           ? [
               {
