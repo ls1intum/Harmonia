@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useReducer } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,50 @@ interface CqiWeightsPanelProps {
   disabled?: boolean;
 }
 
+interface WeightState {
+  effort: number;
+  loc: number;
+  temporal: number;
+  ownership: number;
+}
+
+type WeightAction =
+  | { type: 'SET_EFFORT'; value: number }
+  | { type: 'SET_LOC'; value: number }
+  | { type: 'SET_TEMPORAL'; value: number }
+  | { type: 'SET_OWNERSHIP'; value: number }
+  | { type: 'RESET'; state: WeightState };
+
+function weightReducer(state: WeightState, action: WeightAction): WeightState {
+  const clamp = (v: number) => Math.max(0, Math.min(100, v));
+  switch (action.type) {
+    case 'SET_EFFORT':
+      return { ...state, effort: clamp(action.value) };
+    case 'SET_LOC':
+      return { ...state, loc: clamp(action.value) };
+    case 'SET_TEMPORAL':
+      return { ...state, temporal: clamp(action.value) };
+    case 'SET_OWNERSHIP':
+      return { ...state, ownership: clamp(action.value) };
+    case 'RESET':
+      return action.state;
+  }
+}
+
+function toPercentState(data: CqiWeightsData): WeightState {
+  return {
+    effort: Math.round(data.effortBalance * 100),
+    loc: Math.round(data.locBalance * 100),
+    temporal: Math.round(data.temporalSpread * 100),
+    ownership: Math.round(data.ownershipSpread * 100),
+  };
+}
+
+const DEFAULT_STATE: WeightState = { effort: 55, loc: 25, temporal: 5, ownership: 15 };
+
 export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPanelProps) {
   const queryClient = useQueryClient();
+  const [state, dispatch] = useReducer(weightReducer, DEFAULT_STATE);
 
   const { data: weights, isLoading } = useQuery<CqiWeightsData>({
     queryKey: ['cqiWeights', exerciseId],
@@ -31,27 +73,15 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to fetch CQI weights');
-      return response.json();
+      const data: CqiWeightsData = await response.json();
+      dispatch({ type: 'RESET', state: toPercentState(data) });
+      return data;
     },
     enabled: !!exerciseId,
   });
 
-  const [effort, setEffort] = useState(55);
-  const [loc, setLoc] = useState(25);
-  const [temporal, setTemporal] = useState(5);
-  const [ownership, setOwnership] = useState(15);
-
-  useEffect(() => {
-    if (weights) {
-      setEffort(Math.round(weights.effortBalance * 100));
-      setLoc(Math.round(weights.locBalance * 100));
-      setTemporal(Math.round(weights.temporalSpread * 100));
-      setOwnership(Math.round(weights.ownershipSpread * 100));
-    }
-  }, [weights]);
-
-  const total = effort + loc + temporal + ownership;
-  const isValid = total === 100 && effort >= 0 && loc >= 0 && temporal >= 0 && ownership >= 0;
+  const total = state.effort + state.loc + state.temporal + state.ownership;
+  const isValid = total === 100 && state.effort >= 0 && state.loc >= 0 && state.temporal >= 0 && state.ownership >= 0;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -60,10 +90,10 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          effortBalance: effort / 100,
-          locBalance: loc / 100,
-          temporalSpread: temporal / 100,
-          ownershipSpread: ownership / 100,
+          effortBalance: state.effort / 100,
+          locBalance: state.loc / 100,
+          temporalSpread: state.temporal / 100,
+          ownershipSpread: state.ownership / 100,
         }),
       });
       if (!response.ok) throw new Error('Failed to save weights');
@@ -99,11 +129,11 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
   if (isLoading) return null;
 
   const fields = [
-    { label: 'Effort Balance', value: effort, setter: setEffort },
-    { label: 'LoC Balance', value: loc, setter: setLoc },
-    { label: 'Temporal Spread', value: temporal, setter: setTemporal },
-    { label: 'Ownership Spread', value: ownership, setter: setOwnership },
-  ] as const;
+    { label: 'Effort Balance', value: state.effort, action: 'SET_EFFORT' as const },
+    { label: 'LoC Balance', value: state.loc, action: 'SET_LOC' as const },
+    { label: 'Temporal Spread', value: state.temporal, action: 'SET_TEMPORAL' as const },
+    { label: 'Ownership Spread', value: state.ownership, action: 'SET_OWNERSHIP' as const },
+  ];
 
   return (
     <Card>
@@ -113,14 +143,12 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
             <Settings className="h-4 w-4" />
             CQI Weights
           </CardTitle>
-          <Badge variant={weights?.isDefault ? 'secondary' : 'default'}>
-            {weights?.isDefault ? 'Default' : 'Custom'}
-          </Badge>
+          <Badge variant={weights?.isDefault ? 'secondary' : 'default'}>{weights?.isDefault ? 'Default' : 'Custom'}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          {fields.map(({ label, value, setter }) => (
+          {fields.map(({ label, value, action }) => (
             <div key={label} className="space-y-1">
               <Label className="text-xs">{label}</Label>
               <div className="flex items-center gap-1">
@@ -129,7 +157,7 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
                   min={0}
                   max={100}
                   value={value}
-                  onChange={(e) => setter(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  onChange={e => dispatch({ type: action, value: parseInt(e.target.value) || 0 })}
                   disabled={disabled}
                   className="h-8 text-sm"
                 />
