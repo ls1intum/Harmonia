@@ -49,7 +49,7 @@ const OrphanCommitsPanel = ({
       });
       return email;
     },
-    onSuccess: (email) => {
+    onSuccess: email => {
       onMappingChange();
       setSelectedStudents(prev => {
         const next = { ...prev };
@@ -230,7 +230,9 @@ const OrphanCommitsPanel = ({
                                 size="sm"
                                 className="h-8 text-xs"
                                 onClick={() => handleAssign(email)}
-                                disabled={!selectedStudents[email] || (assignMutation.isPending && assignMutation.variables?.email === email)}
+                                disabled={
+                                  !selectedStudents[email] || (assignMutation.isPending && assignMutation.variables?.email === email)
+                                }
                               >
                                 {assignMutation.isPending && assignMutation.variables?.email === email ? 'Assigning...' : 'Assign'}
                               </Button>

@@ -433,7 +433,6 @@ const TeamsList = ({
     writeDevModeToStorage(next);
   };
 
-
   const overallTokenTotals = useMemo(
     () =>
       teams.reduce(
@@ -892,7 +891,7 @@ const TeamsList = ({
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      {(team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING') ? (
+                      {team.analysisStatus === 'DONE' || team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' ? (
                         <div className="space-y-1">
                           <p className="font-medium">{computeBasicMetrics(team.students).totalCommits}</p>
                           <p className="text-xs text-muted-foreground">{computeBasicMetrics(team.students).totalLines} lines</p>

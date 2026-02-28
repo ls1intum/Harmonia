@@ -109,7 +109,17 @@ const MetricCard = ({ metric }: MetricCardProps) => {
               .filter(s => s.trim())
               .map((sentence, idx) => (
                 <p key={idx} className="flex items-start gap-2">
-                  <span className={isNotFound || isWarning ? 'text-amber-500 mt-0.5' : isPending || isNotAvailable ? 'text-secondary mt-0.5' : 'text-primary mt-0.5'}>•</span>
+                  <span
+                    className={
+                      isNotFound || isWarning
+                        ? 'text-amber-500 mt-0.5'
+                        : isPending || isNotAvailable
+                          ? 'text-secondary mt-0.5'
+                          : 'text-primary mt-0.5'
+                    }
+                  >
+                    •
+                  </span>
                   <span>{sentence.trim()}</span>
                 </p>
               ))}

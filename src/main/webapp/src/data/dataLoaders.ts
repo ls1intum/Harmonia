@@ -171,8 +171,7 @@ export function loadBasicTeamDataStream(
   onTemplateAuthor?: (info: TemplateAuthorInfo) => void,
   onTemplateAuthorAmbiguous?: (candidates: string[]) => void,
   analysisMode?: AnalysisMode,
-  onStatusUpdate?: (status: { processedTeams: number; totalTeams: number;
-                               currentTeamName?: string; currentStage?: string }) => void,
+  onStatusUpdate?: (status: { processedTeams: number; totalTeams: number; currentTeamName?: string; currentStage?: string }) => void,
 ): () => void {
   const modeParam = analysisMode ? `&analysisMode=${analysisMode}` : '';
   const eventSource = new EventSource(`/api/requestResource/stream?exerciseId=${exerciseId}${modeParam}`, {

@@ -103,10 +103,7 @@ export function ActivityLog({ status }: ActivityLogProps) {
 
             {/* Progress Bar */}
             <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="h-2 rounded-full transition-all duration-300 ease-in-out bg-primary"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="h-2 rounded-full transition-all duration-300 ease-in-out bg-primary" style={{ width: `${progress}%` }} />
             </div>
           </div>
         )}

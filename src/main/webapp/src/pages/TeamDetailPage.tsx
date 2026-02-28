@@ -34,7 +34,11 @@ export default function TeamDetailPage() {
   const resolvedTeamId = stateTeamId ?? (teamIdParam ? parseInt(teamIdParam) : undefined);
 
   // Lazy fetch full team detail from server
-  const { data: fetchedTeam, isLoading, error } = useQuery<TeamDTO | null>({
+  const {
+    data: fetchedTeam,
+    isLoading,
+    error,
+  } = useQuery<TeamDTO | null>({
     queryKey: ['teamDetail', exercise, resolvedTeamId],
     queryFn: async () => {
       if (!exercise || !resolvedTeamId) return null;
@@ -64,7 +68,10 @@ export default function TeamDetailPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-destructive mb-4">{error ? 'Failed to load team' : 'Team not found'}</p>
-          <button onClick={() => navigate('/teams', { state: { course, exercise, pairProgrammingEnabled } })} className="text-primary hover:underline">
+          <button
+            onClick={() => navigate('/teams', { state: { course, exercise, pairProgrammingEnabled } })}
+            className="text-primary hover:underline"
+          >
             Back to Teams
           </button>
         </div>

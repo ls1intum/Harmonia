@@ -107,7 +107,10 @@ const TeamDetail = ({
 
   // Check if git analysis is complete (git metrics available)
   const isGitAnalysisComplete =
-    team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE' || team.analysisStatus === 'CANCELLED';
+    team.analysisStatus === 'GIT_DONE' ||
+    team.analysisStatus === 'AI_ANALYZING' ||
+    team.analysisStatus === 'DONE' ||
+    team.analysisStatus === 'CANCELLED';
 
   // Team is 'failed' if any student has <10 commits (only check if git analysis is complete)
   const isTeamFailed = (team: TeamDTO) => {
@@ -124,10 +127,17 @@ const TeamDetail = ({
     onMutate: () => {
       // Optimistically show AI_ANALYZING state so all sections reflect computing
       if (onTeamUpdate) {
-        onTeamUpdate({ ...team, analysisStatus: 'AI_ANALYZING', cqi: undefined, isSuspicious: undefined, subMetrics: undefined, analysisHistory: undefined });
+        onTeamUpdate({
+          ...team,
+          analysisStatus: 'AI_ANALYZING',
+          cqi: undefined,
+          isSuspicious: undefined,
+          subMetrics: undefined,
+          analysisHistory: undefined,
+        });
       }
     },
-    onSuccess: (data) => {
+    onSuccess: data => {
       if (onTeamUpdate && exercise) {
         import('@/data/dataLoaders').then(({ transformToComplexTeamData }) => {
           onTeamUpdate(transformToComplexTeamData(data));
@@ -164,21 +174,51 @@ const TeamDetail = ({
   const isSimpleMode = analysisMode === 'SIMPLE';
   const metricsToShow = useMemo((): SubMetric[] => {
     const effortBalancePlaceholder: SubMetric = isAiComputing
-      ? { name: 'Effort Balance', value: -1, weight: 0, description: 'Is effort distributed fairly among team members?',
-          details: 'AI analysis is in progress. This metric will be available when computation completes.' }
+      ? {
+          name: 'Effort Balance',
+          value: -1,
+          weight: 0,
+          description: 'Is effort distributed fairly among team members?',
+          details: 'AI analysis is in progress. This metric will be available when computation completes.',
+        }
       : isSimpleMode
-        ? { name: 'Effort Balance', value: -5, weight: 0, description: 'Is effort distributed fairly among team members?',
-            details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.' }
-        : { name: 'Effort Balance', value: -1, weight: 0, description: 'Is effort distributed fairly among team members?',
-            details: 'Will be calculated after analysis completes.' };
+        ? {
+            name: 'Effort Balance',
+            value: -5,
+            weight: 0,
+            description: 'Is effort distributed fairly among team members?',
+            details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
+          }
+        : {
+            name: 'Effort Balance',
+            value: -1,
+            weight: 0,
+            description: 'Is effort distributed fairly among team members?',
+            details: 'Will be calculated after analysis completes.',
+          };
     const pendingPlaceholderMetrics: SubMetric[] = [
       effortBalancePlaceholder,
-      { name: 'Lines of Code Balance', value: -1, weight: 0, description: 'Are code contributions balanced?',
-        details: 'Will be calculated after analysis completes.' },
-      { name: 'Temporal Spread', value: -1, weight: 0, description: 'Is work spread over time or crammed at deadline?',
-        details: 'Will be calculated after analysis completes.' },
-      { name: 'File Ownership Spread', value: -1, weight: 0, description: 'Are files owned by multiple team members?',
-        details: 'Will be calculated after analysis completes.' },
+      {
+        name: 'Lines of Code Balance',
+        value: -1,
+        weight: 0,
+        description: 'Are code contributions balanced?',
+        details: 'Will be calculated after analysis completes.',
+      },
+      {
+        name: 'Temporal Spread',
+        value: -1,
+        weight: 0,
+        description: 'Is work spread over time or crammed at deadline?',
+        details: 'Will be calculated after analysis completes.',
+      },
+      {
+        name: 'File Ownership Spread',
+        value: -1,
+        weight: 0,
+        description: 'Are files owned by multiple team members?',
+        details: 'Will be calculated after analysis completes.',
+      },
     ];
     let fromServer = team.subMetrics ?? [];
     // When no metrics from server yet (PENDING/DOWNLOADING/GIT_ANALYZING), show placeholders
@@ -254,17 +294,8 @@ const TeamDetail = ({
           Course: <span className="font-medium">{course}</span> | Exercise: <span className="font-medium">{exercise}</span>
         </p>
         {canComputeAi && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => computeAiMutation.mutate()}
-            disabled={isAiComputing}
-          >
-            {isAiComputing ? (
-              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-            ) : (
-              <Sparkles className="mr-1.5 h-3 w-3" />
-            )}
+          <Button size="sm" variant="outline" onClick={() => computeAiMutation.mutate()} disabled={isAiComputing}>
+            {isAiComputing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
             {isAiComputing ? 'Computing AI...' : hasAiResult ? 'Recompute AI' : 'Compute AI'}
           </Button>
         )}
@@ -435,7 +466,9 @@ const TeamDetail = ({
                         ? 'Waiting for analysis'
                         : team.analysisStatus === 'CANCELLED'
                           ? 'Analysis was cancelled'
-                          : team.analysisStatus === 'PENDING' || team.analysisStatus === 'DOWNLOADING' || team.analysisStatus === 'GIT_ANALYZING'
+                          : team.analysisStatus === 'PENDING' ||
+                              team.analysisStatus === 'DOWNLOADING' ||
+                              team.analysisStatus === 'GIT_ANALYZING'
                             ? 'CQI score still being determined'
                             : 'CQI not yet calculated'}
               </p>
@@ -471,7 +504,9 @@ const TeamDetail = ({
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">CQI</p>
-              <p className={`text-2xl font-bold ${team.isFailed ? 'text-destructive' : team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}>
+              <p
+                className={`text-2xl font-bold ${team.isFailed ? 'text-destructive' : team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}
+              >
                 {team.isFailed ? 'Failed' : (team.cqi ?? '—')}
               </p>
               <p className="text-xs text-muted-foreground">

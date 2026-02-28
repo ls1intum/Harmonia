@@ -409,7 +409,7 @@ export default function Teams() {
       await emailMappingApi.setTemplateAuthor(parseInt(exercise), { templateEmail: email });
       return email;
     },
-    onSuccess: (email) => {
+    onSuccess: email => {
       queryClient.setQueryData(['templateAuthor', exercise], { email, autoDetected: false });
       queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
@@ -444,7 +444,15 @@ export default function Teams() {
 
   const handleTeamSelect = (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
     navigate(`/teams/${String(team.teamId)}`, {
-      state: { teamId: team.teamId, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages, analysisMode: status.analysisMode },
+      state: {
+        teamId: team.teamId,
+        course,
+        exercise,
+        pairProgrammingEnabled,
+        pairProgrammingBadgeStatus,
+        courseAverages,
+        analysisMode: status.analysisMode,
+      },
     });
   };
 
