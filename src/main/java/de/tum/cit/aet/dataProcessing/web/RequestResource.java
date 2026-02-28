@@ -2,8 +2,10 @@ package de.tum.cit.aet.dataProcessing.web;
 
 import de.tum.cit.aet.artemis.CredentialResolverService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
+import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
+import de.tum.cit.aet.repositoryProcessing.dto.TeamSummaryDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +53,36 @@ public class RequestResource {
     }
 
     /**
+     * Returns lean team summaries for an exercise (no analysisHistory, orphanCommits, etc.).
+     * Suitable for the Teams list page initial load.
+     *
+     * @param exerciseId the exercise ID to fetch summaries for
+     * @return list of team summaries, empty if no data exists
+     */
+    @GetMapping("teams/{exerciseId}/summary")
+    public ResponseEntity<List<TeamSummaryDTO>> getTeamSummaries(@PathVariable Long exerciseId) {
+        log.info("GET team summaries for exerciseId={}", exerciseId);
+        return ResponseEntity.ok(requestService.getTeamSummariesByExerciseId(exerciseId));
+    }
+
+    /**
+     * Returns full detail for a single team including analysisHistory, orphanCommits, etc.
+     * Used for lazy-loading the Team Detail page.
+     *
+     * @param exerciseId the exercise ID
+     * @param teamId     the Artemis team ID
+     * @return full team detail, or 404 if not found
+     */
+    @GetMapping("team/{exerciseId}/{teamId}")
+    public ResponseEntity<ClientResponseDTO> getTeamDetail(
+            @PathVariable Long exerciseId, @PathVariable Long teamId) {
+        log.info("GET team detail for exerciseId={}, teamId={}", exerciseId, teamId);
+        return requestService.getTeamDetail(exerciseId, teamId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * Checks whether analyzed data (with CQI scores) exists for an exercise.
      *
      * @param exerciseId the exercise ID to check
@@ -63,17 +95,17 @@ public class RequestResource {
     }
 
     /**
-     * Starts the full analysis pipeline and streams progress via Server-Sent Events.
+     * Starts the analysis pipeline and streams progress via Server-Sent Events.
      * This is the main entry point for triggering a new analysis.
      *
-     * <p>The pipeline runs in three phases:
-     * <ol>
-     *   <li>Clone repositories from Artemis</li>
-     *   <li>Git analysis (commits, lines of code)</li>
-     *   <li>AI analysis (CQI calculation)</li>
-     * </ol>
+     * <p>The pipeline runs in phases depending on analysisMode:
+     * <ul>
+     *   <li>{@code SIMPLE} — Clone repos, git analysis, git-only CQI</li>
+     *   <li>{@code FULL} — Clone repos, git analysis, AI analysis + full CQI</li>
+     * </ul>
      *
      * @param exerciseId        exercise ID to analyze
+     * @param analysisMode      analysis mode: SIMPLE or FULL (default: FULL)
      * @param jwtToken          JWT token from cookie
      * @param serverUrl         Artemis server URL from cookie
      * @param username          Artemis username from cookie
@@ -83,11 +115,19 @@ public class RequestResource {
     @GetMapping(value = "stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamAnalysis(
             @RequestParam(value = "exerciseId") Long exerciseId,
+            @RequestParam(value = "analysisMode", defaultValue = "FULL") String analysisMode,
             @CookieValue(value = "jwt", required = false) String jwtToken,
             @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
             @CookieValue(value = "artemis_username", required = false) String username,
             @CookieValue(value = "artemis_password", required = false) String encryptedPassword) {
-        log.info("GET streamAnalysis for exerciseId={}", exerciseId);
+        log.info("GET streamAnalysis for exerciseId={}, mode={}", exerciseId, analysisMode);
+
+        AnalysisMode mode;
+        try {
+            mode = AnalysisMode.valueOf(analysisMode.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            mode = AnalysisMode.FULL;
+        }
 
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
 
@@ -112,9 +152,10 @@ public class RequestResource {
         }
 
         // 3) Submit analysis pipeline in a background thread
+        final AnalysisMode finalMode = mode;
         Future<?> future = executorService.submit(() -> {
             try {
-                requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, event -> {
+                requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, finalMode, event -> {
                     try {
                         emitter.send(event);
                     } catch (IllegalStateException e) {

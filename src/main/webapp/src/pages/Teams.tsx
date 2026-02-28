@@ -6,7 +6,8 @@ import type { ClientResponseDTO, TeamAttendanceDTO, TeamsScheduleDTO } from '@/a
 import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
-import { loadBasicTeamDataStream, transformToComplexTeamData, type TemplateAuthorInfo, type TeamDTO } from '@/data/dataLoaders';
+import { loadBasicTeamDataStream, transformSummaryToTeamDTO, type TemplateAuthorInfo, type TeamDTO } from '@/data/dataLoaders';
+import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 import { normalizeTeamName } from '@/lib/utils';
 import {
   getPairProgrammingAttendanceFileStorageKey,
@@ -106,23 +107,22 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
-  // Fetch teams from database on load
-  // During analysis, this shows already-analyzed teams
+  // Fetch team summaries from database on load (one-time, no polling).
+  // During analysis, SSE is the single source of truth for updates.
   const isAnalysisRunning = status.state === 'RUNNING';
   const { data: teams = [] } = useQuery<TeamDTO[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
       try {
-        const response = await requestApi.getData(parseInt(exercise));
-        return response.data.map(transformToComplexTeamData);
+        const response = await requestApi.getTeamSummaries(parseInt(exercise));
+        return response.data.map(transformSummaryToTeamDTO);
       } catch {
         return [];
       }
     },
-    staleTime: isAnalysisRunning ? 2000 : 30 * 1000, // Faster updates during analysis
+    staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     enabled: !!exercise,
-    refetchInterval: isAnalysisRunning ? 3000 : false, // Poll every 3s during analysis to get new teams
     refetchOnWindowFocus: !isAnalysisRunning,
   });
 
@@ -188,9 +188,9 @@ export default function Teams() {
     },
   });
 
-  // Mutation for starting analysis
+  // Mutation for starting analysis (accepts mode from the UI)
   const startMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (mode: AnalysisMode) => {
       // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
       // This ensures the button changes immediately to "Cancel"
       queryClient.setQueryData(['teams', exercise], []);
@@ -200,6 +200,7 @@ export default function Teams() {
         processedTeams: 0,
         currentTeamName: undefined,
         currentStage: undefined,
+        analysisMode: mode,
       });
 
       toast({ title: 'Starting analysis...' });
@@ -240,6 +241,18 @@ export default function Teams() {
           undefined, // onGitDone
           info => queryClient.setQueryData(['templateAuthor', exercise], info),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
+          mode,
+          statusUpdate => {
+            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) => ({
+              ...old,
+              state: 'RUNNING' as const,
+              analysisMode: mode,
+              processedTeams: statusUpdate.processedTeams,
+              totalTeams: statusUpdate.totalTeams,
+              currentTeamName: statusUpdate.currentTeamName,
+              currentStage: statusUpdate.currentStage,
+            }));
+          },
         );
       });
     },
@@ -289,7 +302,7 @@ export default function Teams() {
 
   // Mutation for recompute (force) - same as start since server clears data first
   const recomputeMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (mode: AnalysisMode) => {
       // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
       queryClient.setQueryData(['teams', exercise], []);
       queryClient.setQueryData(['analysisStatus', exercise], {
@@ -298,6 +311,7 @@ export default function Teams() {
         processedTeams: 0,
         currentTeamName: undefined,
         currentStage: undefined,
+        analysisMode: mode,
       });
 
       toast({ title: 'Forcing reanalysis...' });
@@ -336,6 +350,18 @@ export default function Teams() {
           undefined, // onGitDone
           info => queryClient.setQueryData(['templateAuthor', exercise], info),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
+          mode,
+          statusUpdate => {
+            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) => ({
+              ...old,
+              state: 'RUNNING' as const,
+              analysisMode: mode,
+              processedTeams: statusUpdate.processedTeams,
+              totalTeams: statusUpdate.totalTeams,
+              currentTeamName: statusUpdate.currentTeamName,
+              currentStage: statusUpdate.currentStage,
+            }));
+          },
         );
       });
     },
@@ -393,7 +419,7 @@ export default function Teams() {
 
   const handleTeamSelect = (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
     navigate(`/teams/${String(team.teamId)}`, {
-      state: { team, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages },
+      state: { teamId: team.teamId, course, exercise, pairProgrammingEnabled, pairProgrammingBadgeStatus, courseAverages, analysisMode: status.analysisMode },
     });
   };
 
@@ -459,9 +485,9 @@ export default function Teams() {
       courseAverages={courseAverages}
       onTeamSelect={handleTeamSelect}
       onBackToHome={() => navigate('/')}
-      onStart={() => startMutation.mutate()}
+      onStart={(mode: AnalysisMode) => startMutation.mutate(mode)}
       onCancel={() => cancelMutation.mutate()}
-      onRecompute={() => recomputeMutation.mutate()}
+      onRecompute={(mode: AnalysisMode) => recomputeMutation.mutate(mode)}
       onClear={(type, clearMappings) => clearMutation.mutate({ type, clearMappings })}
       course={course}
       exercise={exercise}

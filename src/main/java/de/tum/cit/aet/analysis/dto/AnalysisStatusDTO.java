@@ -17,5 +17,6 @@ public record AnalysisStatusDTO(
         String currentStage,
         Instant startedAt,
         Instant lastUpdatedAt,
-        String errorMessage) {
+        String errorMessage,
+        String analysisMode) {
 }

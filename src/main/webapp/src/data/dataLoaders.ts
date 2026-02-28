@@ -1,4 +1,5 @@
-import type { ClientResponseDTO, CQIResultDTO } from '@/app/generated';
+import type { ClientResponseDTO, CQIResultDTO, TeamSummaryDTO } from '@/app/generated';
+import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 
 export interface SubMetric {
   name: string;
@@ -21,15 +22,15 @@ export type TeamDTO = ClientResponseDTO & { subMetrics?: SubMetric[] };
  * and sub-metrics derived from CQI detail components.
  */
 export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
-  // 1) Determine analysis completeness
-  const isNotFullyAnalyzed = dto.analysisStatus === 'GIT_DONE' || dto.analysisStatus === 'AI_ANALYZING';
+  // 1) Determine analysis completeness — only DONE teams have final CQI
+  const isFullyAnalyzed = dto.analysisStatus === 'DONE';
 
   // 2) CQI: only valid when fully analyzed and non-negative
   const rawCqi = dto.cqi;
-  const cqi = isNotFullyAnalyzed ? undefined : rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined;
+  const cqi = isFullyAnalyzed && rawCqi !== undefined && rawCqi !== null && rawCqi >= 0 ? Math.round(rawCqi) : undefined;
 
   // 3) isSuspicious: only valid when fully analyzed
-  const isSuspicious = isNotFullyAnalyzed ? undefined : (dto.isSuspicious ?? undefined);
+  const isSuspicious = isFullyAnalyzed ? (dto.isSuspicious ?? undefined) : undefined;
 
   // 4) Build sub-metrics from CQI detail components
   const serverCqiDetails = dto.cqiDetails as CQIResultDTO | undefined;
@@ -42,12 +43,18 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
     ? [
         {
           name: 'Effort Balance',
-          value: isNotFullyAnalyzed ? -1 : Math.round(serverCqiDetails.components.effortBalance ?? 0),
+          value: !isFullyAnalyzed
+            ? -1
+            : serverCqiDetails.components.effortBalance != null && serverCqiDetails.components.effortBalance > 0
+              ? Math.round(serverCqiDetails.components.effortBalance)
+              : -5,
           weight: Math.round((weights?.effortBalance ?? 0) * 100),
           description: 'Is effort distributed fairly among team members?',
-          details: isNotFullyAnalyzed
-            ? 'Requires AI analysis. Will be calculated after git analysis completes for all teams.'
-            : 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.',
+          details: !isFullyAnalyzed
+            ? 'Will be calculated after analysis completes.'
+            : serverCqiDetails.components.effortBalance != null && serverCqiDetails.components.effortBalance > 0
+              ? 'Based on LLM-weighted contribution analysis. Higher scores indicate balanced workload distribution.'
+              : 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
         },
         {
           name: 'Lines of Code Balance',
@@ -103,6 +110,33 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
   };
 }
 
+/**
+ * Transform a TeamSummaryDTO (from SSE or summary endpoint) into a TeamDTO.
+ * Summary DTOs have the same student fields but omit analysisHistory/orphanCommits.
+ */
+export function transformSummaryToTeamDTO(summary: TeamSummaryDTO): TeamDTO {
+  const asClientResponse: ClientResponseDTO = {
+    teamId: summary.teamId,
+    teamName: summary.teamName,
+    tutor: summary.tutor,
+    analysisStatus: summary.analysisStatus as ClientResponseDTO['analysisStatus'],
+    cqi: summary.cqi,
+    isSuspicious: summary.isSuspicious,
+    students: summary.students?.map(s => ({
+      name: s.name,
+      commitCount: s.commitCount,
+      linesAdded: s.linesAdded,
+      linesDeleted: s.linesDeleted,
+      linesChanged: s.linesChanged,
+    })),
+    cqiDetails: summary.cqiDetails,
+    llmTokenTotals: summary.llmTokenTotals,
+    orphanCommitCount: summary.orphanCommitCount,
+    isFailed: summary.isFailed,
+  };
+  return transformToComplexTeamData(asClientResponse);
+}
+
 // ============================================================
 // PUBLIC API - Data Loaders
 // ============================================================
@@ -132,12 +166,16 @@ export function loadBasicTeamDataStream(
   onUpdate: (team: TeamDTO | Partial<ClientResponseDTO>) => void,
   onComplete: () => void,
   onError: (error: unknown) => void,
-  onPhaseChange?: (phase: 'GIT_ANALYSIS' | 'AI_ANALYSIS', total: number) => void,
+  onPhaseChange?: (phase: 'DOWNLOADING' | 'GIT_ANALYSIS' | 'AI_ANALYSIS', total: number) => void,
   onGitDone?: (processed: number) => void,
   onTemplateAuthor?: (info: TemplateAuthorInfo) => void,
   onTemplateAuthorAmbiguous?: (candidates: string[]) => void,
+  analysisMode?: AnalysisMode,
+  onStatusUpdate?: (status: { processedTeams: number; totalTeams: number;
+                               currentTeamName?: string; currentStage?: string }) => void,
 ): () => void {
-  const eventSource = new EventSource(`/api/requestResource/stream?exerciseId=${exerciseId}`, {
+  const modeParam = analysisMode ? `&analysisMode=${analysisMode}` : '';
+  const eventSource = new EventSource(`/api/requestResource/stream?exerciseId=${exerciseId}${modeParam}`, {
     withCredentials: true,
   });
 
@@ -221,6 +259,13 @@ export function loadBasicTeamDataStream(
         console.log('Analysis already running, switching to polling mode');
         eventSource.close();
         onError(new Error('ALREADY_RUNNING'));
+      } else if (data.type === 'STATUS') {
+        onStatusUpdate?.({
+          processedTeams: data.processedTeams,
+          totalTeams: data.totalTeams,
+          currentTeamName: data.currentTeamName,
+          currentStage: data.currentStage,
+        });
       }
     } catch (e) {
       console.error('Error parsing SSE event:', e);

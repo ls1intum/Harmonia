@@ -58,7 +58,15 @@ export function ActivityLog({ status }: ActivityLogProps) {
     return 'Analyzing';
   };
 
-  const progress = status.totalTeams > 0 ? Math.round((status.processedTeams / status.totalTeams) * 100) : 0;
+  const getModeLabel = () => {
+    if (status.analysisMode === 'SIMPLE') return 'Simple';
+    if (status.analysisMode === 'FULL') return 'Full';
+    return null;
+  };
+
+  const total = status.totalTeams ?? 0;
+  const processed = status.processedTeams ?? 0;
+  const progress = total > 0 ? Math.round((processed / total) * 100) : 0;
 
   return (
     <Card className="mb-4 overflow-hidden p-4">
@@ -71,6 +79,11 @@ export function ActivityLog({ status }: ActivityLogProps) {
             {status.state === 'RUNNING' && (
               <Badge variant="secondary" className="text-xs">
                 {progress}%
+              </Badge>
+            )}
+            {getModeLabel() && (
+              <Badge variant="outline" className="text-xs">
+                {getModeLabel()}
               </Badge>
             )}
           </div>

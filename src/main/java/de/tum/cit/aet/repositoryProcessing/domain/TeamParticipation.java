@@ -98,6 +98,9 @@ public class TeamParticipation {
     @Column(name = "orphan_commit_count")
     private Integer orphanCommitCount;
 
+    @Column(name = "is_failed")
+    private Boolean isFailed;
+
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
             String repositoryUrl, Integer submissionCount) {
         this.participation = participation;

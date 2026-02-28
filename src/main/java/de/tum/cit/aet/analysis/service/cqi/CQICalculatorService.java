@@ -1,8 +1,6 @@
 package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
-import de.tum.cit.aet.ai.dto.CommitLabel;
-import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.RequiredArgsConstructor;
@@ -248,6 +246,35 @@ public class CQICalculatorService {
     public ComponentWeightsDTO buildWeightsDTO() {
         CQIConfig.Weights w = cqiConfig.getWeights();
         return new ComponentWeightsDTO(w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership());
+    }
+
+    /**
+     * Build a {@link ComponentWeightsDTO} renormalized to exclude effort balance.
+     * Used in SIMPLE mode where AI analysis is not run, so the remaining weights
+     * (loc, temporal, ownership) are scaled proportionally to sum to 1.0.
+     *
+     * @return DTO with effortBalance=0 and remaining weights summing to 1.0
+     */
+    public ComponentWeightsDTO buildRenormalizedWeightsWithoutEffort() {
+        CQIConfig.Weights w = cqiConfig.getWeights();
+        double divisor = w.getLoc() + w.getTemporal() + w.getOwnership();
+        if (divisor <= 0) {
+            return new ComponentWeightsDTO(0.0, 0.0, 0.0, 0.0);
+        }
+        return new ComponentWeightsDTO(0.0, w.getLoc() / divisor, w.getTemporal() / divisor, w.getOwnership() / divisor);
+    }
+
+    /**
+     * Returns a new {@link CQIResultDTO} with weights renormalized to exclude effort balance.
+     * The component scores are preserved, only the weights are adjusted.
+     *
+     * @param original the original CQI result with standard weights
+     * @return a new CQI result with renormalized weights
+     */
+    public CQIResultDTO renormalizeWithoutEffort(CQIResultDTO original) {
+        return new CQIResultDTO(
+                original.cqi(), original.components(), buildRenormalizedWeightsWithoutEffort(),
+                original.baseScore(), original.filterSummary());
     }
 
     /**

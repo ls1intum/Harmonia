@@ -16,6 +16,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
   const isPending = metric.value === -1;
   const isNotFound = metric.value === -2 || metric.status === 'NOT_FOUND';
   const isWarning = metric.value === -3 || metric.status === 'WARNING';
+  const isNotAvailable = metric.value === -5;
 
   const getProgressColor = (value: number) => {
     if (value >= 80) return 'bg-success';
@@ -25,7 +26,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
 
   return (
     <Card
-      className={`shadow-card hover:shadow-elevated transition-shadow ${isPending ? 'opacity-75' : ''} ${isNotFound || isWarning ? 'border-amber-500/50' : ''}`}
+      className={`shadow-card hover:shadow-elevated transition-shadow ${isPending || isNotAvailable ? 'opacity-75' : ''} ${isNotFound || isWarning ? 'border-amber-500/50' : ''}`}
     >
       <CardHeader>
         <div className="flex items-start justify-between">
@@ -52,8 +53,13 @@ const MetricCard = ({ metric }: MetricCardProps) => {
               </>
             ) : isPending ? (
               <>
-                <span className="text-xl font-bold text-amber-500">Pending</span>
-                <span className="text-xs text-amber-500">AI Analysis</span>
+                <span className="text-xl font-bold text-secondary">Pending</span>
+                <span className="text-xs text-secondary">Analysis</span>
+              </>
+            ) : isNotAvailable ? (
+              <>
+                <span className="text-xl font-bold text-secondary">N/A</span>
+                <span className="text-xs text-secondary">Requires AI</span>
               </>
             ) : (
               <>
@@ -73,7 +79,9 @@ const MetricCard = ({ metric }: MetricCardProps) => {
             ) : isWarning ? (
               <span className="font-medium text-amber-500">Sessions cancelled</span>
             ) : isPending ? (
-              <span className="font-medium text-amber-500">Waiting for AI</span>
+              <span className="font-medium text-secondary">Pending analysis</span>
+            ) : isNotAvailable ? (
+              <span className="font-medium text-secondary">Requires AI analysis</span>
             ) : (
               <span className="font-medium">{metric.value}/100</span>
             )}
@@ -83,8 +91,12 @@ const MetricCard = ({ metric }: MetricCardProps) => {
               <div className="h-full bg-amber-500/50 w-full"></div>
             </div>
           ) : isPending ? (
-            <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500/30 animate-pulse w-full"></div>
+            <div className="h-2 bg-secondary/20 rounded-full overflow-hidden">
+              <div className="h-full bg-secondary/30 animate-pulse w-full"></div>
+            </div>
+          ) : isNotAvailable ? (
+            <div className="h-2 bg-secondary/20 rounded-full overflow-hidden">
+              <div className="h-full bg-secondary/30 w-full"></div>
             </div>
           ) : (
             <Progress value={metric.value} className="h-2 bg-muted/50" indicatorClassName={getProgressColor(metric.value)} />
@@ -97,7 +109,7 @@ const MetricCard = ({ metric }: MetricCardProps) => {
               .filter(s => s.trim())
               .map((sentence, idx) => (
                 <p key={idx} className="flex items-start gap-2">
-                  <span className={isNotFound || isWarning ? 'text-amber-500 mt-0.5' : 'text-primary mt-0.5'}>•</span>
+                  <span className={isNotFound || isWarning ? 'text-amber-500 mt-0.5' : isPending || isNotAvailable ? 'text-secondary mt-0.5' : 'text-primary mt-0.5'}>•</span>
                   <span>{sentence.trim()}</span>
                 </p>
               ))}

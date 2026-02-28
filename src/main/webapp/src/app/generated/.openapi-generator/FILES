@@ -3,7 +3,6 @@
 api.ts
 apis/analysis-resource-api.ts
 apis/auth-resource-api.ts
-apis/config-resource-api.ts
 apis/email-mapping-resource-api.ts
 apis/export-resource-api.ts
 apis/pair-programming-resource-api.ts
@@ -19,7 +18,6 @@ docs/CQIResultDTO.md
 docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
 docs/ComponentWeightsDTO.md
-docs/ConfigResourceApi.md
 docs/CreateEmailMappingRequest.md
 docs/EmailMappingDTO.md
 docs/EmailMappingResourceApi.md
@@ -30,11 +28,12 @@ docs/LlmTokenUsageDTO.md
 docs/LoginRequestDTO.md
 docs/OrphanCommitDTO.md
 docs/PairProgrammingResourceApi.md
-docs/Project.md
 docs/RequestResourceApi.md
 docs/SseEmitter.md
 docs/StudentAnalysisDTO.md
+docs/StudentSummaryDTO.md
 docs/TeamAttendanceDTO.md
+docs/TeamSummaryDTO.md
 docs/TeamsScheduleDTO.md
 docs/TemplateAuthorDTO.md
 git_push.sh
@@ -53,9 +52,10 @@ models/llm-token-totals-dto.ts
 models/llm-token-usage-dto.ts
 models/login-request-dto.ts
 models/orphan-commit-dto.ts
-models/project.ts
 models/sse-emitter.ts
 models/student-analysis-dto.ts
+models/student-summary-dto.ts
 models/team-attendance-dto.ts
+models/team-summary-dto.ts
 models/teams-schedule-dto.ts
 models/template-author-dto.ts

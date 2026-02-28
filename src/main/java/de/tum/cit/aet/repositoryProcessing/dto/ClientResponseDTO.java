@@ -27,7 +27,29 @@ public record ClientResponseDTO(
                 List<AnalyzedChunkDTO> analysisHistory,
                 List<OrphanCommitDTO> orphanCommits,
                 LlmTokenTotalsDTO llmTokenTotals,
-                Integer orphanCommitCount) {
+                Integer orphanCommitCount,
+                Boolean isFailed) {
+
+        /**
+         * Constructor for backward compatibility without isFailed.
+         */
+        public ClientResponseDTO(
+                        String tutor,
+                        Long teamId,
+                        String teamName,
+                        Integer submissionCount,
+                        List<StudentAnalysisDTO> students,
+                        Double cqi,
+                        Boolean isSuspicious,
+                        AnalysisStatus analysisStatus,
+                        CQIResultDTO cqiDetails,
+                        List<AnalyzedChunkDTO> analysisHistory,
+                        List<OrphanCommitDTO> orphanCommits,
+                        LlmTokenTotalsDTO llmTokenTotals,
+                        Integer orphanCommitCount) {
+                this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
+                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, orphanCommitCount, null);
+        }
 
         /**
          * Constructor for backward compatibility without orphanCommitCount.
@@ -46,7 +68,7 @@ public record ClientResponseDTO(
                         List<OrphanCommitDTO> orphanCommits,
                         LlmTokenTotalsDTO llmTokenTotals) {
                 this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
-                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null);
+                                cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null, null);
         }
 
         /**
@@ -65,6 +87,6 @@ public record ClientResponseDTO(
                         List<AnalyzedChunkDTO> analysisHistory,
                         List<OrphanCommitDTO> orphanCommits) {
                 this(tutor, teamId, teamName, submissionCount, students, cqi, isSuspicious, analysisStatus,
-                                cqiDetails, analysisHistory, orphanCommits, null, null);
+                                cqiDetails, analysisHistory, orphanCommits, null, null, null);
         }
 }

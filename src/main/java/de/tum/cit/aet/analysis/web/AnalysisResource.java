@@ -7,6 +7,7 @@ import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
+import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -118,6 +119,22 @@ public class AnalysisResource {
         }
     }
 
+    /**
+     * Run AI analysis for a single team on demand.
+     *
+     * @param exerciseId the exercise ID
+     * @param teamId     the Artemis team ID
+     * @return the updated team data, or 404 if not found
+     */
+    @PostMapping("/{exerciseId}/teams/{teamId}/compute-ai")
+    public ResponseEntity<ClientResponseDTO> computeAiForTeam(
+            @PathVariable Long exerciseId, @PathVariable Long teamId) {
+        log.info("Compute AI requested for exercise {} team {}", exerciseId, teamId);
+        return requestService.runSingleTeamAIAnalysis(exerciseId, teamId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     private void clearRepositoryFiles() throws IOException {
         // Clear ~/.harmonia/repos
         Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");
@@ -158,6 +175,7 @@ public class AnalysisResource {
                 status.getCurrentStage(),
                 status.getStartedAt(),
                 status.getLastUpdatedAt(),
-                status.getErrorMessage());
+                status.getErrorMessage(),
+                status.getAnalysisMode() != null ? status.getAnalysisMode().name() : null);
     }
 }

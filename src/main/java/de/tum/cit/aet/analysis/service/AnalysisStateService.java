@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.service;
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.repository.AnalysisStatusRepository;
+import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -68,6 +69,20 @@ public class AnalysisStateService {
      */
     @Transactional
     public AnalysisStatus startAnalysis(Long exerciseId, int totalTeams) {
+        return startAnalysis(exerciseId, totalTeams, AnalysisMode.FULL);
+    }
+
+    /**
+     * Start an analysis for the given exercise with a specific analysis mode.
+     *
+     * @param exerciseId The ID of the exercise
+     * @param totalTeams The total number of teams to process
+     * @param mode       The analysis mode (SIMPLE for git-only, FULL for git + AI)
+     * @return The updated analysis status
+     * @throws IllegalStateException if analysis is already running
+     */
+    @Transactional
+    public AnalysisStatus startAnalysis(Long exerciseId, int totalTeams, AnalysisMode mode) {
         AnalysisStatus status = statusRepository.findById(exerciseId)
                 .orElseGet(() -> new AnalysisStatus(exerciseId));
 
@@ -84,8 +99,9 @@ public class AnalysisStateService {
         status.setStartedAt(Instant.now());
         status.setLastUpdatedAt(Instant.now());
         status.setErrorMessage(null);
+        status.setAnalysisMode(mode);
 
-        log.info("Started analysis for exercise {} with {} teams", exerciseId, totalTeams);
+        log.info("Started {} analysis for exercise {} with {} teams", mode, exerciseId, totalTeams);
         return statusRepository.save(status);
     }
 
