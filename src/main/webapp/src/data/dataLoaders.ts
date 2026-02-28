@@ -156,6 +156,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): Team {
           weight: Math.round((weights?.temporalSpread ?? 0) * 100),
           description: 'Is work spread over time or crammed at deadline?',
           details: 'Higher scores mean work was spread consistently throughout the project period.',
+          weeklyDistribution: serverCqiDetails.components.weeklyDistribution ?? undefined,
         },
         {
           name: 'File Ownership Spread',

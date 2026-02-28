@@ -17,6 +17,7 @@ export interface SubMetric {
   description: string;
   details: string;
   status?: 'FOUND' | 'NOT_FOUND' | 'WARNING' | null; // Pair programming status from attendance upload/analysis
+  weeklyDistribution?: number[];
 }
 
 export interface BasicMetrics {

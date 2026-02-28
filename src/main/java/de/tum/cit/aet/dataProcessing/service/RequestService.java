@@ -611,6 +611,7 @@ public class RequestService {
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
                 // Always set the status (FOUND, NOT_FOUND, WARNING, or null)
                 teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                teamParticipation.setCqiWeeklyDistribution(serializeWeeklyDistribution(gitComponents.weeklyDistribution()));
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
@@ -771,6 +772,7 @@ public class RequestService {
             teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
             teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
             teamParticipation.setCqiPenaltyMultiplier(cqiDetails.penaltyMultiplier());
+            teamParticipation.setCqiWeeklyDistribution(serializeWeeklyDistribution(cqiDetails.components().weeklyDistribution()));
             if (cqiDetails.penalties() != null) {
                 teamParticipation.setCqiPenalties(serializePenalties(cqiDetails.penalties()));
             }
@@ -1009,6 +1011,7 @@ public class RequestService {
             teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
             teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
             teamParticipation.setCqiPenaltyMultiplier(cqiDetails.penaltyMultiplier());
+            teamParticipation.setCqiWeeklyDistribution(serializeWeeklyDistribution(cqiDetails.components().weeklyDistribution()));
             if (cqiDetails.penalties() != null) {
                 teamParticipation.setCqiPenalties(serializePenalties(cqiDetails.penalties()));
             }
@@ -1891,6 +1894,31 @@ public class RequestService {
         }
     }
 
+    private String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
+        try {
+            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(weeklyDistribution);
+        } catch (Exception e) {
+            log.warn("Failed to serialize weekly distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<Double> deserializeWeeklyDistribution(String json) {
+        try {
+            if (json == null || json.isEmpty()) {
+                return null;
+            }
+            return objectMapper.readValue(json,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, Double.class));
+        } catch (Exception e) {
+            log.warn("Failed to deserialize weekly distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
     /**
      * Reconstructs a CQIResultDTO from persisted TeamParticipation fields.
      * Returns null if no CQI components were stored.
@@ -1909,7 +1937,8 @@ public class RequestService {
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
                 participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                participation.getCqiPairProgrammingStatus(),
+                deserializeWeeklyDistribution(participation.getCqiWeeklyDistribution()));
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());

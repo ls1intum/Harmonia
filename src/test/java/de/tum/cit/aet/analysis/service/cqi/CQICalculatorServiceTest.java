@@ -260,6 +260,36 @@ class CQICalculatorServiceTest {
         assertEquals(100.0, components.pairProgramming(), 0.001);
     }
 
+    // ==================== Weekly Distribution Tests ====================
+
+    @Test
+    void testWeeklyDistribution_ReturnedWithCorrectLength() {
+        // 30-day project = ceil(30/7) = 5 weeks
+        List<RatedChunk> chunks = List.of(
+                createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
+                createRatedChunk(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
+        );
+
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName);
+
+        assertNotNull(result.components().weeklyDistribution());
+        int expectedWeeks = (int) Math.ceil(30 / 7.0);
+        assertEquals(expectedWeeks, result.components().weeklyDistribution().size());
+    }
+
+    @Test
+    void testWeeklyDistribution_GitOnlyComponents() {
+        List<CommitChunkDTO> chunks = List.of(
+                createChunk(1L, 100, projectStart.plusDays(2)),
+                createChunk(2L, 100, projectStart.plusDays(15))
+        );
+
+        ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, projectStart, projectEnd);
+
+        assertNotNull(components.weeklyDistribution());
+        assertFalse(components.weeklyDistribution().isEmpty());
+    }
+
     // ==================== Helper Methods ====================
 
     private RatedChunk createRatedChunk(Long authorId, int loc, double effort,

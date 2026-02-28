@@ -524,6 +524,9 @@ components:
         pairProgramming: {type: number, format: double}
         pairProgrammingStatus: {type: string}
         temporalSpread: {type: number, format: double}
+        weeklyDistribution:
+          type: array
+          items: {type: number, format: double}
     ComponentWeightsDTO:
       type: object
       properties:

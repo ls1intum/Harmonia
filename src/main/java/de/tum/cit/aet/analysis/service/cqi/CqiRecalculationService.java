@@ -165,6 +165,7 @@ public class CqiRecalculationService {
             }
             participation.setCqiBaseScore(finalBaseScore);
             participation.setCqiPenaltyMultiplier(cqiResult.penaltyMultiplier());
+            participation.setCqiWeeklyDistribution(serializeWeeklyDistribution(cqiResult.components().weeklyDistribution()));
             if (cqiResult.penalties() != null) {
                 participation.setCqiPenalties(serializePenalties(cqiResult.penalties()));
             }
@@ -212,6 +213,17 @@ public class CqiRecalculationService {
             return OBJECT_MAPPER.writeValueAsString(penalties);
         } catch (Exception e) {
             return "[]";
+        }
+    }
+
+    private String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
+        try {
+            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
+                return null;
+            }
+            return OBJECT_MAPPER.writeValueAsString(weeklyDistribution);
+        } catch (Exception e) {
+            return null;
         }
     }
 }

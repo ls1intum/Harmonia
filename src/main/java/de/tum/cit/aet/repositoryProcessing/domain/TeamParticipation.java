@@ -82,6 +82,9 @@ public class TeamParticipation {
     @Column(name = "cqi_penalties", columnDefinition = "TEXT")
     private String cqiPenalties;
 
+    @Column(name = "cqi_weekly_distribution", columnDefinition = "TEXT")
+    private String cqiWeeklyDistribution;
+
     @Column(name = "llm_calls")
     private Long llmCalls;
 

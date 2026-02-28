@@ -43,6 +43,12 @@ public class CQICalculatorService {
     }
 
     /**
+     * Result of temporal spread calculation, containing both the score and the weekly distribution data.
+     */
+    public record TemporalSpreadResult(double score, List<Double> weeklyDistribution) {
+    }
+
+    /**
      * Calculate CQI from LLM-rated commits.
      * <p>
      * The rated chunks should come from commits that passed the pre-filter.
@@ -102,11 +108,12 @@ public class CQICalculatorService {
         // Calculate component scores
         double effortScore = calculateEffortBalance(effortByAuthor);
         double locScore = calculateLocBalance(locByAuthor);
-        double temporalScore = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
+        TemporalSpreadResult temporalResult = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
         double ownershipScore = calculateOwnershipSpread(ratedChunks, teamSize);
 
         ComponentScoresDTO components = new ComponentScoresDTO(
-                effortScore, locScore, temporalScore, ownershipScore, null, null);
+                effortScore, locScore, temporalResult.score(), ownershipScore, null, null,
+                temporalResult.weeklyDistribution());
 
         log.debug("Component scores: {}", components.toSummary());
 
@@ -247,7 +254,7 @@ public class CQICalculatorService {
         }
 
         // Calculate temporal spread using raw chunks
-        double temporalScore = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
+        TemporalSpreadResult temporalResult = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
 
         // Calculate ownership spread using raw chunks
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
@@ -315,13 +322,14 @@ public class CQICalculatorService {
 
         log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}, PairProgramming={}, Status={}",
                 String.format("%.1f", locScore),
-                String.format("%.1f", temporalScore),
+                String.format("%.1f", temporalResult.score()),
                 String.format("%.1f", ownershipScore),
                 pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "N/A",
                 pairProgrammingStatus);
 
         // effortBalance = 0 because it requires AI
-        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
+        return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, pairProgrammingStatus,
+                temporalResult.weeklyDistribution());
     }
 
     /**
@@ -355,16 +363,16 @@ public class CQICalculatorService {
     /**
      * Calculate temporal spread from raw commit chunks (no AI rating needed).
      */
-    private double calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
+    private TemporalSpreadResult calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
                                                      LocalDateTime projectStart,
                                                      LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return 50.0; // Neutral score if no temporal data
+            return new TemporalSpreadResult(50.0, List.of());
         }
 
         long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
         if (totalDays <= 0) {
-            return 50.0;
+            return new TemporalSpreadResult(50.0, List.of());
         }
 
         // Divide project into weeks
@@ -384,10 +392,12 @@ public class CQICalculatorService {
             weeklyLines[weekIndex] += chunk.totalLinesChanged();
         }
 
+        List<Double> weeklyDistribution = Arrays.stream(weeklyLines).boxed().toList();
+
         // Calculate coefficient of variation
         double mean = Arrays.stream(weeklyLines).average().orElse(0);
         if (mean == 0) {
-            return 50.0;
+            return new TemporalSpreadResult(50.0, weeklyDistribution);
         }
 
         double variance = Arrays.stream(weeklyLines)
@@ -399,7 +409,8 @@ public class CQICalculatorService {
         // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
         double normalizedCV = Math.min(cv / 2.0, 1.0);
 
-        return 100.0 * (1.0 - normalizedCV);
+        double score = 100.0 * (1.0 - normalizedCV);
+        return new TemporalSpreadResult(score, weeklyDistribution);
     }
 
     /**
@@ -483,16 +494,16 @@ public class CQICalculatorService {
      * Calculate temporal spread score.
      * Rewards work spread evenly over project duration, penalizes cramming.
      */
-    private double calculateTemporalSpread(List<RatedChunk> chunks,
+    private TemporalSpreadResult calculateTemporalSpread(List<RatedChunk> chunks,
                                            LocalDateTime projectStart,
                                            LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return 50.0; // Neutral score if no temporal data
+            return new TemporalSpreadResult(50.0, List.of());
         }
 
         long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
         if (totalDays <= 0) {
-            return 50.0;
+            return new TemporalSpreadResult(50.0, List.of());
         }
 
         // Divide project into weeks
@@ -512,10 +523,12 @@ public class CQICalculatorService {
             weeklyEffort[weekIndex] += effort;
         }
 
+        List<Double> weeklyDistribution = Arrays.stream(weeklyEffort).boxed().toList();
+
         // Calculate coefficient of variation
         double mean = Arrays.stream(weeklyEffort).average().orElse(0);
         if (mean == 0) {
-            return 50.0;
+            return new TemporalSpreadResult(50.0, weeklyDistribution);
         }
 
         double variance = Arrays.stream(weeklyEffort)
@@ -527,7 +540,8 @@ public class CQICalculatorService {
         // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
         double normalizedCV = Math.min(cv / 2.0, 1.0);
 
-        return 100.0 * (1.0 - normalizedCV);
+        double score = 100.0 * (1.0 - normalizedCV);
+        return new TemporalSpreadResult(score, weeklyDistribution);
     }
 
     /**

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import java.util.List;
+
 /**
  * Individual component scores for CQI calculation.
  *
@@ -11,6 +13,7 @@ package de.tum.cit.aet.analysis.dto.cqi;
  * @param pairProgrammingStatus Status of pair programming metric: "FOUND" if team in Excel,
  *                              "NOT_FOUND" if Excel uploaded but team missing, "WARNING" if
  *                              cancelled sessions affected mandatory attendance, null if no Excel
+ * @param weeklyDistribution Weekly effort/LoC distribution buckets for temporal spread visualization (nullable)
  */
 public record ComponentScoresDTO(
         double effortBalance,
@@ -18,13 +21,14 @@ public record ComponentScoresDTO(
         double temporalSpread,
         double ownershipSpread,
         Double pairProgramming,
-        String pairProgrammingStatus
+        String pairProgrammingStatus,
+        List<Double> weeklyDistribution
 ) {
     /**
      * Create zero scores.
      */
     public static ComponentScoresDTO zero() {
-        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, null);
+        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, null, null);
     }
 
     /**

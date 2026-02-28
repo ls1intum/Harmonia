@@ -1,13 +1,14 @@
 # CreateEmailMappingRequest
 
+
 ## Properties
 
-| Name                    | Type       | Description | Notes                             |
-| ----------------------- | ---------- | ----------- | --------------------------------- |
-| **gitEmail**            | **string** |             | [optional] [default to undefined] |
-| **studentId**           | **number** |             | [optional] [default to undefined] |
-| **studentName**         | **string** |             | [optional] [default to undefined] |
-| **teamParticipationId** | **number** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**gitEmail** | **string** |  | [optional] [default to undefined]
+**studentId** | **number** |  | [optional] [default to undefined]
+**studentName** | **string** |  | [optional] [default to undefined]
+**teamParticipationId** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -15,10 +16,10 @@
 import { CreateEmailMappingRequest } from './api';
 
 const instance: CreateEmailMappingRequest = {
-  gitEmail,
-  studentId,
-  studentName,
-  teamParticipationId,
+    gitEmail,
+    studentId,
+    studentName,
+    teamParticipationId,
 };
 ```
 
