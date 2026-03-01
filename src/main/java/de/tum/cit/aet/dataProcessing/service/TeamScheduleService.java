@@ -38,10 +38,47 @@ public class TeamScheduleService {
      * @return the team attendance DTO or null if not found
      */
     public TeamAttendanceDTO getTeamAttendance(String teamName) {
-        if (teamName == null) {
-            return null;
+        return getTeamAttendance(teamName, null);
+    }
+
+    /**
+     * Retrieves the attendance information for a specific team, trying {@code teamName} first
+     * then {@code shortNameFallback} if not found. Use when Excel may list teams by short name.
+     *
+     * @param teamName         the primary name of the team (e.g. full name)
+     * @param shortNameFallback the short name to try if lookup by teamName fails
+     * @return the team attendance DTO or null if not found
+     */
+    public TeamAttendanceDTO getTeamAttendance(String teamName, String shortNameFallback) {
+        if (teamName != null) {
+            TeamAttendanceDTO att = teamsByNormalizedName.get(normalize(teamName));
+            if (att != null) {
+                return att;
+            }
         }
-        return teamsByNormalizedName.get(normalize(teamName));
+        if (shortNameFallback != null) {
+            return teamsByNormalizedName.get(normalize(shortNameFallback));
+        }
+        return null;
+    }
+
+    /**
+     * Returns the key under which attendance was found (teamName or shortNameFallback), or teamName if not found.
+     * Use with {@link #getTeamAttendance(String, String)} to call {@link #getPairedSessions(String)}
+     * or {@link #getClassDates(String)} with the resolved key.
+     *
+     * @param teamName         the primary name of the team
+     * @param shortNameFallback the short name fallback
+     * @return the resolved key, or teamName if neither matched
+     */
+    public String getResolvedTeamName(String teamName, String shortNameFallback) {
+        if (teamName != null && teamsByNormalizedName.containsKey(normalize(teamName))) {
+            return teamName;
+        }
+        if (shortNameFallback != null && teamsByNormalizedName.containsKey(normalize(shortNameFallback))) {
+            return shortNameFallback;
+        }
+        return teamName;
     }
 
     /**
@@ -51,10 +88,18 @@ public class TeamScheduleService {
      * @return true if the team exists in uploaded attendance data, false otherwise
      */
     public boolean hasTeamAttendance(String teamName) {
-        if (teamName == null) {
-            return false;
-        }
-        return teamsByNormalizedName.containsKey(normalize(teamName));
+        return hasTeamAttendance(teamName, null);
+    }
+
+    /**
+     * Checks if attendance data exists for a team, trying {@code teamName} then {@code shortNameFallback}.
+     *
+     * @param teamName         the primary team name
+     * @param shortNameFallback the short name to try if teamName is not found
+     * @return true if the team exists in uploaded attendance data, false otherwise
+     */
+    public boolean hasTeamAttendance(String teamName, String shortNameFallback) {
+        return getTeamAttendance(teamName, shortNameFallback) != null;
     }
 
     /**
@@ -96,7 +141,14 @@ public class TeamScheduleService {
     }
 
     public boolean isPairedMandatorySessions(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+        return isPairedMandatorySessions(teamName, null);
+    }
+
+    /**
+     * Same as {@link #isPairedMandatorySessions(String)} with shortName fallback.
+     */
+    public boolean isPairedMandatorySessions(String teamName, String shortNameFallback) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortNameFallback);
         return attendance != null && attendance.pairedMandatorySessions();
     }
 
@@ -107,7 +159,14 @@ public class TeamScheduleService {
      * @return true when any session attendance value is null
      */
     public boolean hasCancelledSessionWarning(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+        return hasCancelledSessionWarning(teamName, null);
+    }
+
+    /**
+     * Same as {@link #hasCancelledSessionWarning(String)} with shortName fallback.
+     */
+    public boolean hasCancelledSessionWarning(String teamName, String shortNameFallback) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortNameFallback);
         if (attendance == null) {
             return false;
         }

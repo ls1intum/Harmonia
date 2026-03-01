@@ -479,7 +479,8 @@ public class RequestService {
                 students.size(),
                 null,
                 null,
-                participation.getName());
+                participation.getName(),
+                participation.getShortName());
 
         var teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
         if (students.size() != 2) {
@@ -499,7 +500,8 @@ public class RequestService {
                             students.size(),
                             null,
                             null,
-                            participation.getName());
+                            participation.getName(),
+                            participation.getShortName());
                 } else {
                     log.debug("Empty commit-author map for participation {}, using attendance-only pair programming defaults",
                             participation.getParticipation());
@@ -538,7 +540,8 @@ public class RequestService {
                 students.size(),
                 null,
                 null,
-                participation.getName());
+                participation.getName(),
+                participation.getShortName());
 
         PairProgrammingStatus nextStatus = attendanceOnly.pairProgrammingStatus();
         Double nextScore = normalizePairProgrammingScore(attendanceOnly.pairProgramming(), nextStatus);
@@ -686,8 +689,8 @@ public class RequestService {
                     students.size(),
                     null,  // projectStart - will be determined from commits
                     null,  // projectEnd - will be determined from commits
-                    team.name()  // teamName for pair programming calculation
-            );
+                    team.name(),
+                    team.shortName());
 
             // Store git-based components
             if (gitComponents != null) {

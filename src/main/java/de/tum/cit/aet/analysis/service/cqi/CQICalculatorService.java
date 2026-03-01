@@ -213,15 +213,36 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
             String teamName) {
+        return calculateGitOnlyComponents(chunks, teamSize, projectStart, projectEnd, teamName, null);
+    }
 
-        // Calculate pair programming score if team name is provided
+    /**
+     * Same as {@link #calculateGitOnlyComponents(List, int, LocalDateTime, LocalDateTime, String)}
+     * with a fallback: if the team is not found by {@code teamName}, attendance is looked up by
+     * {@code shortNameFallback} (e.g. when Excel lists teams by short name).
+     *
+     * @param chunks             List of raw commit chunks from repository
+     * @param teamSize           Number of team members
+     * @param projectStart       Project start date (optional)
+     * @param projectEnd         Project end date (optional)
+     * @param teamName           Team name for paired session lookup (optional)
+     * @param shortNameFallback  Team short name to try when lookup by teamName fails (optional)
+     * @return Component scores with only git-based metrics filled in
+     */
+    public ComponentScoresDTO calculateGitOnlyComponents(
+            List<CommitChunkDTO> chunks,
+            int teamSize,
+            LocalDateTime projectStart,
+            LocalDateTime projectEnd,
+            String teamName,
+            String shortNameFallback) {
+
+        // Calculate pair programming score if team name is provided (try teamName then shortNameFallback)
         Double pairProgrammingScore = null;
-        // Check if attendance data was uploaded at all
-        boolean hasAttendanceData = teamScheduleService.hasTeamAttendance(teamName);
-        boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
-        boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName);
+        boolean hasAttendanceData = teamScheduleService.hasTeamAttendance(teamName, shortNameFallback);
+        boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName, shortNameFallback);
+        boolean pairedMandatorySessions = teamScheduleService.isPairedMandatorySessions(teamName, shortNameFallback);
         PairProgrammingStatus pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
-
 
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
             return ComponentScoresDTO.zero(pairProgrammingStatus);
@@ -269,13 +290,13 @@ public class CQICalculatorService {
         // Calculate ownership spread using raw chunks
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
+        String resolvedKey = teamScheduleService.getResolvedTeamName(teamName, shortNameFallback);
         log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
         if (teamName != null && teamSize == 2) {
             try {
-                Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
-                Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
+                Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(resolvedKey);
+                Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(resolvedKey);
 
-                // Log all session dates for verification
                 log.info("=== Pair Programming Session Dates for team '{}' ===", teamName);
                 log.info("Total sessions: {}", allSessions.size());
                 allSessions.stream().sorted().forEach(date -> log.info("  All session: {}", date));
@@ -313,7 +334,6 @@ public class CQICalculatorService {
                 pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "N/A",
                 pairProgrammingStatus);
 
-        // effortBalance = 0 because it requires AI
         return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
     }
 
