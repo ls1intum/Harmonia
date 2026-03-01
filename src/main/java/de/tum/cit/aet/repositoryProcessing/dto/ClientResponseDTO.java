@@ -2,13 +2,33 @@ package de.tum.cit.aet.repositoryProcessing.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
-import de.tum.cit.aet.ai.dto.LlmTokenTotals;
+import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus;
+import de.tum.cit.aet.repositoryProcessing.domain.TeamAnalysisStatus;
 
 import java.util.List;
 
+/**
+ * Response DTO sent to the client containing a team's full analysis results,
+ * including CQI, student contributions, commit history, and LLM usage.
+ *
+ * @param tutor            the assigned tutor name
+ * @param teamId           the Artemis team ID
+ * @param participationId  the Artemis participation ID
+ * @param teamName         the team display name
+ * @param submissionCount  number of submissions
+ * @param students         list of student contribution summaries
+ * @param cqi              final CQI score
+ * @param isSuspicious     whether the team is flagged as suspicious
+ * @param analysisStatus   current analysis status
+ * @param cqiDetails       detailed CQI breakdown with component scores
+ * @param analysisHistory  list of analyzed chunks from AI analysis
+ * @param orphanCommits    list of commits that could not be attributed
+ * @param llmTokenTotals   aggregated LLM token usage
+ * @param orphanCommitCount number of orphan commits
+ * @param isFailed         whether the analysis failed for this team
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClientResponseDTO(
                 String tutor,
@@ -19,51 +39,11 @@ public record ClientResponseDTO(
                 List<StudentAnalysisDTO> students,
                 Double cqi,
                 Boolean isSuspicious,
-                AnalysisStatus analysisStatus,
+                TeamAnalysisStatus analysisStatus,
                 CQIResultDTO cqiDetails,
                 List<AnalyzedChunkDTO> analysisHistory,
                 List<OrphanCommitDTO> orphanCommits,
-                LlmTokenTotals llmTokenTotals,
-                Integer orphanCommitCount) {
-
-        /**
-         * Constructor for backward compatibility without orphanCommitCount.
-         */
-        public ClientResponseDTO(
-                        String tutor,
-                        Long teamId,
-                        Long participationId,
-                        String teamName,
-                        Integer submissionCount,
-                        List<StudentAnalysisDTO> students,
-                        Double cqi,
-                        Boolean isSuspicious,
-                        AnalysisStatus analysisStatus,
-                        CQIResultDTO cqiDetails,
-                        List<AnalyzedChunkDTO> analysisHistory,
-                        List<OrphanCommitDTO> orphanCommits,
-                        LlmTokenTotals llmTokenTotals) {
-                this(tutor, teamId, participationId, teamName, submissionCount, students, cqi, isSuspicious,
-                                analysisStatus, cqiDetails, analysisHistory, orphanCommits, llmTokenTotals, null);
-        }
-
-        /**
-         * Constructor for backward compatibility without llmTokenTotals.
-         */
-        public ClientResponseDTO(
-                        String tutor,
-                        Long teamId,
-                        Long participationId,
-                        String teamName,
-                        Integer submissionCount,
-                        List<StudentAnalysisDTO> students,
-                        Double cqi,
-                        Boolean isSuspicious,
-                        AnalysisStatus analysisStatus,
-                        CQIResultDTO cqiDetails,
-                        List<AnalyzedChunkDTO> analysisHistory,
-                        List<OrphanCommitDTO> orphanCommits) {
-                this(tutor, teamId, participationId, teamName, submissionCount, students, cqi, isSuspicious,
-                                analysisStatus, cqiDetails, analysisHistory, orphanCommits, null, null);
-        }
+                LlmTokenTotalsDTO llmTokenTotals,
+                Integer orphanCommitCount,
+                Boolean isFailed) {
 }

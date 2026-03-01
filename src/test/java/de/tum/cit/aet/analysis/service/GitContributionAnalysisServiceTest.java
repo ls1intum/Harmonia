@@ -1,6 +1,6 @@
 package de.tum.cit.aet.analysis.service;
 
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService.FullCommitMappingResult;
+import de.tum.cit.aet.analysis.dto.FullCommitMappingResultDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.PersonIdent;
@@ -143,7 +143,7 @@ class GitContributionAnalysisServiceTest {
     @Test
     void testAllCommitsDiscovered() {
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // All 5 student commits + template = 6 total
         int totalCommits = result.commitToAuthor().size()
@@ -162,7 +162,7 @@ class GitContributionAnalysisServiceTest {
     @Test
     void testVcsAnchorEmailPreferred() {
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // Commit 3 VCS anchor -> Student A
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commit3Hash));
@@ -177,7 +177,7 @@ class GitContributionAnalysisServiceTest {
     @Test
     void testLearnedMappingForMisconfiguredEmail() {
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // Commit 4 has git email bob@gmail.com which doesn't match any student directly.
         // But Commit 5 (VCS anchor) also has bob@gmail.com and maps to Student B.
@@ -189,7 +189,7 @@ class GitContributionAnalysisServiceTest {
     @Test
     void testDirectEmailMatch() {
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // Commits 1, 2 have git email studentA@tum.de which matches Student A directly
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commit1Hash),
@@ -201,7 +201,7 @@ class GitContributionAnalysisServiceTest {
     @Test
     void testTemplateCommitIsOrphan() {
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // Template commit is a root commit with no matching student -> detected as template
         assertTrue(result.templateCommitHashes().contains(templateHash),
@@ -216,7 +216,7 @@ class GitContributionAnalysisServiceTest {
     void testEmptyVcsLogFallback() {
         // No VCS logs at all — only direct email matching is possible
         TeamRepositoryDTO repo = buildRepo(List.of());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // Commits 1, 2, 3 have studentA@tum.de -> direct match to Student A
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commit1Hash));
@@ -281,8 +281,8 @@ class GitContributionAnalysisServiceTest {
                 new VCSLogDTO(STUDENT_A_EMAIL, "PUSH", hash3),
                 new VCSLogDTO(STUDENT_B_EMAIL, "PUSH", hash5));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                conflictDir.toString(), vcsLogs, students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                conflictDir.toString(), vcsLogs, students, Map.of(), null);
 
         // commit3 is VCS anchor -> Student A (tier 1)
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(hash3));
@@ -312,8 +312,8 @@ class GitContributionAnalysisServiceTest {
         List<ParticipantDTO> students = List.of(
                 new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                nullEmailDir.toString(), List.of(), students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                nullEmailDir.toString(), List.of(), students, Map.of(), null);
 
         // Should not crash. The commit is a root commit with no matching email,
         // so it's detected as a template commit.
@@ -338,8 +338,8 @@ class GitContributionAnalysisServiceTest {
         List<ParticipantDTO> students = List.of(
                 new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                emptyDir.toString(), List.of(), students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                emptyDir.toString(), List.of(), students, Map.of(), null);
 
         assertTrue(result.commitToAuthor().isEmpty());
         assertTrue(result.orphanCommitEmails().isEmpty());
@@ -368,8 +368,8 @@ class GitContributionAnalysisServiceTest {
                 new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL),
                 new ParticipantDTO(STUDENT_B_ID, "studentB", "Student B", STUDENT_B_EMAIL));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                orphanDir.toString(), List.of(), students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                orphanDir.toString(), List.of(), students, Map.of(), null);
 
         assertTrue(result.commitToAuthor().isEmpty(), "No commits should match any student");
         // First commit is a root commit -> template; second commit is not root -> orphan
@@ -394,7 +394,7 @@ class GitContributionAnalysisServiceTest {
         ParticipationDTO participation = new ParticipationDTO(team, 1L, "https://repo.example.com", 3);
         TeamRepositoryDTO repo = new TeamRepositoryDTO(participation, defaultVcsLogs(), tempDir.toString(), true, null);
 
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         // Student A and B should have commits assigned
         assertTrue(result.commitToAuthor().containsValue(STUDENT_A_ID));
@@ -413,7 +413,7 @@ class GitContributionAnalysisServiceTest {
         ParticipationDTO participation = new ParticipationDTO(team, 1L, null, 0);
         TeamRepositoryDTO repo = new TeamRepositoryDTO(participation, List.of(), null, false, null);
 
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         assertTrue(result.commitToAuthor().isEmpty());
         assertTrue(result.orphanCommitEmails().isEmpty());
@@ -440,8 +440,8 @@ class GitContributionAnalysisServiceTest {
         List<ParticipantDTO> students = List.of(
                 new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", "studenta@tum.de"));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                caseDir.toString(), List.of(), students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                caseDir.toString(), List.of(), students, Map.of(), null);
 
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commitHash),
                 "Tier 3 direct match should be case-insensitive");
@@ -481,8 +481,8 @@ class GitContributionAnalysisServiceTest {
         List<VCSLogDTO> vcsLogs = List.of(
                 new VCSLogDTO("external@other.com", "PUSH", commitHash));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                anchorDir.toString(), vcsLogs, students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                anchorDir.toString(), vcsLogs, students, Map.of(), null);
 
         assertFalse(result.commitToAuthor().containsKey(commitHash),
                 "VCS anchor with external email should NOT fall through to Tier 2/3");
@@ -517,8 +517,8 @@ class GitContributionAnalysisServiceTest {
                 new VCSLogDTO(STUDENT_A_EMAIL, "PUSH", mergeHash),
                 new VCSLogDTO(STUDENT_B_EMAIL, "PUSH", mergeHash));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                overlapDir.toString(), vcsLogs, students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                overlapDir.toString(), vcsLogs, students, Map.of(), null);
 
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(mergeHash),
                 "Overlap should be resolved to Student A via git-author email");
@@ -552,8 +552,8 @@ class GitContributionAnalysisServiceTest {
                 new VCSLogDTO(STUDENT_A_EMAIL, "PUSH", mergeHash),
                 new VCSLogDTO(STUDENT_B_EMAIL, "PUSH", mergeHash));
 
-        FullCommitMappingResult result = service.buildFullCommitMap(
-                overlapDir.toString(), vcsLogs, students);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(
+                overlapDir.toString(), vcsLogs, students, Map.of(), null);
 
         // Should not be orphan — assigned to first VCS entry's student
         assertTrue(result.commitToAuthor().containsKey(mergeHash),
@@ -567,7 +567,7 @@ class GitContributionAnalysisServiceTest {
         // Commit 4 is assigned via Tier 2 (learned mapping: bob@gmail.com -> Student B).
         // commitToVcsEmail should contain Student B's Artemis email for this commit.
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         assertEquals(STUDENT_B_ID, result.commitToAuthor().get(commit4Hash),
                 "Commit 4 should be assigned to Student B via learned mapping");
@@ -580,7 +580,7 @@ class GitContributionAnalysisServiceTest {
         // Commits 1 and 2 are assigned via Tier 3 (direct match: studentA@tum.de).
         // commitToVcsEmail should contain Student A's Artemis email for these commits.
         TeamRepositoryDTO repo = buildRepo(defaultVcsLogs());
-        FullCommitMappingResult result = service.buildFullCommitMap(repo);
+        FullCommitMappingResultDTO result = service.buildFullCommitMap(repo, null);
 
         assertEquals(STUDENT_A_ID, result.commitToAuthor().get(commit1Hash));
         assertEquals(STUDENT_A_EMAIL, result.commitToVcsEmail().get(commit1Hash),
@@ -625,7 +625,7 @@ class GitContributionAnalysisServiceTest {
                 new ParticipantDTO(STUDENT_A_ID, "studentA", "Student A", STUDENT_A_EMAIL));
 
         // Without template author email: only root commit is template
-        FullCommitMappingResult withoutTemplate = service.buildFullCommitMap(
+        FullCommitMappingResultDTO withoutTemplate = service.buildFullCommitMap(
                 taDir.toString(), List.of(), students, Map.of(), null);
         assertTrue(withoutTemplate.templateCommitHashes().contains(rootHash),
                 "Root commit should be template without template email");
@@ -633,7 +633,7 @@ class GitContributionAnalysisServiceTest {
                 "Non-root template commit should be orphan without template email");
 
         // With template author email: ALL template author commits are template
-        FullCommitMappingResult withTemplate = service.buildFullCommitMap(
+        FullCommitMappingResultDTO withTemplate = service.buildFullCommitMap(
                 taDir.toString(), List.of(), students, Map.of(), TEMPLATE_EMAIL);
         assertTrue(withTemplate.templateCommitHashes().contains(rootHash),
                 "Root commit should be template with template email");

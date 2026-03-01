@@ -7,6 +7,9 @@ import lombok.Setter;
 
 import java.util.UUID;
 
+/**
+ * JPA entity representing a tutor who supervises team participations.
+ */
 @Getter
 @Setter
 @Entity

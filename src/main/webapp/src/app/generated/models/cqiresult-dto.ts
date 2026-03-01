@@ -14,9 +14,6 @@
 
 // May contain unused imports in some cases
 // @ts-ignore
-import type { CQIPenaltyDTO } from './cqipenalty-dto';
-// May contain unused imports in some cases
-// @ts-ignore
 import type { ComponentScoresDTO } from './component-scores-dto';
 // May contain unused imports in some cases
 // @ts-ignore
@@ -30,7 +27,5 @@ export interface CQIResultDTO {
   components?: ComponentScoresDTO;
   cqi?: number;
   filterSummary?: FilterSummaryDTO;
-  penalties?: Array<CQIPenaltyDTO>;
-  penaltyMultiplier?: number;
   weights?: ComponentWeightsDTO;
 }

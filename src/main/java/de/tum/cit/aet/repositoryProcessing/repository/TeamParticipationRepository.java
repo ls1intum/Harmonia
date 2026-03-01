@@ -8,24 +8,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Spring Data repository for {@link TeamParticipation} entities.
+ */
 @Repository
 public interface TeamParticipationRepository extends JpaRepository<TeamParticipation, UUID> {
-
-    /**
-     * Check if a participation exists by its Artemis participation ID.
-     *
-     * @param participation the Artemis participation ID
-     * @return true if it exists, false otherwise
-     */
-    boolean existsByParticipation(Long participation);
-
-    /**
-     * Check if a participation has been fully analyzed (has CQI calculated).
-     *
-     * @param participation the Artemis participation ID
-     * @return true if it exists AND has a CQI value, false otherwise
-     */
-    boolean existsByParticipationAndCqiIsNotNull(Long participation);
 
     /**
      * Find a participation by its Artemis participation ID.
@@ -75,5 +62,5 @@ public interface TeamParticipationRepository extends JpaRepository<TeamParticipa
      * @return list of pending TeamParticipation entities
      */
     List<TeamParticipation> findAllByExerciseIdAndAnalysisStatus(Long exerciseId,
-            de.tum.cit.aet.repositoryProcessing.domain.AnalysisStatus status);
+            de.tum.cit.aet.repositoryProcessing.domain.TeamAnalysisStatus status);
 }

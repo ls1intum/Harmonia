@@ -238,7 +238,7 @@ class ExportServiceTest {
         tp.setExerciseId(1L);
         tp.setSubmissionCount(5);
         tp.setCqi(0.85);
-        tp.setAnalysisStatus(AnalysisStatus.DONE);
+        tp.setAnalysisStatus(TeamAnalysisStatus.DONE);
         tp.setIsSuspicious(false);
         tp.setLlmTotalTokens(1000L);
         return tp;

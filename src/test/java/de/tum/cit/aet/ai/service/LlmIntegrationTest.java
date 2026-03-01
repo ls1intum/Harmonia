@@ -34,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named = "LLM_INTEGRATION_TESTS", matches = "true")
 class LlmIntegrationTest {
 
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LlmIntegrationTest.class);
+
         @Autowired
         private CommitEffortRaterService effortRaterService;
 
@@ -80,13 +82,13 @@ class LlmIntegrationTest {
                                 "Complexity should be between 1-10, got: " + rating.complexity());
                 assertNotNull(rating.reasoning(), "Reasoning should not be null");
 
-                System.out.println("=== LLM Rating Result ===");
-                System.out.println("Type: " + rating.type());
-                System.out.println("Effort: " + rating.effortScore());
-                System.out.println("Complexity: " + rating.complexity());
-                System.out.println("Novelty: " + rating.novelty());
-                System.out.println("Confidence: " + rating.confidence());
-                System.out.println("Reasoning: " + rating.reasoning());
+                log.info("=== LLM Rating Result ===");
+                log.info("Type: {}", rating.type());
+                log.info("Effort: {}", rating.effortScore());
+                log.info("Complexity: {}", rating.complexity());
+                log.info("Novelty: {}", rating.novelty());
+                log.info("Confidence: {}", rating.confidence());
+                log.info("Reasoning: {}", rating.reasoning());
         }
 
         @Test
@@ -120,10 +122,10 @@ class LlmIntegrationTest {
                 assertTrue(rating.effortScore() <= 5,
                                 "Trivial typo fix should have low effort score, got: " + rating.effortScore());
 
-                System.out.println("=== Trivial Commit Rating ===");
-                System.out.println("Type: " + rating.type());
-                System.out.println("Effort: " + rating.effortScore());
-                System.out.println("Reasoning: " + rating.reasoning());
+                log.info("=== Trivial Commit Rating ===");
+                log.info("Type: {}", rating.type());
+                log.info("Effort: {}", rating.effortScore());
+                log.info("Reasoning: {}", rating.reasoning());
         }
 
         @Test
@@ -162,8 +164,8 @@ class LlmIntegrationTest {
                 assertFalse(rating.reasoning().contains("template string"),
                                 "Should not have template parsing error");
 
-                System.out.println("=== Curly Brace Test ===");
-                System.out.println("Type: " + rating.type());
-                System.out.println("Reasoning: " + rating.reasoning());
+                log.info("=== Curly Brace Test ===");
+                log.info("Type: {}", rating.type());
+                log.info("Reasoning: {}", rating.reasoning());
         }
 }

@@ -13,6 +13,7 @@
  */
 
 export interface AnalysisStatusDTO {
+  analysisMode?: string;
   currentStage?: string;
   currentTeamName?: string;
   errorMessage?: string;

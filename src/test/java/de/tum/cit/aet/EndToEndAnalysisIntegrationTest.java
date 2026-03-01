@@ -9,7 +9,9 @@ import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
-import de.tum.cit.aet.repositoryProcessing.service.ArtemisClientService;
+import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
+import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
+import de.tum.cit.aet.artemis.ArtemisClientService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
@@ -64,6 +66,12 @@ class EndToEndAnalysisIntegrationTest {
     @Autowired
     private AnalyzedChunkRepository analyzedChunkRepository;
 
+    @Autowired
+    private TeamRepositoryRepository teamRepositoryRepository;
+
+    @Autowired
+    private TutorRepository tutorRepository;
+
     // Test configuration from environment
     private static final String ARTEMIS_URL = System.getenv("ARTEMIS_TEST_URL");
     private static final String USERNAME = System.getenv("ARTEMIS_TEST_USERNAME");
@@ -79,17 +87,15 @@ class EndToEndAnalysisIntegrationTest {
 
     @BeforeAll
     static void printTestConfiguration() {
-        System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════════════════╗");
-        System.out.println("║           E2E ANALYSIS INTEGRATION TEST                      ║");
-        System.out.println("╠══════════════════════════════════════════════════════════════╣");
-        System.out.println("║ Configuration:                                               ║");
-        System.out.println("║   Artemis URL:  " + padRight(ARTEMIS_URL, 44) + "║");
-        System.out.println("║   Username:     " + padRight(USERNAME, 44) + "║");
-        System.out.println("║   Exercise ID:  " + padRight(String.valueOf(EXERCISE_ID), 44) + "║");
-        System.out.println("║   Max Teams:    " + padRight(String.valueOf(MAX_TEAMS), 44) + "║");
-        System.out.println("╚══════════════════════════════════════════════════════════════╝");
-        System.out.println();
+        log.info("╔══════════════════════════════════════════════════════════════╗");
+        log.info("║           E2E ANALYSIS INTEGRATION TEST                      ║");
+        log.info("╠══════════════════════════════════════════════════════════════╣");
+        log.info("║ Configuration:                                               ║");
+        log.info("║   Artemis URL:  {}║", padRight(ARTEMIS_URL, 44));
+        log.info("║   Username:     {}║", padRight(USERNAME, 44));
+        log.info("║   Exercise ID:  {}║", padRight(String.valueOf(EXERCISE_ID), 44));
+        log.info("║   Max Teams:    {}║", padRight(String.valueOf(MAX_TEAMS), 44));
+        log.info("╚══════════════════════════════════════════════════════════════╝");
     }
 
     private static String padRight(String s, int n) {
@@ -133,7 +139,11 @@ class EndToEndAnalysisIntegrationTest {
         logResult("Participations before clear", participationsBefore);
 
         log.info("Clearing database...");
-        requestService.clearDatabase();
+        analyzedChunkRepository.deleteAll();
+        teamRepositoryRepository.deleteAll();
+        studentRepository.deleteAll();
+        teamParticipationRepository.deleteAll();
+        tutorRepository.deleteAll();
 
         long chunksAfter = analyzedChunkRepository.count();
         long studentsAfter = studentRepository.count();

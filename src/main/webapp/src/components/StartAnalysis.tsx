@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PlayCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
+import { authApi } from '@/lib/apiClient';
 
 interface StartAnalysisProps {
   onStart: (course: string, exercise: string, username: string, password: string, pairProgrammingEnabled: boolean) => void;
@@ -41,18 +42,14 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   // Mutation for login
   const loginMutation = useMutation({
     mutationFn: async (params: { username: string; password: string; serverUrl: string; courseId: string }) => {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-
-      if (!response.ok) {
-        const error = new Error('Login failed');
-        (error as Error & { status: number }).status = response.status;
-        throw error;
+      try {
+        return await authApi.login(params);
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number } };
+        const loginError = new Error('Login failed');
+        (loginError as Error & { status?: number }).status = axiosError.response?.status;
+        throw loginError;
       }
-      return response;
     },
   });
 

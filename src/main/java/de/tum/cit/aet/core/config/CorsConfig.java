@@ -8,16 +8,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * CORS configuration allowing cross-origin requests from known Harmonia and local development origins.
+ */
 @Configuration
 public class CorsConfig {
 
-    public CorsConfig() {
-    }
-
     /**
-     * CORS configuration source bean for Spring Security.
+     * Defines the CORS policy for all endpoints.
      *
-     * @return the configured CorsConfigurationSource
+     * @return the configured {@link CorsConfigurationSource}
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

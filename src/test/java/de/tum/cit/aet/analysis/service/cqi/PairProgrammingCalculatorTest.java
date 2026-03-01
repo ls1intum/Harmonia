@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.service.cqi;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
+import de.tum.cit.aet.analysis.dto.cqi.CqiRatedChunkDTO;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 19, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 // Day 1: Both committed
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(2L, "2024-02-05T15:00:00"),
@@ -63,7 +64,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 19, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 // Day 1: Both committed
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(2L, "2024-02-05T15:00:00"),
@@ -87,7 +88,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 12, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 // Only student 1 committed on both dates
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(1L, "2024-02-12T11:00:00")
@@ -105,7 +106,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 5, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 // Student 1 commits multiple times
                 createRatedChunk(1L, "2024-02-05T10:00:00"),
                 createRatedChunk(1L, "2024-02-05T11:00:00"),
@@ -126,7 +127,7 @@ class PairProgrammingCalculatorTest {
     void testNoPairedSessions() {
         Set<OffsetDateTime> pairedSessions = Set.of();
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(2L, "2024-02-05T15:00:00")
         );
@@ -149,7 +150,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 5, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(2L, "2024-02-05T15:00:00"),
                 createRatedChunk(3L, "2024-02-05T16:00:00")
@@ -166,7 +167,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 5, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 createRatedChunk(1L, "2024-02-05T14:30:00")
         );
 
@@ -204,7 +205,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 12, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(1L, "2024-02-12T11:00:00")
         );
@@ -222,7 +223,7 @@ class PairProgrammingCalculatorTest {
                 OffsetDateTime.of(2024, 2, 12, 10, 0, 0, 0, ZoneOffset.UTC)
         );
 
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 // Commits on different dates than paired sessions
                 createRatedChunk(1L, "2024-03-05T14:30:00"),
                 createRatedChunk(2L, "2024-03-05T15:00:00")
@@ -242,7 +243,7 @@ class PairProgrammingCalculatorTest {
         );
 
         // Commits are in UTC (should match by date alone)
-        List<CQICalculatorService.RatedChunk> commits = List.of(
+        List<CqiRatedChunkDTO> commits = List.of(
                 createRatedChunk(1L, "2024-02-05T14:30:00"),
                 createRatedChunk(2L, "2024-02-05T15:00:00")
         );
@@ -255,7 +256,7 @@ class PairProgrammingCalculatorTest {
 
     // ==================== Helper Methods ====================
 
-    private CQICalculatorService.RatedChunk createRatedChunk(Long authorId, String timestamp) {
+    private CqiRatedChunkDTO createRatedChunk(Long authorId, String timestamp) {
         LocalDateTime dateTime = LocalDateTime.parse(timestamp);
         CommitChunkDTO chunk = CommitChunkDTO.single(
                 "commit-" + UUID.randomUUID(),
@@ -280,6 +281,6 @@ class PairProgrammingCalculatorTest {
                 null
         );
 
-        return new CQICalculatorService.RatedChunk(chunk, rating);
+        return new CqiRatedChunkDTO(chunk, rating);
     }
 }

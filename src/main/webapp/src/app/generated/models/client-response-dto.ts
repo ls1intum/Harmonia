@@ -20,7 +20,7 @@ import type { AnalyzedChunkDTO } from './analyzed-chunk-dto';
 import type { CQIResultDTO } from './cqiresult-dto';
 // May contain unused imports in some cases
 // @ts-ignore
-import type { LlmTokenTotals } from './llm-token-totals';
+import type { LlmTokenTotalsDTO } from './llm-token-totals-dto';
 // May contain unused imports in some cases
 // @ts-ignore
 import type { OrphanCommitDTO } from './orphan-commit-dto';
@@ -33,8 +33,9 @@ export interface ClientResponseDTO {
   analysisStatus?: ClientResponseDTOAnalysisStatusEnum;
   cqi?: number;
   cqiDetails?: CQIResultDTO;
+  isFailed?: boolean;
   isSuspicious?: boolean;
-  llmTokenTotals?: LlmTokenTotals;
+  llmTokenTotals?: LlmTokenTotalsDTO;
   orphanCommitCount?: number;
   orphanCommits?: Array<OrphanCommitDTO>;
   participationId?: number;
@@ -51,7 +52,6 @@ export const ClientResponseDTOAnalysisStatusEnum = {
   GitAnalyzing: 'GIT_ANALYZING',
   GitDone: 'GIT_DONE',
   AiAnalyzing: 'AI_ANALYZING',
-  Analyzing: 'ANALYZING',
   Done: 'DONE',
   Error: 'ERROR',
   Cancelled: 'CANCELLED',

@@ -6,7 +6,8 @@ import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
+import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,16 +26,16 @@ public class AnalysisResource {
 
     private final AnalysisStateService stateService;
     private final RequestService requestService;
-    private final TeamScheduleService teamScheduleService;
+    private final PairProgrammingService pairProgrammingService;
     private final ExerciseEmailMappingRepository emailMappingRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
 
     public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
-                            TeamScheduleService teamScheduleService, ExerciseEmailMappingRepository emailMappingRepository,
+                            PairProgrammingService pairProgrammingService, ExerciseEmailMappingRepository emailMappingRepository,
                             ExerciseTemplateAuthorRepository templateAuthorRepository) {
         this.stateService = stateService;
         this.requestService = requestService;
-        this.teamScheduleService = teamScheduleService;
+        this.pairProgrammingService = pairProgrammingService;
         this.emailMappingRepository = emailMappingRepository;
         this.templateAuthorRepository = templateAuthorRepository;
     }
@@ -60,7 +61,7 @@ public class AnalysisResource {
      */
     @PostMapping("/{exerciseId}/cancel")
     public ResponseEntity<AnalysisStatusDTO> cancelAnalysis(@PathVariable Long exerciseId) {
-        log.info("Cancel requested for exercise: {}", exerciseId);
+        log.info("POST cancelAnalysis for exerciseId={}", exerciseId);
 
         // First, stop the active executor to interrupt running threads
         requestService.stopAnalysis(exerciseId);
@@ -83,7 +84,7 @@ public class AnalysisResource {
             @PathVariable Long exerciseId,
             @RequestParam(defaultValue = "both") String type,
             @RequestParam(defaultValue = "false") boolean clearMappings) {
-        log.info("Clear requested for exercise: {}, type: {}, clearMappings: {}", exerciseId, type, clearMappings);
+        log.info("DELETE clearData for exerciseId={}, type={}, clearMappings={}", exerciseId, type, clearMappings);
 
         try {
             // First, stop any running analysis task to prevent it from continuing
@@ -91,47 +92,50 @@ public class AnalysisResource {
 
             // Clear attendance data so pair programming metric won't show on next analysis
             // unless a new Excel file is uploaded
-            teamScheduleService.clear();
-            log.info("Attendance data cleared");
+            pairProgrammingService.clear();
+            log.info("Attendance data cleared for exerciseId={}", exerciseId);
 
             if ("db".equals(type) || "both".equals(type)) {
                 requestService.clearDatabaseForExercise(exerciseId);
                 stateService.resetStatus(exerciseId);
-                log.info("Database cleared for exercise {}", exerciseId);
+                log.info("Database cleared for exerciseId={}", exerciseId);
 
                 if (clearMappings) {
                     emailMappingRepository.deleteAllByExerciseId(exerciseId);
                     templateAuthorRepository.deleteByExerciseId(exerciseId);
-                    log.info("Email mappings and template author cleared for exercise {}", exerciseId);
+                    log.info("Email mappings and template author cleared for exerciseId={}", exerciseId);
                 }
             }
 
             if ("files".equals(type) || "both".equals(type)) {
                 clearRepositoryFiles();
-                log.info("Repository files cleared");
+                log.info("Repository files cleared for exerciseId={}", exerciseId);
             }
 
             return ResponseEntity.ok("Data cleared successfully");
         } catch (Exception e) {
-            log.error("Failed to clear data for exercise {}", exerciseId, e);
+            log.error("Failed to clear data for exerciseId={}", exerciseId, e);
             return ResponseEntity.internalServerError().body("Failed to clear data: " + e.getMessage());
         }
     }
 
     /**
-     * Legacy recompute endpoint for backwards compatibility.
+     * Run AI analysis for a single team on demand.
      *
-     * @param course   the course identifier
-     * @param exercise the exercise identifier
-     * @return a response entity
+     * @param exerciseId the exercise ID
+     * @param teamId     the Artemis team ID
+     * @return the updated team data, or 404 if not found
      */
-    @PostMapping("/{course}/{exercise}/recompute")
-    public ResponseEntity<String> recompute(@PathVariable String course, @PathVariable String exercise) {
-        log.info("Recompute requested for course: {}, exercise: {}", course, exercise);
-        return ResponseEntity.ok("Recompute triggered");
+    @PostMapping("/{exerciseId}/teams/{teamId}/compute-ai")
+    public ResponseEntity<ClientResponseDTO> computeAiForTeam(
+            @PathVariable Long exerciseId, @PathVariable Long teamId) {
+        log.info("POST computeAiForTeam for exerciseId={}, teamId={}", exerciseId, teamId);
+        return requestService.runSingleTeamAIAnalysis(exerciseId, teamId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    private void clearRepositoryFiles() throws IOException {
+    private void clearRepositoryFiles() {
         // Clear ~/.harmonia/repos
         Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");
         deleteDirectoryContents(reposDir, "~/.harmonia/repos");
@@ -141,7 +145,7 @@ public class AnalysisResource {
         deleteDirectoryContents(projectsDir, "Projects");
     }
 
-    private void deleteDirectoryContents(Path dir, String dirName) throws IOException {
+    private void deleteDirectoryContents(Path dir, String dirName) {
         if (Files.exists(dir)) {
             log.info("Clearing directory: {}", dir.toAbsolutePath());
             try (Stream<Path> walk = Files.walk(dir)) {
@@ -154,6 +158,8 @@ public class AnalysisResource {
                                 log.warn("Failed to delete {}: {}", path, e.getMessage());
                             }
                         });
+            } catch (IOException e) {
+                log.error("Failed to walk directory {}: {}", dirName, e.getMessage());
             }
             log.info("Cleared {} successfully", dirName);
         } else {
@@ -171,6 +177,7 @@ public class AnalysisResource {
                 status.getCurrentStage(),
                 status.getStartedAt(),
                 status.getLastUpdatedAt(),
-                status.getErrorMessage());
+                status.getErrorMessage(),
+                status.getAnalysisMode() != null ? status.getAnalysisMode().name() : null);
     }
 }
