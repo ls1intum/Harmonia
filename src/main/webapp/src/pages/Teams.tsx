@@ -24,7 +24,7 @@ const apiConfig = new Configuration({
   },
 });
 const attendanceApi = new AttendanceResourceApi(apiConfig);
-const PAIR_PROGRAMMING_RECOMPUTE_PENDING_MS = 30000;
+const PAIR_PROGRAMMING_RECOMPUTE_PENDING_MS = 60000;
 
 type NullableAttendanceMap = Record<string, boolean | null>;
 
@@ -571,6 +571,7 @@ export default function Teams() {
       isClearing={clearMutation.isPending}
       isAttendanceUploading={attendanceUploadMutation.isPending}
       isAttendanceClearing={clearAttendanceMutation.isPending}
+      isPairProgrammingRecomputePending={isPairProgrammingRecomputePending}
     />
   );
 }

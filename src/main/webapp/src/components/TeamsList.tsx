@@ -84,6 +84,7 @@ interface TeamsListProps {
   isClearing?: boolean;
   isAttendanceUploading?: boolean;
   isAttendanceClearing?: boolean;
+  isPairProgrammingRecomputePending?: boolean;
 }
 
 const TeamsList = ({
@@ -116,6 +117,7 @@ const TeamsList = ({
   isClearing = false,
   isAttendanceUploading = false,
   isAttendanceClearing = false,
+  isPairProgrammingRecomputePending = false,
 }: TeamsListProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
@@ -440,8 +442,8 @@ const TeamsList = ({
     uploadedAttendanceFileName,
     pairProgrammingAttendanceByTeamName,
   );
-  const isPairProgrammingProcessing = isAttendanceUploading;
-  const pairProgrammingProcessingLabel = 'Processing attendance...';
+  const isPairProgrammingProcessing = isAttendanceUploading || isPairProgrammingRecomputePending;
+  const pairProgrammingProcessingLabel = isAttendanceUploading ? 'Processing attendance...' : 'Updating scores...';
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
