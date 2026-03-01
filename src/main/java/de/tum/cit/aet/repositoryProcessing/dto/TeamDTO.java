@@ -5,14 +5,13 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 /**
- * DTO for a Team.
- * Used to represent team information, including its members and owner.
+ * DTO for an Artemis team including its members and tutor.
  *
- * @param id        The unique identifier of the team.
- * @param name      The full name of the team.
- * @param shortName The shortened name for the team.
- * @param students  A list of the team members (participants).
- * @param owner     The tutor for the team.
+ * @param id        the unique team identifier
+ * @param name      the full team name
+ * @param shortName the shortened team name
+ * @param students  list of team members
+ * @param owner     the tutor assigned to this team
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record TeamDTO(

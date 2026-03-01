@@ -6,6 +6,11 @@ interface PairProgrammingBadgeProps {
   status: PairProgrammingBadgeStatus | null;
 }
 
+/**
+ * Badge indicating pair-programming attendance status (pass / fail / warning / not found).
+ *
+ * @param props.status - attendance status, or null to render nothing
+ */
 const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
   if (!status) {
     return null;

@@ -1,6 +1,7 @@
 package de.tum.cit.aet.export.service;
 
 import de.tum.cit.aet.export.dto.*;
+import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,7 @@ class ExcelExporterTest {
                         "Header mismatch at column " + i);
             }
             // Data row - all values
-            var row = sheet.getRow(1);
+            XSSFRow row = sheet.getRow(1);
             assertEquals("Team1", row.getCell(0).getStringCellValue());
             assertEquals("t1", row.getCell(1).getStringCellValue());
             assertEquals("Tutor1", row.getCell(2).getStringCellValue());
@@ -108,7 +109,7 @@ class ExcelExporterTest {
                 assertEquals(expectedHeaders[i], sheet.getRow(0).getCell(i).getStringCellValue(),
                         "Header mismatch at column " + i);
             }
-            var row = sheet.getRow(1);
+            XSSFRow row = sheet.getRow(1);
             assertEquals("Team1", row.getCell(0).getStringCellValue());
             assertEquals("Alice", row.getCell(1).getStringCellValue());
             assertEquals("alice01", row.getCell(2).getStringCellValue());
@@ -139,7 +140,7 @@ class ExcelExporterTest {
                 assertEquals(expectedHeaders[i], sheet.getRow(0).getCell(i).getStringCellValue(),
                         "Header mismatch at column " + i);
             }
-            var row = sheet.getRow(1);
+            XSSFRow row = sheet.getRow(1);
             assertEquals("Team1", row.getCell(0).getStringCellValue());
             assertEquals("Alice", row.getCell(1).getStringCellValue());
             assertEquals("alice@test.com", row.getCell(2).getStringCellValue());
@@ -178,7 +179,7 @@ class ExcelExporterTest {
             assertEquals("teamName", sheet.getRow(0).getCell(0).getStringCellValue());
             assertEquals("commitHash", sheet.getRow(0).getCell(1).getStringCellValue());
             assertEquals("authorEmail", sheet.getRow(0).getCell(2).getStringCellValue());
-            var row = sheet.getRow(1);
+            XSSFRow row = sheet.getRow(1);
             assertEquals("Team1", row.getCell(0).getStringCellValue());
             assertEquals("abc123", row.getCell(1).getStringCellValue());
             assertEquals("alice@test.com", row.getCell(2).getStringCellValue());

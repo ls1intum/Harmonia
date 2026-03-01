@@ -6,16 +6,14 @@ import de.tum.cit.aet.util.DtoUtils;
 /**
  * Result of LLM-based effort rating for a commit chunk.
  *
- * @param effortScore  Overall effort score (1-10). Higher = more work.
- * @param complexity   Technical complexity (1-10). Higher = more complex.
- * @param novelty      Originality of the work (1-10). Low =
- *                     copy-paste/generated.
- * @param type         Classification of the commit type (FEATURE, BUG_FIX,
- *                     etc.)
+ * @param effortScore  overall effort score (1-10, higher = more work)
+ * @param complexity   technical complexity (1-10, higher = more complex)
+ * @param novelty      originality of the work (1-10, low = copy-paste/generated)
+ * @param type         classification of the commit type (FEATURE, BUG_FIX, etc.)
  * @param confidence   LLM's confidence in the rating (0.0-1.0)
- * @param reasoning    Brief explanation of the rating
- * @param isError      Whether this rating represents an error during analysis
- * @param errorMessage The error message if analysis failed
+ * @param reasoning    brief explanation of the rating
+ * @param isError      whether this rating represents an error during analysis
+ * @param errorMessage error message if analysis failed
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record EffortRatingDTO(

@@ -1,15 +1,19 @@
-import type { Team, SubMetric, CourseAverages } from '@/types/team';
-import type { AnalyzedChunkDTO } from '@/app/generated';
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import type { AnalyzedChunkDTO, EmailMappingDTO } from '@/app/generated';
+import type { TeamDTO, SubMetric } from '@/data/dataLoaders';
+import { transformToComplexTeamData } from '@/data/dataLoaders';
+import type { CourseAverages } from '@/lib/courseAverages';
+import { computeBasicMetrics } from '@/lib/utils';
+import { emailMappingApi, requestApi, analysisApi } from '@/lib/apiClient';
+import { useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, Sparkles, Loader2, Ban } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
 import OrphanCommitsPanel from './OrphanCommitsPanel';
-import type { EmailMapping } from './OrphanCommitsPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { readDevModeFromStorage } from '@/lib/devMode';
 import { getFailedReason } from '@/lib/utils.ts';
@@ -17,15 +21,23 @@ import PairProgrammingBadge from '@/components/PairProgrammingBadge';
 import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface TeamDetailProps {
-  team: Team;
+  team: TeamDTO;
   onBack: () => void;
   course?: string;
   exercise?: string;
   pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
   courseAverages?: CourseAverages | null;
-  onTeamUpdate?: (team: Team) => void;
+  onTeamUpdate?: (team: TeamDTO) => void;
+  analysisMode?: 'SIMPLE' | 'FULL';
 }
 
+/**
+ * Full detail view for a single team — CQI score, student list, metrics cards,
+ * orphan-commit mapping, and the AI analysis feed.
+ *
+ * @param props.team - team to display
+ * @param props.onBack - navigate back to the teams list
+ */
 const TeamDetail = ({
   team,
   onBack,
@@ -34,68 +46,48 @@ const TeamDetail = ({
   pairProgrammingBadgeStatus = null,
   courseAverages = null,
   onTeamUpdate,
+  analysisMode,
 }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
-  const [emailMappings, setEmailMappings] = useState<EmailMapping[]>([]);
-  const [templateAuthorEmail, setTemplateAuthorEmail] = useState<string | undefined>();
+  const queryClient = useQueryClient();
 
-  const loadEmailMappings = useCallback(async () => {
-    if (!exercise) return;
-    try {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setEmailMappings(data);
-      }
-    } catch (error) {
-      console.error('Failed to load email mappings:', error);
-    }
-  }, [exercise]);
+  const { data: emailMappings = [] } = useQuery<EmailMappingDTO[]>({
+    queryKey: ['emailMappings', exercise],
+    queryFn: async () => {
+      const response = await emailMappingApi.getAllMappings(parseInt(exercise!));
+      return response.data;
+    },
+    enabled: !!exercise,
+  });
 
-  const loadTemplateAuthor = useCallback(async () => {
-    if (!exercise) return;
-    try {
-      const response = await fetch(`/api/exercises/${exercise}/email-mappings/template-author`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTemplateAuthorEmail(data.templateEmail);
-      }
-    } catch {
-      // Template author not configured — that's fine
-    }
-  }, [exercise]);
+  const { data: templateAuthorEmail } = useQuery<string | undefined>({
+    queryKey: ['templateAuthorEmail', exercise],
+    queryFn: async () => {
+      const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise!));
+      return response.data?.templateEmail;
+    },
+    enabled: !!exercise,
+  });
 
-  useEffect(() => {
-    loadEmailMappings();
-    loadTemplateAuthor();
-  }, [loadEmailMappings, loadTemplateAuthor]);
-
-  const handleMappingChange = useCallback(async () => {
-    await loadEmailMappings();
-    // Refresh team data from server
-    if (onTeamUpdate && exercise) {
-      try {
-        const response = await fetch(`/api/requestResource/${exercise}/getData`, {
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (response.ok) {
-          const { transformToComplexTeamData } = await import('@/data/dataLoaders');
-          const data = await response.json();
-          const updatedTeam = data.find((d: { teamId?: number }) => d.teamId?.toString() === team.id);
-          if (updatedTeam) {
-            onTeamUpdate(transformToComplexTeamData(updatedTeam));
-          }
+  const mappingChangeMutation = useMutation({
+    mutationFn: async () => {
+      // Refresh team data from server after a mapping change
+      if (onTeamUpdate && exercise) {
+        const response = await requestApi.getData(parseInt(exercise));
+        const updatedTeam = response.data.find(d => d.teamId === team.teamId);
+        if (updatedTeam) {
+          onTeamUpdate(transformToComplexTeamData(updatedTeam));
         }
-      } catch (error) {
-        console.error('Failed to refresh team data:', error);
       }
-    }
-  }, [loadEmailMappings, onTeamUpdate, exercise, team.id]);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['emailMappings', exercise] });
+    },
+  });
+
+  const handleMappingChange = useCallback(() => {
+    mappingChangeMutation.mutate();
+  }, [mappingChangeMutation]);
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -114,13 +106,56 @@ const TeamDetail = ({
 
   // Check if git analysis is complete (git metrics available)
   const isGitAnalysisComplete =
-    team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE';
+    team.analysisStatus === 'GIT_DONE' ||
+    team.analysisStatus === 'AI_ANALYZING' ||
+    team.analysisStatus === 'DONE' ||
+    team.analysisStatus === 'CANCELLED';
 
   // Team is 'failed' if any student has <10 commits (only check if git analysis is complete)
-  const isTeamFailed = (team: Team) => {
+  const isTeamFailed = (team: TeamDTO) => {
     if (!isGitAnalysisComplete) return false;
     return (team.students || []).some(s => (s.commitCount ?? 0) < 10);
   };
+
+  const computeAiMutation = useMutation({
+    mutationFn: async () => {
+      if (!exercise) throw new Error('No exercise ID');
+      const response = await analysisApi.computeAiForTeam(parseInt(exercise), team.teamId ?? 0);
+      return response.data;
+    },
+    onMutate: () => {
+      // Optimistically show AI_ANALYZING state so all sections reflect computing
+      if (onTeamUpdate) {
+        onTeamUpdate(
+          Object.assign({}, team, {
+            analysisStatus: 'AI_ANALYZING',
+            cqi: undefined,
+            isSuspicious: undefined,
+            subMetrics: undefined,
+            analysisHistory: undefined,
+          }),
+        );
+      }
+    },
+    onSuccess: data => {
+      if (onTeamUpdate && exercise) {
+        onTeamUpdate(transformToComplexTeamData(data));
+      }
+      queryClient.invalidateQueries({ queryKey: ['teamDetail', exercise, team.teamId] });
+    },
+    onError: () => {
+      // Revert to previous state on failure
+      if (onTeamUpdate) {
+        onTeamUpdate(team);
+      }
+    },
+  });
+
+  // Show "Compute AI" when git is done but no AI result yet (effortBalance is 0/null = SIMPLE mode)
+  // Show "Recompute AI" when AI was already run (has effortBalance > 0)
+  const hasAiResult = (team.subMetrics ?? []).some(m => m.name === 'Effort Balance' && m.value > 0);
+  const isAiComputing = team.analysisStatus === 'AI_ANALYZING' || computeAiMutation.isPending;
+  const canComputeAi = isGitAnalysisComplete && !!exercise;
 
   // Check if student metadata is available (show after git analysis is complete)
   const hasStudentMetadata = (student: { commitCount?: number; linesAdded?: number; linesDeleted?: number; linesChanged?: number }) => {
@@ -134,8 +169,79 @@ const TeamDetail = ({
   };
 
   // Show Pair Programming card from server subMetrics when present; otherwise from attendance badge when available (e.g. when analysis failed)
+  const isSimpleMode = analysisMode === 'SIMPLE';
   const metricsToShow = useMemo((): SubMetric[] => {
-    const fromServer = team.subMetrics ?? [];
+    const effortBalancePlaceholder: SubMetric = isAiComputing
+      ? {
+          name: 'Effort Balance',
+          value: -1,
+          weight: 0,
+          description: 'Is effort distributed fairly among team members?',
+          details: 'AI analysis is in progress. This metric will be available when computation completes.',
+        }
+      : isSimpleMode
+        ? {
+            name: 'Effort Balance',
+            value: -5,
+            weight: 0,
+            description: 'Is effort distributed fairly among team members?',
+            details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
+          }
+        : {
+            name: 'Effort Balance',
+            value: -1,
+            weight: 0,
+            description: 'Is effort distributed fairly among team members?',
+            details: 'Will be calculated after analysis completes.',
+          };
+    const pendingPlaceholderMetrics: SubMetric[] = [
+      effortBalancePlaceholder,
+      {
+        name: 'Lines of Code Balance',
+        value: -1,
+        weight: 0,
+        description: 'Are code contributions balanced?',
+        details: 'Will be calculated after analysis completes.',
+      },
+      {
+        name: 'Temporal Spread',
+        value: -1,
+        weight: 0,
+        description: 'Is work spread over time or crammed at deadline?',
+        details: 'Will be calculated after analysis completes.',
+      },
+      {
+        name: 'File Ownership Spread',
+        value: -1,
+        weight: 0,
+        description: 'Are files owned by multiple team members?',
+        details: 'Will be calculated after analysis completes.',
+      },
+    ];
+    let fromServer = team.subMetrics ?? [];
+    // When no metrics from server yet (PENDING/DOWNLOADING/GIT_ANALYZING), show placeholders
+    if (fromServer.length === 0) {
+      fromServer = pendingPlaceholderMetrics;
+    }
+    // In SIMPLE mode, override Effort Balance based on AI computation state
+    if (!hasAiResult) {
+      fromServer = fromServer.map(m => {
+        if (m.name !== 'Effort Balance') return m;
+        if (isAiComputing) {
+          return Object.assign({}, m, {
+            value: -1,
+            details: 'AI analysis is in progress. This metric will be available when computation completes.',
+          });
+        }
+        if (isSimpleMode) {
+          return Object.assign({}, m, {
+            value: -5,
+            details: 'This metric requires AI analysis. Use the "Compute AI" button above to calculate it.',
+          });
+        }
+        return m;
+      });
+    }
     const hasPairProgrammingFromServer = fromServer.some(m => m.name === 'Pair Programming');
     if (pairProgrammingBadgeStatus != null && !hasPairProgrammingFromServer) {
       const description = 'Did both students commit during pair programming sessions?';
@@ -175,22 +281,28 @@ const TeamDetail = ({
                   details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
                   status: 'NOT_FOUND',
                 };
-      return [...fromServer, synthetic];
+      return fromServer.concat(synthetic);
     }
     return fromServer;
-  }, [team.subMetrics, pairProgrammingBadgeStatus]);
+  }, [team.subMetrics, pairProgrammingBadgeStatus, isSimpleMode, hasAiResult, isAiComputing]);
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
-      <Button variant="ghost" onClick={onBack} className="mb-4 text-muted-foreground hover:text-accent-foreground hover:bg-accent">
+      <Button variant="outline" onClick={onBack} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Teams
       </Button>
 
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Course: <span className="font-medium">{course}</span> | Exercise: <span className="font-medium">{exercise}</span>
         </p>
+        {canComputeAi && (
+          <Button size="sm" variant="outline" onClick={() => computeAiMutation.mutate()} disabled={isAiComputing}>
+            {isAiComputing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+            {isAiComputing ? 'Computing AI...' : hasAiResult ? 'Recompute AI' : 'Compute AI'}
+          </Button>
+        )}
       </div>
 
       <Card className="shadow-elevated bg-white">
@@ -207,7 +319,7 @@ const TeamDetail = ({
                 <h3 className="text-xl font-bold">Team Members</h3>
               </div>
               <div className="space-y-2 pl-7">
-                {team.students.map((student, index) => (
+                {(team.students || []).map((student, index) => (
                   <div key={index} className="space-y-0.5">
                     <p className={`text-lg font-medium ${isAnalysisComplete && (student.commitCount ?? 0) < 10 ? 'text-destructive' : ''}`}>
                       {student.name}
@@ -228,7 +340,7 @@ const TeamDetail = ({
               </div>
               <div className="flex items-center gap-2 mt-5">
                 <ClipboardCheck className="h-5 w-5 text-primary" />
-                <h3 className="text-sm font-medium">Tutor: {team.tutor}</h3>
+                <h3 className="text-sm font-medium">Tutor: {team.tutor ?? 'Unassigned'}</h3>
               </div>
               {isDevMode && (
                 <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -302,7 +414,14 @@ const TeamDetail = ({
             </div>
 
             <div className="flex flex-col items-center md:items-end gap-2">
-              {team.cqi !== undefined ? (
+              {team.isFailed ? (
+                <div className="flex items-center justify-center w-32 h-32 rounded-2xl bg-destructive/10 border-2 border-destructive/30">
+                  <div className="text-center">
+                    <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-1" />
+                    <div className="text-xs text-destructive font-medium">Failed</div>
+                  </div>
+                </div>
+              ) : team.cqi !== undefined ? (
                 <div className={`flex items-center justify-center w-32 h-32 rounded-2xl ${getCQIBgColor(team.cqi)}`}>
                   <div className="text-center">
                     <div className={`text-5xl font-bold ${getCQIColor(team.cqi)}`}>{team.cqi}</div>
@@ -321,7 +440,14 @@ const TeamDetail = ({
                 <div className="flex items-center justify-center w-32 h-32 rounded-2xl bg-blue-500/10 border-2 border-blue-500/30">
                   <div className="text-center">
                     <div className="text-xs text-blue-500">Git Done</div>
-                    <div className="text-xs text-blue-500">Waiting for AI</div>
+                    <div className="text-xs text-blue-500">Waiting for analysis</div>
+                  </div>
+                </div>
+              ) : team.analysisStatus === 'CANCELLED' ? (
+                <div className="flex items-center justify-center w-32 h-32 rounded-2xl bg-muted/50 border-2 border-dashed border-muted-foreground/30">
+                  <div className="text-center">
+                    <Ban className="h-8 w-8 text-muted-foreground mx-auto mb-1" />
+                    <div className="text-xs text-muted-foreground">Cancelled</div>
                   </div>
                 </div>
               ) : (
@@ -334,13 +460,21 @@ const TeamDetail = ({
                 </div>
               )}
               <p className="text-sm text-muted-foreground text-center md:text-right">
-                {team.cqi !== undefined
-                  ? 'Collaboration Quality Index'
-                  : team.analysisStatus === 'AI_ANALYZING'
-                    ? 'Calculating CQI...'
-                    : team.analysisStatus === 'GIT_DONE'
-                      ? 'Waiting for AI analysis'
-                      : 'CQI not yet calculated'}
+                {team.isFailed
+                  ? 'Not calculated — failed requirements'
+                  : team.cqi !== undefined
+                    ? 'Collaboration Quality Index'
+                    : team.analysisStatus === 'AI_ANALYZING'
+                      ? 'Calculating CQI...'
+                      : team.analysisStatus === 'GIT_DONE'
+                        ? 'Waiting for analysis'
+                        : team.analysisStatus === 'CANCELLED'
+                          ? 'Analysis was cancelled'
+                          : team.analysisStatus === 'PENDING' ||
+                              team.analysisStatus === 'DOWNLOADING' ||
+                              team.analysisStatus === 'GIT_ANALYZING'
+                            ? 'CQI score still being determined'
+                            : 'CQI not yet calculated'}
               </p>
             </div>
           </div>
@@ -360,21 +494,25 @@ const TeamDetail = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Commits</p>
-              <p className="text-2xl font-bold">{team.basicMetrics?.totalCommits ?? '—'}</p>
+              <p className="text-2xl font-bold">{computeBasicMetrics(team.students).totalCommits || '—'}</p>
               <p className="text-xs text-muted-foreground">
                 Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgCommits : 'Pending'}
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Lines</p>
-              <p className="text-2xl font-bold">{team.basicMetrics?.totalLines?.toLocaleString() ?? '—'}</p>
+              <p className="text-2xl font-bold">{computeBasicMetrics(team.students).totalLines.toLocaleString() || '—'}</p>
               <p className="text-xs text-muted-foreground">
                 Course avg: {courseAverages.gitAnalyzedTeams > 0 ? courseAverages.avgLines.toLocaleString() : 'Pending'}
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">CQI</p>
-              <p className={`text-2xl font-bold ${team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}>{team.cqi ?? '—'}</p>
+              <p
+                className={`text-2xl font-bold ${team.isFailed ? 'text-destructive' : team.cqi !== undefined ? getCQIColor(team.cqi) : ''}`}
+              >
+                {team.isFailed ? 'Failed' : (team.cqi ?? '—')}
+              </p>
               <p className="text-xs text-muted-foreground">
                 Course avg: {courseAverages.analyzedTeams > 0 ? courseAverages.avgCQI : 'Pending'}
               </p>
@@ -391,19 +529,19 @@ const TeamDetail = ({
           </p>
         </div>
 
-        {metricsToShow.length > 0 ? (
+        {team.isFailed ? (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <p className="text-sm font-medium">Metrics not computed — team did not meet minimum requirements.</p>
+            </div>
+          </Card>
+        ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {metricsToShow.map((metric, index) => (
               <MetricCard key={index} metric={metric} />
             ))}
           </div>
-        ) : (
-          <Card className="p-8 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <p className="text-sm font-medium">Computing detailed metrics...</p>
-            </div>
-          </Card>
         )}
       </div>
 
@@ -498,9 +636,9 @@ const TeamDetail = ({
             <OrphanCommitsPanel
               commits={team.orphanCommits || []}
               analysisHistory={team.analysisHistory}
-              students={team.students}
+              students={team.students ?? []}
               exerciseId={exercise}
-              teamParticipationId={team.id}
+              teamParticipationId={String(team.teamId)}
               emailMappings={emailMappings}
               onMappingChange={handleMappingChange}
               templateAuthorEmail={templateAuthorEmail}
@@ -508,6 +646,35 @@ const TeamDetail = ({
 
             <AnalysisFeed chunks={team.analysisHistory || []} isDevMode={isDevMode} />
           </>
+        ) : team.isFailed ? (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <p className="text-sm font-medium">AI analysis skipped — team did not meet minimum requirements.</p>
+            </div>
+          </Card>
+        ) : team.analysisStatus === 'CANCELLED' ? (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <Ban className="h-8 w-8" />
+              <p className="text-sm font-medium">AI analysis was cancelled before this team was processed.</p>
+            </div>
+          </Card>
+        ) : isAiComputing ? (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="text-sm font-medium">Computing AI analysis...</p>
+            </div>
+          </Card>
+        ) : isSimpleMode && !hasAiResult ? (
+          <Card className="p-8 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <Sparkles className="h-8 w-8" />
+              <p className="text-sm font-medium">AI analysis is not included in Simple mode.</p>
+              <p className="text-xs">Use the &quot;Compute AI&quot; button above to run AI analysis for this team.</p>
+            </div>
+          </Card>
         ) : (
           <Card className="p-8 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-muted-foreground">

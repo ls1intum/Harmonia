@@ -3,13 +3,13 @@ package de.tum.cit.aet.repositoryProcessing.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
- * DTO representing the analysis of a student's contributions which will be sent to the client
+ * DTO representing a student's contribution statistics sent to the client.
  *
- * @param name         The name of the student.
- * @param commitCount  The number of commits made by the student.
- * @param linesAdded   The number of lines added by the student.
- * @param linesDeleted The number of lines deleted by the student.
- * @param linesChanged The total number of lines changed by the student.
+ * @param name         the student's display name
+ * @param commitCount  number of commits made by the student
+ * @param linesAdded   lines added by the student
+ * @param linesDeleted lines deleted by the student
+ * @param linesChanged total lines changed by the student
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record StudentAnalysisDTO(

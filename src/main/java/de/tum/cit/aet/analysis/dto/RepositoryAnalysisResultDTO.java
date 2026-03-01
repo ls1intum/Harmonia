@@ -7,6 +7,9 @@ import java.util.Map;
 /**
  * Wrapper for repository analysis results containing both student contributions
  * and orphan commits (commits that couldn't be attributed to any student).
+ *
+ * @param contributions map of student ID to their contribution statistics
+ * @param orphanCommits list of commits that could not be attributed to any student
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record RepositoryAnalysisResultDTO(

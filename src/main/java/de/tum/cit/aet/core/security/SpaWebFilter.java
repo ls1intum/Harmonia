@@ -9,26 +9,29 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Filter to redirect all requests to the Single Page Application (SPA) index.html (we are not talking about wellness here 😉).
+ * Servlet filter that forwards non-API, non-static requests to the SPA entry point ({@code /}).
+ * This allows client-side routing to work correctly with HTML5 pushState.
  */
 public class SpaWebFilter extends OncePerRequestFilter {
 
+    /**
+     * Forwards the request to {@code /} if it does not match a backend path or a static resource.
+     * Backend paths ({@code /api}, {@code /actuator}, etc.) and paths containing a file extension
+     * are passed through to the next filter in the chain.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
         String path = request.getRequestURI();
-        // @formatter:off
-        if (
-            !path.startsWith("/api") &&
-                        !path.startsWith("/actuator") &&
-                        !path.startsWith("/management") &&
-                        !path.startsWith("/time") &&
-                        !path.startsWith("/public") &&
-                        !path.startsWith("/git") &&
-                        !path.contains(".") &&
-                        path.matches("/(.*)")
-        ) {
-            // @formatter:on
+
+        if (!path.startsWith("/api")
+                && !path.startsWith("/actuator")
+                && !path.startsWith("/management")
+                && !path.startsWith("/time")
+                && !path.startsWith("/public")
+                && !path.startsWith("/git")
+                && !path.contains(".")
+                && path.matches("/(.*)")) {
             request.getRequestDispatcher("/").forward(request, response);
             return;
         }

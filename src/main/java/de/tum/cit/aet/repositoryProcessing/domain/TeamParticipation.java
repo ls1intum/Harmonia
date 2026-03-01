@@ -7,6 +7,10 @@ import lombok.Setter;
 
 import java.util.UUID;
 
+/**
+ * JPA entity representing a team's participation in an exercise.
+ * Stores Artemis participation data, analysis status, CQI metrics, and LLM usage statistics.
+ */
 @Getter
 @Setter
 @Entity
@@ -52,7 +56,7 @@ public class TeamParticipation {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "analysis_status")
-    private AnalysisStatus analysisStatus;
+    private TeamAnalysisStatus analysisStatus;
 
     // CQI component fields for persistence
     @Column(name = "cqi_effort_balance")
@@ -76,12 +80,6 @@ public class TeamParticipation {
     @Column(name = "cqi_base_score")
     private Double cqiBaseScore;
 
-    @Column(name = "cqi_penalty_multiplier")
-    private Double cqiPenaltyMultiplier;
-
-    @Column(name = "cqi_penalties", columnDefinition = "TEXT")
-    private String cqiPenalties;
-
     @Column(name = "cqi_weekly_distribution", columnDefinition = "TEXT")
     private String cqiWeeklyDistribution;
 
@@ -102,6 +100,9 @@ public class TeamParticipation {
 
     @Column(name = "orphan_commit_count")
     private Integer orphanCommitCount;
+
+    @Column(name = "is_failed")
+    private Boolean isFailed;
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
             String repositoryUrl, Integer submissionCount) {

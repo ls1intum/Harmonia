@@ -1,8 +1,6 @@
 package de.tum.cit.aet.analysis.service;
 
-import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
-import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
-import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
+import de.tum.cit.aet.analysis.dto.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -30,47 +28,8 @@ import java.util.*;
 public class GitContributionAnalysisService {
 
     /**
-     * Result of mapping ALL commits (from full git history walk) to authors.
-     *
-     * @param commitToAuthor       hash -> studentId for all assigned commits
-     * @param orphanCommitEmails   hash -> git author email for commits that could not be assigned
-     * @param commitToVcsEmail     hash -> display email for all assigned commits
-     *                             (VCS email for Tier 1 anchors, Artemis email for Tier 2/3)
-     * @param templateCommitHashes hashes of root commits (parentCount == 0) whose author
-     *                             could not be resolved to any student — typically the
-     *                             course-template initial commit
-     */
-    public record FullCommitMappingResult(
-            Map<String, Long> commitToAuthor,
-            Map<String, String> orphanCommitEmails,
-            Map<String, String> commitToVcsEmail,
-            Set<String> templateCommitHashes) {
-
-        public static FullCommitMappingResult empty() {
-            return new FullCommitMappingResult(Map.of(), Map.of(), Map.of(), Set.of());
-        }
-    }
-
-    /**
-     * Walks the full git history from HEAD and maps every commit to an author
-     * using a 3-tier matching strategy:
-     * <ol>
-     *   <li><b>VCS-Log anchor</b>: commit hash found in VCS logs -> use Artemis email</li>
-     *   <li><b>Learned mapping</b>: for VCS-log commits we know both Artemis email and
-     *       git-author email; intermediate commits with a known git email are assigned
-     *       via the learned gitEmail -> studentId mapping</li>
-     *   <li><b>Direct email match</b>: git-author email matched against Artemis student emails</li>
-     * </ol>
-     *
-     * @param repo the repository DTO (must have a non-null localPath)
-     * @return mapping result covering all reachable commits
-     */
-    public FullCommitMappingResult buildFullCommitMap(TeamRepositoryDTO repo) {
-        return buildFullCommitMap(repo, null);
-    }
-
-    /**
-     * Walks the full git history with template author email for enhanced detection.
+     * Walks the full git history and maps every commit to an author using a 3-tier
+     * matching strategy (VCS-Log anchor, Learned mapping, Direct email match).
      * When a template author email is provided, ALL commits from that author are
      * marked as template commits (not just unassigned root commits).
      *
@@ -78,11 +37,10 @@ public class GitContributionAnalysisService {
      * @param templateAuthorEmail email of the template author (lowercase), or null
      * @return mapping result covering all reachable commits
      */
-    public FullCommitMappingResult buildFullCommitMap(TeamRepositoryDTO repo,
+    public FullCommitMappingResultDTO buildFullCommitMap(TeamRepositoryDTO repo,
             String templateAuthorEmail) {
         if (repo.localPath() == null) {
-            log.debug("localPath is null, returning empty commit map");
-            return FullCommitMappingResult.empty();
+            return FullCommitMappingResultDTO.empty();
         }
 
         List<VCSLogDTO> vcsLogs = repo.vcsLogs() != null ? repo.vcsLogs() : List.of();
@@ -93,42 +51,8 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Lower-level overload that accepts raw parameters instead of a DTO.
-     *
-     * @param localPath path to the local git repository
-     * @param vcsLogs   VCS log entries from Artemis
-     * @param students  participants whose contributions are analysed
-     * @return mapping result containing per-student commit data
-     */
-    public FullCommitMappingResult buildFullCommitMap(
-            String localPath,
-            List<VCSLogDTO> vcsLogs,
-            List<ParticipantDTO> students) {
-        return buildFullCommitMap(localPath, vcsLogs, students, Map.of());
-    }
-
-    /**
-     * Lower-level overload that also accepts manual email-to-student mappings.
-     * Manual mappings act as "Tier 0" — they override all other matching tiers.
-     *
-     * @param localPath       path to the local git repository
-     * @param vcsLogs         VCS log entries from Artemis
-     * @param students        participants whose contributions are analysed
-     * @param manualMappings  gitEmail (lowercase) -> studentId from ExerciseEmailMappings
-     * @return mapping result containing per-student commit data
-     */
-    public FullCommitMappingResult buildFullCommitMap(
-            String localPath,
-            List<VCSLogDTO> vcsLogs,
-            List<ParticipantDTO> students,
-            Map<String, Long> manualMappings) {
-        return buildFullCommitMap(localPath, vcsLogs, students, manualMappings, null);
-    }
-
-    /**
-     * Full overload that also accepts a template author email.
-     * When provided, ALL commits from this author are marked as template
-     * (not just unassigned root commits).
+     * Walks the full git history from HEAD and maps every commit to an author
+     * using raw parameters (local path, VCS logs, participant list).
      *
      * @param localPath            path to the local git repository
      * @param vcsLogs              VCS log entries from Artemis
@@ -137,7 +61,7 @@ public class GitContributionAnalysisService {
      * @param templateAuthorEmail  email of the template author (lowercase), or null
      * @return mapping result containing per-student commit data
      */
-    public FullCommitMappingResult buildFullCommitMap(
+    public FullCommitMappingResultDTO buildFullCommitMap(
             String localPath,
             List<VCSLogDTO> vcsLogs,
             List<ParticipantDTO> students,
@@ -145,7 +69,7 @@ public class GitContributionAnalysisService {
             String templateAuthorEmail) {
 
         if (localPath == null) {
-            return FullCommitMappingResult.empty();
+            return FullCommitMappingResultDTO.empty();
         }
 
         // --- 1. Build lookup structures ---
@@ -193,7 +117,7 @@ public class GitContributionAnalysisService {
         File gitDir = new File(localPath, ".git");
         if (!gitDir.exists()) {
             log.warn("Git directory not found at {}", gitDir.getAbsolutePath());
-            return FullCommitMappingResult.empty();
+            return FullCommitMappingResultDTO.empty();
         }
 
         try (Repository repository = new FileRepositoryBuilder()
@@ -204,7 +128,7 @@ public class GitContributionAnalysisService {
             ObjectId head = repository.resolve("HEAD");
             if (head == null) {
                 log.warn("HEAD could not be resolved in {}", localPath);
-                return FullCommitMappingResult.empty();
+                return FullCommitMappingResultDTO.empty();
             }
 
             // Collect all commits reachable from HEAD and build git-email lookup
@@ -252,9 +176,6 @@ public class GitContributionAnalysisService {
                 }
             }
 
-            log.debug("Learned {} git-email -> studentId mappings from VCS anchors",
-                    learnedGitEmailToStudentId.size());
-
             // --- Resolve multi-valued VCS entries using git-author email ---
             Map<String, String> vcsHashToEmail = new HashMap<>();
             for (Map.Entry<String, List<String>> entry : vcsHashToEmails.entrySet()) {
@@ -287,8 +208,6 @@ public class GitContributionAnalysisService {
                     } else {
                         String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
                         orphanCommitEmails.put(hash, orphanEmail);
-                        log.debug("Orphan commit (VCS anchor unresolved): {} by {}",
-                                hash.substring(0, Math.min(7, hash.length())), gitEmail);
                     }
                     continue; // VCS anchor is authoritative — never fall through
                 }
@@ -312,8 +231,6 @@ public class GitContributionAnalysisService {
                 } else {
                     String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
                     orphanCommitEmails.put(hash, orphanEmail);
-                    log.debug("Orphan commit: {} by {}", hash.substring(0, Math.min(7, hash.length())),
-                            gitEmail);
                 }
             }
 
@@ -350,14 +267,14 @@ public class GitContributionAnalysisService {
 
         } catch (IOException e) {
             log.error("Error walking git history at {}: {}", localPath, e.getMessage());
-            return FullCommitMappingResult.empty();
+            return FullCommitMappingResultDTO.empty();
         }
 
         log.info("Full commit map: {} assigned, {} orphan, {} template (from {} total reachable commits)",
                 commitToAuthor.size(), orphanCommitEmails.size(), templateHashes.size(),
                 commitToAuthor.size() + orphanCommitEmails.size() + templateHashes.size());
 
-        return new FullCommitMappingResult(commitToAuthor, orphanCommitEmails, commitToVcsEmail,
+        return new FullCommitMappingResultDTO(commitToAuthor, orphanCommitEmails, commitToVcsEmail,
                 templateHashes);
     }
 
@@ -440,87 +357,22 @@ public class GitContributionAnalysisService {
         return rootEmails;
     }
 
-    // ========== Methods that delegate to buildFullCommitMap ==========
+    // ========== Commit mapping & analysis ==========
 
     /**
-     * Result of mapping commits to authors, including orphan commits.
-     */
-    private record CommitMappingResult(
-            Map<String, Long> commitToAuthor,
-            Set<String> orphanCommitHashes,
-            Map<String, String> commitToEmail) {
-    }
-
-    /**
-     * Maps each commit hash to the corresponding author ID based on full git
-     * history walk with 3-tier matching. Also tracks orphan commits.
-     */
-    private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo) {
-        return mapCommitToAuthor(repo, null);
-    }
-
-    private CommitMappingResult mapCommitToAuthor(TeamRepositoryDTO repo, String templateAuthorEmail) {
-        FullCommitMappingResult full = buildFullCommitMap(repo, templateAuthorEmail);
-        Set<String> templateHashes = full.templateCommitHashes() != null
-                ? full.templateCommitHashes() : Set.of();
-        Set<String> orphanHashes = new HashSet<>(full.orphanCommitEmails().keySet());
-        orphanHashes.removeAll(templateHashes);
-        return new CommitMappingResult(
-                new HashMap<>(full.commitToAuthor()),
-                orphanHashes,
-                new HashMap<>(full.commitToVcsEmail()));
-    }
-
-    /**
-     * Builds a mapping from commit SHA to synthetic author ID by walking full
-     * git history. Synthetic IDs are assigned per unique email.
+     * Maps commits to authors and separates orphan commits (excluding templates).
+     * Template commits are already excluded by {@link #buildFullCommitMap}.
      *
-     * @param repo The repository containing VCS logs
-     * @return Map of commit hashes to synthetic author IDs
+     * @param repo                the repository DTO
+     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @return mapping result with assigned and orphan commits
      */
-    public Map<String, Long> buildCommitToAuthorMap(TeamRepositoryDTO repo) {
-        FullCommitMappingResult full = buildFullCommitMap(repo);
-
-        // Convert real studentIds to synthetic per-email IDs for backward compat
-        Map<Long, Long> studentIdToSynthetic = new HashMap<>();
-        Map<String, Long> mapping = new HashMap<>();
-        long idCounter = 1;
-
-        for (Map.Entry<String, Long> entry : full.commitToAuthor().entrySet()) {
-            Long realId = entry.getValue();
-            Long syntheticId = studentIdToSynthetic.get(realId);
-            if (syntheticId == null) {
-                syntheticId = idCounter++;
-                studentIdToSynthetic.put(realId, syntheticId);
-            }
-            mapping.put(entry.getKey(), syntheticId);
-        }
-
-        log.debug("Mapped {} commits to {} unique authors (full history walk)",
-                mapping.size(), studentIdToSynthetic.size());
-        return mapping;
-    }
-
-    /**
-     * Maps each commit hash to the corresponding author ID using full git
-     * history walk with real student IDs.
-     */
-    private Map<String, Long> mapCommitToAuthorLegacy(TeamRepositoryDTO repo) {
-        FullCommitMappingResult full = buildFullCommitMap(repo);
-        return new HashMap<>(full.commitToAuthor());
-    }
-
-    // ========== Analysis methods (unchanged logic) ==========
-
-    /**
-     * Analyzes the Git repository and returns both contributions and orphan
-     * commits.
-     *
-     * @param repo The TeamRepositoryDTO to analyze.
-     * @return RepositoryAnalysisResultDTO with contributions and orphans.
-     */
-    public RepositoryAnalysisResultDTO analyzeRepositoryWithOrphans(TeamRepositoryDTO repo) {
-        return analyzeRepositoryWithOrphans(repo, null);
+    public CommitMappingResultDTO mapCommitToAuthor(TeamRepositoryDTO repo, String templateAuthorEmail) {
+        FullCommitMappingResultDTO full = buildFullCommitMap(repo, templateAuthorEmail);
+        return new CommitMappingResultDTO(
+                full.commitToAuthor(),
+                full.orphanCommitEmails(),
+                full.commitToVcsEmail());
     }
 
     /**
@@ -533,14 +385,14 @@ public class GitContributionAnalysisService {
      */
     public RepositoryAnalysisResultDTO analyzeRepositoryWithOrphans(
             TeamRepositoryDTO repo, String templateAuthorEmail) {
-        CommitMappingResult mapping = mapCommitToAuthor(repo, templateAuthorEmail);
+        CommitMappingResultDTO mapping = mapCommitToAuthor(repo, templateAuthorEmail);
         String localPath = repo.localPath();
 
         try {
             return analyzeRepositoryContributionsWithOrphans(
                     localPath,
                     mapping.commitToAuthor(),
-                    mapping.orphanCommitHashes(),
+                    mapping.orphanCommitEmails().keySet(),
                     mapping.commitToEmail());
         } catch (IOException e) {
             log.error("Error processing repository {}: {}", repo.participation().repositoryUri(), e.getMessage());
@@ -558,7 +410,6 @@ public class GitContributionAnalysisService {
             Set<String> orphanCommitHashes,
             Map<String, String> commitToEmail) throws IOException {
 
-        log.info("Running git analysis on local path: {}", localPath);
         Map<Long, AuthorContributionDTO> repoContributions = new HashMap<>();
         List<OrphanCommitDTO> orphanCommits = new ArrayList<>();
 
@@ -617,12 +468,6 @@ public class GitContributionAnalysisService {
                                 timestamp,
                                 linesAdded,
                                 linesDeleted));
-
-                        log.info("Orphan commit {}: {} (+{} -{} lines)",
-                                commitHash.substring(0, 7),
-                                commit.getShortMessage(),
-                                linesAdded,
-                                linesDeleted);
                     } else {
                         // This is a regular student commit
                         Long authorId = commitToAuthor.get(commitHash);
@@ -649,116 +494,34 @@ public class GitContributionAnalysisService {
     }
 
     /**
-     * Analyzes the Git repository (legacy - no orphan tracking).
+     * Analyzes a single repository and returns per-author contribution stats.
+     * Delegates to {@link #analyzeRepositoryWithOrphans}, discarding orphan data.
      *
-     * @param localPath      The local path to the repository
-     * @param commitToAuthor Map of commit hashes to author IDs
-     * @return Map of author IDs to contribution stats
-     * @throws IOException If the repository cannot be accessed
-     */
-    public Map<Long, AuthorContributionDTO> analyzeRepositoryContributions(String localPath,
-            Map<String, Long> commitToAuthor) throws IOException {
-        log.info("Running git analysis on local path: {}", localPath);
-        Map<Long, AuthorContributionDTO> repoContributions = new HashMap<>();
-
-        File gitDir = new File(localPath, ".git");
-
-        try (Repository repository = new FileRepositoryBuilder()
-                .setGitDir(gitDir)
-                .readEnvironment()
-                .build()) {
-
-            try (RevWalk revWalk = new RevWalk(repository);
-                    DiffFormatter df = new DiffFormatter(DisabledOutputStream.INSTANCE)) {
-
-                df.setRepository(repository);
-                df.setDetectRenames(true);
-
-                for (Map.Entry<String, Long> entry : commitToAuthor.entrySet()) {
-                    String commitHash = entry.getKey();
-                    Long authorId = entry.getValue();
-
-                    ObjectId commitId = repository.resolve(commitHash);
-                    if (commitId == null) {
-                        log.warn("Unable to resolve commit {}", commitHash);
-                        continue;
-                    }
-
-                    RevCommit commit = revWalk.parseCommit(commitId);
-                    RevCommit oldCommit = (commit.getParentCount() > 0)
-                            ? revWalk.parseCommit(commit.getParent(0).getId())
-                            : null;
-
-                    int linesAdded = 0;
-                    int linesDeleted = 0;
-
-                    List<DiffEntry> diffs = df.scan(oldCommit, commit);
-                    for (DiffEntry diff : diffs) {
-                        FileHeader fh = df.toFileHeader(diff);
-                        for (Edit edit : fh.toEditList()) {
-                            linesAdded += edit.getLengthB();
-                            linesDeleted += edit.getLengthA();
-                        }
-                    }
-
-                    AuthorContributionDTO currentContributions = repoContributions.getOrDefault(authorId,
-                            new AuthorContributionDTO(0, 0, 0));
-                    repoContributions.put(authorId, new AuthorContributionDTO(
-                            currentContributions.linesAdded() + linesAdded,
-                            currentContributions.linesDeleted() + linesDeleted,
-                            currentContributions.commitCount() + 1));
-                }
-            }
-        } catch (Exception e) {
-            throw new IOException("Error processing repository at " + localPath, e);
-        }
-        return repoContributions;
-    }
-
-    /**
-     * Processes a single team repository (legacy).
-     *
-     * @param repo The repository to analyze
-     * @return Map of author IDs to contribution stats
+     * @param repo the repository to analyze
+     * @return map of author IDs to contribution stats
      */
     public Map<Long, AuthorContributionDTO> analyzeRepository(TeamRepositoryDTO repo) {
-        Map<String, Long> commitToAuthor = mapCommitToAuthorLegacy(repo);
-        String localPath = repo.localPath();
-        try {
-            return analyzeRepositoryContributions(localPath, commitToAuthor);
-        } catch (IOException e) {
-            log.error("Error processing repository {}: {}", repo.participation().repositoryUri(), e.getMessage());
-            return new HashMap<>();
-        }
+        return analyzeRepositoryWithOrphans(repo, null).contributions();
     }
 
     /**
-     * Processes all team repositories (legacy).
+     * Analyzes multiple repositories and returns merged per-author contribution stats.
+     * Delegates to {@link #analyzeRepositoryWithOrphans} for each repo, discarding orphan data.
      *
-     * @param teamRepositories List of repositories to analyze
-     * @return Map of author IDs to contribution stats
+     * @param teamRepositories list of repositories to analyze
+     * @return map of author IDs to aggregated contribution stats
      */
     public Map<Long, AuthorContributionDTO> processAllRepositories(List<TeamRepositoryDTO> teamRepositories) {
-        Map<Long, AuthorContributionDTO> allContributions = new HashMap<>();
-
+        Map<Long, AuthorContributionDTO> all = new HashMap<>();
         for (TeamRepositoryDTO repo : teamRepositories) {
-            Map<String, Long> commitToAuthor = mapCommitToAuthorLegacy(repo);
-            String localPath = repo.localPath();
-            try {
-                Map<Long, AuthorContributionDTO> repoContributions = analyzeRepositoryContributions(localPath,
-                        commitToAuthor);
-                repoContributions.forEach((authorId, dto) -> {
-                    AuthorContributionDTO existing = allContributions.getOrDefault(authorId,
-                            new AuthorContributionDTO(0, 0, 0));
-                    allContributions.put(authorId, new AuthorContributionDTO(
-                            existing.linesAdded() + dto.linesAdded(),
-                            existing.linesDeleted() + dto.linesDeleted(),
-                            existing.commitCount() + dto.commitCount()));
-                });
-            } catch (IOException e) {
-                log.error("Error processing repository {}: {}", repo.participation().repositoryUri(), e.getMessage());
-            }
+            analyzeRepository(repo).forEach((id, dto) -> {
+                AuthorContributionDTO existing = all.getOrDefault(id, new AuthorContributionDTO(0, 0, 0));
+                all.put(id, new AuthorContributionDTO(
+                        existing.linesAdded() + dto.linesAdded(),
+                        existing.linesDeleted() + dto.linesDeleted(),
+                        existing.commitCount() + dto.commitCount()));
+            });
         }
-        return allContributions;
+        return all;
     }
 }

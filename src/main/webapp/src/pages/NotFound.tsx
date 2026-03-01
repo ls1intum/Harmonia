@@ -1,3 +1,4 @@
+/** 404 page shown when no route matches the current URL. */
 const NotFound = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">

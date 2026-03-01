@@ -1,5 +1,7 @@
 package de.tum.cit.aet.usermanagement.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * Raw authentication response carrying tokens and their lifetimes.
  *
@@ -8,4 +10,5 @@ package de.tum.cit.aet.usermanagement.dto;
  * @param expiresIn        lifetime of the access token in seconds
  * @param refreshExpiresIn lifetime of the refresh token in seconds
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AuthResponseDTO(String accessToken, String refreshToken, long expiresIn, long refreshExpiresIn) {}
