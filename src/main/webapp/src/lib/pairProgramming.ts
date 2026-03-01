@@ -6,6 +6,17 @@ export type PairProgrammingAttendanceMap = Record<string, PairProgrammingAttenda
 
 export type PairProgrammingBadgeStatus = 'not_found' | 'warning' | 'pass' | 'fail';
 
+/** All badge statuses in display order for filter dropdowns and similar UI. */
+export const PAIR_PROGRAMMING_BADGE_STATUSES: readonly PairProgrammingBadgeStatus[] = ['pass', 'fail', 'warning', 'not_found'] as const;
+
+/** Display labels for each badge status. */
+export const PAIR_PROGRAMMING_BADGE_STATUS_LABELS: Record<PairProgrammingBadgeStatus, string> = {
+  pass: 'Pass',
+  fail: 'Fail',
+  warning: 'Warning',
+  not_found: 'Not Found',
+};
+
 const persistedStatusToBadgeStatus: Record<string, PairProgrammingBadgeStatus> = {
   PASS: 'pass',
   FAIL: 'fail',

@@ -31,6 +31,7 @@ import {
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
 import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
+import { PairProgrammingFilterButton, type PairProgrammingFilter } from '@/components/PairProgrammingFilterButton.tsx';
 import { ActivityLog, type AnalysisStatus } from '@/components/ActivityLog';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import {
@@ -123,6 +124,7 @@ const TeamsList = ({
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [pairProgrammingFilter, setPairProgrammingFilter] = useState<PairProgrammingFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
   const [clearMappings, setClearMappings] = useState(false);
@@ -297,6 +299,23 @@ const TeamsList = ({
       }
     }
 
+    // Apply pair programming filter
+    if (pairProgrammingEnabled && pairProgrammingFilter !== 'all') {
+      const hasValid = hasValidPairProgrammingAttendanceData(
+        pairProgrammingEnabled,
+        uploadedAttendanceFileName,
+        pairProgrammingAttendanceByTeamName,
+      );
+      filtered = filtered.filter(team => {
+        const persisted = getPairProgrammingBadgeStatusFromPersistedStatus(team.cqiDetails?.components?.pairProgrammingStatus);
+        const status = persisted ?? getPairProgrammingBadgeStatus(team.teamName, hasValid, pairProgrammingAttendanceByTeamName);
+        if (status === null) {
+          return false;
+        }
+        return status === pairProgrammingFilter;
+      });
+    }
+
     // First, sort by analysis status priority (ANALYZING > PENDING > DONE)
     filtered.sort((a, b) => {
       const aPriority = getStatusPriority(a.analysisStatus);
@@ -350,7 +369,17 @@ const TeamsList = ({
     }
 
     return filtered;
-  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter]);
+  }, [
+    teams,
+    searchQuery,
+    sortColumn,
+    sortDirection,
+    statusFilter,
+    pairProgrammingFilter,
+    pairProgrammingEnabled,
+    uploadedAttendanceFileName,
+    pairProgrammingAttendanceByTeamName,
+  ]);
 
   const renderActionButton = () => {
     if (isLoading) {
@@ -828,7 +857,16 @@ const TeamsList = ({
                   />
                 </th>
                 {isDevMode && <th className="text-left py-4 px-6 font-semibold text-sm">LLM Tokens</th>}
-                {pairProgrammingEnabled && <th className="text-center py-4 px-6 font-semibold text-sm">Pair Programming</th>}
+                {pairProgrammingEnabled && (
+                  <th className="text-center py-4 px-6 font-semibold text-sm">
+                    <div className="flex justify-center">
+                      <PairProgrammingFilterButton
+                        pairProgrammingFilter={pairProgrammingFilter}
+                        setPairProgrammingFilter={setPairProgrammingFilter}
+                      />
+                    </div>
+                  </th>
+                )}
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <StatusFilterButton statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                 </th>
