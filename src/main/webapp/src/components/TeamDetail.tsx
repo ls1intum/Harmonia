@@ -133,52 +133,113 @@ const TeamDetail = ({
     );
   };
 
+  // Helper function to generate pair programming details based on score
+  const generatePairProgrammingDetails = (score: number | null | undefined, status: string | null | undefined): string => {
+    if (!status || status === 'NOT_FOUND') {
+      return 'Team was not found in the attendance Excel file. Please check that the team name in Excel matches exactly with the team name in Artemis (accounting for capitalization, spacing, special characters, and Team/Group prefixes).';
+    }
+    if (status === 'WARNING') {
+      return 'Some pair-programming tutorials were cancelled, which makes it difficult to assess mandatory attendance reliably. The score reflects partial attendance of scheduled sessions.';
+    }
+    // For FOUND status, provide specific details based on score
+    if (score === null || score === undefined || score < 0) {
+      return 'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.';
+    }
+    if (score >= 99) {
+      return 'Perfect collaboration: Both students consistently committed during all pair programming sessions they attended together.';
+    }
+    if (score >= 75) {
+      return 'Strong collaboration: Both students committed during most pair programming sessions.';
+    }
+    if (score >= 50) {
+      return 'Moderate collaboration: Both students committed during half of the pair programming sessions.';
+    }
+    if (score >= 25) {
+      return 'Limited collaboration: Only one student committed during some pair programming sessions.';
+    }
+    return 'Minimal collaboration: Both students rarely committed together during pair programming sessions.';
+  };
+
   // Show Pair Programming card from server subMetrics when present; otherwise from attendance badge when available (e.g. when analysis failed)
   const metricsToShow = useMemo((): SubMetric[] => {
     const fromServer = team.subMetrics ?? [];
     const hasPairProgrammingFromServer = fromServer.some(m => m.name === 'Pair Programming');
-    if (pairProgrammingBadgeStatus != null && !hasPairProgrammingFromServer) {
+
+    // Check if we have pair programming data from CQI details
+    const cqiPairProgramming = team.cqiDetails?.components?.pairProgramming;
+    const cqiPairProgrammingStatus = team.cqiDetails?.components?.pairProgrammingStatus;
+
+    // If team has CQI details with pair programming data, use the actual status (FOUND/NOT_FOUND/WARNING)
+    // This overrides any "NOT_FOUND" from server metrics that may have been set before fuzzy matching succeeded
+    if (cqiPairProgrammingStatus) {
+      const filteredMetrics = fromServer.filter(m => m.name !== 'Pair Programming');
       const description = 'Did both students commit during pair programming sessions?';
-      const synthetic: SubMetric =
-        pairProgrammingBadgeStatus === 'pass'
-          ? {
-              name: 'Pair Programming',
-              value: 100,
-              weight: 0,
-              description,
-              details:
-                'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.',
-            }
-          : pairProgrammingBadgeStatus === 'fail'
-            ? {
-                name: 'Pair Programming',
-                value: 0,
-                weight: 0,
-                description,
-                details: 'Team was found in Excel but attended fewer than the mandatory number of pair-programming sessions.',
-              }
-            : pairProgrammingBadgeStatus === 'warning'
-              ? {
-                  name: 'Pair Programming',
-                  value: -3,
-                  weight: 0,
-                  description,
-                  details:
-                    'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.',
-                  status: 'WARNING',
-                }
-              : {
-                  name: 'Pair Programming',
-                  value: -2,
-                  weight: 0,
-                  description,
-                  details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
-                  status: 'NOT_FOUND',
-                };
-      return [...fromServer, synthetic];
+      const synthetic: SubMetric = {
+        name: 'Pair Programming',
+        value: cqiPairProgramming ?? (cqiPairProgrammingStatus === 'FOUND' ? 50 : -2),
+        weight: 0,
+        description,
+        details: generatePairProgrammingDetails(cqiPairProgramming, cqiPairProgrammingStatus),
+        status: cqiPairProgrammingStatus === 'FOUND' ? undefined : (cqiPairProgrammingStatus as any),
+      };
+      return [...filteredMetrics, synthetic];
+    }
+
+    // If team is marked as failed (member with <10 commits), pair programming should also fail
+    if (isTeamFailed(team) && !cqiPairProgrammingStatus) {
+      const filteredMetrics = fromServer.filter(m => m.name !== 'Pair Programming');
+      return [...filteredMetrics, {
+        name: 'Pair Programming',
+        value: -1,
+        weight: 0,
+        description: 'Did both students commit during pair programming sessions?',
+        details: 'Pair programming analysis was not calculated because at least one team member has fewer than 10 commits. This typically indicates insufficient individual contribution or data quality issues (e.g., missing email mappings).',
+        status: 'NOT_FOUND',
+      }];
+    }
+
+    // Fall back to badge status only if no CQI data available
+    if (pairProgrammingBadgeStatus != null && !cqiPairProgrammingStatus) {
+      const filteredMetrics = fromServer.filter(m => m.name !== 'Pair Programming');
+      const description = 'Did both students commit during pair programming sessions?';
+      if (pairProgrammingBadgeStatus === 'pass') {
+        return [...filteredMetrics, {
+          name: 'Pair Programming',
+          value: 100,
+          weight: 0,
+          description,
+          details: generatePairProgrammingDetails(100, 'FOUND'),
+        }];
+      } else if (pairProgrammingBadgeStatus === 'fail') {
+        return [...filteredMetrics, {
+          name: 'Pair Programming',
+          value: 0,
+          weight: 0,
+          description,
+          details: 'Team was found in attendance Excel file but did not meet the minimum mandatory pair-programming attendance threshold. This indicates they attended fewer than the required number of joint programming sessions.',
+        }];
+      } else if (pairProgrammingBadgeStatus === 'warning') {
+        return [...filteredMetrics, {
+          name: 'Pair Programming',
+          value: -3,
+          weight: 0,
+          description,
+          details: generatePairProgrammingDetails(-3, 'WARNING'),
+          status: 'WARNING',
+        }];
+      } else {
+        return [...filteredMetrics, {
+          name: 'Pair Programming',
+          value: -2,
+          weight: 0,
+          description,
+          details: generatePairProgrammingDetails(-2, 'NOT_FOUND'),
+          status: 'NOT_FOUND',
+        }];
+      }
     }
     return fromServer;
-  }, [team.subMetrics, pairProgrammingBadgeStatus]);
+  }, [team, pairProgrammingBadgeStatus]);
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
