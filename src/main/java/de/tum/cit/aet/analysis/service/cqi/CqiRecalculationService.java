@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -25,6 +27,8 @@ import java.util.*;
 @Slf4j
 @RequiredArgsConstructor
 public class CqiRecalculationService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final StudentRepository studentRepository;
     private final ExerciseEmailMappingRepository emailMappingRepository;
