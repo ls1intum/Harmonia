@@ -48,6 +48,7 @@ import { getFailedReason } from '@/lib/utils';
 import PairProgrammingBadge from '@/components/PairProgrammingBadge';
 import {
   getPairProgrammingBadgeStatus,
+  getPairProgrammingBadgeStatusFromPersistedStatus,
   hasValidPairProgrammingAttendanceData,
   type PairProgrammingAttendanceMap,
   type PairProgrammingBadgeStatus,
@@ -439,6 +440,8 @@ const TeamsList = ({
     uploadedAttendanceFileName,
     pairProgrammingAttendanceByTeamName,
   );
+  const isPairProgrammingProcessing = isAttendanceUploading;
+  const pairProgrammingProcessingLabel = 'Processing attendance...';
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
@@ -528,10 +531,14 @@ const TeamsList = ({
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <p className="text-sm text-muted-foreground">
                 Used file:{' '}
-                <span className="font-medium text-foreground break-all">
-                  {isAttendanceUploading ? 'Currently processing...' : (uploadedAttendanceFileName ?? 'Not uploaded yet')}
-                </span>
+                <span className="font-medium text-foreground break-all">{uploadedAttendanceFileName ?? 'Not uploaded yet'}</span>
               </p>
+              {isPairProgrammingProcessing && (
+                <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  {pairProgrammingProcessingLabel}
+                </Badge>
+              )}
               {hasUploadedAttendanceDocument && (
                 <Button
                   variant="ghost"
@@ -829,11 +836,12 @@ const TeamsList = ({
             </thead>
             <tbody>
               {sortedAndFilteredTeams.map(team => {
-                const pairProgrammingBadgeStatus = getPairProgrammingBadgeStatus(
-                  team.teamName,
-                  hasValidPairProgrammingData,
-                  pairProgrammingAttendanceByTeamName,
+                const persistedPairProgrammingBadgeStatus = getPairProgrammingBadgeStatusFromPersistedStatus(
+                  team.cqiDetails?.components?.pairProgrammingStatus,
                 );
+                const pairProgrammingBadgeStatus =
+                  persistedPairProgrammingBadgeStatus ??
+                  getPairProgrammingBadgeStatus(team.teamName, hasValidPairProgrammingData, pairProgrammingAttendanceByTeamName);
 
                 return (
                   <tr

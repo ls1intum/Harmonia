@@ -6,6 +6,13 @@ export type PairProgrammingAttendanceMap = Record<string, PairProgrammingAttenda
 
 export type PairProgrammingBadgeStatus = 'not_found' | 'warning' | 'pass' | 'fail';
 
+const persistedStatusToBadgeStatus: Record<string, PairProgrammingBadgeStatus> = {
+  PASS: 'pass',
+  FAIL: 'fail',
+  NOT_FOUND: 'not_found',
+  WARNING: 'warning',
+};
+
 export const getPairProgrammingAttendanceFileStorageKey = (exerciseId: string): string => {
   return `pair-programming-attendance-file:${exerciseId}`;
 };
@@ -65,4 +72,11 @@ export const getPairProgrammingBadgeStatus = (
   }
 
   return pairProgrammingAttendanceByTeamName[normalizedTeamName];
+};
+
+export const getPairProgrammingBadgeStatusFromPersistedStatus = (status?: string | null): PairProgrammingBadgeStatus | null => {
+  if (!status) {
+    return null;
+  }
+  return persistedStatusToBadgeStatus[status] ?? null;
 };

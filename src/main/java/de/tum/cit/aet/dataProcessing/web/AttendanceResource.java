@@ -140,10 +140,15 @@ public class AttendanceResource {
 
         TeamsScheduleDTO results = attendanceService.parseAttendance(file, credentials, courseId, exerciseId);
 
+        // Persist status-derived pair programming fields immediately, so DB matches UI quickly.
+        int statusUpdatedTeams = requestService.persistPairProgrammingStatusForExercise(exerciseId);
+
         // Fire-and-forget background recomputation of pair programming metrics
         pairProgrammingRecomputeService.recomputePairProgrammingForExerciseAsync(exerciseId);
 
-        log.info("Attendance uploaded for exercise {}. Triggered async pair programming recomputation.", exerciseId);
+        log.info("Attendance uploaded for exercise {}. Persisted attendance-derived pair programming for {} teams and triggered async recomputation.",
+                exerciseId,
+                statusUpdatedTeams);
         log.info("AttendanceResource: {}", results);
         return ResponseEntity.ok(results);
     }

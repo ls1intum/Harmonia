@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.function.BooleanSupplier;
 
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
@@ -372,8 +373,20 @@ public class RequestService {
      * @param exerciseId the Artemis exercise ID
      * @return number of teams whose pair programming fields were updated
      */
-    @Transactional
     public int recomputePairProgrammingForExercise(Long exerciseId) {
+        return recomputePairProgrammingForExercise(exerciseId, () -> true);
+    }
+
+    /**
+     * Recomputes pair programming metrics for all teams in an exercise.
+     * This uses existing git data and does not depend on AI analysis.
+     * Supports cooperative cancellation between teams.
+     *
+     * @param exerciseId      the Artemis exercise ID
+     * @param shouldContinue  predicate checked before each team recomputation
+     * @return number of teams whose pair programming fields were updated
+     */
+    public int recomputePairProgrammingForExercise(Long exerciseId, BooleanSupplier shouldContinue) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
         if (participations.isEmpty()) {
             log.info("No participations found for exercise {}, skipping pair programming recomputation", exerciseId);
@@ -382,12 +395,49 @@ public class RequestService {
 
         int updatedTeams = 0;
         for (TeamParticipation participation : participations) {
-            if (recomputePairProgrammingForParticipation(participation)) {
+            if (!shouldContinue.getAsBoolean()) {
+                log.info("Pair programming recomputation cancelled for exercise {} after {} updated team(s)",
+                        exerciseId,
+                        updatedTeams);
+                break;
+            }
+            UUID participationId = participation.getTeamParticipationId();
+            Boolean changed = transactionTemplate.execute(status -> teamParticipationRepository.findById(participationId)
+                    .map(this::recomputePairProgrammingForParticipation)
+                    .orElse(false));
+            if (Boolean.TRUE.equals(changed)) {
                 updatedTeams++;
             }
         }
 
         log.info("Recomputed pair programming metrics for {}/{} teams in exercise {}",
+                updatedTeams, participations.size(), exerciseId);
+        return updatedTeams;
+    }
+
+    /**
+     * Persists attendance-derived pair programming fields (status and baseline score)
+     * without repository git recomputation.
+     *
+     * @param exerciseId the Artemis exercise ID
+     * @return number of teams whose pair programming fields were updated
+     */
+    @Transactional
+    public int persistPairProgrammingStatusForExercise(Long exerciseId) {
+        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
+        if (participations.isEmpty()) {
+            log.info("No participations found for exercise {}, skipping pair programming status persistence", exerciseId);
+            return 0;
+        }
+
+        int updatedTeams = 0;
+        for (TeamParticipation participation : participations) {
+            if (persistPairProgrammingStatusFromAttendance(participation)) {
+                updatedTeams++;
+            }
+        }
+
+        log.info("Persisted attendance-derived pair programming status for {}/{} teams in exercise {}",
                 updatedTeams, participations.size(), exerciseId);
         return updatedTeams;
     }
@@ -421,50 +471,89 @@ public class RequestService {
 
     private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
         List<Student> students = studentRepository.findAllByTeam(participation);
-        if (students.size() != 2) {
-            return clearPairProgrammingFields(participation);
-        }
 
-        var teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
-        if (teamRepositoryOptional.isEmpty()) {
-            log.debug("No team repository found for participation {}, skipping pair programming recomputation",
-                    participation.getParticipation());
-            return false;
-        }
-
-        TeamRepository teamRepository = teamRepositoryOptional.get();
-        String localPath = teamRepository.getLocalPath();
-        if (localPath == null || localPath.isBlank() || !Files.exists(Path.of(localPath, ".git"))) {
-            return false;
-        }
-
-        Map<String, Long> commitToAuthor = buildCommitToAuthorMap(teamRepository, students);
-        if (commitToAuthor.isEmpty()) {
-            return false;
-        }
-
-        List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
-        CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+        // Baseline with empty chunks still derives deterministic attendance-based
+        // status (PASS/FAIL/NOT_FOUND/WARNING).
         ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
-                filterResult.chunksToAnalyze(),
+                List.of(),
                 students.size(),
                 null,
                 null,
                 participation.getName());
 
+        var teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
+        if (students.size() != 2) {
+            log.debug("Team size for participation {} is {}, using attendance-only pair programming defaults",
+                    participation.getParticipation(),
+                    students.size());
+        } else if (teamRepositoryOptional.isPresent()) {
+            TeamRepository teamRepository = teamRepositoryOptional.get();
+            String localPath = teamRepository.getLocalPath();
+            if (localPath != null && !localPath.isBlank() && Files.exists(Path.of(localPath, ".git"))) {
+                Map<String, Long> commitToAuthor = buildCommitToAuthorMap(teamRepository, students);
+                if (!commitToAuthor.isEmpty()) {
+                    List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
+                    CommitPreFilterService.PreFilterResult filterResult = commitPreFilterService.preFilter(allChunks);
+                    components = cqiCalculatorService.calculateGitOnlyComponents(
+                            filterResult.chunksToAnalyze(),
+                            students.size(),
+                            null,
+                            null,
+                            participation.getName());
+                } else {
+                    log.debug("Empty commit-author map for participation {}, using attendance-only pair programming defaults",
+                            participation.getParticipation());
+                }
+            } else {
+                log.debug("Missing or invalid local repository path for participation {}, using attendance-only pair programming defaults",
+                        participation.getParticipation());
+            }
+        } else {
+            log.debug("No team repository found for participation {}, using attendance-only pair programming defaults",
+                    participation.getParticipation());
+        }
+
+        PairProgrammingStatus nextStatus = components.pairProgrammingStatus();
+        Double nextScore = normalizePairProgrammingScore(components.pairProgramming(), nextStatus);
         Double previousScore = participation.getCqiPairProgramming();
         String previousStatus = participation.getCqiPairProgrammingStatus();
-        Double nextScore = components.pairProgramming();
-        String nextStatus = components.pairProgrammingStatus() != null ? components.pairProgrammingStatus().name() : null;
+        String nextStatusValue = nextStatus != null ? nextStatus.name() : null;
 
         boolean changed = !java.util.Objects.equals(previousScore, nextScore)
-                || !java.util.Objects.equals(previousStatus, nextStatus);
+                || !java.util.Objects.equals(previousStatus, nextStatusValue);
         if (!changed) {
             return false;
         }
 
         participation.setCqiPairProgramming(nextScore);
-        participation.setCqiPairProgrammingStatus(nextStatus);
+        participation.setCqiPairProgrammingStatus(nextStatusValue);
+        teamParticipationRepository.save(participation);
+        return true;
+    }
+
+    private boolean persistPairProgrammingStatusFromAttendance(TeamParticipation participation) {
+        List<Student> students = studentRepository.findAllByTeam(participation);
+        ComponentScoresDTO attendanceOnly = cqiCalculatorService.calculateGitOnlyComponents(
+                List.of(),
+                students.size(),
+                null,
+                null,
+                participation.getName());
+
+        PairProgrammingStatus nextStatus = attendanceOnly.pairProgrammingStatus();
+        Double nextScore = normalizePairProgrammingScore(attendanceOnly.pairProgramming(), nextStatus);
+        String nextStatusValue = nextStatus != null ? nextStatus.name() : null;
+
+        Double previousScore = participation.getCqiPairProgramming();
+        String previousStatus = participation.getCqiPairProgrammingStatus();
+        boolean changed = !java.util.Objects.equals(previousScore, nextScore)
+                || !java.util.Objects.equals(previousStatus, nextStatusValue);
+        if (!changed) {
+            return false;
+        }
+
+        participation.setCqiPairProgramming(nextScore);
+        participation.setCqiPairProgrammingStatus(nextStatusValue);
         teamParticipationRepository.save(participation);
         return true;
     }
@@ -605,10 +694,12 @@ public class RequestService {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
-                teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
+                PairProgrammingStatus pairProgrammingStatus = gitComponents.pairProgrammingStatus();
+                teamParticipation.setCqiPairProgramming(
+                        normalizePairProgrammingScore(gitComponents.pairProgramming(), pairProgrammingStatus));
                 // Always set the status (PASS/FAIL, NOT_FOUND, WARNING)
                 teamParticipation.setCqiPairProgrammingStatus(
-                        gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
+                        pairProgrammingStatus != null ? pairProgrammingStatus.name() : null);
                 teamParticipationRepository.save(teamParticipation);
 
                 // Create partial CQI details with git-only components
@@ -1904,15 +1995,38 @@ public class RequestService {
     }
 
     /**
+     * Normalizes persisted pair-programming score values.
+     * Score should remain null for NOT_FOUND and default to 0 for other statuses
+     * when a numeric score is absent.
+     */
+    private Double normalizePairProgrammingScore(Double score, PairProgrammingStatus status) {
+        if (score != null) {
+            return score;
+        }
+        if (status == null || status == PairProgrammingStatus.NOT_FOUND) {
+            return null;
+        }
+        return 0.0;
+    }
+
+    /**
      * Reconstructs a CQIResultDTO from persisted TeamParticipation fields.
      * Returns null if no CQI components were stored.
      */
     private CQIResultDTO reconstructCqiDetails(TeamParticipation participation) {
         // Check if we have stored CQI component data
         if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
-                && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
+                && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null
+                && participation.getCqiPairProgramming() == null
+                && (participation.getCqiPairProgrammingStatus() == null
+                || participation.getCqiPairProgrammingStatus().isBlank())) {
             return null;
         }
+
+        PairProgrammingStatus pairProgrammingStatus = parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus());
+        Double pairProgrammingScore = normalizePairProgrammingScore(
+                participation.getCqiPairProgramming(),
+                pairProgrammingStatus);
 
         // Reconstruct components
         ComponentScoresDTO components = new ComponentScoresDTO(
@@ -1920,8 +2034,8 @@ public class RequestService {
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
-                participation.getCqiPairProgramming(),
-                parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus()));
+                pairProgrammingScore,
+                pairProgrammingStatus);
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());

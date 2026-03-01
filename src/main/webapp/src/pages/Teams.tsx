@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import TeamsList from '@/components/TeamsList';
 import type { Team } from '@/types/team';
 import { computeCourseAverages } from '@/lib/courseAverages';
@@ -24,6 +24,7 @@ const apiConfig = new Configuration({
   },
 });
 const attendanceApi = new AttendanceResourceApi(apiConfig);
+const PAIR_PROGRAMMING_RECOMPUTE_PENDING_MS = 30000;
 
 type NullableAttendanceMap = Record<string, boolean | null>;
 
@@ -68,6 +69,7 @@ export default function Teams() {
   };
   const attendanceStorageKey = getPairProgrammingAttendanceFileStorageKey(exercise);
   const pairProgrammingAttendanceMapStorageKey = getPairProgrammingAttendanceMapStorageKey(exercise);
+  const pairProgrammingRecomputePendingStorageKey = `pair-programming-recompute-pending-until:${exercise}`;
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
   const [uploadedAttendanceFileName, setUploadedAttendanceFileName] = useState<string | null>(() =>
     window.sessionStorage.getItem(attendanceStorageKey),
@@ -75,6 +77,84 @@ export default function Teams() {
   const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<PairProgrammingAttendanceMap>(() =>
     readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
   );
+  const [isPairProgrammingRecomputePending, setIsPairProgrammingRecomputePending] = useState(() => {
+    const pendingUntilRaw = window.sessionStorage.getItem(pairProgrammingRecomputePendingStorageKey);
+    if (!pendingUntilRaw) {
+      return false;
+    }
+    const pendingUntil = Number.parseInt(pendingUntilRaw, 10);
+    if (Number.isNaN(pendingUntil) || pendingUntil <= Date.now()) {
+      window.sessionStorage.removeItem(pairProgrammingRecomputePendingStorageKey);
+      return false;
+    }
+    return true;
+  });
+  const pairProgrammingRecomputeTimeout = useRef<number | null>(null);
+
+  const clearPairProgrammingRecomputeTimeout = () => {
+    if (pairProgrammingRecomputeTimeout.current != null) {
+      window.clearTimeout(pairProgrammingRecomputeTimeout.current);
+      pairProgrammingRecomputeTimeout.current = null;
+    }
+  };
+
+  const schedulePairProgrammingRecomputeTimeout = (timeoutMs: number) => {
+    clearPairProgrammingRecomputeTimeout();
+    pairProgrammingRecomputeTimeout.current = window.setTimeout(() => {
+      setIsPairProgrammingRecomputePending(false);
+      window.sessionStorage.removeItem(pairProgrammingRecomputePendingStorageKey);
+      pairProgrammingRecomputeTimeout.current = null;
+    }, timeoutMs);
+  };
+
+  const startPairProgrammingRecomputePolling = () => {
+    const pendingUntil = Date.now() + PAIR_PROGRAMMING_RECOMPUTE_PENDING_MS;
+    setIsPairProgrammingRecomputePending(true);
+    window.sessionStorage.setItem(pairProgrammingRecomputePendingStorageKey, pendingUntil.toString());
+    schedulePairProgrammingRecomputeTimeout(PAIR_PROGRAMMING_RECOMPUTE_PENDING_MS);
+  };
+
+  const stopPairProgrammingRecomputePolling = () => {
+    setIsPairProgrammingRecomputePending(false);
+    window.sessionStorage.removeItem(pairProgrammingRecomputePendingStorageKey);
+    clearPairProgrammingRecomputeTimeout();
+  };
+
+  useEffect(() => {
+    const pendingUntilRaw = window.sessionStorage.getItem(pairProgrammingRecomputePendingStorageKey);
+    if (!pendingUntilRaw) {
+      return;
+    }
+
+    const pendingUntil = Number.parseInt(pendingUntilRaw, 10);
+    if (Number.isNaN(pendingUntil)) {
+      window.sessionStorage.removeItem(pairProgrammingRecomputePendingStorageKey);
+      return;
+    }
+
+    const remainingMs = pendingUntil - Date.now();
+    if (remainingMs <= 0) {
+      window.sessionStorage.removeItem(pairProgrammingRecomputePendingStorageKey);
+      return;
+    }
+    if (pairProgrammingRecomputeTimeout.current != null) {
+      window.clearTimeout(pairProgrammingRecomputeTimeout.current);
+    }
+    pairProgrammingRecomputeTimeout.current = window.setTimeout(() => {
+      setIsPairProgrammingRecomputePending(false);
+      window.sessionStorage.removeItem(pairProgrammingRecomputePendingStorageKey);
+      pairProgrammingRecomputeTimeout.current = null;
+    }, remainingMs);
+  }, [pairProgrammingRecomputePendingStorageKey]);
+
+  useEffect(() => {
+    return () => {
+      if (pairProgrammingRecomputeTimeout.current != null) {
+        window.clearTimeout(pairProgrammingRecomputeTimeout.current);
+        pairProgrammingRecomputeTimeout.current = null;
+      }
+    };
+  }, []);
   // Template author candidates — no server endpoint, managed purely via query cache
   const templateAuthorCandidates = queryClient.getQueryData<string[] | null>(['templateAuthorCandidates', exercise]) ?? null;
 
@@ -107,6 +187,7 @@ export default function Teams() {
   // Fetch teams from database on load
   // During analysis, this shows already-analyzed teams
   const isAnalysisRunning = status.state === 'RUNNING';
+  const shouldPollTeams = isAnalysisRunning || isPairProgrammingRecomputePending;
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
@@ -117,11 +198,11 @@ export default function Teams() {
       // Transform to Team type
       return data.map(transformToComplexTeamData);
     },
-    staleTime: isAnalysisRunning ? 2000 : 30 * 1000, // Faster updates during analysis
+    staleTime: shouldPollTeams ? 2000 : 30 * 1000,
     gcTime: 10 * 60 * 1000,
     enabled: !!exercise,
-    refetchInterval: isAnalysisRunning ? 3000 : false, // Poll every 3s during analysis to get new teams
-    refetchOnWindowFocus: !isAnalysisRunning,
+    refetchInterval: shouldPollTeams ? 3000 : false,
+    refetchOnWindowFocus: !shouldPollTeams,
   });
 
   const attendanceUploadMutation = useMutation({
@@ -139,6 +220,7 @@ export default function Teams() {
       window.sessionStorage.setItem(attendanceStorageKey, file.name);
       setPairProgrammingAttendanceByTeamName(pairProgrammingAttendanceMap);
       window.sessionStorage.setItem(pairProgrammingAttendanceMapStorageKey, JSON.stringify(pairProgrammingAttendanceMap));
+      startPairProgrammingRecomputePolling();
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       toast({
         title: 'Attendance uploaded',
@@ -146,6 +228,7 @@ export default function Teams() {
       });
     },
     onError: () => {
+      stopPairProgrammingRecomputePolling();
       toast({
         variant: 'destructive',
         title: 'Attendance upload failed',
@@ -175,6 +258,7 @@ export default function Teams() {
       setAttendanceFile(null);
       setUploadedAttendanceFileName(null);
       setPairProgrammingAttendanceByTeamName({});
+      stopPairProgrammingRecomputePolling();
       window.sessionStorage.removeItem(attendanceStorageKey);
       window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
@@ -376,6 +460,7 @@ export default function Teams() {
       setAttendanceFile(null);
       setUploadedAttendanceFileName(null);
       setPairProgrammingAttendanceByTeamName({});
+      stopPairProgrammingRecomputePolling();
       window.sessionStorage.removeItem(attendanceStorageKey);
       window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
       toast({ title: 'Data cleared successfully' });
