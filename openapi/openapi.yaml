@@ -203,7 +203,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/CqiWeightsDTO'}
+              schema: {type: object}
     delete:
       tags: [cqi-weight-resource]
       operationId: resetWeights

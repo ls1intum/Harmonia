@@ -186,7 +186,7 @@ export const CqiWeightResourceApiFp = function (configuration?: Configuration) {
       exerciseId: number,
       cqiWeightsDTO: CqiWeightsDTO,
       options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CqiWeightsDTO>> {
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
       const localVarAxiosArgs = await localVarAxiosParamCreator.saveWeights(exerciseId, cqiWeightsDTO, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath = operationServerMap['CqiWeightResourceApi.saveWeights']?.[localVarOperationServerIndex]?.url;
@@ -227,7 +227,7 @@ export const CqiWeightResourceApiFactory = function (configuration?: Configurati
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    saveWeights(exerciseId: number, cqiWeightsDTO: CqiWeightsDTO, options?: RawAxiosRequestConfig): AxiosPromise<CqiWeightsDTO> {
+    saveWeights(exerciseId: number, cqiWeightsDTO: CqiWeightsDTO, options?: RawAxiosRequestConfig): AxiosPromise<object> {
       return localVarFp.saveWeights(exerciseId, cqiWeightsDTO, options).then(request => request(axios, basePath));
     },
   };

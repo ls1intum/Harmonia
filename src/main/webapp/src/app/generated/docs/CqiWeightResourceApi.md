@@ -98,7 +98,7 @@ No authorization required
 
 # **saveWeights**
 
-> CqiWeightsDTO saveWeights(cqiWeightsDTO)
+> object saveWeights(cqiWeightsDTO)
 
 ### Example
 
@@ -123,7 +123,7 @@ const { status, data } = await apiInstance.saveWeights(exerciseId, cqiWeightsDTO
 
 ### Return type
 
-**CqiWeightsDTO**
+**object**
 
 ### Authorization
 
