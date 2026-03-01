@@ -6,6 +6,7 @@ import de.tum.cit.aet.core.security.CryptoService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
 import de.tum.cit.aet.dataProcessing.service.PairProgrammingRecomputeService;
+import de.tum.cit.aet.dataProcessing.dto.PairProgrammingRecomputeStatusDTO;
 import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.dataProcessing.service.AttendanceService;
 import de.tum.cit.aet.dataProcessing.util.CredentialUtils;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -151,6 +153,18 @@ public class AttendanceResource {
                 statusUpdatedTeams);
         log.info("AttendanceResource: {}", results);
         return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Returns whether a pair programming recomputation is currently running for the given exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return status with inProgress true/false
+     */
+    @GetMapping("recompute-status")
+    public ResponseEntity<PairProgrammingRecomputeStatusDTO> getRecomputeStatus(@RequestParam("exerciseId") Long exerciseId) {
+        boolean inProgress = pairProgrammingRecomputeService.isRecomputeInProgress(exerciseId);
+        return ResponseEntity.ok(new PairProgrammingRecomputeStatusDTO(inProgress));
     }
 
     /**

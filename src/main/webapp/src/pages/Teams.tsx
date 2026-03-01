@@ -120,6 +120,11 @@ export default function Teams() {
     clearPairProgrammingRecomputeTimeout();
   };
 
+  const stopPairProgrammingRecomputePollingRef = useRef(stopPairProgrammingRecomputePolling);
+  useEffect(() => {
+    stopPairProgrammingRecomputePollingRef.current = stopPairProgrammingRecomputePolling;
+  });
+
   useEffect(() => {
     const pendingUntilRaw = window.sessionStorage.getItem(pairProgrammingRecomputePendingStorageKey);
     if (!pendingUntilRaw) {
@@ -188,6 +193,31 @@ export default function Teams() {
   // During analysis, this shows already-analyzed teams
   const isAnalysisRunning = status.state === 'RUNNING';
   const shouldPollTeams = isAnalysisRunning || isPairProgrammingRecomputePending;
+
+  // Poll pair programming recompute status so "Updating scores..." stays until the server finishes
+  const { data: recomputeStatus } = useQuery<{ inProgress: boolean }>({
+    queryKey: ['pairProgrammingRecomputeStatus', exercise],
+    queryFn: async () => {
+      const response = await fetch(`/api/attendance/recompute-status?exerciseId=${exercise}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch recompute status');
+      return response.json();
+    },
+    enabled: !!exercise && isPairProgrammingRecomputePending,
+    refetchInterval: 2000,
+    staleTime: 0,
+  });
+
+  // When server reports recompute finished, clear pending state and refresh teams (defer to avoid setState in effect)
+  useEffect(() => {
+    if (!isPairProgrammingRecomputePending || recomputeStatus?.inProgress !== false) {
+      return;
+    }
+    queueMicrotask(() => {
+      stopPairProgrammingRecomputePollingRef.current();
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+    });
+  }, [isPairProgrammingRecomputePending, recomputeStatus?.inProgress, exercise, queryClient]);
+
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {

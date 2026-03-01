@@ -79,4 +79,14 @@ public class PairProgrammingRecomputeService {
             }
         }
     }
+
+    /**
+     * Returns whether a pair programming recomputation is currently running for the given exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return true if a recompute is in progress, false otherwise
+     */
+    public boolean isRecomputeInProgress(Long exerciseId) {
+        return statesByExerciseId.containsKey(exerciseId);
+    }
 }
