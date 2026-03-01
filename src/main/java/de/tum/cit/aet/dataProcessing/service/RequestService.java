@@ -1909,7 +1909,8 @@ public class RequestService {
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
                 participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                participation.getCqiPairProgrammingStatus(),
+                null); // pairProgrammingDetails - only set during calculation, not persisted
 
         // Reconstruct penalties
         List<CQIPenaltyDTO> penalties = deserializePenalties(participation.getCqiPenalties());
