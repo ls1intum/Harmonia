@@ -100,6 +100,11 @@ public class CQICalculatorService {
 
     /**
      * Calculate CQI using fallback with default weights.
+     *
+     * @param chunks        pre-filtered commit chunks
+     * @param teamSize      number of team members
+     * @param filterSummary summary of pre-filtering results
+     * @return the calculated CQI result
      */
     public CQIResultDTO calculateFallback(List<CommitChunkDTO> chunks, int teamSize, FilterSummaryDTO filterSummary) {
         return calculateFallback(chunks, teamSize, filterSummary, null);
