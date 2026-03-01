@@ -88,7 +88,7 @@ dependencies {
     implementation "com.nimbusds:nimbus-jose-jwt:10.7"
 
     // Main database to persist entities
-    implementation 'org.postgresql:postgresql:42.7.9'
+    implementation 'org.postgresql:postgresql:42.7.10'
 
     // Apache POI for Excel export
     implementation 'org.apache.poi:poi-ooxml:5.5.1'
