@@ -283,7 +283,6 @@ const TeamsList = ({
         if (team.teamName.toLowerCase().includes(q)) return true;
         if (team.tutor?.toLowerCase().includes(q)) return true;
         return team.students.some(s => s.name?.toLowerCase().includes(q));
-
       });
     }
 
