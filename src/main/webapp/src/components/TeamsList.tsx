@@ -874,7 +874,7 @@ const TeamsList = ({
                         type="button"
                         onClick={e => {
                           e.stopPropagation();
-                          onToggleReviewed(team.id);
+                          onToggleReviewed(String(team.teamId));
                         }}
                         className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
                         title={team.isReviewed ? 'Mark as unreviewed' : 'Mark as reviewed'}
