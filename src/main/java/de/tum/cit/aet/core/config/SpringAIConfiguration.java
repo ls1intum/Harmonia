@@ -1,43 +1,39 @@
 package de.tum.cit.aet.core.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.util.List;
 
 /**
  * Configuration for Spring AI chat clients.
- * This configuration is enabled when either Atlas or Hyperion modules are enabled.
- * Manual configuration without auto-configuration.
+ * Active when the {@code openapi} profile is not enabled.
+ * Selects the first available {@link ChatModel} to build the application-wide {@link ChatClient}.
  */
+@Slf4j
 @Configuration
 @Profile("!openapi")
 public class SpringAIConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(SpringAIConfiguration.class);
-
     /**
-     * Default Chat Client for AI features.
-     * Uses the manually configured Azure OpenAI model if available.
+     * Creates a {@link ChatClient} from the first available {@link ChatModel}.
      *
-     * @param chatModels chat models that can be used (optional)
-     * @return a configured ChatClient with default options, or null if model is not available
+     * @param chatModels the list of auto-detected chat models
+     * @return a configured {@link ChatClient}, or {@code null} if no models are available
      */
     @Bean
     public ChatClient chatClient(List<ChatModel> chatModels) {
         if (chatModels == null || chatModels.isEmpty()) {
             return null;
         }
-        for(ChatModel model : chatModels) {
-            log.info("Found Chat Model: {} with temperature: {}", model.getDefaultOptions().getModel(), model.getDefaultOptions().getTemperature());
-        }
-        ChatModel chatModel = chatModels.getFirst(); // Use the first available model
+
+        ChatModel chatModel = chatModels.getFirst();
+        log.info("Using Chat Model: {}", chatModel.getDefaultOptions().getModel());
 
         return ChatClient.builder(chatModel).build();
     }
-
-
 }

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * Individual component scores for CQI calculation.
  *
@@ -14,6 +16,7 @@ package de.tum.cit.aet.analysis.dto.cqi;
  * @param pairProgrammingDetails Detailed breakdown of pair programming score
  *                               (e.g., "2 of 4 paired sessions had both students committing")
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ComponentScoresDTO(
         double effortBalance,
         double locBalance,

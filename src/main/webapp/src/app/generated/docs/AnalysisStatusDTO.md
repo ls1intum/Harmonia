@@ -4,6 +4,7 @@
 
 | Name                | Type       | Description | Notes                             |
 | ------------------- | ---------- | ----------- | --------------------------------- |
+| **analysisMode**    | **string** |             | [optional] [default to undefined] |
 | **currentStage**    | **string** |             | [optional] [default to undefined] |
 | **currentTeamName** | **string** |             | [optional] [default to undefined] |
 | **errorMessage**    | **string** |             | [optional] [default to undefined] |
@@ -20,6 +21,7 @@
 import { AnalysisStatusDTO } from './api';
 
 const instance: AnalysisStatusDTO = {
+  analysisMode,
   currentStage,
   currentTeamName,
   errorMessage,

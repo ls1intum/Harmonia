@@ -84,10 +84,25 @@ class EmailMappingResourceTest {
     }
 
     private AnalyzedChunk makeChunk(TeamParticipation p, String email, boolean external) {
-        AnalyzedChunk c = new AnalyzedChunk(p, "chunk-1", email, "Author",
-                "FEATURE", 5.0, 3.0, 4.0, 0.9, "reason",
-                "abc123", "[\"msg\"]", LocalDateTime.now(), 50,
-                false, 0, 1, false, null);
+        AnalyzedChunk c = new AnalyzedChunk();
+        c.setParticipation(p);
+        c.setChunkIdentifier("chunk-1");
+        c.setAuthorEmail(email);
+        c.setAuthorName("Author");
+        c.setClassification("FEATURE");
+        c.setEffortScore(5.0);
+        c.setComplexity(3.0);
+        c.setNovelty(4.0);
+        c.setConfidence(0.9);
+        c.setReasoning("reason");
+        c.setCommitShas("abc123");
+        c.setCommitMessages("[\"msg\"]");
+        c.setTimestamp(LocalDateTime.now());
+        c.setLinesChanged(50);
+        c.setIsBundled(false);
+        c.setChunkIndex(0);
+        c.setTotalChunks(1);
+        c.setIsError(false);
         c.setIsExternalContributor(external);
         return c;
     }
@@ -110,7 +125,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
-        var request = new EmailMappingResource.CreateEmailMappingRequest(
+        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -135,7 +150,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(externalChunk)));
 
-        var request = new EmailMappingResource.CreateEmailMappingRequest(
+        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -158,7 +173,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
-        var request = new EmailMappingResource.CreateEmailMappingRequest(
+        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -172,7 +187,7 @@ class EmailMappingResourceTest {
         when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.empty());
 
-        var request = new EmailMappingResource.CreateEmailMappingRequest(
+        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         assertThrows(IllegalArgumentException.class,
@@ -194,7 +209,7 @@ class EmailMappingResourceTest {
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
         // Student name "Unknown" does not match any student → falls back to request ID (77)
-        var request = new EmailMappingResource.CreateEmailMappingRequest(
+        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
                 "orphan@gmail.com", 77L, "Unknown", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -297,7 +312,7 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        var request = new EmailMappingResource.TemplateAuthorDTO("template@example.com", false);
+        EmailMappingResource.TemplateAuthorDTO request = new EmailMappingResource.TemplateAuthorDTO("template@example.com", false);
 
         ResponseEntity<List<ClientResponseDTO>> response =
                 resource.setTemplateAuthor(EXERCISE_ID, request);
@@ -325,7 +340,7 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of(alice));
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        var request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
+        EmailMappingResource.TemplateAuthorDTO request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
 
         resource.setTemplateAuthor(EXERCISE_ID, request);
 
@@ -352,7 +367,7 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        var request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
+        EmailMappingResource.TemplateAuthorDTO request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
 
         resource.setTemplateAuthor(EXERCISE_ID, request);
 

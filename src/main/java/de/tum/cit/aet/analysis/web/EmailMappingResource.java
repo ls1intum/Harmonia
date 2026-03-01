@@ -92,8 +92,8 @@ public class EmailMappingResource {
             @PathVariable Long exerciseId,
             @RequestBody CreateEmailMappingRequest request) {
 
-        log.info("Creating email mapping: {} -> studentId {} for exercise {}",
-                request.gitEmail(), request.studentId(), exerciseId);
+        log.info("POST createMapping for exerciseId={}, gitEmail={}, studentId={}",
+                exerciseId, request.gitEmail(), request.studentId());
 
         // 1. Find the team participation (must exist before we resolve the student ID)
         TeamParticipation participation = teamParticipationRepository
@@ -170,8 +170,8 @@ public class EmailMappingResource {
         ExerciseEmailMapping mapping = emailMappingRepository.findById(mappingId)
                 .orElseThrow(() -> new IllegalArgumentException("Mapping not found: " + mappingId));
 
-        log.info("Removing email mapping: {} -> studentId {} for exercise {}",
-                mapping.getGitEmail(), mapping.getStudentId(), exerciseId);
+        log.info("DELETE deleteMapping for exerciseId={}, gitEmail={}, studentId={}",
+                exerciseId, mapping.getGitEmail(), mapping.getStudentId());
 
         emailMappingRepository.delete(mapping);
 
@@ -230,14 +230,14 @@ public class EmailMappingResource {
      * Returns the configured template author for the given exercise.
      *
      * @param exerciseId the exercise ID
-     * @return template author DTO, or 404 if not configured
+     * @return template author DTO, or 200 with null body if not configured
      */
     @GetMapping("/template-author")
     public ResponseEntity<TemplateAuthorDTO> getTemplateAuthor(@PathVariable Long exerciseId) {
         return templateAuthorRepository.findByExerciseId(exerciseId)
                 .map(ta -> ResponseEntity.ok(
                         new TemplateAuthorDTO(ta.getTemplateEmail(), ta.getAutoDetected())))
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.ok(null));
     }
 
     /**
@@ -255,7 +255,7 @@ public class EmailMappingResource {
             @RequestBody TemplateAuthorDTO request) {
 
         String newEmail = request.templateEmail().toLowerCase(Locale.ROOT);
-        log.info("Setting template author for exercise {}: {}", exerciseId, newEmail);
+        log.info("PUT setTemplateAuthor for exerciseId={}, email={}", exerciseId, newEmail);
 
         // Load or create template author entity
         ExerciseTemplateAuthor ta = templateAuthorRepository.findByExerciseId(exerciseId)
@@ -325,7 +325,7 @@ public class EmailMappingResource {
         }
 
         String oldEmail = ta.getTemplateEmail().toLowerCase(Locale.ROOT);
-        log.info("Removing template author for exercise {}: {}", exerciseId, oldEmail);
+        log.info("DELETE deleteTemplateAuthor for exerciseId={}, email={}", exerciseId, oldEmail);
         templateAuthorRepository.delete(ta);
 
         // Recalculate CQI for all teams — old template chunks stay as external/orphan
@@ -465,7 +465,8 @@ public class EmailMappingResource {
                 loadAnalyzedChunkDTOs(participation),
                 null, // orphan commits not persisted
                 readTeamTokenTotals(participation),
-                participation.getOrphanCommitCount());
+                participation.getOrphanCommitCount(),
+                participation.getIsFailed());
     }
 
     private List<AnalyzedChunkDTO> loadAnalyzedChunkDTOs(TeamParticipation participation) {
@@ -494,7 +495,7 @@ public class EmailMappingResource {
                         Boolean.TRUE.equals(chunk.getIsError()),
                         chunk.getErrorMessage(),
                         Boolean.TRUE.equals(chunk.getIsExternalContributor()),
-                        new LlmTokenUsage(
+                        new LlmTokenUsageDTO(
                                 chunk.getLlmModel() != null ? chunk.getLlmModel() : "unknown",
                                 chunk.getLlmPromptTokens() != null ? chunk.getLlmPromptTokens() : 0L,
                                 chunk.getLlmCompletionTokens() != null ? chunk.getLlmCompletionTokens() : 0L,
@@ -507,11 +508,11 @@ public class EmailMappingResource {
                 .toList();
     }
 
-    private LlmTokenTotals readTeamTokenTotals(TeamParticipation p) {
+    private LlmTokenTotalsDTO readTeamTokenTotals(TeamParticipation p) {
         if (p.getLlmCalls() == null) {
             return null;
         }
-        return new LlmTokenTotals(
+        return new LlmTokenTotalsDTO(
                 p.getLlmCalls() != null ? p.getLlmCalls() : 0L,
                 p.getLlmCallsWithUsage() != null ? p.getLlmCallsWithUsage() : 0L,
                 p.getLlmPromptTokens() != null ? p.getLlmPromptTokens() : 0L,

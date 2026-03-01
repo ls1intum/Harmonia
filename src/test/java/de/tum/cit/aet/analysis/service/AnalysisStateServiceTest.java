@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.service;
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.repository.AnalysisStatusRepository;
+import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,7 +59,7 @@ class AnalysisStateServiceTest {
         when(statusRepository.findById(123L)).thenReturn(Optional.of(idle));
         when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        AnalysisStatus result = service.startAnalysis(123L, 5);
+        AnalysisStatus result = service.startAnalysis(123L, 5, AnalysisMode.FULL);
 
         assertEquals(AnalysisState.RUNNING, result.getState());
         assertEquals(5, result.getTotalTeams());
@@ -71,7 +72,7 @@ class AnalysisStateServiceTest {
         running.setState(AnalysisState.RUNNING);
         when(statusRepository.findById(123L)).thenReturn(Optional.of(running));
 
-        assertThrows(IllegalStateException.class, () -> service.startAnalysis(123L, 5));
+        assertThrows(IllegalStateException.class, () -> service.startAnalysis(123L, 5, AnalysisMode.FULL));
     }
 
     @Test

@@ -3,25 +3,6 @@ info: {title: OpenAPI definition, version: v0}
 servers:
 - {url: 'http://localhost:8080', description: Generated server url}
 paths:
-  /api/analysis/{course}/{exercise}/recompute:
-    post:
-      tags: [analysis-resource]
-      operationId: recompute
-      parameters:
-      - name: course
-        in: path
-        required: true
-        schema: {type: string}
-      - name: exercise
-        in: path
-        required: true
-        schema: {type: string}
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema: {type: string}
   /api/analysis/{exerciseId}/cancel:
     post:
       tags: [analysis-resource]
@@ -75,10 +56,29 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AnalysisStatusDTO'}
+  /api/analysis/{exerciseId}/teams/{teamId}/compute-ai:
+    post:
+      tags: [analysis-resource]
+      operationId: computeAiForTeam
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      - name: teamId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
   /api/attendance/clear:
     post:
-      tags: [attendance-resource]
-      operationId: clearAttendancePost
+      tags: [pair-programming-resource]
+      operationId: clearAttendance
       parameters:
       - name: exerciseId
         in: query
@@ -91,8 +91,8 @@ paths:
             application/json:
               schema: {type: string}
     delete:
-      tags: [attendance-resource]
-      operationId: clearAttendance
+      tags: [pair-programming-resource]
+      operationId: clearAttendance_1
       parameters:
       - name: exerciseId
         in: query
@@ -106,7 +106,7 @@ paths:
               schema: {type: string}
   /api/attendance/upload:
     post:
-      tags: [attendance-resource]
+      tags: [pair-programming-resource]
       operationId: uploadAttendance
       parameters:
       - name: courseId
@@ -170,18 +170,6 @@ paths:
         required: true
       responses:
         '200': {description: OK}
-  /api/config/projects:
-    get:
-      tags: [config-resource]
-      operationId: getProjects
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items: {$ref: '#/components/schemas/Project'}
   /api/exercises/{exerciseId}/email-mappings:
     get:
       tags: [email-mapping-resource]
@@ -375,6 +363,10 @@ paths:
         in: query
         required: true
         schema: {type: integer, format: int64}
+      - name: analysisMode
+        in: query
+        required: false
+        schema: {type: string, default: FULL}
       - name: jwt
         in: cookie
         required: false
@@ -397,6 +389,25 @@ paths:
           content:
             text/event-stream:
               schema: {$ref: '#/components/schemas/SseEmitter'}
+  /api/requestResource/team/{exerciseId}/{teamId}:
+    get:
+      tags: [request-resource]
+      operationId: getTeamDetail
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      - name: teamId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
   /api/requestResource/teams/{exerciseId}:
     get:
       tags: [request-resource]
@@ -414,6 +425,23 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/teams/{exerciseId}/summary:
+    get:
+      tags: [request-resource]
+      operationId: getTeamSummaries
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/TeamSummaryDTO'}
   /api/requestResource/{exerciseId}/getData:
     get:
       tags: [request-resource]
@@ -436,6 +464,7 @@ components:
     AnalysisStatusDTO:
       type: object
       properties:
+        analysisMode: {type: string}
         currentStage: {type: string}
         currentTeamName: {type: string}
         errorMessage: {type: string}
@@ -467,17 +496,11 @@ components:
         isError: {type: boolean}
         isExternalContributor: {type: boolean}
         linesChanged: {type: integer, format: int32}
-        llmTokenUsage: {$ref: '#/components/schemas/LlmTokenUsage'}
+        llmTokenUsage: {$ref: '#/components/schemas/LlmTokenUsageDTO'}
         novelty: {type: number, format: double}
         reasoning: {type: string}
         timestamp: {type: string, format: date-time}
         totalChunks: {type: integer, format: int32}
-    CQIPenaltyDTO:
-      type: object
-      properties:
-        multiplier: {type: number, format: double}
-        reason: {type: string}
-        type: {type: string}
     CQIResultDTO:
       type: object
       properties:
@@ -485,10 +508,6 @@ components:
         components: {$ref: '#/components/schemas/ComponentScoresDTO'}
         cqi: {type: number, format: double}
         filterSummary: {$ref: '#/components/schemas/FilterSummaryDTO'}
-        penalties:
-          type: array
-          items: {$ref: '#/components/schemas/CQIPenaltyDTO'}
-        penaltyMultiplier: {type: number, format: double}
         weights: {$ref: '#/components/schemas/ComponentWeightsDTO'}
     ClientResponseDTO:
       type: object
@@ -498,12 +517,13 @@ components:
           items: {$ref: '#/components/schemas/AnalyzedChunkDTO'}
         analysisStatus:
           type: string
-          enum: [PENDING, DOWNLOADING, GIT_ANALYZING, GIT_DONE, AI_ANALYZING, ANALYZING,
-            DONE, ERROR, CANCELLED]
+          enum: [PENDING, DOWNLOADING, GIT_ANALYZING, GIT_DONE, AI_ANALYZING, DONE,
+            ERROR, CANCELLED]
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
+        isFailed: {type: boolean}
         isSuspicious: {type: boolean}
-        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotals'}
+        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}
         orphanCommits:
           type: array
@@ -561,7 +581,7 @@ components:
         totalCommits: {type: integer, format: int32}
         totalFiltered: {type: integer, format: int32}
         trivialCount: {type: integer, format: int32}
-    LlmTokenTotals:
+    LlmTokenTotalsDTO:
       type: object
       properties:
         callsWithUsage: {type: integer, format: int64}
@@ -569,7 +589,7 @@ components:
         llmCalls: {type: integer, format: int64}
         promptTokens: {type: integer, format: int64}
         totalTokens: {type: integer, format: int64}
-    LlmTokenUsage:
+    LlmTokenUsageDTO:
       type: object
       properties:
         completionTokens: {type: integer, format: int64}
@@ -595,19 +615,19 @@ components:
         linesDeleted: {type: integer, format: int32}
         message: {type: string}
         timestamp: {type: string, format: date-time}
-    Project:
-      type: object
-      properties:
-        courseName: {type: string}
-        exerciseId: {type: integer, format: int64}
-        gitRepoPath: {type: string}
-        id: {type: string}
-        semester: {type: string}
     SseEmitter:
       type: object
       properties:
         timeout: {type: integer, format: int64}
     StudentAnalysisDTO:
+      type: object
+      properties:
+        commitCount: {type: integer, format: int32}
+        linesAdded: {type: integer, format: int32}
+        linesChanged: {type: integer, format: int32}
+        linesDeleted: {type: integer, format: int32}
+        name: {type: string}
+    StudentSummaryDTO:
       type: object
       properties:
         commitCount: {type: integer, format: int32}
@@ -628,6 +648,25 @@ components:
         student2Attendance:
           type: object
           additionalProperties: {type: boolean}
+    TeamSummaryDTO:
+      type: object
+      properties:
+        analysisStatus:
+          type: string
+          enum: [PENDING, DOWNLOADING, GIT_ANALYZING, GIT_DONE, AI_ANALYZING, DONE,
+            ERROR, CANCELLED]
+        cqi: {type: number, format: double}
+        cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
+        isFailed: {type: boolean}
+        isSuspicious: {type: boolean}
+        llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
+        orphanCommitCount: {type: integer, format: int32}
+        students:
+          type: array
+          items: {$ref: '#/components/schemas/StudentSummaryDTO'}
+        teamId: {type: integer, format: int64}
+        teamName: {type: string}
+        tutor: {type: string}
     TeamsScheduleDTO:
       type: object
       properties:

@@ -142,20 +142,4 @@ public class AnalyzedChunk {
         this.llmUsageAvailable = llmUsageAvailable;
     }
 
-    /**
-     * Legacy constructor for backward compatibility.
-     */
-    public AnalyzedChunk(TeamParticipation participation, String chunkIdentifier,
-            String authorEmail, String authorName, String classification,
-            Double effortScore, Double complexity, Double novelty, Double confidence,
-            String reasoning, String commitShas,
-            String commitMessages, LocalDateTime timestamp,
-            Integer linesChanged, Boolean isBundled,
-            Integer chunkIndex, Integer totalChunks,
-            Boolean isError, String errorMessage) {
-        this(participation, chunkIdentifier, authorEmail, authorName, classification,
-                effortScore, complexity, novelty, confidence, reasoning, commitShas,
-                commitMessages, timestamp, linesChanged, isBundled, chunkIndex, totalChunks,
-                isError, errorMessage, false, null, null, null, null, null);
-    }
 }

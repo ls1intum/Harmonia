@@ -1,16 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { AnalysisResourceApi, Configuration } from '@/app/generated';
 import type { AnalysisStatusDTO } from '@/app/generated';
-import type { AnalysisStatus } from '@/components/ActivityLog';
+import { analysisApi } from '@/lib/apiClient';
 
-// Initialize API client
-const apiConfig = new Configuration({
-  basePath: window.location.origin,
-  baseOptions: {
-    withCredentials: true,
-  },
-});
-const analysisApi = new AnalysisResourceApi(apiConfig);
+export type AnalysisState = 'IDLE' | 'RUNNING' | 'CANCELLED' | 'DONE' | 'ERROR';
+export type AnalysisMode = 'SIMPLE' | 'FULL';
+export type AnalysisStatus = Omit<AnalysisStatusDTO, 'state'> & { state: AnalysisState; analysisMode?: AnalysisMode };
 
 /**
  * Fetches analysis status from the server using generated API.
@@ -24,6 +18,8 @@ async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> 
   const validStates: AnalysisStatus['state'][] = ['IDLE', 'RUNNING', 'CANCELLED', 'DONE', 'ERROR'];
   const finalState = validStates.includes(state) ? state : 'IDLE';
 
+  const analysisMode = data.analysisMode === 'SIMPLE' ? 'SIMPLE' : data.analysisMode === 'FULL' ? 'FULL' : undefined;
+
   return {
     state: finalState,
     totalTeams: data.totalTeams || 0,
@@ -31,6 +27,7 @@ async function fetchAnalysisStatus(exerciseId: string): Promise<AnalysisStatus> 
     currentTeamName: data.currentTeamName,
     currentStage: data.currentStage,
     errorMessage: data.errorMessage,
+    analysisMode,
   };
 }
 
@@ -55,23 +52,16 @@ interface UseAnalysisStatusOptions {
 }
 
 /**
- * Hook to poll server for analysis status.
- * Polls every 1 second when analysis is RUNNING, otherwise every 10 seconds.
+ * Hook to fetch analysis status from server.
+ * Fetches once on mount, then relies on SSE for updates during analysis.
+ * Only re-fetches on explicit refetch() calls.
  */
 export function useAnalysisStatus({ exerciseId, enabled = true }: UseAnalysisStatusOptions) {
   const query = useQuery({
     queryKey: ['analysisStatus', exerciseId],
     queryFn: () => fetchAnalysisStatus(exerciseId),
     enabled: enabled && !!exerciseId,
-    // Poll faster when running
-    refetchInterval: query => {
-      const status = query.state.data;
-      if (status?.state === 'RUNNING') {
-        return 1000; // 1 second when running for responsive team name updates
-      }
-      return 10000; // 10 seconds otherwise
-    },
-    staleTime: 500, // Consider data stale after 0.5 second
+    staleTime: 30 * 1000,
   });
 
   return {

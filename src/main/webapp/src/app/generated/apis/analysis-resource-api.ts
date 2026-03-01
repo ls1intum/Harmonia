@@ -33,6 +33,8 @@ import {
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
 import type { AnalysisStatusDTO } from '../models';
+// @ts-ignore
+import type { ClientResponseDTO } from '../models';
 /**
  * AnalysisResourceApi - axios parameter creator
  */
@@ -116,6 +118,41 @@ export const AnalysisResourceApiAxiosParamCreator = function (configuration?: Co
     /**
      *
      * @param {number} exerciseId
+     * @param {number} teamId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    computeAiForTeam: async (exerciseId: number, teamId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+      // verify required parameter 'exerciseId' is not null or undefined
+      assertParamExists('computeAiForTeam', 'exerciseId', exerciseId);
+      // verify required parameter 'teamId' is not null or undefined
+      assertParamExists('computeAiForTeam', 'teamId', teamId);
+      const localVarPath = `/api/analysis/{exerciseId}/teams/{teamId}/compute-ai`
+        .replace(`{${'exerciseId'}}`, encodeURIComponent(String(exerciseId)))
+        .replace(`{${'teamId'}}`, encodeURIComponent(String(teamId)));
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -131,41 +168,6 @@ export const AnalysisResourceApiAxiosParamCreator = function (configuration?: Co
       }
 
       const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
-      const localVarHeaderParameter = {} as any;
-      const localVarQueryParameter = {} as any;
-
-      setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
-
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      };
-    },
-    /**
-     *
-     * @param {string} course
-     * @param {string} exercise
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    recompute: async (course: string, exercise: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      // verify required parameter 'course' is not null or undefined
-      assertParamExists('recompute', 'course', course);
-      // verify required parameter 'exercise' is not null or undefined
-      assertParamExists('recompute', 'exercise', exercise);
-      const localVarPath = `/api/analysis/{course}/{exercise}/recompute`
-        .replace(`{${'course'}}`, encodeURIComponent(String(course)))
-        .replace(`{${'exercise'}}`, encodeURIComponent(String(exercise)));
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-      let baseOptions;
-      if (configuration) {
-        baseOptions = configuration.baseOptions;
-      }
-
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -226,6 +228,25 @@ export const AnalysisResourceApiFp = function (configuration?: Configuration) {
     /**
      *
      * @param {number} exerciseId
+     * @param {number} teamId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async computeAiForTeam(
+      exerciseId: number,
+      teamId: number,
+      options?: RawAxiosRequestConfig,
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ClientResponseDTO>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.computeAiForTeam(exerciseId, teamId, options);
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['AnalysisResourceApi.computeAiForTeam']?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -236,24 +257,6 @@ export const AnalysisResourceApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs = await localVarAxiosParamCreator.getStatus(exerciseId, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath = operationServerMap['AnalysisResourceApi.getStatus']?.[localVarOperationServerIndex]?.url;
-      return (axios, basePath) =>
-        createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-    },
-    /**
-     *
-     * @param {string} course
-     * @param {string} exercise
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async recompute(
-      course: string,
-      exercise: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.recompute(course, exercise, options);
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-      const localVarOperationServerBasePath = operationServerMap['AnalysisResourceApi.recompute']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
@@ -289,21 +292,21 @@ export const AnalysisResourceApiFactory = function (configuration?: Configuratio
     /**
      *
      * @param {number} exerciseId
+     * @param {number} teamId
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    computeAiForTeam(exerciseId: number, teamId: number, options?: RawAxiosRequestConfig): AxiosPromise<ClientResponseDTO> {
+      return localVarFp.computeAiForTeam(exerciseId, teamId, options).then(request => request(axios, basePath));
+    },
+    /**
+     *
+     * @param {number} exerciseId
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getStatus(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<AnalysisStatusDTO> {
       return localVarFp.getStatus(exerciseId, options).then(request => request(axios, basePath));
-    },
-    /**
-     *
-     * @param {string} course
-     * @param {string} exercise
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    recompute(course: string, exercise: string, options?: RawAxiosRequestConfig): AxiosPromise<string> {
-      return localVarFp.recompute(course, exercise, options).then(request => request(axios, basePath));
     },
   };
 };
@@ -341,25 +344,25 @@ export class AnalysisResourceApi extends BaseAPI {
   /**
    *
    * @param {number} exerciseId
+   * @param {number} teamId
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public computeAiForTeam(exerciseId: number, teamId: number, options?: RawAxiosRequestConfig) {
+    return AnalysisResourceApiFp(this.configuration)
+      .computeAiForTeam(exerciseId, teamId, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @param {number} exerciseId
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
   public getStatus(exerciseId: number, options?: RawAxiosRequestConfig) {
     return AnalysisResourceApiFp(this.configuration)
       .getStatus(exerciseId, options)
-      .then(request => request(this.axios, this.basePath));
-  }
-
-  /**
-   *
-   * @param {string} course
-   * @param {string} exercise
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   */
-  public recompute(course: string, exercise: string, options?: RawAxiosRequestConfig) {
-    return AnalysisResourceApiFp(this.configuration)
-      .recompute(course, exercise, options)
       .then(request => request(this.axios, this.basePath));
   }
 }

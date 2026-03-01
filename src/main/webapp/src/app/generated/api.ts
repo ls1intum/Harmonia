@@ -13,9 +13,8 @@
  */
 
 export * from './apis/analysis-resource-api';
-export * from './apis/attendance-resource-api';
 export * from './apis/auth-resource-api';
-export * from './apis/config-resource-api';
 export * from './apis/email-mapping-resource-api';
 export * from './apis/export-resource-api';
+export * from './apis/pair-programming-resource-api';
 export * from './apis/request-resource-api';

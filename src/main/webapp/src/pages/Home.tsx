@@ -1,6 +1,7 @@
 import StartAnalysis from '@/components/StartAnalysis';
 import { useNavigate } from 'react-router-dom';
 
+/** Landing page that renders the login/start-analysis form and navigates to the Teams page on success. */
 export default function Home() {
   const navigate = useNavigate();
 

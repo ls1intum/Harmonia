@@ -1,5 +1,6 @@
 package de.tum.cit.aet.analysis.domain;
 
+import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -47,6 +48,10 @@ public class AnalysisStatus {
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "analysis_mode")
+    private AnalysisMode analysisMode;
 
     public AnalysisStatus(Long exerciseId) {
         this.exerciseId = exerciseId;
