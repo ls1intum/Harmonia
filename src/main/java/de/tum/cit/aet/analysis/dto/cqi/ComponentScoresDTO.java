@@ -1,17 +1,19 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * Individual component scores for CQI calculation.
  *
- * @param effortBalance   Effort distribution balance (0-100)
- * @param locBalance      Lines of code distribution balance (0-100)
- * @param temporalSpread  Temporal distribution of work (0-100)
- * @param ownershipSpread File ownership distribution (0-100)
- * @param pairProgramming   Pair programming collaboration verification (0-100, nullable)
- * @param pairProgrammingStatus Status of pair programming metric: "FOUND" if team in Excel,
- *                              "NOT_FOUND" if Excel uploaded but team missing, "WARNING" if
- *                              cancelled sessions affected mandatory attendance, null if no Excel
+ * @param effortBalance         effort distribution balance (0-100)
+ * @param locBalance            lines of code distribution balance (0-100)
+ * @param temporalSpread        temporal distribution of work (0-100)
+ * @param ownershipSpread       file ownership distribution (0-100)
+ * @param pairProgramming       pair programming collaboration score (0-100, nullable)
+ * @param pairProgrammingStatus pair programming metric status: "FOUND", "NOT_FOUND",
+ *                              "WARNING", or null if no attendance data uploaded
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ComponentScoresDTO(
         double effortBalance,
         double locBalance,

@@ -3,6 +3,7 @@ package de.tum.cit.aet.analysis.service;
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.repository.AnalysisStatusRepository;
+import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,14 +36,10 @@ public class AnalysisStateService {
     public void cleanupOrphanedAnalyses() {
         List<AnalysisStatus> runningAnalyses = statusRepository.findByState(AnalysisState.RUNNING);
         if (!runningAnalyses.isEmpty()) {
-            log.info("Found {} orphaned RUNNING analyses, setting to CANCELLED",
-                    runningAnalyses.size());
             for (AnalysisStatus status : runningAnalyses) {
                 status.setState(AnalysisState.CANCELLED);
                 status.setLastUpdatedAt(Instant.now());
                 statusRepository.save(status);
-                log.info("Cancelled orphaned analysis for exercise {} (processed: {}/{})",
-                        status.getExerciseId(), status.getProcessedTeams(), status.getTotalTeams());
             }
         }
     }
@@ -63,15 +60,16 @@ public class AnalysisStateService {
     }
 
     /**
-     * Start an analysis for the given exercise. Always starts fresh.
+     * Start an analysis for the given exercise with a specific analysis mode. Always starts fresh.
      *
-     * @param exerciseId The ID of the exercise
-     * @param totalTeams The total number of teams to process
-     * @return The updated analysis status
+     * @param exerciseId the exercise ID
+     * @param totalTeams the total number of teams to process
+     * @param mode       the analysis mode (SIMPLE for git-only, FULL for git + AI)
+     * @return the updated analysis status
      * @throws IllegalStateException if analysis is already running
      */
     @Transactional
-    public AnalysisStatus startAnalysis(Long exerciseId, int totalTeams) {
+    public AnalysisStatus startAnalysis(Long exerciseId, int totalTeams, AnalysisMode mode) {
         AnalysisStatus status = statusRepository.findById(exerciseId)
                 .orElseGet(() -> new AnalysisStatus(exerciseId));
 
@@ -88,8 +86,9 @@ public class AnalysisStateService {
         status.setStartedAt(Instant.now());
         status.setLastUpdatedAt(Instant.now());
         status.setErrorMessage(null);
+        status.setAnalysisMode(mode);
 
-        log.info("Started analysis for exercise {} with {} teams", exerciseId, totalTeams);
+        log.info("Started {} analysis for exercise {} with {} teams", mode, exerciseId, totalTeams);
         return statusRepository.save(status);
     }
 

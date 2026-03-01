@@ -1,6 +1,17 @@
-import type { Team, CourseAverages } from '@/types/team';
+import type { ClientResponseDTO } from '@/app/generated';
+import { computeBasicMetrics } from '@/lib/utils';
 
-export function computeCourseAverages(teams: Team[]): CourseAverages | null {
+export interface CourseAverages {
+  avgCQI: number;
+  avgCommits: number;
+  avgLines: number;
+  suspiciousPercentage: number;
+  totalTeams: number;
+  analyzedTeams: number;
+  gitAnalyzedTeams: number;
+}
+
+export function computeCourseAverages(teams: ClientResponseDTO[]): CourseAverages | null {
   if (teams.length === 0) return null;
 
   const teamsWithCQI = teams.filter(team => team.cqi !== undefined);
@@ -9,8 +20,8 @@ export function computeCourseAverages(teams: Team[]): CourseAverages | null {
   const teamsWithGitMetrics = teams.filter(
     team => team.analysisStatus === 'GIT_DONE' || team.analysisStatus === 'AI_ANALYZING' || team.analysisStatus === 'DONE',
   );
-  const totalCommits = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalCommits || 0), 0);
-  const totalLines = teamsWithGitMetrics.reduce((sum, team) => sum + (team.basicMetrics?.totalLines || 0), 0);
+  const totalCommits = teamsWithGitMetrics.reduce((sum, team) => sum + computeBasicMetrics(team.students).totalCommits, 0);
+  const totalLines = teamsWithGitMetrics.reduce((sum, team) => sum + computeBasicMetrics(team.students).totalLines, 0);
   const suspiciousCount = teams.filter(team => team.isSuspicious === true).length;
 
   return {

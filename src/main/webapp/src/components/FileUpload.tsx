@@ -12,6 +12,13 @@ interface FileUploadProps {
   helperText?: string;
 }
 
+/**
+ * XLSX file picker with validation and clear button.
+ *
+ * @param props.file - currently selected file (null when empty)
+ * @param props.onFileSelect - callback when a file is selected or cleared
+ * @param props.disabled - disables the input during upload
+ */
 export default function FileUpload({ file, onFileSelect, disabled, inputId = 'attendance-file' }: FileUploadProps) {
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);

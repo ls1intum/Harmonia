@@ -3,15 +3,12 @@ package de.tum.cit.aet.analysis.service.cqi;
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
-import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
-import de.tum.cit.aet.analysis.dto.cqi.FilterSummaryDTO;
+import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.repository.CqiWeightConfigurationRepository;
-import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService.RatedChunk;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
-import de.tum.cit.aet.dataProcessing.dto.TeamAttendanceDTO;
-import de.tum.cit.aet.dataProcessing.dto.TeamsScheduleDTO;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
+import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -29,24 +26,24 @@ import static org.mockito.Mockito.when;
 
 /**
  * Test class for CQICalculatorService.
- * Tests the 4-component CQI formula with penalties.
+ * Tests the 4-component CQI formula.
  */
 class CQICalculatorServiceTest {
 
     private CQICalculatorService cqiService;
-    private TeamScheduleService teamScheduleService;
+    private PairProgrammingService pairProgrammingService;
     private LocalDateTime projectStart;
     private LocalDateTime projectEnd;
     private String teamName;
 
     @BeforeEach
     void setUp() {
-        teamScheduleService = new TeamScheduleService();
+        pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration(), null);
         CQIConfig cqiConfig = new CQIConfig();
         CqiWeightConfigurationRepository weightConfigRepo = mock(CqiWeightConfigurationRepository.class);
         when(weightConfigRepo.findByExerciseId(any())).thenReturn(Optional.empty());
         CqiWeightService cqiWeightService = new CqiWeightService(weightConfigRepo, cqiConfig);
-        cqiService = new CQICalculatorService(cqiConfig, cqiWeightService, teamScheduleService, new PairProgrammingCalculator(new AttendanceConfiguration()));
+        cqiService = new CQICalculatorService(cqiConfig, cqiWeightService, pairProgrammingService, new PairProgrammingCalculator(new AttendanceConfiguration()));
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
         teamName = "team1";
@@ -57,25 +54,24 @@ class CQICalculatorServiceTest {
     @Test
     void testPerfectBalance_TwoMembers() {
         // Two members, equal effort
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
-                createRatedChunk(1L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
-                createRatedChunk(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
-                createRatedChunk(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
+                createCqiRatedChunkDTO(1L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
+                createCqiRatedChunkDTO(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
+                createCqiRatedChunkDTO(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
 
         assertTrue(result.cqi() >= 80, "Perfect balance should score >= 80, got: " + result.cqi());
-        assertTrue(result.penalties().isEmpty(), "Should have no penalties");
     }
 
     @Test
     void testPerfectBalance_ThreeMembers() {
-        List<RatedChunk> chunks = new ArrayList<>();
+        List<CqiRatedChunkDTO> chunks = new ArrayList<>();
         for (long authorId = 1; authorId <= 3; authorId++) {
             for (int i = 0; i < 5; i++) {
-                chunks.add(createRatedChunk(authorId, 40, 7.0, CommitLabel.FEATURE,
+                chunks.add(createCqiRatedChunkDTO(authorId, 40, 7.0, CommitLabel.FEATURE,
                         projectStart.plusDays(i * 6)));
             }
         }
@@ -90,12 +86,12 @@ class CQICalculatorServiceTest {
     @Test
     void testSevereImbalance() {
         // One person does 80% of the work
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
-                createRatedChunk(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
-                createRatedChunk(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
-                createRatedChunk(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(20)),
-                createRatedChunk(2L, 20, 5.0, CommitLabel.TRIVIAL, projectStart.plusDays(25))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
+                createCqiRatedChunkDTO(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
+                createCqiRatedChunkDTO(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
+                createCqiRatedChunkDTO(1L, 100, 9.0, CommitLabel.FEATURE, projectStart.plusDays(20)),
+                createCqiRatedChunkDTO(2L, 20, 5.0, CommitLabel.TRIVIAL, projectStart.plusDays(25))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
@@ -106,11 +102,11 @@ class CQICalculatorServiceTest {
     @Test
     void testSoloDevelopment() {
         // One person does 90% of the work
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
-                createRatedChunk(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
-                createRatedChunk(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
-                createRatedChunk(2L, 10, 2.0, CommitLabel.TRIVIAL, projectStart.plusDays(20))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
+                createCqiRatedChunkDTO(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
+                createCqiRatedChunkDTO(1L, 200, 10.0, CommitLabel.FEATURE, projectStart.plusDays(15)),
+                createCqiRatedChunkDTO(2L, 10, 2.0, CommitLabel.TRIVIAL, projectStart.plusDays(20))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
@@ -122,8 +118,8 @@ class CQICalculatorServiceTest {
 
     @Test
     void testSingleContributor_TeamOfOne() {
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 1, projectStart, projectEnd, null, teamName, null);
@@ -134,9 +130,9 @@ class CQICalculatorServiceTest {
     @Test
     void testSingleContributor_OnlyOneCommitted() {
         // Team of 2, but only one person committed
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
-                createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
+                createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
@@ -148,9 +144,9 @@ class CQICalculatorServiceTest {
 
     @Test
     void testComponentScoresCalculation() {
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
-                createRatedChunk(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
+                createCqiRatedChunkDTO(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
@@ -211,9 +207,9 @@ class CQICalculatorServiceTest {
     @Test
     void testCQIBounds() {
         // Ensure CQI is always between 0 and 100
-        List<RatedChunk> chunks = List.of(
-                createRatedChunk(1L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
-                createRatedChunk(2L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(20))
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(10)),
+                createCqiRatedChunkDTO(2L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
@@ -231,7 +227,7 @@ class CQICalculatorServiceTest {
                 Map.of(session, false),
                 false,
                 List.of());
-        teamScheduleService.update(new TeamsScheduleDTO(Map.of("Team 01", attendance)));
+        pairProgrammingService.updateSchedule(new TeamsScheduleDTO(Map.of("Team 01", attendance)));
 
         List<CommitChunkDTO> chunks = List.of(
                 createChunk(1L, 40, session.toLocalDate().atTime(11, 0)),
@@ -253,7 +249,7 @@ class CQICalculatorServiceTest {
                 Map.of(sessionOne, true, sessionTwo, true),
                 true,
                 List.of(sessionOne, sessionTwo));
-        teamScheduleService.update(new TeamsScheduleDTO(Map.of("  Team\u00A001  ", attendance)));
+        pairProgrammingService.updateSchedule(new TeamsScheduleDTO(Map.of("  Team\u00A001  ", attendance)));
 
         List<CommitChunkDTO> chunks = List.of(
                 createChunk(1L, 30, sessionOne.toLocalDate().atTime(10, 15)),
@@ -270,12 +266,12 @@ class CQICalculatorServiceTest {
 
     // ==================== Helper Methods ====================
 
-    private RatedChunk createRatedChunk(Long authorId, int loc, double effort,
+    private CqiRatedChunkDTO createCqiRatedChunkDTO(Long authorId, int loc, double effort,
                                          CommitLabel type, LocalDateTime timestamp) {
-        return createRatedChunkWithConfidence(authorId, loc, effort, type, 0.9, timestamp);
+        return createCqiRatedChunkDTOWithConfidence(authorId, loc, effort, type, 0.9, timestamp);
     }
 
-    private RatedChunk createRatedChunkWithConfidence(Long authorId, int loc, double effort,
+    private CqiRatedChunkDTO createCqiRatedChunkDTOWithConfidence(Long authorId, int loc, double effort,
                                                        CommitLabel type, double confidence,
                                                        LocalDateTime timestamp) {
         CommitChunkDTO chunk = new CommitChunkDTO(
@@ -290,7 +286,7 @@ class CQICalculatorServiceTest {
                 effort, 7.0, 7.0, type, confidence, "Test reasoning", false, null
         );
 
-        return new RatedChunk(chunk, rating);
+        return new CqiRatedChunkDTO(chunk, rating);
     }
 
     private CommitChunkDTO createChunk(Long authorId, int loc) {

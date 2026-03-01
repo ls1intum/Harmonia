@@ -54,23 +54,24 @@ public class CqiWeightResource {
      */
     @PutMapping
     @Transactional
-    public ResponseEntity<CqiWeightsDTO> saveWeights(
+    public ResponseEntity<?> saveWeights(
             @PathVariable Long exerciseId,
             @RequestBody CqiWeightsDTO request) {
 
+        if (request.effortBalance() < 0 || request.locBalance() < 0
+                || request.temporalSpread() < 0 || request.ownershipSpread() < 0) {
+            return ResponseEntity.badRequest().body("All weights must be non-negative");
+        }
         double sum = request.effortBalance() + request.locBalance()
                 + request.temporalSpread() + request.ownershipSpread();
         if (Math.abs(sum - 1.0) >= 0.001) {
-            return ResponseEntity.badRequest().build();
-        }
-        if (request.effortBalance() < 0 || request.locBalance() < 0
-                || request.temporalSpread() < 0 || request.ownershipSpread() < 0) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body("Weights must sum to 100% (got " + Math.round(sum * 100) + "%)");
         }
 
         CqiWeightConfiguration config = weightConfigRepository.findByExerciseId(exerciseId)
-                .orElse(new CqiWeightConfiguration());
-        config.setExerciseId(exerciseId);
+                .orElseGet(() -> new CqiWeightConfiguration(exerciseId,
+                        request.effortBalance(), request.locBalance(),
+                        request.temporalSpread(), request.ownershipSpread()));
         config.setEffortWeight(request.effortBalance());
         config.setLocWeight(request.locBalance());
         config.setTemporalWeight(request.temporalSpread());

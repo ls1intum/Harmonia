@@ -2,13 +2,15 @@
 
 All URIs are relative to _http://localhost:8080_
 
-| Method                                        | HTTP request                                      | Description |
-| --------------------------------------------- | ------------------------------------------------- | ----------- |
-| [**fetchData**](#fetchdata)                   | **GET** /api/requestResource/fetchData            |             |
-| [**getData**](#getdata)                       | **GET** /api/requestResource/{exerciseId}/getData |             |
-| [**getTeamsByExercise**](#getteamsbyexercise) | **GET** /api/requestResource/teams/{exerciseId}   |             |
-| [**hasAnalyzedData**](#hasanalyzeddata)       | **GET** /api/requestResource/hasData/{exerciseId} |             |
-| [**streamAnalysis**](#streamanalysis)         | **GET** /api/requestResource/stream               |             |
+| Method                                        | HTTP request                                            | Description |
+| --------------------------------------------- | ------------------------------------------------------- | ----------- |
+| [**fetchData**](#fetchdata)                   | **GET** /api/requestResource/fetchData                  |             |
+| [**getData**](#getdata)                       | **GET** /api/requestResource/{exerciseId}/getData       |             |
+| [**getTeamDetail**](#getteamdetail)           | **GET** /api/requestResource/team/{exerciseId}/{teamId} |             |
+| [**getTeamSummaries**](#getteamsummaries)     | **GET** /api/requestResource/teams/{exerciseId}/summary |             |
+| [**getTeamsByExercise**](#getteamsbyexercise) | **GET** /api/requestResource/teams/{exerciseId}         |             |
+| [**hasAnalyzedData**](#hasanalyzeddata)       | **GET** /api/requestResource/hasData/{exerciseId}       |             |
+| [**streamAnalysis**](#streamanalysis)         | **GET** /api/requestResource/stream                     |             |
 
 # **fetchData**
 
@@ -88,6 +90,96 @@ const { status, data } = await apiInstance.getData(exerciseId);
 ### Return type
 
 **Array<ClientResponseDTO>**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getTeamDetail**
+
+> ClientResponseDTO getTeamDetail()
+
+### Example
+
+```typescript
+import { RequestResourceApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new RequestResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+let teamId: number; // (default to undefined)
+
+const { status, data } = await apiInstance.getTeamDetail(exerciseId, teamId);
+```
+
+### Parameters
+
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
+| **teamId**     | [**number**] |             | defaults to undefined |
+
+### Return type
+
+**ClientResponseDTO**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getTeamSummaries**
+
+> Array<TeamSummaryDTO> getTeamSummaries()
+
+### Example
+
+```typescript
+import { RequestResourceApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new RequestResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+
+const { status, data } = await apiInstance.getTeamSummaries(exerciseId);
+```
+
+### Parameters
+
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
+
+### Return type
+
+**Array<TeamSummaryDTO>**
 
 ### Authorization
 
@@ -207,12 +299,20 @@ const configuration = new Configuration();
 const apiInstance = new RequestResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
+let analysisMode: string; // (optional) (default to 'FULL')
 let jwt: string; // (optional) (default to undefined)
 let artemisServerUrl: string; // (optional) (default to undefined)
 let artemisUsername: string; // (optional) (default to undefined)
 let artemisPassword: string; // (optional) (default to undefined)
 
-const { status, data } = await apiInstance.streamAnalysis(exerciseId, jwt, artemisServerUrl, artemisUsername, artemisPassword);
+const { status, data } = await apiInstance.streamAnalysis(
+  exerciseId,
+  analysisMode,
+  jwt,
+  artemisServerUrl,
+  artemisUsername,
+  artemisPassword,
+);
 ```
 
 ### Parameters
@@ -220,6 +320,7 @@ const { status, data } = await apiInstance.streamAnalysis(exerciseId, jwt, artem
 | Name                 | Type         | Description | Notes                            |
 | -------------------- | ------------ | ----------- | -------------------------------- |
 | **exerciseId**       | [**number**] |             | defaults to undefined            |
+| **analysisMode**     | [**string**] |             | (optional) defaults to 'FULL'    |
 | **jwt**              | [**string**] |             | (optional) defaults to undefined |
 | **artemisServerUrl** | [**string**] |             | (optional) defaults to undefined |
 | **artemisUsername**  | [**string**] |             | (optional) defaults to undefined |

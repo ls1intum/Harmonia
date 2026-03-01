@@ -2,13 +2,25 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, AlertCircle, Terminal } from 'lucide-react';
-import type { AnalysisError } from '@/types/team';
 import { Badge } from '@/components/ui/badge';
+
+interface AnalysisError {
+  id: string;
+  authorEmail: string;
+  timestamp: string;
+  errorMessage: string;
+  commitShas: string[];
+}
 
 interface ErrorListPanelProps {
   errors: AnalysisError[];
 }
 
+/**
+ * Collapsible panel listing chunks whose AI analysis failed.
+ *
+ * @param props.errors - analysis errors to display
+ */
 const ErrorListPanel = ({ errors }: ErrorListPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);

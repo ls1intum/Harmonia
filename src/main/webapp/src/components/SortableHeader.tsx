@@ -10,6 +10,12 @@ interface SortableHeaderProps {
   handleHeaderClick: (column: SortColumn) => void;
 }
 
+/**
+ * Table column header that toggles sort direction on click.
+ *
+ * @param props.column - the data column this header sorts by
+ * @param props.label - display text for the header
+ */
 export const SortableHeader = ({ column, label, sortColumn, sortDirection, handleHeaderClick }: SortableHeaderProps) => {
   const isActive = sortColumn === column;
 

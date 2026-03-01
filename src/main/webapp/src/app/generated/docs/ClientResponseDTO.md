@@ -8,8 +8,9 @@
 | **analysisStatus**    | **string**                                                   |             | [optional] [default to undefined] |
 | **cqi**               | **number**                                                   |             | [optional] [default to undefined] |
 | **cqiDetails**        | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
+| **isFailed**          | **boolean**                                                  |             | [optional] [default to undefined] |
 | **isSuspicious**      | **boolean**                                                  |             | [optional] [default to undefined] |
-| **llmTokenTotals**    | [**LlmTokenTotals**](LlmTokenTotals.md)                      |             | [optional] [default to undefined] |
+| **llmTokenTotals**    | [**LlmTokenTotalsDTO**](LlmTokenTotalsDTO.md)                |             | [optional] [default to undefined] |
 | **orphanCommitCount** | **number**                                                   |             | [optional] [default to undefined] |
 | **orphanCommits**     | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
 | **students**          | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
@@ -28,6 +29,7 @@ const instance: ClientResponseDTO = {
   analysisStatus,
   cqi,
   cqiDetails,
+  isFailed,
   isSuspicious,
   llmTokenTotals,
   orphanCommitCount,

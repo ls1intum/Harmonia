@@ -34,8 +34,6 @@
             <column name="cqi_pair_programming" type="DOUBLE"/>
             <column name="cqi_pair_programming_status" type="VARCHAR(255)"/>
             <column name="cqi_base_score" type="DOUBLE"/>
-            <column name="cqi_penalty_multiplier" type="DOUBLE"/>
-            <column name="cqi_penalties" type="TEXT"/>
 
             <!-- LLM token usage aggregate columns -->
             <column name="llm_calls" type="BIGINT"/>
@@ -50,6 +48,9 @@
 
             <!-- orphan commit tracking -->
             <column name="orphan_commit_count" type="INT"/>
+
+            <!-- failure tracking -->
+            <column name="is_failed" type="BOOLEAN"/>
         </createTable>
     </changeSet>
 
@@ -68,15 +69,6 @@
             <column name="lines_deleted" type="INT"/>
             <column name="lines_changed" type="INT"/>
             <column name="team_participation_id" type="UUID"/>
-        </createTable>
-    </changeSet>
-
-    <!-- initial-schema-c: teamanalysis table (reserved) -->
-    <changeSet id="initial-schema-c" author="Cathy">
-        <createTable tableName="teamanalysis">
-            <column name="team_analysis_id" type="UUID">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_teamanalysis"/>
-            </column>
         </createTable>
     </changeSet>
 
@@ -107,15 +99,6 @@
             <column name="login" type="VARCHAR(255)"/>
             <column name="name" type="VARCHAR(255)"/>
             <column name="email" type="VARCHAR(255)"/>
-        </createTable>
-    </changeSet>
-
-    <!-- initial-schema-f: user table -->
-    <changeSet id="initial-schema-f" author="Cathy">
-        <createTable tableName="user">
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_user"/>
-            </column>
         </createTable>
     </changeSet>
 
@@ -165,6 +148,7 @@
             <column name="started_at" type="TIMESTAMP"/>
             <column name="last_updated_at" type="TIMESTAMP"/>
             <column name="error_message" type="TEXT"/>
+            <column name="analysis_mode" type="VARCHAR(10)"/>
         </createTable>
     </changeSet>
 
@@ -257,6 +241,42 @@
             </column>
             <column name="auto_detected" type="BOOLEAN" defaultValueBoolean="false"/>
         </createTable>
+    </changeSet>
+
+    <!-- initial-schema-m: cqi_weight_configurations table -->
+    <changeSet id="initial-schema-m" author="Liam">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="cqi_weight_configurations"/></not>
+        </preConditions>
+        <createTable tableName="cqi_weight_configurations">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="exercise_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="effort_weight" type="DOUBLE" defaultValueNumeric="0.55">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loc_weight" type="DOUBLE" defaultValueNumeric="0.25">
+                <constraints nullable="false"/>
+            </column>
+            <column name="temporal_weight" type="DOUBLE" defaultValueNumeric="0.05">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ownership_weight" type="DOUBLE" defaultValueNumeric="0.15">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="cqi_weight_configurations" indexName="idx_cqi_weight_config_exercise">
+            <column name="exercise_id"/>
+        </createIndex>
     </changeSet>
 
 </databaseChangeLog>

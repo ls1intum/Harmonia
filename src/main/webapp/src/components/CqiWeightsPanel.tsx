@@ -96,15 +96,18 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
           ownershipSpread: state.ownership / 100,
         }),
       });
-      if (!response.ok) throw new Error('Failed to save weights');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to save weights');
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cqiWeights', exerciseId] });
       toast({ title: 'CQI weights saved' });
     },
-    onError: () => {
-      toast({ title: 'Failed to save weights', variant: 'destructive' });
+    onError: (error: Error) => {
+      toast({ title: error.message, variant: 'destructive' });
     },
   });
 
@@ -114,15 +117,18 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
         method: 'DELETE',
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to reset weights');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to reset weights');
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cqiWeights', exerciseId] });
       toast({ title: 'CQI weights reset to defaults' });
     },
-    onError: () => {
-      toast({ title: 'Failed to reset weights', variant: 'destructive' });
+    onError: (error: Error) => {
+      toast({ title: error.message, variant: 'destructive' });
     },
   });
 

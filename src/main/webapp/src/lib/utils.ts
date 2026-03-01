@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { cva } from 'class-variance-authority';
-import type { Team } from '@/types/team.ts';
+import type { ClientResponseDTO, StudentAnalysisDTO } from '@/app/generated';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -43,7 +43,15 @@ export const normalizeTeamName = (teamName: string): string =>
     .trim()
     .toLowerCase();
 
-export const getFailedReason = (team: Team) => {
+/** Compute total commits and lines from a team's student list. */
+export function computeBasicMetrics(students: StudentAnalysisDTO[] | undefined) {
+  const list = students || [];
+  const totalCommits = list.reduce((s, st) => s + (st.commitCount || 0), 0);
+  const totalLines = list.reduce((s, st) => s + (st.linesAdded || 0), 0);
+  return { totalCommits, totalLines };
+}
+
+export const getFailedReason = (team: ClientResponseDTO) => {
   const failedStudents = (team.students || []).filter(s => (s.commitCount ?? 0) < 10);
   if (failedStudents.length === 0) return '';
   return `Failed: ${failedStudents.map(s => `${s.name} has only ${s.commitCount ?? 0} commits`).join(', ')}. Minimum required: 10 commits per member.`;

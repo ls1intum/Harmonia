@@ -46,6 +46,8 @@ public class CqiWeightConfiguration {
         this.locWeight = locWeight;
         this.temporalWeight = temporalWeight;
         this.ownershipWeight = ownershipWeight;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
     @PrePersist

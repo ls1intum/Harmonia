@@ -14,7 +14,7 @@
 
 // May contain unused imports in some cases
 // @ts-ignore
-import type { LlmTokenUsage } from './llm-token-usage';
+import type { LlmTokenUsageDTO } from './llm-token-usage-dto';
 
 export interface AnalyzedChunkDTO {
   authorEmail?: string;
@@ -32,7 +32,7 @@ export interface AnalyzedChunkDTO {
   isError?: boolean;
   isExternalContributor?: boolean;
   linesChanged?: number;
-  llmTokenUsage?: LlmTokenUsage;
+  llmTokenUsage?: LlmTokenUsageDTO;
   novelty?: number;
   reasoning?: string;
   timestamp?: string;

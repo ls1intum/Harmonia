@@ -2,9 +2,9 @@ package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
 import de.tum.cit.aet.ai.dto.FairnessReportDTO;
-import de.tum.cit.aet.ai.dto.LlmTokenTotals;
+import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
-import de.tum.cit.aet.ai.service.ContributionFairnessService.FairnessReportWithUsage;
+import de.tum.cit.aet.ai.dto.FairnessReportWithUsageDTO;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
@@ -62,7 +62,7 @@ class RequestServiceApplyMappingsTest {
                 null, teamParticipationRepository, null, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
                 gitContributionAnalysisService, null, null, null, null,
-                cqiRecalculationService);
+                cqiRecalculationService, null);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
@@ -207,10 +207,10 @@ class RequestServiceApplyMappingsTest {
 
         FairnessReportDTO fairnessReport = new FairnessReportDTO(
                 "Team Alpha", 75.0, Map.of(), Map.of(),
-                List.of(), false, List.of(), null,
+                false, List.of(), null,
                 List.of(externalChunkDTO), null);
         when(fairnessService.analyzeFairnessWithUsage(eq(repo), isNull(), any()))
-                .thenReturn(new FairnessReportWithUsage(fairnessReport, LlmTokenTotals.empty()));
+                .thenReturn(new FairnessReportWithUsageDTO(fairnessReport, LlmTokenTotalsDTO.empty()));
 
         // saveAll for chunks: capture and return the same list
         when(analyzedChunkRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));

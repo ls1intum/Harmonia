@@ -1,10 +1,8 @@
 package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
-import de.tum.cit.aet.ai.dto.CommitLabel;
-import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
-import de.tum.cit.aet.dataProcessing.service.TeamScheduleService;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,9 +16,7 @@ import java.util.stream.Collectors;
 /**
  * Main service for calculating the Collaboration Quality Index (CQI).
  * <p>
- * Formula: CQI = BASE_SCORE × PENALTY_MULTIPLIER
- * <p>
- * BASE_SCORE = w1·S_effort + w2·S_loc + w3·S_temporal + w4·S_ownership
+ * Formula: CQI = w1·S_effort + w2·S_loc + w3·S_temporal + w4·S_ownership
  * <p>
  * Component weights are configurable via {@link CQIConfig}.
  * <p>
@@ -34,14 +30,8 @@ public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
     private final CqiWeightService cqiWeightService;
-    private final TeamScheduleService teamScheduleService;
+    private final PairProgrammingService pairProgrammingService;
     private final PairProgrammingCalculator pairProgrammingCalculator;
-
-    /**
-     * Input for CQI calculation: rated commit chunk.
-     */
-    public record RatedChunk(CommitChunkDTO chunk, EffortRatingDTO rating) {
-    }
 
     /**
      * Calculate CQI from LLM-rated commits.
@@ -56,10 +46,10 @@ public class CQICalculatorService {
      * @param filterSummary Summary from pre-filtering (optional)
      * @param teamName      The team name
      * @param exerciseId    The exercise ID for resolving per-exercise weight configuration
-     * @return CQI result with component scores and penalties
+     * @return CQI result with component scores
      */
     public CQIResultDTO calculate(
-            List<RatedChunk> ratedChunks,
+            List<CqiRatedChunkDTO> ratedChunks,
             int teamSize,
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
@@ -67,42 +57,31 @@ public class CQICalculatorService {
             String teamName,
             Long exerciseId) {
 
+        // --- 1. Build weights and check edge cases ---
         ComponentWeightsDTO weightsDTO = buildWeightsDTO(exerciseId);
 
-        // Edge case: single contributor
         if (teamSize <= 1) {
-            log.info("Single contributor detected - CQI = 0");
             return CQIResultDTO.singleContributor(weightsDTO);
         }
-
-        // Edge case: no commits to analyze
         if (ratedChunks == null || ratedChunks.isEmpty()) {
-            log.warn("No rated commits provided");
             return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
-
-        // Edge case: team did not meet the mandatory pair-programming attendance threshold.
-        // Only enforce this when attendance data exists and no cancellation warning applies.
         if (teamName != null && !teamName.isEmpty()
-                && teamScheduleService.getTeamAttendance(teamName) != null
-                && !teamScheduleService.hasCancelledSessionWarning(teamName)
-                && !teamScheduleService.isPairedMandatorySessions(teamName)) {
-            log.warn("Team did not meet the mandatory pair-programming attendance threshold.");
+                && pairProgrammingService.getTeamAttendance(teamName) != null
+                && !pairProgrammingService.hasCancelledSessionWarning(teamName)
+                && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }
 
-        // Aggregate metrics by author
+        // --- 2. Aggregate metrics by author ---
         Map<Long, Double> effortByAuthor = aggregateEffort(ratedChunks);
         Map<Long, Integer> locByAuthor = aggregateLoc(ratedChunks);
-        Map<CommitLabel, Integer> commitsByType = aggregateCommitTypes(ratedChunks);
 
-        // Check if we have actual contributors
         if (effortByAuthor.size() <= 1) {
-            log.info("Only one contributor found in commits - CQI = 0");
             return CQIResultDTO.singleContributor(weightsDTO);
         }
 
-        // Calculate component scores
+        // --- 3. Calculate component scores ---
         double effortScore = calculateEffortBalance(effortByAuthor);
         double locScore = calculateLocBalance(locByAuthor);
         double temporalScore = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
@@ -111,31 +90,19 @@ public class CQICalculatorService {
         ComponentScoresDTO components = new ComponentScoresDTO(
                 effortScore, locScore, temporalScore, ownershipScore, null, null);
 
-        log.debug("Component scores: {}", components.toSummary());
-
-        // Calculate base score (weighted sum)
+        // --- 4. Compute weighted CQI ---
         CQIConfig.Weights weights = cqiWeightService.getWeightsForExercise(exerciseId);
         double baseScore = components.weightedSum(
                 weights.getEffort(), weights.getLoc(), weights.getTemporal(), weights.getOwnership());
+        double cqi = Math.max(0, Math.min(100, baseScore));
+        return new CQIResultDTO(cqi, components, weightsDTO, baseScore, filterSummary);
+    }
 
-        // Calculate penalties
-        List<CQIPenaltyDTO> penalties = calculatePenalties(
-                effortByAuthor, commitsByType, ratedChunks, projectStart, projectEnd);
-
-        double penaltyMultiplier = penalties.isEmpty() ? 1.0 :
-                penalties.stream()
-                        .mapToDouble(CQIPenaltyDTO::multiplier)
-                        .reduce(1.0, (a, b) -> a * b);
-
-        // Final CQI
-        double cqi = Math.max(0, Math.min(100, baseScore * penaltyMultiplier));
-
-        log.info("CQI calculated: {} (base={}, penalty={})",
-                String.format("%.1f", cqi),
-                String.format("%.1f", baseScore),
-                String.format("%.2f", penaltyMultiplier));
-
-        return new CQIResultDTO(cqi, components, weightsDTO, penalties, baseScore, penaltyMultiplier, filterSummary);
+    /**
+     * Calculate CQI using fallback with default weights.
+     */
+    public CQIResultDTO calculateFallback(List<CommitChunkDTO> chunks, int teamSize, FilterSummaryDTO filterSummary) {
+        return calculateFallback(chunks, teamSize, filterSummary, null);
     }
 
     /**
@@ -156,17 +123,16 @@ public class CQICalculatorService {
             FilterSummaryDTO filterSummary,
             Long exerciseId) {
 
+        // 1) Validate input
         ComponentWeightsDTO weightsDTO = buildWeightsDTO(exerciseId);
-
         if (teamSize <= 1) {
             return CQIResultDTO.singleContributor(weightsDTO);
         }
-
         if (chunks == null || chunks.isEmpty()) {
             return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
 
-        // Aggregate LoC by author from raw chunks
+        // 2) Aggregate LoC by author
         Map<Long, Integer> locByAuthor = chunks.stream()
                 .filter(c -> c.authorId() != null)
                 .collect(Collectors.groupingBy(
@@ -178,10 +144,8 @@ public class CQICalculatorService {
             return CQIResultDTO.singleContributor(weightsDTO);
         }
 
+        // 3) Return LoC-only CQI
         double locScore = calculateLocBalance(locByAuthor);
-
-        log.info("Fallback CQI calculated (LoC only): {}", String.format("%.1f", locScore));
-
         return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary);
     }
 
@@ -211,11 +175,12 @@ public class CQICalculatorService {
             LocalDateTime projectEnd,
             String teamName) {
 
+        // --- 1. Validate input ---
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
             return ComponentScoresDTO.zero();
         }
 
-        // Aggregate LoC by author
+        // --- 2. Aggregate LoC by author ---
         Map<Long, Integer> locByAuthor = chunks.stream()
                 .filter(c -> c.authorId() != null)
                 .collect(Collectors.groupingBy(
@@ -227,20 +192,17 @@ public class CQICalculatorService {
             return ComponentScoresDTO.zero();
         }
 
-        // Calculate LoC balance
+        // --- 3. Calculate git-based component scores ---
         double locScore = calculateLocBalance(locByAuthor);
 
-        // Determine project boundaries from commits if not provided
         LocalDateTime effectiveStart = projectStart;
         LocalDateTime effectiveEnd = projectEnd;
-
         if (effectiveStart == null || effectiveEnd == null) {
             List<LocalDateTime> timestamps = chunks.stream()
                     .map(CommitChunkDTO::timestamp)
                     .filter(Objects::nonNull)
                     .sorted()
                     .toList();
-
             if (!timestamps.isEmpty()) {
                 if (effectiveStart == null) {
                     effectiveStart = timestamps.get(0);
@@ -251,100 +213,51 @@ public class CQICalculatorService {
             }
         }
 
-        // Calculate temporal spread using raw chunks
         double temporalScore = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
-
-        // Calculate ownership spread using raw chunks
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
-        // Calculate pair programming score if team name is provided
+        // --- 4. Calculate pair programming score (teams of 2 only) ---
         Double pairProgrammingScore = null;
-        String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = in Excel, "NOT_FOUND" = missing, "WARNING" = cancelled-session edge case
-        log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
+        String pairProgrammingStatus = null;
         if (teamName != null && teamSize == 2) {
             try {
-                // Check if attendance data was uploaded at all
-                boolean hasAttendanceData = teamScheduleService.hasAttendanceData();
-                boolean hasTeamAttendance = teamScheduleService.hasTeamAttendance(teamName);
-                boolean hasCancelledSessionWarning = teamScheduleService.hasCancelledSessionWarning(teamName);
+                boolean hasAttendanceData = pairProgrammingService.hasAttendanceData();
+                boolean hasTeamAttendance = pairProgrammingService.hasTeamAttendance(teamName);
+                boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName);
 
-                Set<OffsetDateTime> pairedSessions = teamScheduleService.getPairedSessions(teamName);
-                Set<OffsetDateTime> allSessions = teamScheduleService.getClassDates(teamName);
-
-                // Log all session dates for verification
-                log.info("=== Pair Programming Session Dates for team '{}' ===", teamName);
-                log.info("Total sessions: {}", allSessions.size());
-                allSessions.stream().sorted().forEach(date ->
-                        log.info("  All session: {}", date));
-
-                log.info("Paired sessions (both students attended): {}", pairedSessions.size());
-                pairedSessions.stream().sorted().forEach(date ->
-                        log.info("  Paired session: {}", date));
+                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName);
+                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName);
 
                 if (hasTeamAttendance) {
                     pairProgrammingStatus = hasCancelledSessionWarning ? "WARNING" : "FOUND";
                     if (hasCancelledSessionWarning) {
-                        log.info("Team '{}' has cancelled tutorial sessions affecting mandatory attendance; setting pair programming status to WARNING", teamName);
+                        log.warn("Team '{}' has cancelled sessions affecting mandatory attendance", teamName);
                     } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
                         pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
                                 pairedSessions, allSessions, chunks, teamSize);
-                        log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
-                                teamName,
-                                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
                     } else {
                         pairProgrammingScore = 0.0;
-                        if (allSessions.isEmpty()) {
-                            log.info("Team '{}' found in attendance Excel file but has no mapped tutorial sessions; treating as failed (score 0)", teamName);
-                        } else {
-                            log.info("Team '{}' found in attendance Excel file but has no paired sessions; treating as failed (score 0)", teamName);
-                        }
                     }
                 } else if (hasAttendanceData) {
                     pairProgrammingStatus = "NOT_FOUND";
-                    log.info("Team '{}' not found in attendance Excel file", teamName);
-                } else {
-                    log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
                 }
-                log.info("Session availability for team {}: paired={}, all={}, hasTeamAttendance={}, hasCancelledSessionWarning={}",
-                        teamName, pairedSessions.size(), allSessions.size(), hasTeamAttendance, hasCancelledSessionWarning);
             } catch (Exception e) {
                 log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
             }
-        } else {
-            if (teamName == null) {
-                log.info("calculateGitOnlyComponents: teamName is null, skipping pair programming calculation");
-            } else {
-                log.info("calculateGitOnlyComponents: teamSize={} (not 2), skipping pair programming calculation", teamSize);
-            }
         }
 
-        log.debug("Git-only components: LoC={}, Temporal={}, Ownership={}, PairProgramming={}, Status={}",
-                String.format("%.1f", locScore),
-                String.format("%.1f", temporalScore),
-                String.format("%.1f", ownershipScore),
-                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "N/A",
-                pairProgrammingStatus);
-
-        // effortBalance = 0 because it requires AI
+        // --- 5. Build result (effortBalance = 0 because it requires AI) ---
         return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
     }
 
     /**
-     * Backward compatible overload for calculateGitOnlyComponents without teamName.
-     * Use the 5-parameter version when pair programming needs to be calculated.
+    /**
+     * Build a {@link ComponentWeightsDTO} from the default configuration.
      *
-     * @param chunks List of raw commit chunks from repository
-     * @param teamSize Number of team members
-     * @param projectStart Start date/time of the project
-     * @param projectEnd End date/time of the project
-     * @return ComponentScoresDTO containing git-based metrics (locBalance, temporalSpread, ownershipSpread)
+     * @return DTO containing the default weights for all CQI components
      */
-    public ComponentScoresDTO calculateGitOnlyComponents(
-            List<CommitChunkDTO> chunks,
-            int teamSize,
-            LocalDateTime projectStart,
-            LocalDateTime projectEnd) {
-        return calculateGitOnlyComponents(chunks, teamSize, projectStart, projectEnd, null);
+    public ComponentWeightsDTO buildWeightsDTO() {
+        return buildWeightsDTO(null);
     }
 
     /**
@@ -356,6 +269,35 @@ public class CQICalculatorService {
     public ComponentWeightsDTO buildWeightsDTO(Long exerciseId) {
         CQIConfig.Weights w = cqiWeightService.getWeightsForExercise(exerciseId);
         return new ComponentWeightsDTO(w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership());
+    }
+
+    /**
+     * Build a {@link ComponentWeightsDTO} renormalized to exclude effort balance.
+     * Used in SIMPLE mode where AI analysis is not run, so the remaining weights
+     * (loc, temporal, ownership) are scaled proportionally to sum to 1.0.
+     *
+     * @return DTO with effortBalance=0 and remaining weights summing to 1.0
+     */
+    public ComponentWeightsDTO buildRenormalizedWeightsWithoutEffort() {
+        CQIConfig.Weights w = cqiConfig.getWeights();
+        double divisor = w.getLoc() + w.getTemporal() + w.getOwnership();
+        if (divisor <= 0) {
+            return new ComponentWeightsDTO(0.0, 0.0, 0.0, 0.0);
+        }
+        return new ComponentWeightsDTO(0.0, w.getLoc() / divisor, w.getTemporal() / divisor, w.getOwnership() / divisor);
+    }
+
+    /**
+     * Returns a new {@link CQIResultDTO} with weights renormalized to exclude effort balance.
+     * The component scores are preserved, only the weights are adjusted.
+     *
+     * @param original the original CQI result with standard weights
+     * @return a new CQI result with renormalized weights
+     */
+    public CQIResultDTO renormalizeWithoutEffort(CQIResultDTO original) {
+        return new CQIResultDTO(
+                original.cqi(), original.components(), buildRenormalizedWeightsWithoutEffort(),
+                original.baseScore(), original.filterSummary());
     }
 
     /**
@@ -489,7 +431,7 @@ public class CQICalculatorService {
      * Calculate temporal spread score.
      * Rewards work spread evenly over project duration, penalizes cramming.
      */
-    private double calculateTemporalSpread(List<RatedChunk> chunks,
+    private double calculateTemporalSpread(List<CqiRatedChunkDTO> chunks,
                                            LocalDateTime projectStart,
                                            LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
@@ -505,7 +447,7 @@ public class CQICalculatorService {
         int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
         double[] weeklyEffort = new double[numWeeks];
 
-        for (RatedChunk rc : chunks) {
+        for (CqiRatedChunkDTO rc : chunks) {
             if (rc.chunk().timestamp() == null) {
                 continue;
             }
@@ -540,7 +482,7 @@ public class CQICalculatorService {
      * Calculate ownership spread score.
      * Rewards multiple authors touching the same files.
      */
-    private double calculateOwnershipSpread(List<RatedChunk> chunks, int teamSize) {
+    private double calculateOwnershipSpread(List<CqiRatedChunkDTO> chunks, int teamSize) {
         if (chunks.isEmpty() || teamSize <= 1) {
             return 0.0;
         }
@@ -549,7 +491,7 @@ public class CQICalculatorService {
         Map<String, Set<Long>> fileAuthors = new HashMap<>();
         Map<String, Integer> fileCommitCounts = new HashMap<>();
 
-        for (RatedChunk rc : chunks) {
+        for (CqiRatedChunkDTO rc : chunks) {
             for (String file : rc.chunk().files()) {
                 fileAuthors.computeIfAbsent(file, k -> new HashSet<>()).add(rc.chunk().authorId());
                 fileCommitCounts.merge(file, 1, Integer::sum);
@@ -573,57 +515,6 @@ public class CQICalculatorService {
 
         double maxPossible = significantFiles.size() * effectiveTeamSize;
         return 100.0 * totalAuthors / maxPossible;
-    }
-
-    // ==================== Penalty Calculations ====================
-
-    /**
-     * Calculate all applicable penalties.
-     */
-    private List<CQIPenaltyDTO> calculatePenalties(
-            Map<Long, Double> effortByAuthor,
-            Map<CommitLabel, Integer> commitsByType,
-            List<RatedChunk> chunks,
-            LocalDateTime projectStart,
-            LocalDateTime projectEnd) {
-
-        // Penalties are disabled - return empty list
-        // The CQI score is now purely based on the component scores
-        return new ArrayList<>();
-    }
-
-    /**
-     * Calculate the ratio of work done in the final 20% of the project.
-     */
-    private double calculateLateWorkRatio(List<RatedChunk> chunks,
-                                          LocalDateTime projectStart,
-                                          LocalDateTime projectEnd) {
-        if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return 0.0;
-        }
-
-        long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
-        if (totalDays <= 0) {
-            return 0.0;
-        }
-
-        long latePeriodStart = (long) (totalDays * 0.8);
-        LocalDateTime lateDate = projectStart.plusDays(latePeriodStart);
-
-        double totalEffort = chunks.stream()
-                .mapToDouble(rc -> rc.rating() != null ? rc.rating().weightedEffort() : 1.0)
-                .sum();
-
-        if (totalEffort == 0) {
-            return 0.0;
-        }
-
-        double lateEffort = chunks.stream()
-                .filter(rc -> rc.chunk().timestamp() != null && rc.chunk().timestamp().isAfter(lateDate))
-                .mapToDouble(rc -> rc.rating() != null ? rc.rating().weightedEffort() : 1.0)
-                .sum();
-
-        return lateEffort / totalEffort;
     }
 
     // ==================== Helper Methods ====================
@@ -656,7 +547,7 @@ public class CQICalculatorService {
     /**
      * Aggregate weighted effort by author.
      */
-    private Map<Long, Double> aggregateEffort(List<RatedChunk> chunks) {
+    private Map<Long, Double> aggregateEffort(List<CqiRatedChunkDTO> chunks) {
         return chunks.stream()
                 .filter(rc -> rc.chunk().authorId() != null)
                 .collect(Collectors.groupingBy(
@@ -669,24 +560,12 @@ public class CQICalculatorService {
     /**
      * Aggregate lines changed by author.
      */
-    private Map<Long, Integer> aggregateLoc(List<RatedChunk> chunks) {
+    private Map<Long, Integer> aggregateLoc(List<CqiRatedChunkDTO> chunks) {
         return chunks.stream()
                 .filter(rc -> rc.chunk().authorId() != null)
                 .collect(Collectors.groupingBy(
                         rc -> rc.chunk().authorId(),
                         Collectors.summingInt(rc -> rc.chunk().totalLinesChanged())
-                ));
-    }
-
-    /**
-     * Aggregate commit types from LLM classifications.
-     */
-    private Map<CommitLabel, Integer> aggregateCommitTypes(List<RatedChunk> chunks) {
-        return chunks.stream()
-                .filter(rc -> rc.rating() != null && rc.rating().type() != null)
-                .collect(Collectors.groupingBy(
-                        rc -> rc.rating().type(),
-                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)
                 ));
     }
 }

@@ -4,11 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
  * DTO for Artemis API exercise response.
- * Used to get course ID from exercise ID.
  *
- * @param id The unique identifier of the exercise.
- * @param courseId The course ID this exercise belongs to.
- * @param title The title of the exercise.
+ * @param id       the unique exercise identifier
+ * @param courseId the course ID this exercise belongs to
+ * @param title   the exercise title
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ExerciseDTO(

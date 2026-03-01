@@ -8,6 +8,10 @@ import lombok.Setter;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * JPA entity storing repository metadata for a {@link TeamParticipation}.
+ * Tracks the local clone path, clone status, and associated VCS logs.
+ */
 @Getter
 @Setter
 @Entity

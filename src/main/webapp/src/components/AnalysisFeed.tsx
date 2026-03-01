@@ -68,6 +68,12 @@ const MetricLabel = ({ label, tooltip }: { label: string; tooltip: string }) => 
   </TooltipProvider>
 );
 
+/**
+ * Scrollable feed of AI-analyzed commit chunks with filtering and search.
+ *
+ * @param props.chunks - analyzed commit chunks from the server
+ * @param props.isDevMode - when true, shows LLM token usage details
+ */
 const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const [externalOpen, setExternalOpen] = useState(false);
