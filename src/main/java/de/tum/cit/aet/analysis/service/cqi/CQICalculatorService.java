@@ -106,7 +106,7 @@ public class CQICalculatorService {
         double ownershipScore = calculateOwnershipSpread(ratedChunks, teamSize);
 
         ComponentScoresDTO components = new ComponentScoresDTO(
-                effortScore, locScore, temporalScore, ownershipScore, null, null);
+                effortScore, locScore, temporalScore, ownershipScore, null, null, null);
 
         log.debug("Component scores: {}", components.toSummary());
 
@@ -255,6 +255,7 @@ public class CQICalculatorService {
         // Calculate pair programming score if team name is provided
         Double pairProgrammingScore = null;
         String pairProgrammingStatus = null; // null = no Excel uploaded, "FOUND" = in Excel, "NOT_FOUND" = missing, "WARNING" = cancelled-session edge case
+        String pairProgrammingDetails = null; // Detailed breakdown of pair programming score
         log.info("calculateGitOnlyComponents: teamName={}, teamSize={}", teamName, teamSize);
         if (teamName != null && teamSize == 2) {
             try {
@@ -277,26 +278,44 @@ public class CQICalculatorService {
                         log.info("  Paired session: {}", date));
 
                 if (hasTeamAttendance) {
+                    // Check if this was a fuzzy match
+                    boolean isFuzzyMatch = teamScheduleService.wasFuzzyMatched(teamName);
+                    int fuzzyDistance = teamScheduleService.getFuzzyMatchDistance(teamName);
+
                     pairProgrammingStatus = hasCancelledSessionWarning ? "WARNING" : "FOUND";
                     if (hasCancelledSessionWarning) {
                         log.info("Team '{}' has cancelled tutorial sessions affecting mandatory attendance; setting pair programming status to WARNING", teamName);
                     } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
                         pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
                                 pairedSessions, allSessions, chunks, teamSize);
-                        log.info("Pair programming score calculated for team {}: {} (based on commits during paired sessions)",
-                                teamName,
-                                pairProgrammingScore != null ? String.format("%.1f", pairProgrammingScore) : "null");
+                        String matchType = isFuzzyMatch ?
+                            String.format("FUZZY MATCH (distance: %d)", fuzzyDistance) :
+                            "EXACT MATCH";
+                        if (pairProgrammingScore != null) {
+                            pairProgrammingDetails = explainPairProgrammingScore(pairProgrammingScore, pairedSessions.size());
+                            log.info("✓ Team '{}' [{}]: pair programming score: {}% | {}",
+                                    teamName, matchType,
+                                    String.format("%.1f", pairProgrammingScore),
+                                    pairProgrammingDetails);
+                        } else {
+                            log.info("✓ Team '{}' [{}]: pair programming score: null",
+                                    teamName, matchType);
+                        }
                     } else {
                         pairProgrammingScore = 0.0;
                         if (allSessions.isEmpty()) {
-                            log.info("Team '{}' found in attendance Excel file but has no mapped tutorial sessions; treating as failed (score 0)", teamName);
+                            log.info("Team '{}' found{} but has no mapped tutorial sessions; treating as failed (score 0)",
+                                    teamName,
+                                    isFuzzyMatch ? " via FUZZY MATCH (distance: " + fuzzyDistance + ")" : " via EXACT MATCH");
                         } else {
-                            log.info("Team '{}' found in attendance Excel file but has no paired sessions; treating as failed (score 0)", teamName);
+                            log.info("Team '{}' found{} but has no paired sessions; treating as failed (score 0)",
+                                    teamName,
+                                    isFuzzyMatch ? " via FUZZY MATCH (distance: " + fuzzyDistance + ")" : " via EXACT MATCH");
                         }
                     }
                 } else if (hasAttendanceData) {
                     pairProgrammingStatus = "NOT_FOUND";
-                    log.info("Team '{}' not found in attendance Excel file", teamName);
+                    log.warn("❌ Team '{}' NOT FOUND in attendance Excel file (tried exact and fuzzy matching)", teamName);
                 } else {
                     log.info("No attendance data uploaded, skipping pair programming for team {}", teamName);
                 }
@@ -321,7 +340,7 @@ public class CQICalculatorService {
                 pairProgrammingStatus);
 
         // effortBalance = 0 because it requires AI
-        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
+        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus, pairProgrammingDetails);
     }
 
     /**
@@ -645,6 +664,34 @@ public class CQICalculatorService {
         }
 
         return sumOfDifferences / (2.0 * n * sum);
+    }
+
+    /**
+     * Creates an explanation for a pair programming score.
+     * Examples:
+     * - "25% = 1 of 4 paired sessions with both committing"
+     * - "50% = 2 of 4 paired sessions with both committing"
+     * - "100% = All paired sessions had both students committing"
+     *
+     * @param score the pair programming score (0-100)
+     * @param pairedSessionCount the total number of paired sessions
+     * @return a brief explanation of the score
+     */
+    private String explainPairProgrammingScore(double score, int pairedSessionCount) {
+        if (pairedSessionCount == 0) {
+            return "No paired sessions found";
+        }
+
+        if (score >= 99.5) {
+            return String.format("All %d paired sessions had both students committing", pairedSessionCount);
+        } else if (score >= 99) {
+            return String.format("Almost perfect: ~%d of %d sessions had both committing",
+                    Math.round(pairedSessionCount * score / 100), pairedSessionCount);
+        } else {
+            int sessionsWithBoth = Math.max(1, (int) Math.round(pairedSessionCount * score / 100));
+            return String.format("%d of %d paired sessions had both students committing",
+                    sessionsWithBoth, pairedSessionCount);
+        }
     }
 
     /**
