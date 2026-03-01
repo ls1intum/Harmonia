@@ -282,8 +282,8 @@ const TeamsList = ({
       filtered = filtered.filter(team => {
         if (team.teamName.toLowerCase().includes(q)) return true;
         if (team.tutor?.toLowerCase().includes(q)) return true;
-        if (team.students.some(s => s.name?.toLowerCase().includes(q))) return true;
-        return false;
+        return team.students.some(s => s.name?.toLowerCase().includes(q));
+
       });
     }
 
@@ -532,8 +532,7 @@ const TeamsList = ({
             />
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <p className="text-sm text-muted-foreground">
-                Used file:{' '}
-                <span className="font-medium text-foreground break-all">{uploadedAttendanceFileName ?? 'Not uploaded yet'}</span>
+                Used file: <span className="font-medium text-foreground break-all">{uploadedAttendanceFileName ?? 'Not uploaded yet'}</span>
               </p>
               {isPairProgrammingProcessing && (
                 <Badge variant="outline" className="gap-1.5 text-muted-foreground border-amber-500/50 bg-amber-500/10">
