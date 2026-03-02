@@ -53,9 +53,16 @@ const TeamDetail = ({
 
   const artemisRepoUrl = useMemo(() => {
     if (!course || !exercise || !team.participationId) return null;
-    const match = document.cookie.match(/(?:^|;\s*)artemis_server_url=([^;]*)/);
-    if (!match) return null;
-    const baseUrl = decodeURIComponent(match[1].trim()).replace(/\/+$/, '');
+    let baseUrl: string | null = null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        baseUrl = window.localStorage.getItem('artemis_server_url');
+      }
+    } catch (e) {
+      baseUrl = null;
+    }
+    if (!baseUrl) return null;
+    baseUrl = baseUrl.replace(/\/+$/, '');
     return `${baseUrl}/course-management/${course}/programming-exercises/${exercise}/repository/USER/${team.participationId}`;
   }, [course, exercise, team.participationId]);
 
