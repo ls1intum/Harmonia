@@ -3,12 +3,10 @@ package de.tum.cit.aet.dataProcessing.service;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
-import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamSummaryDTO;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -158,7 +156,6 @@ public class RequestService {
      *
      * @param exerciseId the exercise id
      */
-    @Transactional
     public void clearDatabaseForExercise(Long exerciseId) {
         exerciseDataCleanupService.clearDatabaseForExercise(exerciseId);
     }
@@ -173,7 +170,6 @@ public class RequestService {
      * @param exerciseId the exercise id
      * @return number of updated teams
      */
-    @Transactional
     public int recomputePairProgrammingForExercise(Long exerciseId) {
         return pairProgrammingMetricsService.recomputePairProgrammingForExercise(exerciseId);
     }
@@ -184,7 +180,6 @@ public class RequestService {
      * @param exerciseId the exercise id
      * @return number of updated teams
      */
-    @Transactional
     public int clearPairProgrammingForExercise(Long exerciseId) {
         return pairProgrammingMetricsService.clearPairProgrammingForExercise(exerciseId);
     }
@@ -241,17 +236,6 @@ public class RequestService {
      */
     public Optional<ClientResponseDTO> runSingleTeamAIAnalysis(Long exerciseId, Long teamId) {
         return persistenceService.runSingleTeamAIAnalysis(exerciseId, teamId);
-    }
-
-    /**
-     * Applies stored email mappings to a team's chunks.
-     *
-     * @param participation the participation
-     * @param exerciseId    the exercise id
-     */
-    @Transactional
-    void applyExistingEmailMappings(TeamParticipation participation, Long exerciseId) {
-        persistenceService.applyExistingEmailMappings(participation, exerciseId);
     }
 
     // =====================================================================

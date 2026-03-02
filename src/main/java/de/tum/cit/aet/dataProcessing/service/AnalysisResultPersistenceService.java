@@ -314,18 +314,9 @@ public class AnalysisResultPersistenceService {
 
         // 3) Fallback: CQI calculator with pre-filtered commits
         if (!fairnessSucceeded) {
-            cqi = calculateFallbackCqi(repo, team, students);
-            if (cqi != null) {
-                try {
-                    Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildFullCommitMap(repo, null).commitToAuthor();
-                    List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
-                    PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
-                    cqiDetails = cqiCalculatorService.calculateFallback(
-                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
-                    cqi = cqiDetails.cqi();
-                } catch (Exception e) {
-                    log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
-                }
+            cqiDetails = calculateFallbackCqi(repo, team, students);
+            if (cqiDetails != null) {
+                cqi = cqiDetails.cqi();
             }
 
             // 4) Last resort: simple commit-count balance
@@ -695,7 +686,7 @@ public class AnalysisResultPersistenceService {
         return null;
     }
 
-    private Double calculateFallbackCqi(TeamRepositoryDTO repo, TeamDTO team, List<Student> students) {
+    private CQIResultDTO calculateFallbackCqi(TeamRepositoryDTO repo, TeamDTO team, List<Student> students) {
         if (repo.localPath() == null) {
             return null;
         }
@@ -703,9 +694,8 @@ public class AnalysisResultPersistenceService {
             Map<String, Long> commitToAuthor = gitContributionAnalysisService.buildFullCommitMap(repo, null).commitToAuthor();
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
-            CQIResultDTO result = cqiCalculatorService.calculateFallback(
+            return cqiCalculatorService.calculateFallback(
                     filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
-            return result.cqi();
         } catch (Exception e) {
             log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
             return null;

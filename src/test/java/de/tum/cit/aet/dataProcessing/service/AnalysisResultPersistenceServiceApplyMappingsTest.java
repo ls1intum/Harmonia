@@ -40,7 +40,7 @@ import static org.mockito.Mockito.*;
  * Tests for email-mapping application logic in {@link AnalysisResultPersistenceService}.
  */
 @ExtendWith(MockitoExtension.class)
-class RequestServiceApplyMappingsTest {
+class AnalysisResultPersistenceServiceApplyMappingsTest {
 
     @Mock private AnalyzedChunkRepository analyzedChunkRepository;
     @Mock private ExerciseEmailMappingRepository emailMappingRepository;
