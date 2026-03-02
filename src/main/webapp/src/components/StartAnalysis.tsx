@@ -80,7 +80,9 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem('artemis_server_url', baseUrl);
         }
-      } catch {}
+      } catch {
+        // Ignore errors
+      }
 
       // Step 2: Navigate to analysis
       onStart(courseId, exerciseId, username, password, pairProgrammingMode === 'yes');
