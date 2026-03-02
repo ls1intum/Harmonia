@@ -37,7 +37,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for email-mapping application logic in {@link RequestService}.
+ * Tests for email-mapping application logic in {@link AnalysisResultPersistenceService}.
  */
 @ExtendWith(MockitoExtension.class)
 class RequestServiceApplyMappingsTest {
@@ -50,19 +50,22 @@ class RequestServiceApplyMappingsTest {
     @Mock private ExerciseTemplateAuthorRepository templateAuthorRepository;
     @Mock private GitContributionAnalysisService gitContributionAnalysisService;
     @Mock private CqiRecalculationService cqiRecalculationService;
+    @Mock private ExerciseDataCleanupService cleanupService;
+    @Mock private AnalysisQueryService queryService;
 
     @Captor private ArgumentCaptor<List<AnalyzedChunk>> chunksCaptor;
 
-    private RequestService service;
+    private AnalysisResultPersistenceService service;
 
     @BeforeEach
     void setUp() {
-        service = new RequestService(
-                null, null, null, fairnessService, null,
+        service = new AnalysisResultPersistenceService(
+                null, fairnessService, null,
+                gitContributionAnalysisService, null, null, null,
+                cqiRecalculationService, null,
                 null, teamParticipationRepository, null, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
-                gitContributionAnalysisService, null, null, null, null,
-                cqiRecalculationService, null);
+                cleanupService, queryService);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
