@@ -34,7 +34,7 @@ class CQICalculatorServiceTest {
 
     @BeforeEach
     void setUp() {
-        pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration(), null);
+        pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration());
         cqiService = new CQICalculatorService(new CQIConfig(), pairProgrammingService, new PairProgrammingCalculator(new AttendanceConfiguration()));
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
