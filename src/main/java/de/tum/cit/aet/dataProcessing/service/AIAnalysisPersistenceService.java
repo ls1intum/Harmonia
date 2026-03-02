@@ -126,101 +126,131 @@ public class AIAnalysisPersistenceService {
                 .map(ExerciseTemplateAuthor::getTemplateEmail)
                 .orElse(null);
 
-        Double cqi = null;
-        boolean isSuspicious = false;
-        List<AnalyzedChunkDTO> analysisHistory = null;
-        List<OrphanCommitDTO> orphanCommits = null;
-        CQIResultDTO cqiDetails = null;
-        LlmTokenTotalsDTO teamTokenTotals = LlmTokenTotalsDTO.empty();
+        List<OrphanCommitDTO> orphanCommits = detectOrphanCommits(repo, templateAuthorEmail, team.name());
+        CqiComputationResult cqiResult = computeCqiWithFallback(
+                repo, templateAuthorEmail, teamParticipation, team, students);
 
-        // 1) Detect orphan commits
+        persistAnalysisState(teamParticipation, cqiResult, orphanCommits);
+
+        if (cqiResult.analysisHistory() != null && !cqiResult.analysisHistory().isEmpty()) {
+            applyExistingEmailMappings(teamParticipation, exerciseId);
+        }
+
+        return buildAIAnalysisResponse(teamParticipation, participation, team, students,
+                cqiResult, orphanCommits, exerciseId);
+    }
+
+    /** Detects orphan commits (unassigned, non-template) in the repository. */
+    private List<OrphanCommitDTO> detectOrphanCommits(
+            TeamRepositoryDTO repo, String templateAuthorEmail, String teamName) {
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
                     .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
-            orphanCommits = analysisResult.orphanCommits();
-            if (orphanCommits != null && !orphanCommits.isEmpty()) {
-                log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
+            List<OrphanCommitDTO> orphans = analysisResult.orphanCommits();
+            if (orphans != null && !orphans.isEmpty()) {
+                log.info("Found {} orphan commits for team {}", orphans.size(), teamName);
             }
+            return orphans;
         } catch (Exception e) {
-            log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
+            log.warn("Failed to detect orphan commits for team {}: {}", teamName, e.getMessage());
+            return null;
         }
+    }
 
-        // 2) Try effort-based fairness analysis (primary method)
-        boolean fairnessSucceeded = false;
+    /** Aggregated CQI computation result from fairness analysis or fallback chain. */
+    private record CqiComputationResult(
+            Double cqi,
+            List<AnalyzedChunkDTO> analysisHistory,
+            CQIResultDTO cqiDetails,
+            LlmTokenTotalsDTO tokenTotals
+    ) {
+    }
+
+    /**
+     * Computes CQI using a 3-tier fallback chain:
+     * 1) Effort-based fairness analysis (LLM)
+     * 2) CQI calculator with pre-filtered commits
+     * 3) Simple commit-count balance
+     */
+    private CqiComputationResult computeCqiWithFallback(
+            TeamRepositoryDTO repo, String templateAuthorEmail,
+            TeamParticipation teamParticipation, TeamDTO team, List<Student> students) {
+
+        // Tier 1: Effort-based fairness analysis
         try {
             FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
                     repo, templateAuthorEmail);
             FairnessReportDTO report = fairnessResult.report();
-            teamTokenTotals = fairnessResult.tokenTotals();
 
             if (!report.error()) {
-                cqi = report.balanceScore();
-                analysisHistory = report.analyzedChunks();
-                cqiDetails = report.cqiResult();
-                fairnessSucceeded = true;
-
-                if (analysisHistory != null && !analysisHistory.isEmpty()) {
-                    saveAnalyzedChunks(teamParticipation, analysisHistory);
+                List<AnalyzedChunkDTO> history = report.analyzedChunks();
+                if (history != null && !history.isEmpty()) {
+                    saveAnalyzedChunks(teamParticipation, history);
                 }
-            } else {
-                log.warn("Fairness analysis returned error for team {}", team.name());
+                return new CqiComputationResult(
+                        report.balanceScore(), history, report.cqiResult(),
+                        fairnessResult.tokenTotals());
             }
+            log.warn("Fairness analysis returned error for team {}", team.name());
         } catch (Exception e) {
             log.warn("Fairness analysis failed for team {}, falling back: {}", team.name(), e.getMessage());
         }
 
-        // 3) Fallback: CQI calculator with pre-filtered commits
-        if (!fairnessSucceeded) {
-            cqiDetails = cqiPersistenceHelper.calculateFallbackCqi(repo, team, students);
-            if (cqiDetails != null) {
-                cqi = cqiDetails.cqi();
-            }
+        // Tier 2: CQI calculator with pre-filtered commits
+        CQIResultDTO cqiDetails = cqiPersistenceHelper.calculateFallbackCqi(repo, team, students);
+        Double cqi = cqiDetails != null ? cqiDetails.cqi() : null;
 
-            // 4) Last resort: simple commit-count balance
-            if (cqi == null || cqi == 0.0) {
-                Map<String, Integer> commitCounts = new HashMap<>();
-                students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
-                if (!commitCounts.isEmpty()) {
-                    cqi = balanceCalculator.calculate(commitCounts);
-                }
+        // Tier 3: Simple commit-count balance
+        if (cqi == null || cqi == 0.0) {
+            Map<String, Integer> commitCounts = new HashMap<>();
+            students.forEach(s -> commitCounts.put(s.getName(), s.getCommitCount()));
+            if (!commitCounts.isEmpty()) {
+                cqi = balanceCalculator.calculate(commitCounts);
             }
         }
 
-        // 5) Persist CQI and component scores
-        teamParticipation.setCqi(cqi);
-        teamParticipation.setIsSuspicious(isSuspicious);
+        return new CqiComputationResult(cqi, null, cqiDetails, LlmTokenTotalsDTO.empty());
+    }
+
+    /** Persists CQI score, component scores, token usage, and marks the team as DONE. */
+    private void persistAnalysisState(
+            TeamParticipation teamParticipation, CqiComputationResult cqiResult,
+            List<OrphanCommitDTO> orphanCommits) {
+        teamParticipation.setCqi(cqiResult.cqi());
+        teamParticipation.setIsSuspicious(false);
         teamParticipation.setOrphanCommitCount(orphanCommits != null ? orphanCommits.size() : 0);
-        cqiPersistenceHelper.persistCqiComponents(teamParticipation, cqiDetails);
-        cqiPersistenceHelper.persistTeamTokenTotals(teamParticipation, teamTokenTotals);
+        cqiPersistenceHelper.persistCqiComponents(teamParticipation, cqiResult.cqiDetails());
+        cqiPersistenceHelper.persistTeamTokenTotals(teamParticipation, cqiResult.tokenTotals());
         teamParticipation.setAnalysisStatus(TeamAnalysisStatus.DONE);
         teamParticipationRepository.save(teamParticipation);
+    }
 
-        // 6) Apply existing email mappings (may recalculate CQI)
-        if (analysisHistory != null && !analysisHistory.isEmpty()) {
-            applyExistingEmailMappings(teamParticipation, exerciseId);
-        }
+    /** Builds the client response DTO from post-mapping state. */
+    private ClientResponseWithUsage buildAIAnalysisResponse(
+            TeamParticipation teamParticipation, ParticipationDTO participation,
+            TeamDTO team, List<Student> students, CqiComputationResult cqiResult,
+            List<OrphanCommitDTO> orphanCommits, Long exerciseId) {
 
-        // 7) Build response from post-mapping state
         List<StudentAnalysisDTO> studentDtos = students.stream()
                 .map(s -> new StudentAnalysisDTO(s.getName(), s.getCommitCount(), s.getLinesAdded(),
                         s.getLinesDeleted(), s.getLinesChanged()))
                 .toList();
 
         Tutor tutor = teamParticipation.getTutor();
-        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
+        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqiResult.cqi();
         CQIResultDTO finalCqiDetails = queryService.reconstructCqiDetails(teamParticipation, AnalysisMode.FULL);
         if (finalCqiDetails == null) {
-            finalCqiDetails = cqiDetails;
+            finalCqiDetails = cqiResult.cqiDetails();
         }
 
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
                         team.id(), team.name(), participation.submissionCount(),
-                        studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
-                        finalCqiDetails, analysisHistory, orphanCommits,
-                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
-                teamTokenTotals);
+                        studentDtos, finalCqi, false, TeamAnalysisStatus.DONE,
+                        finalCqiDetails, cqiResult.analysisHistory(), orphanCommits,
+                        cqiResult.tokenTotals(), teamParticipation.getOrphanCommitCount(), null),
+                cqiResult.tokenTotals());
     }
 
     /**

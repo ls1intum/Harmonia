@@ -36,6 +36,21 @@ public class GitContributionAnalysisService {
     ) {
     }
 
+    /** All commits reachable from HEAD together with their git-author emails. */
+    private record CommitCollectionResult(
+            List<RevCommit> allCommits,
+            Map<String, String> hashToGitEmail
+    ) {
+    }
+
+    /** Per-commit author assignment produced by the 3-tier matching pass. */
+    private record CommitAssignmentResult(
+            Map<String, Long> commitToAuthor,
+            Map<String, String> orphanCommitEmails,
+            Map<String, String> commitToVcsEmail
+    ) {
+    }
+
     /**
      * Walks the full git history and maps every commit to an author using a 3-tier
      * matching strategy (VCS-Log anchor, Learned mapping, Direct email match).
@@ -81,15 +96,7 @@ public class GitContributionAnalysisService {
             return FullCommitMappingResultDTO.empty();
         }
 
-        // --- 1. Build lookup structures ---
         StudentLookupContext ctx = buildLookupContext(students, manualMappings, vcsLogs);
-
-        // --- 2. Walk git history and build learned mapping ---
-
-        Map<String, Long> commitToAuthor = new HashMap<>();
-        Map<String, String> orphanCommitEmails = new HashMap<>();
-        Map<String, String> commitToVcsEmail = new HashMap<>();
-        Set<String> templateHashes = new HashSet<>();
 
         File gitDir = new File(localPath, ".git");
         if (!gitDir.exists()) {
@@ -108,151 +115,38 @@ public class GitContributionAnalysisService {
                 return FullCommitMappingResultDTO.empty();
             }
 
-            // Collect all commits reachable from HEAD and build git-email lookup
-            List<RevCommit> allCommits = new ArrayList<>();
-            Map<String, String> hashToGitEmail = new HashMap<>();
-            try (RevWalk revWalk = new RevWalk(repository)) {
-                revWalk.sort(RevSort.COMMIT_TIME_DESC);
-                revWalk.markStart(revWalk.parseCommit(head));
-                for (RevCommit commit : revWalk) {
-                    allCommits.add(commit);
-                    String ge = commit.getAuthorIdent().getEmailAddress();
-                    if (ge != null && !ge.isBlank()) {
-                        hashToGitEmail.put(commit.getName(), ge.toLowerCase(Locale.ROOT));
-                    }
-                }
-            }
+            CommitCollectionResult collected = collectCommitsFromHead(repository, head);
 
-            // --- Pass 1: Build learned mapping from unambiguous VCS-log anchor commits ---
-            for (RevCommit commit : allCommits) {
-                String hash = commit.getName();
-                List<String> vcsEmails = ctx.vcsHashToEmails().get(hash);
-                if (vcsEmails == null || vcsEmails.isEmpty()) {
-                    continue;
-                }
-                if (vcsEmails.size() > 1) {
-                    continue; // ambiguous — resolve after Pass 1
-                }
-                String vcsEmail = vcsEmails.get(0);
+            buildLearnedMappingsFromAnchors(collected.allCommits(), ctx);
 
-                // This commit is a VCS-log anchor
-                Long studentId = ctx.emailToStudentId().get(vcsEmail.toLowerCase(Locale.ROOT));
-                if (studentId == null) {
-                    continue;
-                }
+            Map<String, String> vcsHashToEmail = resolveVcsEntries(ctx, collected.hashToGitEmail());
 
-                // Learn the git-author email -> studentId mapping
-                String gitEmail = commit.getAuthorIdent().getEmailAddress();
-                if (gitEmail != null && !gitEmail.isBlank()) {
-                    String gitEmailLower = gitEmail.toLowerCase(Locale.ROOT);
-                    Long existing = ctx.learnedGitEmailToStudentId().putIfAbsent(gitEmailLower, studentId);
-                    if (existing != null && !existing.equals(studentId)) {
-                        log.warn("Git email '{}' maps to multiple students (id {} and {}); keeping first",
-                                gitEmailLower, existing, studentId);
-                    }
-                }
-            }
+            CommitAssignmentResult assignment = assignCommitsToAuthors(
+                    collected.allCommits(), vcsHashToEmail, ctx);
 
-            // --- Resolve multi-valued VCS entries using git-author email ---
-            Map<String, String> vcsHashToEmail = new HashMap<>();
-            for (Map.Entry<String, List<String>> entry : ctx.vcsHashToEmails().entrySet()) {
-                List<String> emails = entry.getValue();
-                if (emails.size() == 1) {
-                    vcsHashToEmail.put(entry.getKey(), emails.get(0));
-                } else {
-                    String resolved = resolveVcsOverlap(emails, hashToGitEmail.get(entry.getKey()),
-                            ctx.emailToStudentId(), ctx.learnedGitEmailToStudentId());
-                    vcsHashToEmail.put(entry.getKey(), resolved);
-                }
-            }
-
-            // --- Pass 2: Assign every commit using 3-tier matching ---
-            for (RevCommit commit : allCommits) {
-                String hash = commit.getName();
-                String gitEmail = commit.getAuthorIdent().getEmailAddress();
-                String gitEmailLower = (gitEmail != null && !gitEmail.isBlank())
-                        ? gitEmail.toLowerCase(Locale.ROOT) : null;
-
-                Long studentId = null;
-
-                // Tier 1: VCS-Log anchor
-                String vcsEmail = vcsHashToEmail.get(hash);
-                if (vcsEmail != null) {
-                    studentId = ctx.emailToStudentId().get(vcsEmail.toLowerCase(Locale.ROOT));
-                    if (studentId != null) {
-                        commitToAuthor.put(hash, studentId);
-                        commitToVcsEmail.put(hash, vcsEmail);
-                    } else {
-                        String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
-                        orphanCommitEmails.put(hash, orphanEmail);
-                    }
-                    continue; // VCS anchor is authoritative — never fall through
-                }
-
-                // Tier 2: Learned mapping (gitEmail -> studentId)
-                if (gitEmailLower != null) {
-                    studentId = ctx.learnedGitEmailToStudentId().get(gitEmailLower);
-                }
-
-                // Tier 3: Direct email match (git email against Artemis emails)
-                if (studentId == null && gitEmailLower != null) {
-                    studentId = ctx.emailToStudentId().get(gitEmailLower);
-                }
-
-                if (studentId != null) {
-                    commitToAuthor.put(hash, studentId);
-                    String artemisEmail = ctx.studentIdToEmail().get(studentId);
-                    if (artemisEmail != null) {
-                        commitToVcsEmail.put(hash, artemisEmail);
-                    }
-                } else {
-                    String orphanEmail = gitEmailLower != null ? gitEmailLower : "unknown";
-                    orphanCommitEmails.put(hash, orphanEmail);
-                }
-            }
-
-            // --- Pass 3: Detect template commits ---
-            // If a template author email is configured, ALL their commits are template.
-            // Otherwise, only unassigned root commits are detected as template.
-            for (RevCommit commit : allCommits) {
-                String hash = commit.getName();
-                if (commitToAuthor.containsKey(hash)) {
-                    continue; // Already assigned to a student
-                }
-
-                String gitEmail = commit.getAuthorIdent().getEmailAddress();
-                String gitEmailLower = gitEmail != null ? gitEmail.toLowerCase(Locale.ROOT) : "";
-
-                boolean isTemplate = false;
-                if (templateAuthorEmail != null
-                        && templateAuthorEmail.equalsIgnoreCase(gitEmailLower)) {
-                    isTemplate = true; // All commits from template author
-                } else if (commit.getParentCount() == 0) {
-                    isTemplate = true; // Fallback: unassigned root commits
-                }
-
-                if (isTemplate) {
-                    templateHashes.add(hash);
-                    orphanCommitEmails.remove(hash);
-                }
-            }
+            Set<String> templateHashes = detectTemplateCommits(
+                    collected.allCommits(), assignment.commitToAuthor(), templateAuthorEmail);
+            templateHashes.forEach(assignment.orphanCommitEmails()::remove);
 
             if (!templateHashes.isEmpty()) {
                 log.info("Detected {} template commit(s), excluded from orphans",
                         templateHashes.size());
             }
 
+            log.info("Full commit map: {} assigned, {} orphan, {} template (from {} total reachable commits)",
+                    assignment.commitToAuthor().size(), assignment.orphanCommitEmails().size(),
+                    templateHashes.size(),
+                    assignment.commitToAuthor().size() + assignment.orphanCommitEmails().size()
+                            + templateHashes.size());
+
+            return new FullCommitMappingResultDTO(
+                    assignment.commitToAuthor(), assignment.orphanCommitEmails(),
+                    assignment.commitToVcsEmail(), templateHashes);
+
         } catch (IOException e) {
             log.error("Error walking git history at {}: {}", localPath, e.getMessage());
             return FullCommitMappingResultDTO.empty();
         }
-
-        log.info("Full commit map: {} assigned, {} orphan, {} template (from {} total reachable commits)",
-                commitToAuthor.size(), orphanCommitEmails.size(), templateHashes.size(),
-                commitToAuthor.size() + orphanCommitEmails.size() + templateHashes.size());
-
-        return new FullCommitMappingResultDTO(commitToAuthor, orphanCommitEmails, commitToVcsEmail,
-                templateHashes);
     }
 
     private static StudentLookupContext buildLookupContext(
@@ -282,6 +176,160 @@ public class GitContributionAnalysisService {
         }
 
         return new StudentLookupContext(emailToStudentId, studentIdToEmail, vcsHashToEmails, new HashMap<>());
+    }
+
+    /** Collects all commits reachable from HEAD with their lowercase git-author emails. */
+    private static CommitCollectionResult collectCommitsFromHead(
+            Repository repository, ObjectId head) throws IOException {
+        List<RevCommit> allCommits = new ArrayList<>();
+        Map<String, String> hashToGitEmail = new HashMap<>();
+        try (RevWalk revWalk = new RevWalk(repository)) {
+            revWalk.sort(RevSort.COMMIT_TIME_DESC);
+            revWalk.markStart(revWalk.parseCommit(head));
+            for (RevCommit commit : revWalk) {
+                allCommits.add(commit);
+                String ge = commit.getAuthorIdent().getEmailAddress();
+                if (ge != null && !ge.isBlank()) {
+                    hashToGitEmail.put(commit.getName(), ge.toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+        return new CommitCollectionResult(allCommits, hashToGitEmail);
+    }
+
+    /**
+     * Pass 1: Learns git-author-email to studentId mappings from unambiguous
+     * VCS-log anchor commits (single VCS email per commit hash).
+     */
+    private void buildLearnedMappingsFromAnchors(
+            List<RevCommit> allCommits, StudentLookupContext ctx) {
+        for (RevCommit commit : allCommits) {
+            String hash = commit.getName();
+            List<String> vcsEmails = ctx.vcsHashToEmails().get(hash);
+            if (vcsEmails == null || vcsEmails.isEmpty() || vcsEmails.size() > 1) {
+                continue;
+            }
+            String vcsEmail = vcsEmails.get(0);
+
+            Long studentId = ctx.emailToStudentId().get(vcsEmail.toLowerCase(Locale.ROOT));
+            if (studentId == null) {
+                continue;
+            }
+
+            String gitEmail = commit.getAuthorIdent().getEmailAddress();
+            if (gitEmail != null && !gitEmail.isBlank()) {
+                String gitEmailLower = gitEmail.toLowerCase(Locale.ROOT);
+                Long existing = ctx.learnedGitEmailToStudentId().putIfAbsent(gitEmailLower, studentId);
+                if (existing != null && !existing.equals(studentId)) {
+                    log.warn("Git email '{}' maps to multiple students (id {} and {}); keeping first",
+                            gitEmailLower, existing, studentId);
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves multi-valued VCS entries to a single email per commit hash,
+     * using learned and direct email mappings to disambiguate.
+     */
+    private static Map<String, String> resolveVcsEntries(
+            StudentLookupContext ctx, Map<String, String> hashToGitEmail) {
+        Map<String, String> vcsHashToEmail = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : ctx.vcsHashToEmails().entrySet()) {
+            List<String> emails = entry.getValue();
+            if (emails.size() == 1) {
+                vcsHashToEmail.put(entry.getKey(), emails.get(0));
+            } else {
+                String resolved = resolveVcsOverlap(emails, hashToGitEmail.get(entry.getKey()),
+                        ctx.emailToStudentId(), ctx.learnedGitEmailToStudentId());
+                vcsHashToEmail.put(entry.getKey(), resolved);
+            }
+        }
+        return vcsHashToEmail;
+    }
+
+    /**
+     * Pass 2: Assigns every commit to an author using 3-tier matching
+     * (VCS-Log anchor, Learned mapping, Direct email match).
+     */
+    private static CommitAssignmentResult assignCommitsToAuthors(
+            List<RevCommit> allCommits, Map<String, String> vcsHashToEmail,
+            StudentLookupContext ctx) {
+        Map<String, Long> commitToAuthor = new HashMap<>();
+        Map<String, String> orphanCommitEmails = new HashMap<>();
+        Map<String, String> commitToVcsEmail = new HashMap<>();
+
+        for (RevCommit commit : allCommits) {
+            String hash = commit.getName();
+            String gitEmail = commit.getAuthorIdent().getEmailAddress();
+            String gitEmailLower = (gitEmail != null && !gitEmail.isBlank())
+                    ? gitEmail.toLowerCase(Locale.ROOT) : null;
+
+            // Tier 1: VCS-Log anchor
+            String vcsEmail = vcsHashToEmail.get(hash);
+            if (vcsEmail != null) {
+                Long studentId = ctx.emailToStudentId().get(vcsEmail.toLowerCase(Locale.ROOT));
+                if (studentId != null) {
+                    commitToAuthor.put(hash, studentId);
+                    commitToVcsEmail.put(hash, vcsEmail);
+                } else {
+                    orphanCommitEmails.put(hash, gitEmailLower != null ? gitEmailLower : "unknown");
+                }
+                continue; // VCS anchor is authoritative — never fall through
+            }
+
+            // Tier 2: Learned mapping (gitEmail -> studentId)
+            Long studentId = null;
+            if (gitEmailLower != null) {
+                studentId = ctx.learnedGitEmailToStudentId().get(gitEmailLower);
+            }
+
+            // Tier 3: Direct email match (git email against Artemis emails)
+            if (studentId == null && gitEmailLower != null) {
+                studentId = ctx.emailToStudentId().get(gitEmailLower);
+            }
+
+            if (studentId != null) {
+                commitToAuthor.put(hash, studentId);
+                String artemisEmail = ctx.studentIdToEmail().get(studentId);
+                if (artemisEmail != null) {
+                    commitToVcsEmail.put(hash, artemisEmail);
+                }
+            } else {
+                orphanCommitEmails.put(hash, gitEmailLower != null ? gitEmailLower : "unknown");
+            }
+        }
+
+        return new CommitAssignmentResult(commitToAuthor, orphanCommitEmails, commitToVcsEmail);
+    }
+
+    /**
+     * Pass 3: Detects template commits among unassigned commits.
+     * If a template author email is configured, ALL their commits are template.
+     * Otherwise, only unassigned root commits are detected.
+     */
+    private static Set<String> detectTemplateCommits(
+            List<RevCommit> allCommits, Map<String, Long> commitToAuthor,
+            String templateAuthorEmail) {
+        Set<String> templateHashes = new HashSet<>();
+        for (RevCommit commit : allCommits) {
+            String hash = commit.getName();
+            if (commitToAuthor.containsKey(hash)) {
+                continue;
+            }
+
+            String gitEmail = commit.getAuthorIdent().getEmailAddress();
+            String gitEmailLower = gitEmail != null ? gitEmail.toLowerCase(Locale.ROOT) : "";
+
+            boolean isTemplate = (templateAuthorEmail != null
+                    && templateAuthorEmail.equalsIgnoreCase(gitEmailLower))
+                    || commit.getParentCount() == 0;
+
+            if (isTemplate) {
+                templateHashes.add(hash);
+            }
+        }
+        return templateHashes;
     }
 
     /**

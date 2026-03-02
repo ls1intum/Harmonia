@@ -192,91 +192,27 @@ public class StreamingAnalysisPipelineService {
                 return;
             }
 
-            // 4) Phase 1 — Download: Clone all repositories in parallel
-            log.info("Phase 1: Downloading {} repositories (mode={})", totalToProcess, mode);
-            eventEmitter.accept(AnalysisEvents.phase("DOWNLOADING", totalToProcess));
-
-            Map<Long, TeamRepositoryDTO> clonedRepos = new ConcurrentHashMap<>();
+            // 4) Phase 1 — Download
             int threadCount = Math.max(1, Math.min(totalToProcess, Runtime.getRuntime().availableProcessors()));
             executor = Executors.newFixedThreadPool(threadCount);
             analysisTaskManager.registerExecutor(exerciseId, executor);
 
-            CountDownLatch downloadLatch = new CountDownLatch(totalToProcess);
-            AtomicInteger downloadedCount = new AtomicInteger(0);
-
-            for (ParticipationDTO participation : validParticipations) {
-                executor.submit(() -> {
-                    try {
-                        if (!analysisStateService.isRunning(exerciseId)) {
-                            return;
-                        }
-                        processDownload(participation, credentials, exerciseId,
-                                clonedRepos, downloadedCount, totalToProcess, eventEmitter);
-                    } catch (Exception e) {
-                        handlePhaseError("Download", e, participation, exerciseId, downloadedCount, eventEmitter);
-                    } finally {
-                        downloadLatch.countDown();
-                    }
-                });
-            }
-
-            try {
-                downloadLatch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.info("Download phase interrupted for exerciseId={}", exerciseId);
-            }
-
-            log.info("Phase 1 complete: {} of {} repositories cloned", clonedRepos.size(), totalToProcess);
+            Map<Long, TeamRepositoryDTO> clonedRepos = runDownloadPhase(
+                    validParticipations, credentials, exerciseId, executor, totalToProcess, mode, eventEmitter);
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                eventEmitter.accept(AnalysisEvents.cancelled(downloadedCount.get(), totalToProcess));
+                eventEmitter.accept(AnalysisEvents.cancelled(clonedRepos.size(), totalToProcess));
                 return;
             }
 
             // 5) Phase 2 — Git Analysis
-            int clonedCount = clonedRepos.size();
-            log.info("Phase 2: Git-analyzing {} repositories", clonedCount);
-            eventEmitter.accept(AnalysisEvents.phase("GIT_ANALYSIS", clonedCount));
-
-            CountDownLatch analysisLatch = new CountDownLatch(clonedCount);
-            AtomicInteger gitAnalyzedCount = new AtomicInteger(0);
-
-            for (ParticipationDTO participation : validParticipations) {
-                TeamRepositoryDTO repo = clonedRepos.get(participation.id());
-                if (repo == null) {
-                    continue;
-                }
-                executor.submit(() -> {
-                    try {
-                        if (!analysisStateService.isRunning(exerciseId)) {
-                            return;
-                        }
-                        processGitAnalysis(participation, repo, exerciseId,
-                                gitAnalyzedCount, clonedCount, eventEmitter, mode);
-                    } catch (Exception e) {
-                        handlePhaseError("Git analysis", e, participation, exerciseId, gitAnalyzedCount, eventEmitter);
-                    } finally {
-                        analysisLatch.countDown();
-                    }
-                });
-            }
-
-            try {
-                analysisLatch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.info("Git analysis phase interrupted for exerciseId={}", exerciseId);
-            }
-
-            executor.shutdown();
-            log.info("Phase 2 complete: {} of {} repositories git-analyzed", gitAnalyzedCount.get(), clonedCount);
-            eventEmitter.accept(AnalysisEvents.gitDone(gitAnalyzedCount.get()));
+            int gitAnalyzedCount = runGitAnalysisPhase(
+                    validParticipations, clonedRepos, exerciseId, executor, eventEmitter, mode);
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                eventEmitter.accept(AnalysisEvents.cancelled(gitAnalyzedCount.get(), totalToProcess));
+                eventEmitter.accept(AnalysisEvents.cancelled(gitAnalyzedCount, totalToProcess));
                 return;
             }
 
@@ -287,42 +223,7 @@ public class StreamingAnalysisPipelineService {
             if (mode == AnalysisMode.SIMPLE) {
                 finalizeSimpleMode(validParticipations, clonedRepos, exerciseId, eventEmitter);
             } else {
-                eventEmitter.accept(AnalysisEvents.phase("AI_ANALYSIS", clonedRepos.size()));
-
-                AtomicInteger aiAnalyzedCount = new AtomicInteger(0);
-                LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
-
-                for (ParticipationDTO participation : validParticipations) {
-                    if (!analysisStateService.isRunning(exerciseId) || Thread.currentThread().isInterrupted()) {
-                        break;
-                    }
-
-                    TeamRepositoryDTO repo = clonedRepos.get(participation.id());
-                    if (repo == null) {
-                        aiAnalyzedCount.incrementAndGet();
-                        continue;
-                    }
-
-                    TeamParticipation tp = teamParticipationRepository.findByParticipation(participation.id()).orElse(null);
-                    if (tp != null && gitPersistenceService.shouldSkipTeam(tp)) {
-                        aiAnalyzedCount.incrementAndGet();
-                        continue;
-                    }
-
-                    runTokenTotals = processAIAnalysis(participation, repo, exerciseId,
-                            aiAnalyzedCount, clonedRepos.size(), runTokenTotals, eventEmitter);
-                }
-
-                log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
-                cqiPersistenceHelper.logTotalUsage("stream", exerciseId, aiAnalyzedCount.get(), runTokenTotals);
-
-                if (analysisStateService.isRunning(exerciseId)) {
-                    analysisStateService.completeAnalysis(exerciseId);
-                    eventEmitter.accept(AnalysisEvents.done());
-                } else {
-                    exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                    eventEmitter.accept(AnalysisEvents.cancelled(aiAnalyzedCount.get(), totalToProcess));
-                }
+                runFullModeAIPhase(validParticipations, clonedRepos, exerciseId, totalToProcess, eventEmitter);
             }
 
         } catch (java.util.concurrent.RejectedExecutionException e) {
@@ -338,6 +239,139 @@ public class StreamingAnalysisPipelineService {
             analysisTaskManager.unregisterExecutor(exerciseId);
             analysisTaskManager.unregisterStreamThread(exerciseId);
             shutdownExecutorQuietly(executor);
+        }
+    }
+
+    // =====================================================================
+    //  Phase runners
+    // =====================================================================
+
+    /** Phase 1: Clones all repositories in parallel and returns the successfully cloned repos. */
+    private Map<Long, TeamRepositoryDTO> runDownloadPhase(
+            List<ParticipationDTO> validParticipations, ArtemisCredentials credentials,
+            Long exerciseId, ExecutorService executor, int totalToProcess,
+            AnalysisMode mode, Consumer<Object> eventEmitter) {
+
+        log.info("Phase 1: Downloading {} repositories (mode={})", totalToProcess, mode);
+        eventEmitter.accept(AnalysisEvents.phase("DOWNLOADING", totalToProcess));
+
+        Map<Long, TeamRepositoryDTO> clonedRepos = new ConcurrentHashMap<>();
+        CountDownLatch latch = new CountDownLatch(totalToProcess);
+        AtomicInteger downloadedCount = new AtomicInteger(0);
+
+        for (ParticipationDTO participation : validParticipations) {
+            executor.submit(() -> {
+                try {
+                    if (!analysisStateService.isRunning(exerciseId)) {
+                        return;
+                    }
+                    processDownload(participation, credentials, exerciseId,
+                            clonedRepos, downloadedCount, totalToProcess, eventEmitter);
+                } catch (Exception e) {
+                    handlePhaseError("Download", e, participation, exerciseId, downloadedCount, eventEmitter);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.info("Download phase interrupted for exerciseId={}", exerciseId);
+        }
+
+        log.info("Phase 1 complete: {} of {} repositories cloned", clonedRepos.size(), totalToProcess);
+        return clonedRepos;
+    }
+
+    /** Phase 2: Runs git contribution analysis in parallel and returns the count of analyzed repos. */
+    private int runGitAnalysisPhase(
+            List<ParticipationDTO> validParticipations, Map<Long, TeamRepositoryDTO> clonedRepos,
+            Long exerciseId, ExecutorService executor,
+            Consumer<Object> eventEmitter, AnalysisMode mode) {
+
+        int clonedCount = clonedRepos.size();
+        log.info("Phase 2: Git-analyzing {} repositories", clonedCount);
+        eventEmitter.accept(AnalysisEvents.phase("GIT_ANALYSIS", clonedCount));
+
+        CountDownLatch latch = new CountDownLatch(clonedCount);
+        AtomicInteger gitAnalyzedCount = new AtomicInteger(0);
+
+        for (ParticipationDTO participation : validParticipations) {
+            TeamRepositoryDTO repo = clonedRepos.get(participation.id());
+            if (repo == null) {
+                continue;
+            }
+            executor.submit(() -> {
+                try {
+                    if (!analysisStateService.isRunning(exerciseId)) {
+                        return;
+                    }
+                    processGitAnalysis(participation, repo, exerciseId,
+                            gitAnalyzedCount, clonedCount, eventEmitter, mode);
+                } catch (Exception e) {
+                    handlePhaseError("Git analysis", e, participation, exerciseId, gitAnalyzedCount, eventEmitter);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.info("Git analysis phase interrupted for exerciseId={}", exerciseId);
+        }
+
+        executor.shutdown();
+        log.info("Phase 2 complete: {} of {} repositories git-analyzed", gitAnalyzedCount.get(), clonedCount);
+        eventEmitter.accept(AnalysisEvents.gitDone(gitAnalyzedCount.get()));
+        return gitAnalyzedCount.get();
+    }
+
+    /** Phase 3 (FULL mode): Runs sequential AI fairness analysis for each team. */
+    private void runFullModeAIPhase(
+            List<ParticipationDTO> validParticipations, Map<Long, TeamRepositoryDTO> clonedRepos,
+            Long exerciseId, int totalToProcess, Consumer<Object> eventEmitter) {
+
+        eventEmitter.accept(AnalysisEvents.phase("AI_ANALYSIS", clonedRepos.size()));
+
+        AtomicInteger aiAnalyzedCount = new AtomicInteger(0);
+        LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
+
+        for (ParticipationDTO participation : validParticipations) {
+            if (!analysisStateService.isRunning(exerciseId) || Thread.currentThread().isInterrupted()) {
+                break;
+            }
+
+            TeamRepositoryDTO repo = clonedRepos.get(participation.id());
+            if (repo == null) {
+                aiAnalyzedCount.incrementAndGet();
+                continue;
+            }
+
+            TeamParticipation tp = teamParticipationRepository.findByParticipation(participation.id()).orElse(null);
+            if (tp != null && gitPersistenceService.shouldSkipTeam(tp)) {
+                aiAnalyzedCount.incrementAndGet();
+                continue;
+            }
+
+            runTokenTotals = processAIAnalysis(participation, repo, exerciseId,
+                    aiAnalyzedCount, clonedRepos.size(), runTokenTotals, eventEmitter);
+        }
+
+        log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
+        cqiPersistenceHelper.logTotalUsage("stream", exerciseId, aiAnalyzedCount.get(), runTokenTotals);
+
+        if (analysisStateService.isRunning(exerciseId)) {
+            analysisStateService.completeAnalysis(exerciseId);
+            eventEmitter.accept(AnalysisEvents.done());
+        } else {
+            exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
+            eventEmitter.accept(AnalysisEvents.cancelled(aiAnalyzedCount.get(), totalToProcess));
         }
     }
 
