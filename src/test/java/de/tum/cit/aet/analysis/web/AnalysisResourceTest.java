@@ -4,8 +4,9 @@ import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
+import de.tum.cit.aet.dataProcessing.service.AIAnalysisPersistenceService;
+import de.tum.cit.aet.dataProcessing.service.AnalysisTaskManager;
 import de.tum.cit.aet.dataProcessing.service.ExerciseDataCleanupService;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,13 +26,16 @@ class AnalysisResourceTest {
     private AnalysisStateService stateService;
 
     @Mock
-    private RequestService requestService;
+    private AnalysisTaskManager analysisTaskManager;
 
     @Mock
     private PairProgrammingService pairProgrammingService;
 
     @Mock
     private ExerciseDataCleanupService cleanupService;
+
+    @Mock
+    private AIAnalysisPersistenceService aiPersistenceService;
 
     @InjectMocks
     private AnalysisResource resource;
@@ -61,7 +65,7 @@ class AnalysisResourceTest {
         ResponseEntity<AnalysisStatusDTO> response = resource.cancelAnalysis(123L);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).stopAnalysis(123L);
+        verify(analysisTaskManager).stopAnalysis(123L);
         verify(stateService).cancelAnalysis(123L);
     }
 
@@ -70,9 +74,9 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "db", false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
+        verify(analysisTaskManager).stopAnalysis(123L);  // Always stops running analysis first
         verify(pairProgrammingService).clear();  // Always clears attendance data
-        verify(requestService).clearDatabaseForExercise(123L);
+        verify(cleanupService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
         verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
@@ -82,9 +86,9 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "files", false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
+        verify(analysisTaskManager).stopAnalysis(123L);  // Always stops running analysis first
         verify(pairProgrammingService).clear();  // Always clears attendance data
-        verify(requestService, never()).clearDatabaseForExercise(any());
+        verify(cleanupService, never()).clearDatabaseForExercise(any());
         verify(stateService, never()).resetStatus(any());
         verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
@@ -94,9 +98,9 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "both", false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).stopAnalysis(123L);  // Always stops running analysis first
+        verify(analysisTaskManager).stopAnalysis(123L);  // Always stops running analysis first
         verify(pairProgrammingService).clear();  // Always clears attendance data
-        verify(requestService).clearDatabaseForExercise(123L);
+        verify(cleanupService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
         verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
@@ -106,7 +110,7 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "both", true);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService).clearDatabaseForExercise(123L);
+        verify(cleanupService).clearDatabaseForExercise(123L);
         verify(cleanupService).clearEmailMappingsAndTemplateAuthor(123L);
     }
 
@@ -115,7 +119,7 @@ class AnalysisResourceTest {
         ResponseEntity<String> response = resource.clearData(123L, "files", true);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(requestService, never()).clearDatabaseForExercise(any());
+        verify(cleanupService, never()).clearDatabaseForExercise(any());
         verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
 

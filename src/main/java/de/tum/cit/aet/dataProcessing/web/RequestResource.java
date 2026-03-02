@@ -3,7 +3,9 @@ package de.tum.cit.aet.dataProcessing.web;
 import de.tum.cit.aet.artemis.CredentialResolverService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.AnalysisQueryService;
+import de.tum.cit.aet.dataProcessing.service.AnalysisTaskManager;
+import de.tum.cit.aet.dataProcessing.service.StreamingAnalysisPipelineService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamSummaryDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -22,20 +24,25 @@ import java.util.concurrent.Future;
  * REST controller and facade for the main analysis pipeline.
  * Provides endpoints for starting analysis, retrieving persisted results,
  * and streaming real-time progress updates via SSE.
- *
- * <p>All heavy lifting is delegated to {@link RequestService}.</p>
  */
 @RestController
 @RequestMapping("api/requestResource/")
 @Slf4j
 public class RequestResource {
 
-    private final RequestService requestService;
+    private final AnalysisTaskManager analysisTaskManager;
+    private final AnalysisQueryService analysisQueryService;
+    private final StreamingAnalysisPipelineService pipelineService;
     private final CredentialResolverService credentialResolver;
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
-    public RequestResource(RequestService requestService, CredentialResolverService credentialResolver) {
-        this.requestService = requestService;
+    public RequestResource(AnalysisTaskManager analysisTaskManager,
+                           AnalysisQueryService analysisQueryService,
+                           StreamingAnalysisPipelineService pipelineService,
+                           CredentialResolverService credentialResolver) {
+        this.analysisTaskManager = analysisTaskManager;
+        this.analysisQueryService = analysisQueryService;
+        this.pipelineService = pipelineService;
         this.credentialResolver = credentialResolver;
     }
 
@@ -49,7 +56,7 @@ public class RequestResource {
     @GetMapping("teams/{exerciseId}")
     public ResponseEntity<List<ClientResponseDTO>> getTeamsByExercise(@PathVariable Long exerciseId) {
         log.info("GET teams for exerciseId={}", exerciseId);
-        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
+        return ResponseEntity.ok(analysisQueryService.getTeamsByExerciseId(exerciseId));
     }
 
     /**
@@ -62,7 +69,7 @@ public class RequestResource {
     @GetMapping("teams/{exerciseId}/summary")
     public ResponseEntity<List<TeamSummaryDTO>> getTeamSummaries(@PathVariable Long exerciseId) {
         log.info("GET team summaries for exerciseId={}", exerciseId);
-        return ResponseEntity.ok(requestService.getTeamSummariesByExerciseId(exerciseId));
+        return ResponseEntity.ok(analysisQueryService.getTeamSummariesByExerciseId(exerciseId));
     }
 
     /**
@@ -77,7 +84,7 @@ public class RequestResource {
     public ResponseEntity<ClientResponseDTO> getTeamDetail(
             @PathVariable Long exerciseId, @PathVariable Long teamId) {
         log.info("GET team detail for exerciseId={}, teamId={}", exerciseId, teamId);
-        return requestService.getTeamDetail(exerciseId, teamId)
+        return analysisQueryService.getTeamDetail(exerciseId, teamId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -91,7 +98,7 @@ public class RequestResource {
     @GetMapping("hasData/{exerciseId}")
     public ResponseEntity<Boolean> hasAnalyzedData(@PathVariable Long exerciseId) {
         log.info("GET hasData for exerciseId={}", exerciseId);
-        return ResponseEntity.ok(requestService.hasAnalyzedDataForExercise(exerciseId));
+        return ResponseEntity.ok(analysisQueryService.hasAnalyzedDataForExercise(exerciseId));
     }
 
     /**
@@ -140,7 +147,7 @@ public class RequestResource {
         }
 
         // 2) Check if analysis is already running
-        if (requestService.isTaskRunning(exerciseId)) {
+        if (analysisTaskManager.isTaskRunning(exerciseId)) {
             log.info("Analysis already running for exerciseId={}", exerciseId);
             try {
                 emitter.send(Map.of("type", "ALREADY_RUNNING", "message", "Analysis is already in progress"));
@@ -155,7 +162,7 @@ public class RequestResource {
         final AnalysisMode finalMode = mode;
         Future<?> future = executorService.submit(() -> {
             try {
-                requestService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, finalMode, event -> {
+                pipelineService.fetchAnalyzeAndSaveRepositoriesStream(credentials, exerciseId, finalMode, event -> {
                     try {
                         emitter.send(event);
                     } catch (IllegalStateException e) {
@@ -180,12 +187,12 @@ public class RequestResource {
                 } catch (Exception ignored) {
                 }
             } finally {
-                requestService.unregisterRunningTask(exerciseId);
+                analysisTaskManager.unregisterRunningTask(exerciseId);
             }
         });
 
         // 4) Track the task for cancellation support
-        requestService.registerRunningTask(exerciseId, future);
+        analysisTaskManager.registerRunningTask(exerciseId, future);
 
         return emitter;
     }
@@ -218,8 +225,8 @@ public class RequestResource {
         }
 
         // 2) Run synchronous analysis pipeline
-        requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
-        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
+        pipelineService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
+        return ResponseEntity.ok(analysisQueryService.getTeamsByExerciseId(exerciseId));
     }
 
     /**
@@ -231,7 +238,7 @@ public class RequestResource {
     @GetMapping("{exerciseId}/getData")
     public ResponseEntity<List<ClientResponseDTO>> getData(@PathVariable Long exerciseId) {
         log.info("GET getData for exerciseId={}", exerciseId);
-        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
+        return ResponseEntity.ok(analysisQueryService.getTeamsByExerciseId(exerciseId));
     }
 
     /**

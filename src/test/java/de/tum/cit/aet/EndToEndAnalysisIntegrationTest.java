@@ -3,7 +3,8 @@ package de.tum.cit.aet;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.AnalysisQueryService;
+import de.tum.cit.aet.dataProcessing.service.StreamingAnalysisPipelineService;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
@@ -52,7 +53,10 @@ class EndToEndAnalysisIntegrationTest {
     private static final Logger log = LoggerFactory.getLogger(EndToEndAnalysisIntegrationTest.class);
 
     @Autowired
-    private RequestService requestService;
+    private StreamingAnalysisPipelineService pipelineService;
+
+    @Autowired
+    private AnalysisQueryService analysisQueryService;
 
     @Autowired
     private ArtemisClientService artemisClientService;
@@ -187,7 +191,7 @@ class EndToEndAnalysisIntegrationTest {
         long startTime = System.currentTimeMillis();
 
         // Trigger analysis with maxTeams limit
-        List<ClientResponseDTO> results = requestService.fetchAnalyzeAndSaveRepositories(
+        List<ClientResponseDTO> results = pipelineService.fetchAnalyzeAndSaveRepositories(
                 credentials, EXERCISE_ID, MAX_TEAMS);
 
         long duration = System.currentTimeMillis() - startTime;
@@ -338,7 +342,7 @@ class EndToEndAnalysisIntegrationTest {
         assertTrue(participationCount > 0, "Should have participations before reload test");
 
         log.info("Reloading data from database (simulating restart)...");
-        List<ClientResponseDTO> loadedData = requestService.getAllRepositoryData();
+        List<ClientResponseDTO> loadedData = analysisQueryService.getAllRepositoryData();
 
         assertNotNull(loadedData, "Loaded data should not be null");
         assertEquals(participationCount, loadedData.size(), "Should load same number of teams");

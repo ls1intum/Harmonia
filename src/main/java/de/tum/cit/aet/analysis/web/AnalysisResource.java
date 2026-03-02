@@ -3,8 +3,9 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
+import de.tum.cit.aet.dataProcessing.service.AIAnalysisPersistenceService;
+import de.tum.cit.aet.dataProcessing.service.AnalysisTaskManager;
 import de.tum.cit.aet.dataProcessing.service.ExerciseDataCleanupService;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -17,16 +18,19 @@ import org.springframework.web.bind.annotation.*;
 public class AnalysisResource {
 
     private final AnalysisStateService stateService;
-    private final RequestService requestService;
+    private final AnalysisTaskManager analysisTaskManager;
     private final PairProgrammingService pairProgrammingService;
     private final ExerciseDataCleanupService cleanupService;
+    private final AIAnalysisPersistenceService aiPersistenceService;
 
-    public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
-                            PairProgrammingService pairProgrammingService, ExerciseDataCleanupService cleanupService) {
+    public AnalysisResource(AnalysisStateService stateService, AnalysisTaskManager analysisTaskManager,
+                            PairProgrammingService pairProgrammingService, ExerciseDataCleanupService cleanupService,
+                            AIAnalysisPersistenceService aiPersistenceService) {
         this.stateService = stateService;
-        this.requestService = requestService;
+        this.analysisTaskManager = analysisTaskManager;
         this.pairProgrammingService = pairProgrammingService;
         this.cleanupService = cleanupService;
+        this.aiPersistenceService = aiPersistenceService;
     }
 
     /**
@@ -53,7 +57,7 @@ public class AnalysisResource {
         log.info("POST cancelAnalysis for exerciseId={}", exerciseId);
 
         // First, stop the active executor to interrupt running threads
-        requestService.stopAnalysis(exerciseId);
+        analysisTaskManager.stopAnalysis(exerciseId);
 
         // Then update the state to CANCELLED
         AnalysisStatus status = stateService.cancelAnalysis(exerciseId);
@@ -77,7 +81,7 @@ public class AnalysisResource {
 
         try {
             // First, stop any running analysis task to prevent it from continuing
-            requestService.stopAnalysis(exerciseId);
+            analysisTaskManager.stopAnalysis(exerciseId);
 
             // Clear attendance data so pair programming metric won't show on next analysis
             // unless a new Excel file is uploaded
@@ -85,7 +89,7 @@ public class AnalysisResource {
             log.info("Attendance data cleared for exerciseId={}", exerciseId);
 
             if ("db".equals(type) || "both".equals(type)) {
-                requestService.clearDatabaseForExercise(exerciseId);
+                cleanupService.clearDatabaseForExercise(exerciseId);
                 stateService.resetStatus(exerciseId);
                 log.info("Database cleared for exerciseId={}", exerciseId);
 
@@ -117,7 +121,7 @@ public class AnalysisResource {
     public ResponseEntity<ClientResponseDTO> computeAiForTeam(
             @PathVariable Long exerciseId, @PathVariable Long teamId) {
         log.info("POST computeAiForTeam for exerciseId={}, teamId={}", exerciseId, teamId);
-        return requestService.runSingleTeamAIAnalysis(exerciseId, teamId)
+        return aiPersistenceService.runSingleTeamAIAnalysis(exerciseId, teamId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

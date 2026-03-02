@@ -19,7 +19,7 @@ import java.util.*;
 /**
  * Recalculates CQI from already-persisted AnalyzedChunk data.
  * Shared by {@code EmailMappingResource} (manual assign/unassign)
- * and {@code RequestService} (auto-apply after re-analysis).
+ * and {@code StreamingAnalysisPipelineService} (auto-apply after re-analysis).
  */
 @Service
 @Slf4j

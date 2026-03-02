@@ -3,7 +3,8 @@ package de.tum.cit.aet;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.AnalysisQueryService;
+import de.tum.cit.aet.dataProcessing.service.StreamingAnalysisPipelineService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TeamRepositoryDTO;
 import de.tum.cit.aet.artemis.ArtemisClientService;
@@ -27,7 +28,10 @@ class GitContributionAnalysisServiceTest {
     private ArtemisClientService artemisClientService;
 
     @Autowired
-    private RequestService requestService;
+    private StreamingAnalysisPipelineService pipelineService;
+
+    @Autowired
+    private AnalysisQueryService analysisQueryService;
 
     private final GitContributionAnalysisService gitContributionAnalysisService = new GitContributionAnalysisService();
 
@@ -48,7 +52,7 @@ class GitContributionAnalysisServiceTest {
 
         // 2. Fetch and Clone using credentials DTO
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        List<TeamRepositoryDTO> repos = requestService.fetchAndCloneRepositories(credentials, 18806L);
+        List<TeamRepositoryDTO> repos = pipelineService.fetchAndCloneRepositories(credentials, 18806L);
 
         // 3. Analyze contributions
         Map<Long, AuthorContributionDTO> map = gitContributionAnalysisService.processAllRepositories(repos);
@@ -76,7 +80,7 @@ class GitContributionAnalysisServiceTest {
 
         // 2. Fetch, Analyze and Save
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        requestService.fetchAnalyzeAndSaveRepositories(credentials, 18806L);
+        pipelineService.fetchAnalyzeAndSaveRepositories(credentials, 18806L);
     }
 
     @Test
@@ -84,7 +88,7 @@ class GitContributionAnalysisServiceTest {
         testSaving();
 
         // 3. Fetch from database
-        List<ClientResponseDTO> test = requestService.getAllRepositoryData();
+        List<ClientResponseDTO> test = analysisQueryService.getAllRepositoryData();
         log.info("Fetched {} entries from database.", test.size());
     }
 }
