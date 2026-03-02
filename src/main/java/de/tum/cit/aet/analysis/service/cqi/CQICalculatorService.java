@@ -309,22 +309,7 @@ public class CQICalculatorService {
             weeklyLines[weekIndex] += chunk.totalLinesChanged();
         }
 
-        // Calculate coefficient of variation
-        double mean = Arrays.stream(weeklyLines).average().orElse(0);
-        if (mean == 0) {
-            return 50.0;
-        }
-
-        double variance = Arrays.stream(weeklyLines)
-                .map(v -> Math.pow(v - mean, 2))
-                .average().orElse(0);
-        double stdev = Math.sqrt(variance);
-        double cv = stdev / mean;
-
-        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
-        double normalizedCV = Math.min(cv / 2.0, 1.0);
-
-        return 100.0 * (1.0 - normalizedCV);
+        return calculateWeeklyCVScore(weeklyLines);
     }
 
     /**
@@ -425,7 +410,7 @@ public class CQICalculatorService {
         double[] weeklyEffort = new double[numWeeks];
 
         for (CqiRatedChunkDTO rc : chunks) {
-            if (rc.chunk().timestamp() == null) {
+            if (rc.chunk() == null || rc.chunk().timestamp() == null) {
                 continue;
             }
 
@@ -437,22 +422,7 @@ public class CQICalculatorService {
             weeklyEffort[weekIndex] += effort;
         }
 
-        // Calculate coefficient of variation
-        double mean = Arrays.stream(weeklyEffort).average().orElse(0);
-        if (mean == 0) {
-            return 50.0;
-        }
-
-        double variance = Arrays.stream(weeklyEffort)
-                .map(v -> Math.pow(v - mean, 2))
-                .average().orElse(0);
-        double stdev = Math.sqrt(variance);
-        double cv = stdev / mean;
-
-        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
-        double normalizedCV = Math.min(cv / 2.0, 1.0);
-
-        return 100.0 * (1.0 - normalizedCV);
+        return calculateWeeklyCVScore(weeklyEffort);
     }
 
     /**
@@ -460,41 +430,32 @@ public class CQICalculatorService {
      * Rewards multiple authors touching the same files.
      */
     private double calculateOwnershipSpread(List<CqiRatedChunkDTO> chunks, int teamSize) {
-        if (chunks.isEmpty() || teamSize <= 1) {
-            return 0.0;
-        }
-
-        // Map: filename -> set of author IDs
-        Map<String, Set<Long>> fileAuthors = new HashMap<>();
-        Map<String, Integer> fileCommitCounts = new HashMap<>();
-
-        for (CqiRatedChunkDTO rc : chunks) {
-            for (String file : rc.chunk().files()) {
-                fileAuthors.computeIfAbsent(file, k -> new HashSet<>()).add(rc.chunk().authorId());
-                fileCommitCounts.merge(file, 1, Integer::sum);
-            }
-        }
-
-        // Filter to significant files (>= 3 commits)
-        List<String> significantFiles = fileAuthors.keySet().stream()
-                .filter(f -> fileCommitCounts.getOrDefault(f, 0) >= 3)
-                .toList();
-
-        if (significantFiles.isEmpty()) {
-            return 75.0; // Neutral for sparse data
-        }
-
-        // Calculate average author count per file (capped at team size)
-        int effectiveTeamSize = Math.min(teamSize, 4); // Cap to avoid penalizing small teams
-        double totalAuthors = significantFiles.stream()
-                .mapToDouble(f -> Math.min(fileAuthors.get(f).size(), effectiveTeamSize))
-                .sum();
-
-        double maxPossible = significantFiles.size() * effectiveTeamSize;
-        return 100.0 * totalAuthors / maxPossible;
+        List<CommitChunkDTO> rawChunks = chunks.stream()
+                .map(CqiRatedChunkDTO::chunk).filter(Objects::nonNull).toList();
+        return calculateOwnershipSpreadFromChunks(rawChunks, teamSize);
     }
 
     // ==================== Helper Methods ====================
+
+    /**
+     * Calculates a score from 0–100 based on the coefficient of variation (CV)
+     * of weekly values. A CV of 0 yields 100 (perfectly even), CV >= 2 yields 0.
+     */
+    private double calculateWeeklyCVScore(double[] weeklyValues) {
+        double mean = Arrays.stream(weeklyValues).average().orElse(0);
+        if (mean == 0) {
+            return 50.0;
+        }
+
+        double variance = Arrays.stream(weeklyValues)
+                .map(v -> Math.pow(v - mean, 2))
+                .average().orElse(0);
+        double stdev = Math.sqrt(variance);
+        double cv = stdev / mean;
+
+        double normalizedCV = Math.min(cv / 2.0, 1.0);
+        return 100.0 * (1.0 - normalizedCV);
+    }
 
     /**
      * Calculate Gini coefficient for distribution fairness.

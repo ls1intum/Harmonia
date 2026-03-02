@@ -90,11 +90,18 @@ public class GitOperationsService {
 
     private String cloneOrPullRepository(String repositoryUri,
                                           String username, String password, String gitRepoPath) {
+        if (repositoryUri == null || repositoryUri.isBlank()) {
+            throw new GitOperationException("Repository URI must not be null or blank");
+        }
+
         UsernamePasswordCredentialsProvider credentials =
                 new UsernamePasswordCredentialsProvider(username, password);
 
         // 1) Derive local path from repository URI
         String[] parts = repositoryUri.split("/");
+        if (parts.length == 0) {
+            throw new GitOperationException("Invalid repository URI: " + repositoryUri);
+        }
         String repoName = parts[parts.length - 1].replace(".git", "");
         Path localPath = Paths.get(gitRepoPath, repoName);
         File repoDir = localPath.toFile();

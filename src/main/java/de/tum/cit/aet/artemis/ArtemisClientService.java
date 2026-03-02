@@ -166,7 +166,11 @@ public class ArtemisClientService {
                 return null;
             }
 
-            ZonedDateTime berlinTime = ZonedDateTime.parse(response.asString())
+            String dateString = response.asString();
+            if (dateString == null || dateString.isBlank()) {
+                return null;
+            }
+            ZonedDateTime berlinTime = ZonedDateTime.parse(dateString)
                     .withZoneSameInstant(ZoneId.of("Europe/Berlin"));
             return berlinTime.toOffsetDateTime();
         } catch (Exception e) {
