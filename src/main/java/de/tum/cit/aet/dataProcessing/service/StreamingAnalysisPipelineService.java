@@ -197,12 +197,13 @@ public class StreamingAnalysisPipelineService {
             executor = Executors.newFixedThreadPool(threadCount);
             analysisTaskManager.registerExecutor(exerciseId, executor);
 
-            Map<Long, TeamRepositoryDTO> clonedRepos = runDownloadPhase(
+            DownloadPhaseResult downloadResult = runDownloadPhase(
                     validParticipations, credentials, exerciseId, executor, totalToProcess, mode, eventEmitter);
+            Map<Long, TeamRepositoryDTO> clonedRepos = downloadResult.clonedRepos();
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                eventEmitter.accept(AnalysisEvents.cancelled(clonedRepos.size(), totalToProcess));
+                eventEmitter.accept(AnalysisEvents.cancelled(downloadResult.processedCount(), totalToProcess));
                 return;
             }
 
@@ -246,8 +247,10 @@ public class StreamingAnalysisPipelineService {
     //  Phase runners
     // =====================================================================
 
+    private record DownloadPhaseResult(Map<Long, TeamRepositoryDTO> clonedRepos, int processedCount) {}
+
     /** Phase 1: Clones all repositories in parallel and returns the successfully cloned repos. */
-    private Map<Long, TeamRepositoryDTO> runDownloadPhase(
+    private DownloadPhaseResult runDownloadPhase(
             List<ParticipationDTO> validParticipations, ArtemisCredentials credentials,
             Long exerciseId, ExecutorService executor, int totalToProcess,
             AnalysisMode mode, Consumer<Object> eventEmitter) {
@@ -283,7 +286,7 @@ public class StreamingAnalysisPipelineService {
         }
 
         log.info("Phase 1 complete: {} of {} repositories cloned", clonedRepos.size(), totalToProcess);
-        return clonedRepos;
+        return new DownloadPhaseResult(clonedRepos, downloadedCount.get());
     }
 
     /** Phase 2: Runs git contribution analysis in parallel and returns the count of analyzed repos. */

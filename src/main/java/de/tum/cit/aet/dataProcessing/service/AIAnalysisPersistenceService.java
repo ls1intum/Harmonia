@@ -177,10 +177,12 @@ public class AIAnalysisPersistenceService {
             TeamParticipation teamParticipation, TeamDTO team, List<Student> students) {
 
         // Tier 1: Effort-based fairness analysis
+        LlmTokenTotalsDTO fairnessTokenTotals = LlmTokenTotalsDTO.empty();
         try {
             FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
                     repo, templateAuthorEmail);
             FairnessReportDTO report = fairnessResult.report();
+            fairnessTokenTotals = fairnessResult.tokenTotals();
 
             if (!report.error()) {
                 List<AnalyzedChunkDTO> history = report.analyzedChunks();
@@ -189,7 +191,7 @@ public class AIAnalysisPersistenceService {
                 }
                 return new CqiComputationResult(
                         report.balanceScore(), history, report.cqiResult(),
-                        fairnessResult.tokenTotals());
+                        fairnessTokenTotals);
             }
             log.warn("Fairness analysis returned error for team {}", team.name());
         } catch (Exception e) {
@@ -209,7 +211,7 @@ public class AIAnalysisPersistenceService {
             }
         }
 
-        return new CqiComputationResult(cqi, null, cqiDetails, LlmTokenTotalsDTO.empty());
+        return new CqiComputationResult(cqi, null, cqiDetails, fairnessTokenTotals);
     }
 
     /** Persists CQI score, component scores, token usage, and marks the team as DONE. */
