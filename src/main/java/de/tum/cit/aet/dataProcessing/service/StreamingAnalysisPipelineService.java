@@ -48,7 +48,9 @@ public class StreamingAnalysisPipelineService {
 
     private final AnalysisTaskManager analysisTaskManager;
     private final ExerciseDataCleanupService exerciseDataCleanupService;
-    private final AnalysisResultPersistenceService persistenceService;
+    private final GitAnalysisPersistenceService gitPersistenceService;
+    private final AIAnalysisPersistenceService aiPersistenceService;
+    private final CqiPersistenceHelper cqiPersistenceHelper;
 
     public StreamingAnalysisPipelineService(
             ArtemisClientService artemisClientService,
@@ -60,7 +62,9 @@ public class StreamingAnalysisPipelineService {
             ExerciseTemplateAuthorRepository templateAuthorRepository,
             AnalysisTaskManager analysisTaskManager,
             ExerciseDataCleanupService exerciseDataCleanupService,
-            AnalysisResultPersistenceService persistenceService) {
+            GitAnalysisPersistenceService gitPersistenceService,
+            AIAnalysisPersistenceService aiPersistenceService,
+            CqiPersistenceHelper cqiPersistenceHelper) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
         this.analysisStateService = analysisStateService;
@@ -70,7 +74,9 @@ public class StreamingAnalysisPipelineService {
         this.templateAuthorRepository = templateAuthorRepository;
         this.analysisTaskManager = analysisTaskManager;
         this.exerciseDataCleanupService = exerciseDataCleanupService;
-        this.persistenceService = persistenceService;
+        this.gitPersistenceService = gitPersistenceService;
+        this.aiPersistenceService = aiPersistenceService;
+        this.cqiPersistenceHelper = cqiPersistenceHelper;
     }
 
     // =====================================================================
@@ -107,19 +113,19 @@ public class StreamingAnalysisPipelineService {
         List<ClientResponseDTO> results = new ArrayList<>();
         LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
         for (TeamRepositoryDTO repo : repositories) {
-            ClientResponseDTO gitResult = persistenceService.saveGitAnalysisResult(repo, contributionData, exerciseId);
+            ClientResponseDTO gitResult = gitPersistenceService.saveGitAnalysisResult(repo, contributionData, exerciseId);
             if (gitResult == null) {
                 continue;
             }
-            AnalysisResultPersistenceService.ClientResponseWithUsage aiResult =
-                    persistenceService.saveAIAnalysisResultWithUsage(repo, exerciseId);
+            AIAnalysisPersistenceService.ClientResponseWithUsage aiResult =
+                    aiPersistenceService.saveAIAnalysisResultWithUsage(repo, exerciseId);
             if (aiResult.response() != null) {
                 results.add(aiResult.response());
             }
             runTokenTotals = runTokenTotals.merge(aiResult.tokenTotals());
         }
 
-        persistenceService.logTotalUsage("sync", exerciseId, results.size(), runTokenTotals);
+        cqiPersistenceHelper.logTotalUsage("sync", exerciseId, results.size(), runTokenTotals);
         return results;
     }
 
@@ -298,7 +304,7 @@ public class StreamingAnalysisPipelineService {
                     }
 
                     TeamParticipation tp = teamParticipationRepository.findByParticipation(participation.id()).orElse(null);
-                    if (tp != null && persistenceService.shouldSkipTeam(tp)) {
+                    if (tp != null && gitPersistenceService.shouldSkipTeam(tp)) {
                         aiAnalyzedCount.incrementAndGet();
                         continue;
                     }
@@ -308,7 +314,7 @@ public class StreamingAnalysisPipelineService {
                 }
 
                 log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
-                persistenceService.logTotalUsage("stream", exerciseId, aiAnalyzedCount.get(), runTokenTotals);
+                cqiPersistenceHelper.logTotalUsage("stream", exerciseId, aiAnalyzedCount.get(), runTokenTotals);
 
                 if (analysisStateService.isRunning(exerciseId)) {
                     analysisStateService.completeAnalysis(exerciseId);
@@ -389,7 +395,7 @@ public class StreamingAnalysisPipelineService {
         final TeamRepositoryDTO finalRepo = repo;
         final AnalysisMode finalMode = mode;
         ClientResponseDTO gitDto = transactionTemplate
-                .execute(status -> persistenceService.saveGitAnalysisResult(finalRepo, contributions, exerciseId, finalMode));
+                .execute(status -> gitPersistenceService.saveGitAnalysisResult(finalRepo, contributions, exerciseId, finalMode));
 
         if (gitDto == null) {
             return;
@@ -450,8 +456,8 @@ public class StreamingAnalysisPipelineService {
             }
 
             final TeamRepositoryDTO finalRepo = repo;
-            AnalysisResultPersistenceService.ClientResponseWithUsage aiResult = transactionTemplate
-                    .execute(status -> persistenceService.saveAIAnalysisResultWithUsage(finalRepo, exerciseId));
+            AIAnalysisPersistenceService.ClientResponseWithUsage aiResult = transactionTemplate
+                    .execute(status -> aiPersistenceService.saveAIAnalysisResultWithUsage(finalRepo, exerciseId));
             ClientResponseDTO aiDto = aiResult != null ? aiResult.response() : null;
             if (aiResult != null) {
                 runTokenTotals = runTokenTotals.merge(aiResult.tokenTotals());
@@ -498,7 +504,7 @@ public class StreamingAnalysisPipelineService {
             }
 
             TeamParticipation tp = teamParticipationRepository.findByParticipation(participation.id()).orElse(null);
-            if (tp != null && persistenceService.shouldSkipTeam(tp)) {
+            if (tp != null && gitPersistenceService.shouldSkipTeam(tp)) {
                 processedCount.incrementAndGet();
                 continue;
             }
@@ -506,7 +512,7 @@ public class StreamingAnalysisPipelineService {
             String teamName = participation.team() != null ? participation.team().name() : "Unknown";
             try {
                 ClientResponseDTO result = transactionTemplate.execute(status ->
-                        persistenceService.calculateAndPersistSimpleCqi(participation, repo, exerciseId));
+                        cqiPersistenceHelper.calculateAndPersistSimpleCqi(participation, repo, exerciseId));
 
                 int current = processedCount.incrementAndGet();
                 analysisStateService.updateProgress(exerciseId, teamName, "DONE", current);

@@ -37,10 +37,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for email-mapping application logic in {@link AnalysisResultPersistenceService}.
+ * Tests for email-mapping application logic in {@link AIAnalysisPersistenceService}.
  */
 @ExtendWith(MockitoExtension.class)
-class AnalysisResultPersistenceServiceApplyMappingsTest {
+class AIAnalysisPersistenceServiceTest {
 
     @Mock private AnalyzedChunkRepository analyzedChunkRepository;
     @Mock private ExerciseEmailMappingRepository emailMappingRepository;
@@ -50,22 +50,22 @@ class AnalysisResultPersistenceServiceApplyMappingsTest {
     @Mock private ExerciseTemplateAuthorRepository templateAuthorRepository;
     @Mock private GitContributionAnalysisService gitContributionAnalysisService;
     @Mock private CqiRecalculationService cqiRecalculationService;
-    @Mock private ExerciseDataCleanupService cleanupService;
+    @Mock private CqiPersistenceHelper cqiPersistenceHelper;
     @Mock private AnalysisQueryService queryService;
 
     @Captor private ArgumentCaptor<List<AnalyzedChunk>> chunksCaptor;
 
-    private AnalysisResultPersistenceService service;
+    private AIAnalysisPersistenceService service;
 
     @BeforeEach
     void setUp() {
-        service = new AnalysisResultPersistenceService(
-                null, fairnessService, null,
-                gitContributionAnalysisService, null, null, null,
-                cqiRecalculationService, null,
-                null, teamParticipationRepository, null, studentRepository,
+        service = new AIAnalysisPersistenceService(
+                fairnessService, null, cqiPersistenceHelper,
+                cqiRecalculationService, gitContributionAnalysisService,
+                queryService,
+                teamParticipationRepository, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
-                cleanupService, queryService, null);
+                null, null);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
@@ -217,6 +217,9 @@ class AnalysisResultPersistenceServiceApplyMappingsTest {
 
         // saveAll for chunks: capture and return the same list
         when(analyzedChunkRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Mock serializeCommitMessages on queryService
+        when(queryService.serializeCommitMessages(any())).thenReturn("[\"add feature\"]");
 
         // An existing email mapping was created before clear+re-run
         ExerciseEmailMapping mapping = new ExerciseEmailMapping(exerciseId, "orphan@gmail.com", 100L, "Alice");

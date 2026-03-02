@@ -260,6 +260,38 @@ public class AnalysisQueryService {
     }
 
     /**
+     * Serializes a list of commit messages to a JSON string.
+     *
+     * @param messages the commit messages
+     * @return JSON array string, or {@code "[]"} on error
+     */
+    public String serializeCommitMessages(List<String> messages) {
+        try {
+            return objectMapper.writeValueAsString(messages);
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
+    /**
+     * Serializes a weekly effort distribution to a JSON string.
+     *
+     * @param weeklyDistribution the weekly effort values
+     * @return JSON array string, or {@code null} if empty or on error
+     */
+    public String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
+        try {
+            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(weeklyDistribution);
+        } catch (Exception e) {
+            log.warn("Failed to serialize weekly distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Parses a JSON string into a list of commit messages.
      *
      * @param json the JSON array string

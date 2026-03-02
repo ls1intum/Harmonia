@@ -22,7 +22,8 @@ import java.util.function.Consumer;
  *   <li>Queries           → {@link AnalysisQueryService}</li>
  *   <li>Pair programming  → {@link PairProgrammingMetricsService}</li>
  *   <li>Cleanup           → {@link ExerciseDataCleanupService}</li>
- *   <li>Persistence       → {@link AnalysisResultPersistenceService}</li>
+ *   <li>Git persistence   → {@link GitAnalysisPersistenceService}</li>
+ *   <li>AI persistence    → {@link AIAnalysisPersistenceService}</li>
  *   <li>Pipeline          → {@link StreamingAnalysisPipelineService}</li>
  * </ul>
  */
@@ -33,7 +34,8 @@ public class RequestService {
     private final AnalysisQueryService analysisQueryService;
     private final PairProgrammingMetricsService pairProgrammingMetricsService;
     private final ExerciseDataCleanupService exerciseDataCleanupService;
-    private final AnalysisResultPersistenceService persistenceService;
+    private final GitAnalysisPersistenceService gitPersistenceService;
+    private final AIAnalysisPersistenceService aiPersistenceService;
     private final StreamingAnalysisPipelineService pipelineService;
 
     public RequestService(
@@ -41,13 +43,15 @@ public class RequestService {
             AnalysisQueryService analysisQueryService,
             PairProgrammingMetricsService pairProgrammingMetricsService,
             ExerciseDataCleanupService exerciseDataCleanupService,
-            AnalysisResultPersistenceService persistenceService,
+            GitAnalysisPersistenceService gitPersistenceService,
+            AIAnalysisPersistenceService aiPersistenceService,
             StreamingAnalysisPipelineService pipelineService) {
         this.analysisTaskManager = analysisTaskManager;
         this.analysisQueryService = analysisQueryService;
         this.pairProgrammingMetricsService = pairProgrammingMetricsService;
         this.exerciseDataCleanupService = exerciseDataCleanupService;
-        this.persistenceService = persistenceService;
+        this.gitPersistenceService = gitPersistenceService;
+        this.aiPersistenceService = aiPersistenceService;
         this.pipelineService = pipelineService;
     }
 
@@ -185,7 +189,7 @@ public class RequestService {
     }
 
     // =====================================================================
-    //  Persistence — delegates to AnalysisResultPersistenceService
+    //  Persistence — delegates to GitAnalysisPersistenceService / AIAnalysisPersistenceService
     // =====================================================================
 
     /**
@@ -198,7 +202,7 @@ public class RequestService {
      */
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
                                                     Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
-        return persistenceService.saveGitAnalysisResult(repo, contributionData, exerciseId);
+        return gitPersistenceService.saveGitAnalysisResult(repo, contributionData, exerciseId);
     }
 
     /**
@@ -213,7 +217,7 @@ public class RequestService {
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
                                                     Map<Long, AuthorContributionDTO> contributionData,
                                                     Long exerciseId, AnalysisMode mode) {
-        return persistenceService.saveGitAnalysisResult(repo, contributionData, exerciseId, mode);
+        return gitPersistenceService.saveGitAnalysisResult(repo, contributionData, exerciseId, mode);
     }
 
     /**
@@ -224,7 +228,7 @@ public class RequestService {
      * @return client response
      */
     public ClientResponseDTO saveAIAnalysisResult(TeamRepositoryDTO repo, Long exerciseId) {
-        return persistenceService.saveAIAnalysisResult(repo, exerciseId);
+        return aiPersistenceService.saveAIAnalysisResult(repo, exerciseId);
     }
 
     /**
@@ -235,7 +239,7 @@ public class RequestService {
      * @return response or empty
      */
     public Optional<ClientResponseDTO> runSingleTeamAIAnalysis(Long exerciseId, Long teamId) {
-        return persistenceService.runSingleTeamAIAnalysis(exerciseId, teamId);
+        return aiPersistenceService.runSingleTeamAIAnalysis(exerciseId, teamId);
     }
 
     // =====================================================================
