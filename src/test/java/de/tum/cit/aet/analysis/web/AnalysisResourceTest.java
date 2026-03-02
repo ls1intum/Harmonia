@@ -3,9 +3,8 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalysisState;
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
-import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
-import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
+import de.tum.cit.aet.dataProcessing.service.ExerciseDataCleanupService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.junit.jupiter.api.Test;
@@ -32,10 +31,7 @@ class AnalysisResourceTest {
     private PairProgrammingService pairProgrammingService;
 
     @Mock
-    private ExerciseEmailMappingRepository emailMappingRepository;
-
-    @Mock
-    private ExerciseTemplateAuthorRepository templateAuthorRepository;
+    private ExerciseDataCleanupService cleanupService;
 
     @InjectMocks
     private AnalysisResource resource;
@@ -78,7 +74,7 @@ class AnalysisResourceTest {
         verify(pairProgrammingService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
-        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
+        verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
 
     @Test
@@ -90,7 +86,7 @@ class AnalysisResourceTest {
         verify(pairProgrammingService).clear();  // Always clears attendance data
         verify(requestService, never()).clearDatabaseForExercise(any());
         verify(stateService, never()).resetStatus(any());
-        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
+        verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
 
     @Test
@@ -102,7 +98,7 @@ class AnalysisResourceTest {
         verify(pairProgrammingService).clear();  // Always clears attendance data
         verify(requestService).clearDatabaseForExercise(123L);
         verify(stateService).resetStatus(123L);
-        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
+        verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
 
     @Test
@@ -111,8 +107,7 @@ class AnalysisResourceTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService).clearDatabaseForExercise(123L);
-        verify(emailMappingRepository).deleteAllByExerciseId(123L);
-        verify(templateAuthorRepository).deleteByExerciseId(123L);
+        verify(cleanupService).clearEmailMappingsAndTemplateAuthor(123L);
     }
 
     @Test
@@ -121,7 +116,7 @@ class AnalysisResourceTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(requestService, never()).clearDatabaseForExercise(any());
-        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
+        verify(cleanupService, never()).clearEmailMappingsAndTemplateAuthor(any());
     }
 
 }

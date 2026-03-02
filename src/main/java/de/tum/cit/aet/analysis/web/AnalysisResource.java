@@ -2,22 +2,14 @@ package de.tum.cit.aet.analysis.web;
 
 import de.tum.cit.aet.analysis.domain.AnalysisStatus;
 import de.tum.cit.aet.analysis.dto.AnalysisStatusDTO;
-import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
-import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
+import de.tum.cit.aet.dataProcessing.service.ExerciseDataCleanupService;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import de.tum.cit.aet.repositoryProcessing.dto.ClientResponseDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Comparator;
-import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("api/analysis")
@@ -27,17 +19,14 @@ public class AnalysisResource {
     private final AnalysisStateService stateService;
     private final RequestService requestService;
     private final PairProgrammingService pairProgrammingService;
-    private final ExerciseEmailMappingRepository emailMappingRepository;
-    private final ExerciseTemplateAuthorRepository templateAuthorRepository;
+    private final ExerciseDataCleanupService cleanupService;
 
     public AnalysisResource(AnalysisStateService stateService, RequestService requestService,
-                            PairProgrammingService pairProgrammingService, ExerciseEmailMappingRepository emailMappingRepository,
-                            ExerciseTemplateAuthorRepository templateAuthorRepository) {
+                            PairProgrammingService pairProgrammingService, ExerciseDataCleanupService cleanupService) {
         this.stateService = stateService;
         this.requestService = requestService;
         this.pairProgrammingService = pairProgrammingService;
-        this.emailMappingRepository = emailMappingRepository;
-        this.templateAuthorRepository = templateAuthorRepository;
+        this.cleanupService = cleanupService;
     }
 
     /**
@@ -101,14 +90,12 @@ public class AnalysisResource {
                 log.info("Database cleared for exerciseId={}", exerciseId);
 
                 if (clearMappings) {
-                    emailMappingRepository.deleteAllByExerciseId(exerciseId);
-                    templateAuthorRepository.deleteByExerciseId(exerciseId);
-                    log.info("Email mappings and template author cleared for exerciseId={}", exerciseId);
+                    cleanupService.clearEmailMappingsAndTemplateAuthor(exerciseId);
                 }
             }
 
             if ("files".equals(type) || "both".equals(type)) {
-                clearRepositoryFiles();
+                cleanupService.clearRepositoryFiles();
                 log.info("Repository files cleared for exerciseId={}", exerciseId);
             }
 
@@ -133,38 +120,6 @@ public class AnalysisResource {
         return requestService.runSingleTeamAIAnalysis(exerciseId, teamId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
-    }
-
-    private void clearRepositoryFiles() {
-        // Clear ~/.harmonia/repos
-        Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");
-        deleteDirectoryContents(reposDir, "~/.harmonia/repos");
-
-        // Clear Projects folder (relative to working directory)
-        Path projectsDir = Paths.get("Projects");
-        deleteDirectoryContents(projectsDir, "Projects");
-    }
-
-    private void deleteDirectoryContents(Path dir, String dirName) {
-        if (Files.exists(dir)) {
-            log.info("Clearing directory: {}", dir.toAbsolutePath());
-            try (Stream<Path> walk = Files.walk(dir)) {
-                walk.sorted(Comparator.reverseOrder())
-                        .filter(path -> !path.equals(dir)) // Keep the root directory itself
-                        .forEach(path -> {
-                            try {
-                                Files.delete(path);
-                            } catch (IOException e) {
-                                log.warn("Failed to delete {}: {}", path, e.getMessage());
-                            }
-                        });
-            } catch (IOException e) {
-                log.error("Failed to walk directory {}: {}", dirName, e.getMessage());
-            }
-            log.info("Cleared {} successfully", dirName);
-        } else {
-            log.info("Directory {} does not exist, nothing to clear", dirName);
-        }
     }
 
     private AnalysisStatusDTO toDTO(AnalysisStatus status) {

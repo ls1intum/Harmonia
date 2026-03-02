@@ -1,6 +1,8 @@
 package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
+import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
+import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamAnalysisStatus;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.domain.Tutor;
@@ -16,9 +18,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Database clearing, team initialization, and team status management for exercises.
@@ -32,17 +40,23 @@ public class ExerciseDataCleanupService {
     private final AnalyzedChunkRepository analyzedChunkRepository;
     private final StudentRepository studentRepository;
     private final TutorRepository tutorRepository;
+    private final ExerciseEmailMappingRepository emailMappingRepository;
+    private final ExerciseTemplateAuthorRepository templateAuthorRepository;
 
     public ExerciseDataCleanupService(TeamParticipationRepository teamParticipationRepository,
                                       TeamRepositoryRepository teamRepositoryRepository,
                                       AnalyzedChunkRepository analyzedChunkRepository,
                                       StudentRepository studentRepository,
-                                      TutorRepository tutorRepository) {
+                                      TutorRepository tutorRepository,
+                                      ExerciseEmailMappingRepository emailMappingRepository,
+                                      ExerciseTemplateAuthorRepository templateAuthorRepository) {
         this.teamParticipationRepository = teamParticipationRepository;
         this.teamRepositoryRepository = teamRepositoryRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
         this.studentRepository = studentRepository;
         this.tutorRepository = tutorRepository;
+        this.emailMappingRepository = emailMappingRepository;
+        this.templateAuthorRepository = templateAuthorRepository;
     }
 
     /**
@@ -196,5 +210,47 @@ public class ExerciseDataCleanupService {
             return tutorRepository.save(new Tutor(tut.id(), tut.login(), tut.name(), tut.email()));
         }
         return null;
+    }
+
+    /**
+     * Deletes email mappings and template author configuration for an exercise.
+     */
+    @Transactional
+    public void clearEmailMappingsAndTemplateAuthor(Long exerciseId) {
+        emailMappingRepository.deleteAllByExerciseId(exerciseId);
+        templateAuthorRepository.deleteByExerciseId(exerciseId);
+        log.info("Email mappings and template author cleared for exerciseId={}", exerciseId);
+    }
+
+    /**
+     * Deletes all cloned repository files from the filesystem.
+     */
+    public void clearRepositoryFiles() {
+        Path reposDir = Paths.get(System.getProperty("user.home"), ".harmonia", "repos");
+        deleteDirectoryContents(reposDir, "~/.harmonia/repos");
+        Path projectsDir = Paths.get("Projects");
+        deleteDirectoryContents(projectsDir, "Projects");
+    }
+
+    private void deleteDirectoryContents(Path dir, String dirName) {
+        if (Files.exists(dir)) {
+            log.info("Clearing directory: {}", dir.toAbsolutePath());
+            try (Stream<Path> walk = Files.walk(dir)) {
+                walk.sorted(Comparator.reverseOrder())
+                        .filter(path -> !path.equals(dir))
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (IOException e) {
+                                log.warn("Failed to delete {}: {}", path, e.getMessage());
+                            }
+                        });
+            } catch (IOException e) {
+                log.error("Failed to walk directory {}: {}", dirName, e.getMessage());
+            }
+            log.info("Cleared {} successfully", dirName);
+        } else {
+            log.info("Directory {} does not exist, nothing to clear", dirName);
+        }
     }
 }
