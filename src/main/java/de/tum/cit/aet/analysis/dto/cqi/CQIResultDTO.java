@@ -1,6 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 
 
 /**
@@ -23,10 +24,10 @@ public record CQIResultDTO(
      * Create result for single contributor (no collaboration possible).
      * Returns 0 since no collaboration is possible.
      */
-    public static CQIResultDTO singleContributor(ComponentWeightsDTO weights) {
+    public static CQIResultDTO singleContributor(ComponentWeightsDTO weights, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 0.0, // No collaboration possible = 0
-                ComponentScoresDTO.zero(),
+                ComponentScoresDTO.zero(pairProgrammingStatus),
                 weights,
                 0.0,
                 null);
@@ -38,7 +39,7 @@ public record CQIResultDTO(
     public static CQIResultDTO noPairProgramming(ComponentWeightsDTO weights) {
         return new CQIResultDTO(
                 0.0, // No collaboration
-                ComponentScoresDTO.zero(),
+                ComponentScoresDTO.zero(PairProgrammingStatus.FAIL),
                 weights,
                 0.0,
                 null);
@@ -48,10 +49,10 @@ public record CQIResultDTO(
     /**
      * Create result when no productive work was found.
      */
-    public static CQIResultDTO noProductiveWork(ComponentWeightsDTO weights, FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO noProductiveWork(ComponentWeightsDTO weights, FilterSummaryDTO filterSummary, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 0.0,
-                ComponentScoresDTO.zero(),
+                ComponentScoresDTO.zero(pairProgrammingStatus),
                 weights,
                 0.0,
                 filterSummary);
@@ -60,10 +61,10 @@ public record CQIResultDTO(
     /**
      * Create result for fallback calculation (LoC-based).
      */
-    public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary) {
+    public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 locScore,
-                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, null),
+                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, pairProgrammingStatus),
                 weights,
                 locScore,
                 filterSummary);

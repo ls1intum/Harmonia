@@ -1,6 +1,7 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 
 /**
  * Individual component scores for CQI calculation.
@@ -10,8 +11,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * @param temporalSpread        temporal distribution of work (0-100)
  * @param ownershipSpread       file ownership distribution (0-100)
  * @param pairProgramming       pair programming collaboration score (0-100, nullable)
- * @param pairProgrammingStatus pair programming metric status: "FOUND", "NOT_FOUND",
- *                              "WARNING", or null if no attendance data uploaded
+ * @param pairProgrammingStatus Status of pair programming metric:
+ *                              PASS/FAIL (team found and attendance threshold passed/failed),
+ *                              NOT_FOUND (Excel uploaded but team missing),
+ *                              WARNING (cancelled sessions affected evaluation),
+ *                              null if no Excel uploaded.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ComponentScoresDTO(
@@ -20,13 +24,13 @@ public record ComponentScoresDTO(
         double temporalSpread,
         double ownershipSpread,
         Double pairProgramming,
-        String pairProgrammingStatus
+        PairProgrammingStatus pairProgrammingStatus
 ) {
     /**
      * Create zero scores.
      */
-    public static ComponentScoresDTO zero() {
-        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, null);
+    public static ComponentScoresDTO zero(PairProgrammingStatus pairProgrammingStatus) {
+        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, pairProgrammingStatus);
     }
 
     /**

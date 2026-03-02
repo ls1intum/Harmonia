@@ -7,6 +7,7 @@ import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.*;
@@ -830,7 +831,7 @@ public class RequestService {
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
                     PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
                     cqiDetails = cqiCalculatorService.calculateFallback(
-                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
+                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name());
                     cqi = cqiDetails.cqi();
                 } catch (Exception e) {
                     log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -1342,7 +1343,8 @@ public class RequestService {
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
-                teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                PairProgrammingStatus pairProgrammingStatus = gitComponents.pairProgrammingStatus();
+                teamParticipation.setCqiPairProgrammingStatus(pairProgrammingStatus != null ? pairProgrammingStatus.name() : null);
                 teamParticipationRepository.save(teamParticipation);
 
                 return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
@@ -1363,7 +1365,7 @@ public class RequestService {
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             CQIResultDTO result = cqiCalculatorService.calculateFallback(
-                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
+                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name());
             return result.cqi();
         } catch (Exception e) {
             log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -1412,8 +1414,9 @@ public class RequestService {
 
         Double previousScore = participation.getCqiPairProgramming();
         String previousStatus = participation.getCqiPairProgrammingStatus();
-        Double nextScore = components.pairProgramming();
-        String nextStatus = components.pairProgrammingStatus();
+        PairProgrammingStatus nextStatus = components.pairProgrammingStatus();
+        Double nextScore = normalizePairProgrammingScore(components.pairProgramming(), nextStatus);
+        String nextStatusValue = nextStatus != null ? nextStatus.name() : null;
 
         boolean changed = !Objects.equals(previousScore, nextScore)
                 || !Objects.equals(previousStatus, nextStatus);
@@ -1422,7 +1425,7 @@ public class RequestService {
         }
 
         participation.setCqiPairProgramming(nextScore);
-        participation.setCqiPairProgrammingStatus(nextStatus);
+        participation.setCqiPairProgrammingStatus(nextStatusValue);
         teamParticipationRepository.save(participation);
         return true;
     }
@@ -1728,13 +1731,18 @@ public class RequestService {
             return null;
         }
 
+        PairProgrammingStatus pairProgrammingStatus = parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus());
+        Double pairProgrammingScore = normalizePairProgrammingScore(
+                participation.getCqiPairProgramming(),
+                pairProgrammingStatus);
+
         ComponentScoresDTO components = new ComponentScoresDTO(
                 participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
-                participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                pairProgrammingScore,
+                pairProgrammingStatus);
 
         // Determine weights based on analysis mode
         ComponentWeightsDTO weights;
@@ -1977,5 +1985,37 @@ public class RequestService {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    /**
+     * Parse programming status
+     * @param status Status as String
+     * @return
+     */
+    private PairProgrammingStatus parsePairProgrammingStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return PairProgrammingStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown pair programming status '{}' in persisted data, ignoring", status);
+            return null;
+        }
+    }
+
+    /**
+     * Normalizes persisted pair-programming score values.
+     * Score should remain null for NOT_FOUND and default to 0 for other statuses
+     * when a numeric score is absent.
+     */
+    private Double normalizePairProgrammingScore(Double score, PairProgrammingStatus status) {
+        if (score != null) {
+            return score;
+        }
+        if (status == null || status == PairProgrammingStatus.NOT_FOUND) {
+            return null;
+        }
+        return 0.0;
     }
 }
