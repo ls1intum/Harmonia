@@ -18,14 +18,14 @@ import {
 } from '@/lib/pairProgramming';
 import { pairProgrammingApi, emailMappingApi, requestApi } from '@/lib/apiClient';
 
-type NullableAttendanceMap = Record<string, boolean | null>;
+type AttendanceMap = Record<string, string | boolean | null>;
 
 const hasCancelledSessionAttendance = (attendance?: TeamAttendanceDTO): boolean => {
-  const student1Attendance = (attendance?.student1Attendance ?? {}) as NullableAttendanceMap;
-  const student2Attendance = (attendance?.student2Attendance ?? {}) as NullableAttendanceMap;
+  const student1Attendance = (attendance?.student1Attendance ?? {}) as AttendanceMap;
+  const student2Attendance = (attendance?.student2Attendance ?? {}) as AttendanceMap;
   return Object.values(student1Attendance)
     .concat(Object.values(student2Attendance))
-    .some(value => value === null);
+    .some(value => value === 'CANCELLED' || value === null);
 };
 
 const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairProgrammingAttendanceMap => {
@@ -185,94 +185,93 @@ export default function Teams() {
     },
   });
 
-  // Mutation for starting analysis (accepts mode from the UI)
-  const startMutation = useMutation({
-    mutationFn: async (mode: AnalysisMode) => {
-      // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
-      // This ensures the button changes immediately to "Cancel"
-      queryClient.setQueryData(['teams', exercise], []);
-      queryClient.setQueryData(['analysisStatus', exercise], {
-        state: 'RUNNING' as const,
-        totalTeams: 0,
-        processedTeams: 0,
-        currentTeamName: undefined,
-        currentStage: undefined,
-        analysisMode: mode,
-      });
+  // Shared helper for start/recompute mutations
+  const createAnalysisMutation = (toasts: { start: string; success: string; error: string }) =>
+    useMutation({
+      mutationFn: async (mode: AnalysisMode) => {
+        queryClient.setQueryData(['teams', exercise], []);
+        queryClient.setQueryData(['analysisStatus', exercise], {
+          state: 'RUNNING' as const,
+          totalTeams: 0,
+          processedTeams: 0,
+          currentTeamName: undefined,
+          currentStage: undefined,
+          analysisMode: mode,
+        });
 
-      toast({ title: 'Starting analysis...' });
+        toast({ title: toasts.start });
 
-      // Step 2: Start streaming (server will clear data before starting)
-      queryClient.setQueryData(['templateAuthor', exercise], null);
-      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
-      return new Promise<void>((resolve, reject) => {
-        loadBasicTeamDataStream(
-          exercise,
-          () => {}, // onTotal
-          // onInit: Add team with pending status
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
-              const exists = old.some(t => t.teamId === team.teamId);
-              if (exists) return old;
-              return old.concat(team);
-            });
-          },
-          // onUpdate: Update existing team with new data
-          update => {
-            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
-              const existing = old.find(t => t.teamId === update.teamId);
-              if (existing) {
-                return old.map(t => (t.teamId === update.teamId ? Object.assign({}, t, update) : t));
-              }
-              return old.concat(update as TeamDTO);
-            });
-          },
-          () => {
-            refetchStatus();
-            resolve();
-          },
-          error => {
-            reject(error);
-          },
-          undefined, // onPhaseChange
-          undefined, // onGitDone
-          info => queryClient.setQueryData(['templateAuthor', exercise], info),
-          candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
-          mode,
-          statusUpdate => {
-            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
-              Object.assign({}, old, {
-                state: 'RUNNING' as const,
-                analysisMode: mode,
-                processedTeams: statusUpdate.processedTeams,
-                totalTeams: statusUpdate.totalTeams,
-                currentTeamName: statusUpdate.currentTeamName,
-                currentStage: statusUpdate.currentStage,
-              }),
-            );
-          },
-        );
-      });
-    },
-    onSuccess: () => {
-      toast({ title: 'Analysis completed!' });
-      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
-      refetchStatus();
-    },
-    onError: (error: Error) => {
-      if (error?.message === 'ALREADY_RUNNING') {
-        // Analysis was already running - this is not an error, just inform the user
-        toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
+        queryClient.setQueryData(['templateAuthor', exercise], null);
+        queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
+        return new Promise<void>((resolve, reject) => {
+          loadBasicTeamDataStream(
+            exercise,
+            () => {},
+            team => {
+              queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
+                const exists = old.some(t => t.teamId === team.teamId);
+                if (exists) return old;
+                return old.concat(team);
+              });
+            },
+            update => {
+              queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
+                const existing = old.find(t => t.teamId === update.teamId);
+                if (existing) {
+                  return old.map(t => (t.teamId === update.teamId ? Object.assign({}, t, update) : t));
+                }
+                return old.concat(update as TeamDTO);
+              });
+            },
+            () => {
+              refetchStatus();
+              resolve();
+            },
+            error => {
+              reject(error);
+            },
+            undefined, // onPhaseChange
+            undefined, // onGitDone
+            info => queryClient.setQueryData(['templateAuthor', exercise], info),
+            candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
+            mode,
+            statusUpdate => {
+              queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
+                Object.assign({}, old, {
+                  state: 'RUNNING' as const,
+                  analysisMode: mode,
+                  processedTeams: statusUpdate.processedTeams,
+                  totalTeams: statusUpdate.totalTeams,
+                  currentTeamName: statusUpdate.currentTeamName,
+                  currentStage: statusUpdate.currentStage,
+                }),
+              );
+            },
+          );
+        });
+      },
+      onSuccess: () => {
+        toast({ title: toasts.success });
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+        queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
         refetchStatus();
-        return;
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Failed to start analysis',
-      });
-      refetchStatus();
-    },
+      },
+      onError: (error: Error) => {
+        if (error?.message === 'ALREADY_RUNNING') {
+          toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
+          refetchStatus();
+          return;
+        }
+        toast({ variant: 'destructive', title: toasts.error });
+        refetchStatus();
+      },
+    });
+
+  // Mutation for starting analysis (accepts mode from the UI)
+  const startMutation = createAnalysisMutation({
+    start: 'Starting analysis...',
+    success: 'Analysis completed!',
+    error: 'Failed to start analysis',
   });
 
   // Mutation for cancelling
@@ -298,89 +297,10 @@ export default function Teams() {
   });
 
   // Mutation for recompute (force) - same as start since server clears data first
-  const recomputeMutation = useMutation({
-    mutationFn: async (mode: AnalysisMode) => {
-      // Step 1: Immediately update UI - clear teams cache and set status to RUNNING
-      queryClient.setQueryData(['teams', exercise], []);
-      queryClient.setQueryData(['analysisStatus', exercise], {
-        state: 'RUNNING' as const,
-        totalTeams: 0,
-        processedTeams: 0,
-        currentTeamName: undefined,
-        currentStage: undefined,
-        analysisMode: mode,
-      });
-
-      toast({ title: 'Forcing reanalysis...' });
-
-      // Step 2: Start streaming (server will clear data before starting)
-      queryClient.setQueryData(['templateAuthor', exercise], null);
-      queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
-      return new Promise<void>((resolve, reject) => {
-        loadBasicTeamDataStream(
-          exercise,
-          () => {},
-          team => {
-            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
-              const exists = old.some(t => t.teamId === team.teamId);
-              if (exists) return old;
-              return old.concat(team);
-            });
-          },
-          update => {
-            queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) => {
-              const existing = old.find(t => t.teamId === update.teamId);
-              if (existing) {
-                return old.map(t => (t.teamId === update.teamId ? Object.assign({}, t, update) : t));
-              }
-              return old.concat(update as TeamDTO);
-            });
-          },
-          () => {
-            refetchStatus();
-            resolve();
-          },
-          error => {
-            reject(error);
-          },
-          undefined, // onPhaseChange
-          undefined, // onGitDone
-          info => queryClient.setQueryData(['templateAuthor', exercise], info),
-          candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
-          mode,
-          statusUpdate => {
-            queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
-              Object.assign({}, old, {
-                state: 'RUNNING' as const,
-                analysisMode: mode,
-                processedTeams: statusUpdate.processedTeams,
-                totalTeams: statusUpdate.totalTeams,
-                currentTeamName: statusUpdate.currentTeamName,
-                currentStage: statusUpdate.currentStage,
-              }),
-            );
-          },
-        );
-      });
-    },
-    onSuccess: () => {
-      toast({ title: 'Reanalysis completed!' });
-      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
-      refetchStatus();
-    },
-    onError: (error: Error) => {
-      if (error?.message === 'ALREADY_RUNNING') {
-        toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
-        refetchStatus();
-        return;
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Failed to reanalyze',
-      });
-      refetchStatus();
-    },
+  const recomputeMutation = createAnalysisMutation({
+    start: 'Forcing reanalysis...',
+    success: 'Reanalysis completed!',
+    error: 'Failed to reanalyze',
   });
 
   // Mutation for clear

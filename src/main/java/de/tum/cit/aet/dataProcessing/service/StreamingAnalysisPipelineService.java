@@ -174,7 +174,7 @@ public class StreamingAnalysisPipelineService {
 
             int totalToProcess = validParticipations.size();
             analysisStateService.startAnalysis(exerciseId, totalToProcess, mode);
-            eventEmitter.accept(Map.of("type", "START", "total", totalToProcess, "analysisMode", mode.name()));
+            eventEmitter.accept(AnalysisEvents.start(totalToProcess, mode.name()));
 
             // 3) Persist PENDING state for all teams and emit initial team data to the client
             exerciseDataCleanupService.initializePendingTeams(validParticipations, exerciseId, false);
@@ -182,13 +182,13 @@ public class StreamingAnalysisPipelineService {
 
             if (validParticipations.isEmpty()) {
                 analysisStateService.completeAnalysis(exerciseId);
-                eventEmitter.accept(Map.of("type", "DONE"));
+                eventEmitter.accept(AnalysisEvents.done());
                 return;
             }
 
             // 4) Phase 1 — Download: Clone all repositories in parallel
             log.info("Phase 1: Downloading {} repositories (mode={})", totalToProcess, mode);
-            eventEmitter.accept(Map.of("type", "PHASE", "phase", "DOWNLOADING", "total", totalToProcess));
+            eventEmitter.accept(AnalysisEvents.phase("DOWNLOADING", totalToProcess));
 
             Map<Long, TeamRepositoryDTO> clonedRepos = new ConcurrentHashMap<>();
             int threadCount = Math.max(1, Math.min(totalToProcess, Runtime.getRuntime().availableProcessors()));
@@ -207,7 +207,7 @@ public class StreamingAnalysisPipelineService {
                         processDownload(participation, credentials, exerciseId,
                                 clonedRepos, downloadedCount, totalToProcess, eventEmitter);
                     } catch (Exception e) {
-                        handleDownloadError(e, participation, exerciseId, downloadedCount, eventEmitter);
+                        handlePhaseError("Download", e, participation, exerciseId, downloadedCount, eventEmitter);
                     } finally {
                         downloadLatch.countDown();
                     }
@@ -225,15 +225,14 @@ public class StreamingAnalysisPipelineService {
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                eventEmitter.accept(Map.of("type", "CANCELLED",
-                        "processed", downloadedCount.get(), "total", totalToProcess));
+                eventEmitter.accept(AnalysisEvents.cancelled(downloadedCount.get(), totalToProcess));
                 return;
             }
 
             // 5) Phase 2 — Git Analysis
             int clonedCount = clonedRepos.size();
             log.info("Phase 2: Git-analyzing {} repositories", clonedCount);
-            eventEmitter.accept(Map.of("type", "PHASE", "phase", "GIT_ANALYSIS", "total", clonedCount));
+            eventEmitter.accept(AnalysisEvents.phase("GIT_ANALYSIS", clonedCount));
 
             CountDownLatch analysisLatch = new CountDownLatch(clonedCount);
             AtomicInteger gitAnalyzedCount = new AtomicInteger(0);
@@ -251,7 +250,7 @@ public class StreamingAnalysisPipelineService {
                         processGitAnalysis(participation, repo, exerciseId,
                                 gitAnalyzedCount, clonedCount, eventEmitter, mode);
                     } catch (Exception e) {
-                        handleGitAnalysisError(e, participation, exerciseId, gitAnalyzedCount, eventEmitter);
+                        handlePhaseError("Git analysis", e, participation, exerciseId, gitAnalyzedCount, eventEmitter);
                     } finally {
                         analysisLatch.countDown();
                     }
@@ -267,12 +266,11 @@ public class StreamingAnalysisPipelineService {
 
             executor.shutdown();
             log.info("Phase 2 complete: {} of {} repositories git-analyzed", gitAnalyzedCount.get(), clonedCount);
-            eventEmitter.accept(Map.of("type", "GIT_DONE", "processed", gitAnalyzedCount.get()));
+            eventEmitter.accept(AnalysisEvents.gitDone(gitAnalyzedCount.get()));
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                eventEmitter.accept(Map.of("type", "CANCELLED",
-                        "processed", gitAnalyzedCount.get(), "total", totalToProcess));
+                eventEmitter.accept(AnalysisEvents.cancelled(gitAnalyzedCount.get(), totalToProcess));
                 return;
             }
 
@@ -283,7 +281,7 @@ public class StreamingAnalysisPipelineService {
             if (mode == AnalysisMode.SIMPLE) {
                 finalizeSimpleMode(validParticipations, clonedRepos, exerciseId, eventEmitter);
             } else {
-                eventEmitter.accept(Map.of("type", "PHASE", "phase", "AI_ANALYSIS", "total", clonedRepos.size()));
+                eventEmitter.accept(AnalysisEvents.phase("AI_ANALYSIS", clonedRepos.size()));
 
                 AtomicInteger aiAnalyzedCount = new AtomicInteger(0);
                 LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
@@ -314,11 +312,10 @@ public class StreamingAnalysisPipelineService {
 
                 if (analysisStateService.isRunning(exerciseId)) {
                     analysisStateService.completeAnalysis(exerciseId);
-                    eventEmitter.accept(Map.of("type", "DONE"));
+                    eventEmitter.accept(AnalysisEvents.done());
                 } else {
                     exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                    eventEmitter.accept(Map.of("type", "CANCELLED",
-                            "processed", aiAnalyzedCount.get(), "total", totalToProcess));
+                    eventEmitter.accept(AnalysisEvents.cancelled(aiAnalyzedCount.get(), totalToProcess));
                 }
             }
 
@@ -326,11 +323,11 @@ public class StreamingAnalysisPipelineService {
             log.info("Analysis cancelled (executor shut down) for exerciseId={}", exerciseId);
             exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
             analysisStateService.cancelAnalysis(exerciseId);
-            eventEmitter.accept(Map.of("type", "CANCELLED"));
+            eventEmitter.accept(AnalysisEvents.cancelled());
         } catch (Exception e) {
             log.error("Analysis failed for exerciseId={}", exerciseId, e);
             analysisStateService.failAnalysis(exerciseId, e.getMessage());
-            eventEmitter.accept(Map.of("type", "ERROR", "message", e.getMessage()));
+            eventEmitter.accept(AnalysisEvents.error(e.getMessage()));
         } finally {
             analysisTaskManager.unregisterExecutor(exerciseId);
             analysisTaskManager.unregisterStreamThread(exerciseId);
@@ -344,14 +341,8 @@ public class StreamingAnalysisPipelineService {
 
     private void emitStatusUpdate(Consumer<Object> eventEmitter, String teamName,
                                    String stage, int processed, int total) {
-        Map<String, Object> statusEvent = new HashMap<>();
-        statusEvent.put("type", "STATUS");
-        statusEvent.put("processedTeams", processed);
-        statusEvent.put("totalTeams", total);
-        statusEvent.put("currentTeamName", teamName);
-        statusEvent.put("currentStage", stage);
         synchronized (eventEmitter) {
-            eventEmitter.accept(statusEvent);
+            eventEmitter.accept(AnalysisEvents.status(teamName, stage, processed, total));
         }
     }
 
@@ -370,7 +361,7 @@ public class StreamingAnalysisPipelineService {
             log.warn("Failed to clone repository for team {}", teamName);
             exerciseDataCleanupService.markTeamAsFailed(participation, exerciseId);
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                eventEmitter.accept(AnalysisEvents.errorTeam(participation.team().id()));
             }
             return;
         }
@@ -390,8 +381,7 @@ public class StreamingAnalysisPipelineService {
         analysisStateService.updateProgress(exerciseId, teamName, "GIT_ANALYZING", gitAnalyzedCount.get());
         emitStatusUpdate(eventEmitter, teamName, "GIT_ANALYZING", gitAnalyzedCount.get(), total);
         synchronized (eventEmitter) {
-            eventEmitter.accept(Map.of("type", "GIT_ANALYZING",
-                    "teamId", participation.team().id(), "teamName", teamName));
+            eventEmitter.accept(AnalysisEvents.gitAnalyzing(participation.team().id(), teamName));
         }
 
         Map<Long, AuthorContributionDTO> contributions = gitContributionAnalysisService.analyzeRepository(repo);
@@ -411,57 +401,35 @@ public class StreamingAnalysisPipelineService {
             analysisStateService.updateProgress(exerciseId, teamName, "DONE", current);
             emitStatusUpdate(eventEmitter, teamName, "DONE", current, total);
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "AI_UPDATE", "data",
-                        TeamSummaryDTO.fromClientResponse(gitDto)));
+                eventEmitter.accept(AnalysisEvents.aiUpdate(TeamSummaryDTO.fromClientResponse(gitDto)));
             }
         } else {
             analysisStateService.updateProgress(exerciseId, teamName, "GIT_DONE", current);
             emitStatusUpdate(eventEmitter, teamName, "GIT_DONE", current, total);
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "GIT_UPDATE", "data", gitDto));
+                eventEmitter.accept(AnalysisEvents.gitUpdate(gitDto));
             }
         }
 
         log.debug("Git analysis {}/{}: {}", current, total, teamName);
     }
 
-    private void handleDownloadError(Exception e, ParticipationDTO participation, Long exerciseId,
-                                      AtomicInteger counter,
-                                      Consumer<Object> eventEmitter) {
+    private void handlePhaseError(String phaseName, Exception e, ParticipationDTO participation,
+                                   Long exerciseId, AtomicInteger counter,
+                                   Consumer<Object> eventEmitter) {
         boolean isInterrupt = Thread.currentThread().isInterrupted() ||
                 e.getCause() instanceof InterruptedException ||
                 (e.getCause() != null && e.getCause().getCause() instanceof ClosedByInterruptException);
 
-        if (isInterrupt) {
-            log.info("Download interrupted for team {} (analysis cancelled)",
-                    participation.team() != null ? participation.team().name() : participation.id());
-        } else {
-            log.error("Failed to download repo for team {}",
-                    participation.team() != null ? participation.team().name() : participation.id(), e);
-            exerciseDataCleanupService.markTeamAsFailed(participation, exerciseId);
-            synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
-            }
-        }
-        counter.incrementAndGet();
-    }
-
-    private void handleGitAnalysisError(Exception e, ParticipationDTO participation, Long exerciseId,
-                                         AtomicInteger counter,
-                                         Consumer<Object> eventEmitter) {
-        boolean isInterrupt = Thread.currentThread().isInterrupted() ||
-                e.getCause() instanceof InterruptedException ||
-                (e.getCause() != null && e.getCause().getCause() instanceof ClosedByInterruptException);
+        String teamLabel = participation.team() != null ? participation.team().name() : String.valueOf(participation.id());
 
         if (isInterrupt) {
-            log.info("Git analysis interrupted for team {} (analysis cancelled)",
-                    participation.team() != null ? participation.team().name() : participation.id());
+            log.info("{} interrupted for team {} (analysis cancelled)", phaseName, teamLabel);
         } else {
-            log.error("Failed to git-analyze repo for team {}",
-                    participation.team() != null ? participation.team().name() : participation.id(), e);
+            log.error("Failed to {} repo for team {}", phaseName.toLowerCase(), teamLabel, e);
             exerciseDataCleanupService.markTeamAsFailed(participation, exerciseId);
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "ERROR_TEAM", "teamId", participation.team().id()));
+                eventEmitter.accept(AnalysisEvents.errorTeam(participation.team().id()));
             }
         }
         counter.incrementAndGet();
@@ -478,8 +446,7 @@ public class StreamingAnalysisPipelineService {
             analysisStateService.updateProgress(exerciseId, teamName, "AI_ANALYZING", aiAnalyzedCount.get());
             emitStatusUpdate(eventEmitter, teamName, "AI_ANALYZING", aiAnalyzedCount.get(), total);
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "AI_ANALYZING",
-                        "teamId", participation.team().id(), "teamName", teamName));
+                eventEmitter.accept(AnalysisEvents.aiAnalyzing(participation.team().id(), teamName));
             }
 
             final TeamRepositoryDTO finalRepo = repo;
@@ -495,7 +462,7 @@ public class StreamingAnalysisPipelineService {
             emitStatusUpdate(eventEmitter, teamName, "DONE", current, total);
 
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "AI_UPDATE", "data", aiDto));
+                eventEmitter.accept(AnalysisEvents.aiUpdate(aiDto));
             }
 
             log.debug("AI analysis {}/{}: {} (CQI={})", current, total,
@@ -506,9 +473,7 @@ public class StreamingAnalysisPipelineService {
             aiAnalyzedCount.incrementAndGet();
             analysisStateService.updateProgress(exerciseId, teamName, "AI_ERROR", aiAnalyzedCount.get());
             synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "AI_ERROR",
-                        "teamId", participation.team().id(), "teamName", teamName,
-                        "error", e.getMessage()));
+                eventEmitter.accept(AnalysisEvents.aiError(participation.team().id(), teamName, e.getMessage()));
             }
         }
         return runTokenTotals;
@@ -549,8 +514,7 @@ public class StreamingAnalysisPipelineService {
 
                 if (result != null) {
                     synchronized (eventEmitter) {
-                        eventEmitter.accept(Map.of("type", "AI_UPDATE", "data",
-                                TeamSummaryDTO.fromClientResponse(result)));
+                        eventEmitter.accept(AnalysisEvents.aiUpdate(TeamSummaryDTO.fromClientResponse(result)));
                     }
                 }
             } catch (Exception e) {
@@ -561,11 +525,10 @@ public class StreamingAnalysisPipelineService {
 
         if (analysisStateService.isRunning(exerciseId)) {
             analysisStateService.completeAnalysis(exerciseId);
-            eventEmitter.accept(Map.of("type", "DONE"));
+            eventEmitter.accept(AnalysisEvents.done());
         } else {
             exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-            eventEmitter.accept(Map.of("type", "CANCELLED",
-                    "processed", processedCount.get(), "total", total));
+            eventEmitter.accept(AnalysisEvents.cancelled(processedCount.get(), total));
         }
     }
 
@@ -596,7 +559,7 @@ public class StreamingAnalysisPipelineService {
             pendingTeam.put("isSuspicious", null);
             pendingTeam.put("analysisStatus", "PENDING");
 
-            eventEmitter.accept(Map.of("type", "INIT", "data", pendingTeam));
+            eventEmitter.accept(AnalysisEvents.init(pendingTeam));
         }
     }
 
@@ -608,10 +571,8 @@ public class StreamingAnalysisPipelineService {
 
             if (existing != null) {
                 synchronized (eventEmitter) {
-                    eventEmitter.accept(Map.of(
-                            "type", "TEMPLATE_AUTHOR",
-                            "email", existing.getTemplateEmail(),
-                            "autoDetected", existing.getAutoDetected()));
+                    eventEmitter.accept(AnalysisEvents.templateAuthor(
+                            existing.getTemplateEmail(), existing.getAutoDetected()));
                 }
                 return;
             }
@@ -639,15 +600,14 @@ public class StreamingAnalysisPipelineService {
                 log.info("Auto-detected template author for exerciseId={}: {} (unanimous across {} repos)",
                         exerciseId, email, totalRepos);
                 synchronized (eventEmitter) {
-                    eventEmitter.accept(Map.of("type", "TEMPLATE_AUTHOR",
-                            "email", email, "autoDetected", true));
+                    eventEmitter.accept(AnalysisEvents.templateAuthor(email, true));
                 }
             } else if (!rootAuthorCounts.isEmpty()) {
                 log.info("Ambiguous template author for exerciseId={}: candidates={}",
                         exerciseId, rootAuthorCounts.keySet());
                 synchronized (eventEmitter) {
-                    eventEmitter.accept(Map.of("type", "TEMPLATE_AUTHOR_AMBIGUOUS",
-                            "candidates", new ArrayList<>(rootAuthorCounts.keySet())));
+                    eventEmitter.accept(AnalysisEvents.templateAuthorAmbiguous(
+                            new ArrayList<>(rootAuthorCounts.keySet())));
                 }
             }
         } catch (Exception e) {
