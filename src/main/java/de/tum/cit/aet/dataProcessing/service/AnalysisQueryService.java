@@ -52,6 +52,12 @@ public class AnalysisQueryService {
         this.cqiCalculatorService = cqiCalculatorService;
     }
 
+    /**
+     * Returns all team analysis results for the given exercise.
+     *
+     * @param exerciseId the exercise id
+     * @return list of client response DTOs, empty if none found
+     */
     public List<ClientResponseDTO> getTeamsByExerciseId(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
         if (participations.isEmpty()) {
@@ -62,27 +68,58 @@ public class AnalysisQueryService {
                 .toList();
     }
 
+    /**
+     * Returns analysis results for all team participations across all exercises.
+     *
+     * @return list of client response DTOs
+     */
     public List<ClientResponseDTO> getAllRepositoryData() {
         return teamParticipationRepository.findAll().stream()
                 .map(this::mapParticipationToClientResponse)
                 .toList();
     }
 
+    /**
+     * Checks whether any team in the exercise has a non-null CQI score persisted.
+     *
+     * @param exerciseId the exercise id
+     * @return {@code true} if at least one team has analyzed data
+     */
     public boolean hasAnalyzedDataForExercise(Long exerciseId) {
         return teamParticipationRepository.existsByExerciseIdAndCqiIsNotNull(exerciseId);
     }
 
+    /**
+     * Returns lightweight team summaries for the given exercise.
+     *
+     * @param exerciseId the exercise id
+     * @return list of summary DTOs
+     */
     public List<TeamSummaryDTO> getTeamSummariesByExerciseId(Long exerciseId) {
         return getTeamsByExerciseId(exerciseId).stream()
                 .map(TeamSummaryDTO::fromClientResponse)
                 .toList();
     }
 
+    /**
+     * Returns the full analysis detail for a single team.
+     *
+     * @param exerciseId the exercise id
+     * @param teamId     the Artemis team id
+     * @return the client response DTO, or empty if the team is not found
+     */
     public Optional<ClientResponseDTO> getTeamDetail(Long exerciseId, Long teamId) {
         return teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId)
                 .map(this::mapParticipationToClientResponse);
     }
 
+    /**
+     * Maps a persisted {@link TeamParticipation} entity to a client-facing response DTO,
+     * including students, CQI details, analyzed chunks, and token usage.
+     *
+     * @param participation the team participation entity
+     * @return fully populated client response DTO
+     */
     public ClientResponseDTO mapParticipationToClientResponse(TeamParticipation participation) {
         List<Student> students = studentRepository.findAllByTeam(participation);
         Tutor tutor = participation.getTutor();
@@ -112,6 +149,12 @@ public class AnalysisQueryService {
                 participation.getIsFailed());
     }
 
+    /**
+     * Loads all analyzed chunks for a team participation and converts them to DTOs.
+     *
+     * @param participation the team participation that owns the chunks
+     * @return list of analyzed chunk DTOs, or {@code null} if none exist or on error
+     */
     public List<AnalyzedChunkDTO> loadAnalyzedChunks(TeamParticipation participation) {
         try {
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
@@ -153,6 +196,12 @@ public class AnalysisQueryService {
         }
     }
 
+    /**
+     * Reads the persisted LLM token usage totals from a team participation.
+     *
+     * @param tp the team participation entity
+     * @return token totals DTO, or {@code null} if no usage data is stored
+     */
     public LlmTokenTotalsDTO readTeamTokenTotals(TeamParticipation tp) {
         if (tp.getLlmCalls() == null && tp.getLlmCallsWithUsage() == null
                 && tp.getLlmPromptTokens() == null && tp.getLlmCompletionTokens() == null
@@ -168,6 +217,13 @@ public class AnalysisQueryService {
                 prompt, completion, total);
     }
 
+    /**
+     * Reconstructs a {@link CQIResultDTO} from the persisted component scores and weights.
+     *
+     * @param participation the team participation with stored CQI components
+     * @param mode          the analysis mode used to select weight configuration
+     * @return reconstructed CQI result, or {@code null} if no component scores are stored
+     */
     public CQIResultDTO reconstructCqiDetails(TeamParticipation participation, AnalysisMode mode) {
         if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
                 && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
@@ -203,6 +259,12 @@ public class AnalysisQueryService {
                 null);
     }
 
+    /**
+     * Parses a JSON string into a list of commit messages.
+     *
+     * @param json the JSON array string
+     * @return list of commit messages, or an empty list on error
+     */
     @SuppressWarnings("unchecked")
     public List<String> parseCommitMessages(String json) {
         try {
@@ -215,6 +277,12 @@ public class AnalysisQueryService {
         }
     }
 
+    /**
+     * Deserializes a JSON string into a list of weekly effort distribution values.
+     *
+     * @param json the JSON array string
+     * @return list of weekly effort values, or {@code null} if empty or on error
+     */
     public List<Double> deserializeWeeklyDistribution(String json) {
         try {
             if (json == null || json.isEmpty()) {

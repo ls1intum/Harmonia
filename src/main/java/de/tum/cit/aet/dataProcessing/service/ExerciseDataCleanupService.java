@@ -45,11 +45,21 @@ public class ExerciseDataCleanupService {
         this.tutorRepository = tutorRepository;
     }
 
+    /**
+     * Deletes all persisted data (participations, repos, chunks, students, tutors) for an exercise.
+     *
+     * @param exerciseId the exercise to clear
+     */
     @Transactional
     public void clearDatabaseForExercise(Long exerciseId) {
         clearDatabaseForExerciseInternal(exerciseId);
     }
 
+    /**
+     * Internal implementation that performs the actual database cleanup for an exercise.
+     *
+     * @param exerciseId the exercise to clear
+     */
     public void clearDatabaseForExerciseInternal(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
         if (participations.isEmpty()) {
@@ -78,6 +88,13 @@ public class ExerciseDataCleanupService {
         log.info("Cleared {} participations for exerciseId={}", participations.size(), exerciseId);
     }
 
+    /**
+     * Creates or updates team participations in PENDING status so they are ready for analysis.
+     *
+     * @param participations the Artemis participation DTOs to initialize
+     * @param exerciseId     the exercise being analyzed
+     * @param isResume       {@code true} if resuming a previously cancelled run
+     */
     public void initializePendingTeams(List<ParticipationDTO> participations, Long exerciseId, boolean isResume) {
         for (ParticipationDTO participation : participations) {
             if (participation.team() == null) {
@@ -121,6 +138,12 @@ public class ExerciseDataCleanupService {
         }
     }
 
+    /**
+     * Marks a single team participation as ERROR (e.g. after a download or analysis failure).
+     *
+     * @param participation the Artemis participation DTO
+     * @param exerciseId    the exercise being analyzed
+     */
     public void markTeamAsFailed(ParticipationDTO participation, Long exerciseId) {
         try {
             TeamDTO team = participation.team();
@@ -138,6 +161,11 @@ public class ExerciseDataCleanupService {
         }
     }
 
+    /**
+     * Transitions all teams still in PENDING status to CANCELLED for the given exercise.
+     *
+     * @param exerciseId the exercise whose pending teams should be cancelled
+     */
     public void markPendingTeamsAsCancelled(Long exerciseId) {
         try {
             List<TeamParticipation> pendingTeams = teamParticipationRepository
@@ -156,6 +184,12 @@ public class ExerciseDataCleanupService {
         }
     }
 
+    /**
+     * Persists or updates the tutor entity for a team, based on the team owner.
+     *
+     * @param team the team DTO containing the owner information
+     * @return the persisted tutor, or {@code null} if the team has no owner
+     */
     public Tutor ensureTutor(TeamDTO team) {
         if (team.owner() != null) {
             ParticipantDTO tut = team.owner();

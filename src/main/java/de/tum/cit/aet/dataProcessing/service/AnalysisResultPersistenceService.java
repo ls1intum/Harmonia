@@ -39,6 +39,7 @@ import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,6 +78,7 @@ public class AnalysisResultPersistenceService {
 
     private final ExerciseDataCleanupService cleanupService;
     private final AnalysisQueryService queryService;
+    private final TransactionTemplate transactionTemplate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -100,7 +102,8 @@ public class AnalysisResultPersistenceService {
             ExerciseTemplateAuthorRepository templateAuthorRepository,
             ExerciseEmailMappingRepository emailMappingRepository,
             ExerciseDataCleanupService cleanupService,
-            AnalysisQueryService queryService) {
+            AnalysisQueryService queryService,
+            TransactionTemplate transactionTemplate) {
         this.balanceCalculator = balanceCalculator;
         this.fairnessService = fairnessService;
         this.analysisStateService = analysisStateService;
@@ -119,17 +122,35 @@ public class AnalysisResultPersistenceService {
         this.emailMappingRepository = emailMappingRepository;
         this.cleanupService = cleanupService;
         this.queryService = queryService;
+        this.transactionTemplate = transactionTemplate;
     }
 
     // =====================================================================
     //  Phase 2: Git analysis persistence
     // =====================================================================
 
+    /**
+     * Persists git analysis results for a single team repository (full mode).
+     *
+     * @param repo             the cloned repository with VCS logs
+     * @param contributionData per-student contribution statistics
+     * @param exerciseId       the exercise being analyzed
+     * @return client-facing response DTO, or {@code null} if the analysis was cancelled
+     */
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
                                                     Map<Long, AuthorContributionDTO> contributionData, Long exerciseId) {
         return saveGitAnalysisResult(repo, contributionData, exerciseId, null);
     }
 
+    /**
+     * Persists git analysis results for a single team repository.
+     *
+     * @param repo             the cloned repository with VCS logs
+     * @param contributionData per-student contribution statistics
+     * @param exerciseId       the exercise being analyzed
+     * @param mode             analysis mode ({@code SIMPLE} or {@code FULL}), may be {@code null}
+     * @return client-facing response DTO, or {@code null} if the analysis was cancelled
+     */
     public ClientResponseDTO saveGitAnalysisResult(TeamRepositoryDTO repo,
                                                     Map<Long, AuthorContributionDTO> contributionData,
                                                     Long exerciseId, AnalysisMode mode) {
@@ -214,10 +235,25 @@ public class AnalysisResultPersistenceService {
     //  Phase 3: AI analysis persistence
     // =====================================================================
 
+    /**
+     * Persists AI analysis results for a team and returns the client response.
+     *
+     * @param repo       the cloned repository with VCS logs
+     * @param exerciseId the exercise being analyzed
+     * @return client-facing response DTO
+     */
     public ClientResponseDTO saveAIAnalysisResult(TeamRepositoryDTO repo, Long exerciseId) {
         return saveAIAnalysisResultWithUsage(repo, exerciseId).response();
     }
 
+    /**
+     * Runs the full AI analysis pipeline (orphan detection, fairness analysis,
+     * CQI fallback chain) and persists the results together with LLM token usage.
+     *
+     * @param repo       the cloned repository with VCS logs
+     * @param exerciseId the exercise being analyzed
+     * @return response DTO bundled with aggregated token usage
+     */
     public ClientResponseWithUsage saveAIAnalysisResultWithUsage(TeamRepositoryDTO repo, Long exerciseId) {
         ParticipationDTO participation = repo.participation();
         TeamDTO team = participation.team();
@@ -343,8 +379,14 @@ public class AnalysisResultPersistenceService {
     //  Single team AI re-analysis
     // =====================================================================
 
-    public Optional<ClientResponseDTO> runSingleTeamAIAnalysis(Long exerciseId, Long teamId,
-                                                                org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
+    /**
+     * Re-runs the AI analysis for a single team that already has git results persisted.
+     *
+     * @param exerciseId the exercise the team belongs to
+     * @param teamId     the Artemis team id
+     * @return the updated client response, or empty if the team/repo is not found
+     */
+    public Optional<ClientResponseDTO> runSingleTeamAIAnalysis(Long exerciseId, Long teamId) {
         record PreparedAnalysis(TeamRepositoryDTO repoDto) {}
         PreparedAnalysis prepared = transactionTemplate.execute(status -> {
             Optional<TeamParticipation> tpOpt = teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId);
@@ -383,6 +425,14 @@ public class AnalysisResultPersistenceService {
     //  SIMPLE mode CQI computation
     // =====================================================================
 
+    /**
+     * Calculates a git-only CQI (without effort balance) for SIMPLE mode and persists the result.
+     *
+     * @param participation the Artemis participation DTO
+     * @param repo          the cloned repository
+     * @param exerciseId    the exercise being analyzed
+     * @return client-facing response DTO with the simple CQI
+     */
     public ClientResponseDTO calculateAndPersistSimpleCqi(ParticipationDTO participation,
                                                            TeamRepositoryDTO repo, Long exerciseId) {
         TeamDTO team = participation.team();
@@ -439,6 +489,12 @@ public class AnalysisResultPersistenceService {
     //  Persistence helpers
     // =====================================================================
 
+    /**
+     * Persists analyzed chunk entities for a team participation.
+     *
+     * @param participation the team participation that owns the chunks
+     * @param chunks        the analyzed chunk DTOs to persist
+     */
     public void saveAnalyzedChunks(TeamParticipation participation, List<AnalyzedChunkDTO> chunks) {
         try {
             List<AnalyzedChunk> entities = chunks.stream()
@@ -466,6 +522,13 @@ public class AnalysisResultPersistenceService {
         }
     }
 
+    /**
+     * Applies all stored email mappings for the exercise to the team's analyzed chunks,
+     * reassigning external-contributor chunks to known students and recalculating CQI.
+     *
+     * @param participation the team participation whose chunks may be remapped
+     * @param exerciseId    the exercise whose email mappings should be applied
+     */
     @Transactional
     public void applyExistingEmailMappings(TeamParticipation participation, Long exerciseId) {
         try {
@@ -533,6 +596,12 @@ public class AnalysisResultPersistenceService {
         }
     }
 
+    /**
+     * Writes aggregated LLM token usage totals onto the team participation entity.
+     *
+     * @param tp     the team participation to update
+     * @param totals the token totals, or {@code null} to clear
+     */
     public void persistTeamTokenTotals(TeamParticipation tp, LlmTokenTotalsDTO totals) {
         if (totals == null) {
             tp.setLlmCalls(null);
@@ -549,6 +618,14 @@ public class AnalysisResultPersistenceService {
         tp.setLlmTotalTokens(totals.totalTokens());
     }
 
+    /**
+     * Logs aggregated LLM token usage for an analysis run.
+     *
+     * @param scope         descriptive label for the log entry (e.g. "FULL" or "SIMPLE")
+     * @param exerciseId    the exercise that was analyzed
+     * @param analyzedTeams number of teams analyzed
+     * @param tokenTotals   the aggregated token usage
+     */
     public void logTotalUsage(String scope, Long exerciseId, int analyzedTeams, LlmTokenTotalsDTO tokenTotals) {
         log.info("LLM_USAGE scope={} exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
                 scope, exerciseId, analyzedTeams,
@@ -556,6 +633,12 @@ public class AnalysisResultPersistenceService {
                 tokenTotals.completionTokens(), tokenTotals.totalTokens());
     }
 
+    /**
+     * Serializes a list of commit messages to a JSON string.
+     *
+     * @param messages the commit messages
+     * @return JSON array string, or {@code "[]"} on error
+     */
     public String serializeCommitMessages(List<String> messages) {
         try {
             return objectMapper.writeValueAsString(messages);
@@ -564,6 +647,12 @@ public class AnalysisResultPersistenceService {
         }
     }
 
+    /**
+     * Serializes a weekly effort distribution to a JSON string.
+     *
+     * @param weeklyDistribution the weekly effort values
+     * @return JSON array string, or {@code null} if empty or on error
+     */
     public String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
         try {
             if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
@@ -675,7 +764,10 @@ public class AnalysisResultPersistenceService {
     }
 
     /**
-     * Check if a team should be skipped during AI/simple analysis phase.
+     * Checks whether a team should be skipped during the AI or simple analysis phase.
+     *
+     * @param tp the team participation to check
+     * @return {@code true} if the team is marked as failed and should be skipped
      */
     public boolean shouldSkipTeam(TeamParticipation tp) {
         return shouldSkipAnalysis(tp);

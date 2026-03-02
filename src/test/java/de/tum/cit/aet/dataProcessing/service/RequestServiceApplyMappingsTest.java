@@ -65,7 +65,7 @@ class RequestServiceApplyMappingsTest {
                 cqiRecalculationService, null,
                 null, teamParticipationRepository, null, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
-                cleanupService, queryService);
+                cleanupService, queryService, null);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────

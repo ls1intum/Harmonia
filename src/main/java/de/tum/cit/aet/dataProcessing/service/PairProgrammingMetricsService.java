@@ -61,6 +61,13 @@ public class PairProgrammingMetricsService {
         this.commitChunkerService = commitChunkerService;
     }
 
+    /**
+     * Recomputes pair programming scores for all two-person teams in the exercise
+     * by re-analyzing their git repositories.
+     *
+     * @param exerciseId the exercise to recompute
+     * @return number of teams whose scores were updated
+     */
     @Transactional
     public int recomputePairProgrammingForExercise(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
@@ -79,6 +86,12 @@ public class PairProgrammingMetricsService {
         return updated;
     }
 
+    /**
+     * Clears pair programming scores for all teams in the exercise.
+     *
+     * @param exerciseId the exercise to clear
+     * @return number of teams whose scores were cleared
+     */
     @Transactional
     public int clearPairProgrammingForExercise(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
