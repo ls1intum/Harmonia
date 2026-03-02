@@ -58,7 +58,7 @@ const TeamDetail = ({
       if (typeof window !== 'undefined' && window.localStorage) {
         baseUrl = window.localStorage.getItem('artemis_server_url');
       }
-    } catch (e) {
+    } catch {
       baseUrl = null;
     }
     if (!baseUrl) return null;
