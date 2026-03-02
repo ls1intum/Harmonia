@@ -27,6 +27,15 @@ import java.util.*;
 @Slf4j
 public class GitContributionAnalysisService {
 
+    /** Bundles the four lookup maps used during commit-to-author mapping. */
+    private record StudentLookupContext(
+            Map<String, Long> emailToStudentId,
+            Map<Long, String> studentIdToEmail,
+            Map<String, List<String>> vcsHashToEmails,
+            Map<String, Long> learnedGitEmailToStudentId
+    ) {
+    }
+
     /**
      * Walks the full git history and maps every commit to an author using a 3-tier
      * matching strategy (VCS-Log anchor, Learned mapping, Direct email match).
@@ -73,34 +82,7 @@ public class GitContributionAnalysisService {
         }
 
         // --- 1. Build lookup structures ---
-
-        // Artemis email (lowercase) -> studentId
-        Map<String, Long> emailToStudentId = new HashMap<>();
-        for (ParticipantDTO student : students) {
-            if (student.email() != null) {
-                emailToStudentId.put(student.email().toLowerCase(Locale.ROOT), student.id());
-            }
-        }
-        // Tier 0: Manual mappings override all other email mappings
-        emailToStudentId.putAll(manualMappings);
-
-        // studentId -> Artemis email (reverse lookup for display emails)
-        Map<Long, String> studentIdToEmail = new HashMap<>();
-        for (ParticipantDTO student : students) {
-            if (student.email() != null && student.id() != null) {
-                studentIdToEmail.put(student.id(), student.email());
-            }
-        }
-
-        // VCS log hash -> list of VCS emails (multi-valued because both students
-        // can push the same commit hash after a merge, creating two VCS log entries)
-        Map<String, List<String>> vcsHashToEmails = new HashMap<>();
-        for (VCSLogDTO logEntry : vcsLogs) {
-            if (logEntry.commitHash() != null && logEntry.email() != null) {
-                vcsHashToEmails.computeIfAbsent(logEntry.commitHash(), k -> new ArrayList<>())
-                        .add(logEntry.email());
-            }
-        }
+        StudentLookupContext ctx = buildLookupContext(students, manualMappings, vcsLogs);
 
         // --- 2. Walk git history and build learned mapping ---
 
@@ -108,11 +90,6 @@ public class GitContributionAnalysisService {
         Map<String, String> orphanCommitEmails = new HashMap<>();
         Map<String, String> commitToVcsEmail = new HashMap<>();
         Set<String> templateHashes = new HashSet<>();
-
-        // Learned mapping: gitEmail (lowercase) -> studentId
-        // Built from VCS-log anchor commits where we can correlate git-author email
-        // with the Artemis email (and thus the studentId).
-        Map<String, Long> learnedGitEmailToStudentId = new HashMap<>();
 
         File gitDir = new File(localPath, ".git");
         if (!gitDir.exists()) {
@@ -149,7 +126,7 @@ public class GitContributionAnalysisService {
             // --- Pass 1: Build learned mapping from unambiguous VCS-log anchor commits ---
             for (RevCommit commit : allCommits) {
                 String hash = commit.getName();
-                List<String> vcsEmails = vcsHashToEmails.get(hash);
+                List<String> vcsEmails = ctx.vcsHashToEmails().get(hash);
                 if (vcsEmails == null || vcsEmails.isEmpty()) {
                     continue;
                 }
@@ -159,7 +136,7 @@ public class GitContributionAnalysisService {
                 String vcsEmail = vcsEmails.get(0);
 
                 // This commit is a VCS-log anchor
-                Long studentId = emailToStudentId.get(vcsEmail.toLowerCase(Locale.ROOT));
+                Long studentId = ctx.emailToStudentId().get(vcsEmail.toLowerCase(Locale.ROOT));
                 if (studentId == null) {
                     continue;
                 }
@@ -168,7 +145,7 @@ public class GitContributionAnalysisService {
                 String gitEmail = commit.getAuthorIdent().getEmailAddress();
                 if (gitEmail != null && !gitEmail.isBlank()) {
                     String gitEmailLower = gitEmail.toLowerCase(Locale.ROOT);
-                    Long existing = learnedGitEmailToStudentId.putIfAbsent(gitEmailLower, studentId);
+                    Long existing = ctx.learnedGitEmailToStudentId().putIfAbsent(gitEmailLower, studentId);
                     if (existing != null && !existing.equals(studentId)) {
                         log.warn("Git email '{}' maps to multiple students (id {} and {}); keeping first",
                                 gitEmailLower, existing, studentId);
@@ -178,13 +155,13 @@ public class GitContributionAnalysisService {
 
             // --- Resolve multi-valued VCS entries using git-author email ---
             Map<String, String> vcsHashToEmail = new HashMap<>();
-            for (Map.Entry<String, List<String>> entry : vcsHashToEmails.entrySet()) {
+            for (Map.Entry<String, List<String>> entry : ctx.vcsHashToEmails().entrySet()) {
                 List<String> emails = entry.getValue();
                 if (emails.size() == 1) {
                     vcsHashToEmail.put(entry.getKey(), emails.get(0));
                 } else {
                     String resolved = resolveVcsOverlap(emails, hashToGitEmail.get(entry.getKey()),
-                            emailToStudentId, learnedGitEmailToStudentId);
+                            ctx.emailToStudentId(), ctx.learnedGitEmailToStudentId());
                     vcsHashToEmail.put(entry.getKey(), resolved);
                 }
             }
@@ -201,7 +178,7 @@ public class GitContributionAnalysisService {
                 // Tier 1: VCS-Log anchor
                 String vcsEmail = vcsHashToEmail.get(hash);
                 if (vcsEmail != null) {
-                    studentId = emailToStudentId.get(vcsEmail.toLowerCase(Locale.ROOT));
+                    studentId = ctx.emailToStudentId().get(vcsEmail.toLowerCase(Locale.ROOT));
                     if (studentId != null) {
                         commitToAuthor.put(hash, studentId);
                         commitToVcsEmail.put(hash, vcsEmail);
@@ -214,17 +191,17 @@ public class GitContributionAnalysisService {
 
                 // Tier 2: Learned mapping (gitEmail -> studentId)
                 if (gitEmailLower != null) {
-                    studentId = learnedGitEmailToStudentId.get(gitEmailLower);
+                    studentId = ctx.learnedGitEmailToStudentId().get(gitEmailLower);
                 }
 
                 // Tier 3: Direct email match (git email against Artemis emails)
                 if (studentId == null && gitEmailLower != null) {
-                    studentId = emailToStudentId.get(gitEmailLower);
+                    studentId = ctx.emailToStudentId().get(gitEmailLower);
                 }
 
                 if (studentId != null) {
                     commitToAuthor.put(hash, studentId);
-                    String artemisEmail = studentIdToEmail.get(studentId);
+                    String artemisEmail = ctx.studentIdToEmail().get(studentId);
                     if (artemisEmail != null) {
                         commitToVcsEmail.put(hash, artemisEmail);
                     }
@@ -276,6 +253,35 @@ public class GitContributionAnalysisService {
 
         return new FullCommitMappingResultDTO(commitToAuthor, orphanCommitEmails, commitToVcsEmail,
                 templateHashes);
+    }
+
+    private static StudentLookupContext buildLookupContext(
+            List<ParticipantDTO> students, Map<String, Long> manualMappings, List<VCSLogDTO> vcsLogs) {
+
+        Map<String, Long> emailToStudentId = new HashMap<>();
+        for (ParticipantDTO student : students) {
+            if (student.email() != null) {
+                emailToStudentId.put(student.email().toLowerCase(Locale.ROOT), student.id());
+            }
+        }
+        emailToStudentId.putAll(manualMappings);
+
+        Map<Long, String> studentIdToEmail = new HashMap<>();
+        for (ParticipantDTO student : students) {
+            if (student.email() != null && student.id() != null) {
+                studentIdToEmail.put(student.id(), student.email());
+            }
+        }
+
+        Map<String, List<String>> vcsHashToEmails = new HashMap<>();
+        for (VCSLogDTO logEntry : vcsLogs) {
+            if (logEntry.commitHash() != null && logEntry.email() != null) {
+                vcsHashToEmails.computeIfAbsent(logEntry.commitHash(), k -> new ArrayList<>())
+                        .add(logEntry.email());
+            }
+        }
+
+        return new StudentLookupContext(emailToStudentId, studentIdToEmail, vcsHashToEmails, new HashMap<>());
     }
 
     /**

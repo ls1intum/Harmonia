@@ -3,6 +3,7 @@ package de.tum.cit.aet.pairProgramming.service;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.pairProgramming.dto.AttendanceStatus;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.repositoryProcessing.dto.TutorialGroupSessionDTO;
@@ -180,13 +181,13 @@ public class PairProgrammingService {
         if (attendance == null) {
             return Set.of();
         }
-        Map<OffsetDateTime, Boolean> sessionMap = firstNonEmpty(
+        Map<OffsetDateTime, AttendanceStatus> sessionMap = firstNonEmpty(
                 attendance.student1Attendance(), attendance.student2Attendance());
         if (sessionMap.isEmpty()) {
             return Set.of();
         }
         return sessionMap.entrySet().stream()
-                .filter(entry -> entry.getValue() != null)
+                .filter(entry -> entry.getValue() != AttendanceStatus.CANCELLED)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
@@ -227,8 +228,8 @@ public class PairProgrammingService {
         if (attendance == null) {
             return false;
         }
-        return hasNullAttendanceValue(attendance.student1Attendance())
-                || hasNullAttendanceValue(attendance.student2Attendance());
+        return hasCancelledStatus(attendance.student1Attendance())
+                || hasCancelledStatus(attendance.student2Attendance());
     }
 
     /**
@@ -300,28 +301,28 @@ public class PairProgrammingService {
                 continue;
             }
 
-            Map<OffsetDateTime, Boolean> student1Attendance = new LinkedHashMap<>();
-            Map<OffsetDateTime, Boolean> student2Attendance = new LinkedHashMap<>();
+            Map<OffsetDateTime, AttendanceStatus> student1Attendance = new LinkedHashMap<>();
+            Map<OffsetDateTime, AttendanceStatus> student2Attendance = new LinkedHashMap<>();
 
             for (int i = 0; i < sessionInfos.size(); i++) {
                 TutorialGroupSessionDTO sessionInfo = sessionInfos.get(i);
                 OffsetDateTime sessionTime = sessionInfo.start();
 
                 if (sessionInfo.cancelled()) {
-                    student1Attendance.put(sessionTime, null);
-                    student2Attendance.put(sessionTime, null);
+                    student1Attendance.put(sessionTime, AttendanceStatus.CANCELLED);
+                    student2Attendance.put(sessionTime, AttendanceStatus.CANCELLED);
                     continue;
                 }
 
                 Boolean student1 = getCellBoolean(row, attendanceConfiguration.getStudent1Columns()[i], formatter);
                 Boolean student2 = getCellBoolean(row, attendanceConfiguration.getStudent2Columns()[i], formatter);
-                student1Attendance.put(sessionTime, Boolean.TRUE.equals(student1));
-                student2Attendance.put(sessionTime, Boolean.TRUE.equals(student2));
+                student1Attendance.put(sessionTime, Boolean.TRUE.equals(student1) ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT);
+                student2Attendance.put(sessionTime, Boolean.TRUE.equals(student2) ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT);
             }
 
             List<OffsetDateTime> pairedSessions = student1Attendance.entrySet().stream()
-                    .filter(entry -> Boolean.TRUE.equals(entry.getValue())
-                            && Boolean.TRUE.equals(student2Attendance.get(entry.getKey())))
+                    .filter(entry -> entry.getValue() == AttendanceStatus.PRESENT
+                            && student2Attendance.get(entry.getKey()) == AttendanceStatus.PRESENT)
                     .map(Map.Entry::getKey)
                     .toList();
 
@@ -378,8 +379,8 @@ public class PairProgrammingService {
                 || normalized.equals("1");
     }
 
-    private Map<OffsetDateTime, Boolean> firstNonEmpty(Map<OffsetDateTime, Boolean> first,
-                                                        Map<OffsetDateTime, Boolean> second) {
+    private Map<OffsetDateTime, AttendanceStatus> firstNonEmpty(Map<OffsetDateTime, AttendanceStatus> first,
+                                                                Map<OffsetDateTime, AttendanceStatus> second) {
         if (first != null && !first.isEmpty()) {
             return first;
         }
@@ -389,8 +390,8 @@ public class PairProgrammingService {
         return Map.of();
     }
 
-    private boolean hasNullAttendanceValue(Map<OffsetDateTime, Boolean> attendanceMap) {
+    private boolean hasCancelledStatus(Map<OffsetDateTime, AttendanceStatus> attendanceMap) {
         return attendanceMap != null
-                && attendanceMap.values().stream().anyMatch(value -> value == null);
+                && attendanceMap.values().stream().anyMatch(value -> value == AttendanceStatus.CANCELLED);
     }
 }

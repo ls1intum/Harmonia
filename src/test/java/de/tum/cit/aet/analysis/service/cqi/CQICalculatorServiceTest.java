@@ -5,6 +5,7 @@ import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
+import de.tum.cit.aet.pairProgramming.dto.AttendanceStatus;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
@@ -215,8 +216,8 @@ class CQICalculatorServiceTest {
         OffsetDateTime session = OffsetDateTime.parse("2025-01-13T10:00:00+01:00");
 
         TeamAttendanceDTO attendance = new TeamAttendanceDTO(
-                Map.of(session, true),
-                Map.of(session, false),
+                Map.of(session, AttendanceStatus.PRESENT),
+                Map.of(session, AttendanceStatus.ABSENT),
                 false,
                 List.of());
         pairProgrammingService.updateSchedule(new TeamsScheduleDTO(Map.of("Team 01", attendance)));
@@ -237,8 +238,8 @@ class CQICalculatorServiceTest {
         OffsetDateTime sessionTwo = OffsetDateTime.parse("2025-01-27T10:00:00+01:00");
 
         TeamAttendanceDTO attendance = new TeamAttendanceDTO(
-                Map.of(sessionOne, true, sessionTwo, true),
-                Map.of(sessionOne, true, sessionTwo, true),
+                Map.of(sessionOne, AttendanceStatus.PRESENT, sessionTwo, AttendanceStatus.PRESENT),
+                Map.of(sessionOne, AttendanceStatus.PRESENT, sessionTwo, AttendanceStatus.PRESENT),
                 true,
                 List.of(sessionOne, sessionTwo));
         pairProgrammingService.updateSchedule(new TeamsScheduleDTO(Map.of("  Team\u00A001  ", attendance)));
