@@ -2,7 +2,7 @@ package de.tum.cit.aet.pairProgramming.web;
 
 import de.tum.cit.aet.artemis.CredentialResolverService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.dataProcessing.service.PairProgrammingMetricsService;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +25,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class PairProgrammingResource {
 
     private final PairProgrammingService pairProgrammingService;
-    private final RequestService requestService;
+    private final PairProgrammingMetricsService metricsService;
     private final CredentialResolverService credentialResolver;
 
     public PairProgrammingResource(PairProgrammingService pairProgrammingService,
-                                   RequestService requestService,
+                                   PairProgrammingMetricsService metricsService,
                                    CredentialResolverService credentialResolver) {
         this.pairProgrammingService = pairProgrammingService;
-        this.requestService = requestService;
+        this.metricsService = metricsService;
         this.credentialResolver = credentialResolver;
     }
 
@@ -82,7 +82,7 @@ public class PairProgrammingResource {
 
         // 2) Parse attendance and trigger async recomputation
         TeamsScheduleDTO results = pairProgrammingService.parseAttendance(file, credentials, courseId, exerciseId);
-        pairProgrammingService.recomputeForExerciseAsync(exerciseId);
+        metricsService.recomputeForExerciseAsync(exerciseId);
 
         return ResponseEntity.ok(results);
     }
@@ -97,7 +97,7 @@ public class PairProgrammingResource {
     @RequestMapping(value = "clear", method = {RequestMethod.DELETE, RequestMethod.POST})
     public ResponseEntity<String> clearAttendance(@RequestParam("exerciseId") Long exerciseId) {
         pairProgrammingService.clear();
-        int updatedTeams = requestService.clearPairProgrammingForExercise(exerciseId);
+        int updatedTeams = metricsService.clearPairProgrammingForExercise(exerciseId);
         log.info("DELETE clearAttendance for exerciseId={}, teamsUpdated={}", exerciseId, updatedTeams);
         return ResponseEntity.ok("Attendance cleared successfully");
     }

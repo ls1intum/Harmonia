@@ -2,7 +2,6 @@ package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
-import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,7 @@ import java.util.stream.Collectors;
 public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
-    private final PairProgrammingService pairProgrammingService;
+    private final AttendanceDataProvider pairProgrammingService;
     private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
@@ -64,7 +63,7 @@ public class CQICalculatorService {
             return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
         }
         if (teamName != null && !teamName.isEmpty()
-                && pairProgrammingService.getTeamAttendance(teamName) != null
+                && pairProgrammingService.hasTeamAttendance(teamName)
                 && !pairProgrammingService.hasCancelledSessionWarning(teamName)
                 && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
             return CQIResultDTO.noPairProgramming(weightsDTO);

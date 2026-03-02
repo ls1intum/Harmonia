@@ -1,8 +1,8 @@
 package de.tum.cit.aet.pairProgramming.service;
 
+import de.tum.cit.aet.analysis.service.cqi.AttendanceDataProvider;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.dto.AttendanceStatus;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
@@ -14,8 +14,6 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,20 +38,17 @@ import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.normalize;
  */
 @Service
 @Slf4j
-public class PairProgrammingService {
+public class PairProgrammingService implements AttendanceDataProvider {
 
     private final ArtemisClientService artemisClientService;
     private final AttendanceConfiguration attendanceConfiguration;
-    private final RequestService requestService;
 
     private final Map<String, TeamAttendanceDTO> teamsByNormalizedName = new ConcurrentHashMap<>();
 
     public PairProgrammingService(ArtemisClientService artemisClientService,
-                                  AttendanceConfiguration attendanceConfiguration,
-                                  @Lazy RequestService requestService) {
+                                  AttendanceConfiguration attendanceConfiguration) {
         this.artemisClientService = artemisClientService;
         this.attendanceConfiguration = attendanceConfiguration;
-        this.requestService = requestService;
     }
 
     // ---- Attendance parsing ----
@@ -246,24 +241,6 @@ public class PairProgrammingService {
      */
     public void clear() {
         teamsByNormalizedName.clear();
-    }
-
-    // ---- Async recomputation ----
-
-    /**
-     * Recomputes pair programming metrics for an exercise asynchronously.
-     *
-     * @param exerciseId the exercise ID
-     */
-    @Async("attendanceTaskExecutor")
-    public void recomputeForExerciseAsync(Long exerciseId) {
-        try {
-            int updatedTeams = requestService.recomputePairProgrammingForExercise(exerciseId);
-            log.info("Async recomputed pair programming metrics for {} teams (exercise={})",
-                    updatedTeams, exerciseId);
-        } catch (Exception e) {
-            log.error("Async pair programming recomputation failed for exercise {}", exerciseId, e);
-        }
     }
 
     // ---- Private helpers ----

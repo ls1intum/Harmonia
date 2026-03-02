@@ -18,6 +18,7 @@ import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +60,22 @@ public class PairProgrammingMetricsService {
         this.commitPreFilterService = commitPreFilterService;
         this.cqiCalculatorService = cqiCalculatorService;
         this.commitChunkerService = commitChunkerService;
+    }
+
+    /**
+     * Recomputes pair programming metrics for an exercise asynchronously.
+     *
+     * @param exerciseId the exercise ID
+     */
+    @Async("attendanceTaskExecutor")
+    public void recomputeForExerciseAsync(Long exerciseId) {
+        try {
+            int updatedTeams = recomputePairProgrammingForExercise(exerciseId);
+            log.info("Async recomputed pair programming metrics for {} teams (exercise={})",
+                    updatedTeams, exerciseId);
+        } catch (Exception e) {
+            log.error("Async pair programming recomputation failed for exercise {}", exerciseId, e);
+        }
     }
 
     /**

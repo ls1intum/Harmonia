@@ -29,7 +29,7 @@ import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator;
 import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
-import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
+import de.tum.cit.aet.analysis.service.cqi.AttendanceDataProvider;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
@@ -66,7 +66,7 @@ public class AnalysisResultPersistenceService {
     private final CQICalculatorService cqiCalculatorService;
     private final CommitChunkerService commitChunkerService;
     private final CqiRecalculationService cqiRecalculationService;
-    private final PairProgrammingService pairProgrammingService;
+    private final AttendanceDataProvider pairProgrammingService;
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
@@ -93,7 +93,7 @@ public class AnalysisResultPersistenceService {
             CQICalculatorService cqiCalculatorService,
             CommitChunkerService commitChunkerService,
             CqiRecalculationService cqiRecalculationService,
-            PairProgrammingService pairProgrammingService,
+            AttendanceDataProvider pairProgrammingService,
             TeamRepositoryRepository teamRepositoryRepository,
             TeamParticipationRepository teamParticipationRepository,
             TutorRepository tutorRepository,
