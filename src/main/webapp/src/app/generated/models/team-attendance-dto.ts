@@ -15,6 +15,23 @@
 export interface TeamAttendanceDTO {
   pairedMandatorySessions?: boolean;
   pairedSessions?: Array<string>;
-  student1Attendance?: { [key: string]: boolean };
-  student2Attendance?: { [key: string]: boolean };
+  student1Attendance?: { [key: string]: string };
+  student2Attendance?: { [key: string]: string };
 }
+
+export const TeamAttendanceDTOStudent1AttendanceEnum = {
+  Present: 'PRESENT',
+  Absent: 'ABSENT',
+  Cancelled: 'CANCELLED',
+} as const;
+
+export type TeamAttendanceDTOStudent1AttendanceEnum =
+  (typeof TeamAttendanceDTOStudent1AttendanceEnum)[keyof typeof TeamAttendanceDTOStudent1AttendanceEnum];
+export const TeamAttendanceDTOStudent2AttendanceEnum = {
+  Present: 'PRESENT',
+  Absent: 'ABSENT',
+  Cancelled: 'CANCELLED',
+} as const;
+
+export type TeamAttendanceDTOStudent2AttendanceEnum =
+  (typeof TeamAttendanceDTOStudent2AttendanceEnum)[keyof typeof TeamAttendanceDTOStudent2AttendanceEnum];

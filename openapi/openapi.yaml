@@ -644,10 +644,14 @@ components:
           items: {type: string, format: date-time}
         student1Attendance:
           type: object
-          additionalProperties: {type: boolean}
+          additionalProperties:
+            type: string
+            enum: [PRESENT, ABSENT, CANCELLED]
         student2Attendance:
           type: object
-          additionalProperties: {type: boolean}
+          additionalProperties:
+            type: string
+            enum: [PRESENT, ABSENT, CANCELLED]
     TeamSummaryDTO:
       type: object
       properties:
