@@ -186,7 +186,7 @@ export default function Teams() {
   });
 
   // Shared helper for start/recompute mutations
-  const createAnalysisMutation = (toasts: { start: string; success: string; error: string }) =>
+  const useAnalysisMutation = (toasts: { start: string; success: string; error: string }) =>
     useMutation({
       mutationFn: async (mode: AnalysisMode) => {
         queryClient.setQueryData(['teams', exercise], []);
@@ -268,7 +268,7 @@ export default function Teams() {
     });
 
   // Mutation for starting analysis (accepts mode from the UI)
-  const startMutation = createAnalysisMutation({
+  const startMutation = useAnalysisMutation({
     start: 'Starting analysis...',
     success: 'Analysis completed!',
     error: 'Failed to start analysis',
@@ -297,7 +297,7 @@ export default function Teams() {
   });
 
   // Mutation for recompute (force) - same as start since server clears data first
-  const recomputeMutation = createAnalysisMutation({
+  const recomputeMutation = useAnalysisMutation({
     start: 'Forcing reanalysis...',
     success: 'Reanalysis completed!',
     error: 'Failed to reanalyze',
