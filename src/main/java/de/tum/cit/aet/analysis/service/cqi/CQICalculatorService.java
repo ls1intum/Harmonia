@@ -300,9 +300,9 @@ public class CQICalculatorService {
             return new TemporalSpreadResult(50.0, List.of());
         }
 
-        // Divide project into weeks
-        int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
-        double[] weeklyLines = new double[numWeeks];
+        // Divide project into days
+        int numDays = Math.max(1, (int) totalDays);
+        double[] dailyLines = new double[numDays];
 
         for (CommitChunkDTO chunk : chunks) {
             if (chunk.timestamp() == null) {
@@ -310,22 +310,22 @@ public class CQICalculatorService {
             }
 
             long daysSinceStart = ChronoUnit.DAYS.between(projectStart, chunk.timestamp());
-            int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
-            weekIndex = Math.max(0, weekIndex);
+            int dayIndex = Math.min((int) daysSinceStart, numDays - 1);
+            dayIndex = Math.max(0, dayIndex);
 
             // Use lines changed as proxy for effort
-            weeklyLines[weekIndex] += chunk.totalLinesChanged();
+            dailyLines[dayIndex] += chunk.totalLinesChanged();
         }
 
-        List<Double> weeklyDistribution = Arrays.stream(weeklyLines).boxed().toList();
+        List<Double> weeklyDistribution = Arrays.stream(dailyLines).boxed().toList();
 
         // Calculate coefficient of variation
-        double mean = Arrays.stream(weeklyLines).average().orElse(0);
+        double mean = Arrays.stream(dailyLines).average().orElse(0);
         if (mean == 0) {
             return new TemporalSpreadResult(50.0, weeklyDistribution);
         }
 
-        double variance = Arrays.stream(weeklyLines)
+        double variance = Arrays.stream(dailyLines)
                 .map(v -> Math.pow(v - mean, 2))
                 .average().orElse(0);
         double stdev = Math.sqrt(variance);
@@ -431,9 +431,9 @@ public class CQICalculatorService {
             return new TemporalSpreadResult(50.0, List.of());
         }
 
-        // Divide project into weeks
-        int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
-        double[] weeklyEffort = new double[numWeeks];
+        // Divide project into days
+        int numDays = Math.max(1, (int) totalDays);
+        double[] dailyEffort = new double[numDays];
 
         for (CqiRatedChunkDTO rc : chunks) {
             if (rc.chunk().timestamp() == null) {
@@ -441,21 +441,21 @@ public class CQICalculatorService {
             }
 
             long daysSinceStart = ChronoUnit.DAYS.between(projectStart, rc.chunk().timestamp());
-            int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
-            weekIndex = Math.max(0, weekIndex);
+            int dayIndex = Math.min((int) daysSinceStart, numDays - 1);
+            dayIndex = Math.max(0, dayIndex);
 
-            weeklyEffort[weekIndex] += rc.chunk().totalLinesChanged();
+            dailyEffort[dayIndex] += rc.chunk().totalLinesChanged();
         }
 
-        List<Double> weeklyDistribution = Arrays.stream(weeklyEffort).boxed().toList();
+        List<Double> weeklyDistribution = Arrays.stream(dailyEffort).boxed().toList();
 
         // Calculate coefficient of variation
-        double mean = Arrays.stream(weeklyEffort).average().orElse(0);
+        double mean = Arrays.stream(dailyEffort).average().orElse(0);
         if (mean == 0) {
             return new TemporalSpreadResult(50.0, weeklyDistribution);
         }
 
-        double variance = Arrays.stream(weeklyEffort)
+        double variance = Arrays.stream(dailyEffort)
                 .map(v -> Math.pow(v - mean, 2))
                 .average().orElse(0);
         double stdev = Math.sqrt(variance);

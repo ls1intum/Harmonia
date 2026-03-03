@@ -17,7 +17,7 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
 
   return (
     <div className="pt-2">
-      <p className="text-xs text-muted-foreground mb-1.5">Weekly Activity</p>
+      <p className="text-xs text-muted-foreground mb-1.5">Daily Activity</p>
       <div className="flex items-end gap-px h-16">
         {data.map((value, idx) => {
           const heightPercent = max > 0 ? Math.max((value / max) * 100, 2) : 2;
@@ -31,7 +31,7 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
               </div>
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:block z-10">
                 <span className="text-[10px] bg-popover text-popover-foreground border rounded px-1.5 py-0.5 whitespace-nowrap shadow-sm">
-                  Week {idx + 1}: {Math.round(value)} LoC
+                  Day {idx + 1}: {Math.round(value)} LoC
                 </span>
               </div>
             </div>
@@ -39,8 +39,8 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
         })}
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-muted-foreground">Week 1</span>
-        {data.length > 1 && <span className="text-[10px] text-muted-foreground">Week {data.length}</span>}
+        <span className="text-[10px] text-muted-foreground">Day 1</span>
+        {data.length > 1 && <span className="text-[10px] text-muted-foreground">Day {data.length}</span>}
       </div>
     </div>
   );

@@ -260,7 +260,7 @@ class CQICalculatorServiceTest {
 
     @Test
     void testWeeklyDistribution_ReturnedWithCorrectLength() {
-        // 30-day project = ceil(30/7) = 5 weeks
+        // 30-day project = 30 daily buckets
         List<CqiRatedChunkDTO> chunks = List.of(
                 createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
                 createCqiRatedChunkDTO(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
@@ -269,8 +269,7 @@ class CQICalculatorServiceTest {
         CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName);
 
         assertNotNull(result.components().weeklyDistribution());
-        int expectedWeeks = (int) Math.ceil(30 / 7.0);
-        assertEquals(expectedWeeks, result.components().weeklyDistribution().size());
+        assertEquals(30, result.components().weeklyDistribution().size());
     }
 
     @Test
