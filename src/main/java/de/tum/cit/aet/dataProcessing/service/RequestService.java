@@ -15,7 +15,9 @@ import de.tum.cit.aet.artemis.ArtemisClientService;
 import de.tum.cit.aet.repositoryProcessing.service.GitOperationsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.channels.ClosedByInterruptException;
@@ -96,6 +98,7 @@ public class RequestService {
     private final ExerciseEmailMappingRepository emailMappingRepository;
     private final CqiRecalculationService cqiRecalculationService;
     private final PairProgrammingService pairProgrammingService;
+    private final RequestService requestServiceSelf;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -127,7 +130,8 @@ public class RequestService {
             CommitChunkerService commitChunkerService,
             TransactionTemplate transactionTemplate,
             CqiRecalculationService cqiRecalculationService,
-            PairProgrammingService pairProgrammingService) {
+            PairProgrammingService pairProgrammingService,
+            @Lazy RequestService requestServiceSelf) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
         this.balanceCalculator = balanceCalculator;
@@ -147,6 +151,7 @@ public class RequestService {
         this.transactionTemplate = transactionTemplate;
         this.cqiRecalculationService = cqiRecalculationService;
         this.pairProgrammingService = pairProgrammingService;
+        this.requestServiceSelf = requestServiceSelf;
     }
 
     // =====================================================================
@@ -588,11 +593,12 @@ public class RequestService {
 
     /**
      * Recomputes pair programming metrics for all teams in an exercise.
+     * Each team's result is committed to the database immediately (entry-wise) so
+     * data is visible and durable without waiting for the full run to finish.
      *
      * @param exerciseId the exercise ID
      * @return number of teams updated
      */
-    @Transactional
     public int recomputePairProgrammingForExercise(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
         if (participations.isEmpty()) {
@@ -601,13 +607,29 @@ public class RequestService {
 
         int updated = 0;
         for (TeamParticipation participation : participations) {
-            if (recomputePairProgrammingForParticipation(participation)) {
+            if (requestServiceSelf.recomputeOneParticipationInNewTx(participation.getTeamParticipationId())) {
                 updated++;
             }
         }
+
         log.info("Recomputed pair programming metrics for {}/{} teams in exerciseId={}",
                 updated, participations.size(), exerciseId);
         return updated;
+    }
+
+    /**
+     * Recomputes pair programming for a single participation in its own transaction.
+     * Commits immediately so the result is visible and durable without waiting for
+     * the full exercise recompute to finish.
+     *
+     * @param teamParticipationId the participation ID
+     * @return true if the participation was updated
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean recomputeOneParticipationInNewTx(UUID teamParticipationId) {
+        return teamParticipationRepository.findById(teamParticipationId)
+                .map(this::recomputePairProgrammingForParticipation)
+                .orElse(false);
     }
 
     /**
