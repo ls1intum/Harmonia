@@ -538,15 +538,15 @@ components:
     ComponentScoresDTO:
       type: object
       properties:
+        dailyDistribution:
+          type: array
+          items: {type: number, format: double}
         effortBalance: {type: number, format: double}
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         pairProgramming: {type: number, format: double}
         pairProgrammingStatus: {type: string}
         temporalSpread: {type: number, format: double}
-        dailyDistribution:
-          type: array
-          items: {type: number, format: double}
     ComponentWeightsDTO:
       type: object
       properties:
