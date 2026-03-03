@@ -178,7 +178,9 @@
             <column name="reasoning" type="TEXT"/>
             <column name="commit_shas" type="TEXT"/>
             <column name="commit_messages" type="TEXT"/>
-            <column name="timestamp" type="TIMESTAMP"/>
+            <column name="timestamp" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
             <column name="lines_changed" type="INT"/>
             <column name="is_bundled" type="BOOLEAN"/>
             <column name="chunk_index" type="INT"/>
