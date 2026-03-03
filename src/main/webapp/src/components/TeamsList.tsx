@@ -48,6 +48,7 @@ import ExportButton from '@/components/ExportButton';
 import FileUpload from '@/components/FileUpload';
 import { getFailedReason } from '@/lib/utils';
 import PairProgrammingBadge from '@/components/PairProgrammingBadge';
+import { PairProgrammingFilterButton, type PairProgrammingFilter } from '@/components/PairProgrammingFilterButton';
 import {
   getPairProgrammingBadgeStatus,
   hasValidPairProgrammingAttendanceData,
@@ -128,6 +129,7 @@ const TeamsList = ({
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [pairProgrammingFilter, setPairProgrammingFilter] = useState<PairProgrammingFilter>('all');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
@@ -278,6 +280,12 @@ const TeamsList = ({
     }
   };
 
+  const hasValidPairProgrammingData = hasValidPairProgrammingAttendanceData(
+    pairProgrammingEnabled,
+    uploadedAttendanceFileName,
+    pairProgrammingAttendanceByTeamName,
+  );
+
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = teams.slice();
 
@@ -301,6 +309,14 @@ const TeamsList = ({
       } else if (statusFilter === 'normal') {
         filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
       }
+    }
+
+    // Apply pair programming filter
+    if (pairProgrammingFilter !== 'all' && hasValidPairProgrammingData) {
+      filtered = filtered.filter(team => {
+        const badge = getPairProgrammingBadgeStatus(team.teamName ?? '', hasValidPairProgrammingData, pairProgrammingAttendanceByTeamName);
+        return badge === pairProgrammingFilter;
+      });
     }
 
     // First, sort by analysis status priority (DONE first, then in-progress, then pending)
@@ -356,7 +372,7 @@ const TeamsList = ({
     }
 
     return filtered;
-  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter]);
+  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter, pairProgrammingFilter, hasValidPairProgrammingData, pairProgrammingAttendanceByTeamName]);
 
   const renderStartDropdown = (label: string, isPending: boolean, onAction: (mode: AnalysisMode) => void) => (
     <DropdownMenu>
@@ -455,12 +471,6 @@ const TeamsList = ({
         },
       ),
     [teams],
-  );
-
-  const hasValidPairProgrammingData = hasValidPairProgrammingAttendanceData(
-    pairProgrammingEnabled,
-    uploadedAttendanceFileName,
-    pairProgrammingAttendanceByTeamName,
   );
 
   return (
@@ -850,7 +860,11 @@ const TeamsList = ({
                   />
                 </th>
                 {isDevMode && <th className="text-left py-4 px-6 font-semibold text-sm">LLM Tokens</th>}
-                {pairProgrammingEnabled && <th className="text-center py-4 px-6 font-semibold text-sm">Pair Programming</th>}
+                {pairProgrammingEnabled && (
+                  <th className="text-center py-4 px-6 font-semibold text-sm">
+                    <PairProgrammingFilterButton filter={pairProgrammingFilter} setFilter={setPairProgrammingFilter} />
+                  </th>
+                )}
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <StatusFilterButton statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                 </th>
