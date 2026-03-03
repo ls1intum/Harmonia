@@ -444,8 +444,7 @@ public class CQICalculatorService {
             int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
             weekIndex = Math.max(0, weekIndex);
 
-            double effort = rc.rating() != null ? rc.rating().weightedEffort() : 1.0;
-            weeklyEffort[weekIndex] += effort;
+            weeklyEffort[weekIndex] += rc.chunk().totalLinesChanged();
         }
 
         List<Double> weeklyDistribution = Arrays.stream(weeklyEffort).boxed().toList();

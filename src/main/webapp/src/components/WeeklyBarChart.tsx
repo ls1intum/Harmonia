@@ -31,7 +31,7 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
               </div>
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:block z-10">
                 <span className="text-[10px] bg-popover text-popover-foreground border rounded px-1.5 py-0.5 whitespace-nowrap shadow-sm">
-                  Week {idx + 1}: {Math.round(value)}
+                  Week {idx + 1}: {Math.round(value)} LoC
                 </span>
               </div>
             </div>

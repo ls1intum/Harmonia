@@ -70,7 +70,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
             value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
             weight: Math.round((weights?.temporalSpread ?? 0) * 100),
             description: 'Is work spread over time or crammed at deadline?',
-            details: 'Higher scores mean work was spread consistently throughout the project period.',
+            details: 'Higher scores mean work was spread consistently throughout the project period. Based on prefiltered commits.',
             weeklyDistribution: serverCqiDetails.components.weeklyDistribution ?? undefined,
           },
           {
