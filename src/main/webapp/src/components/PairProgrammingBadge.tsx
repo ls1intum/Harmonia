@@ -4,6 +4,7 @@ import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface PairProgrammingBadgeProps {
   status: PairProgrammingBadgeStatus | null;
+  verbose?: boolean
 }
 
 /**
@@ -11,10 +12,12 @@ interface PairProgrammingBadgeProps {
  *
  * @param props.status - attendance status, or null to render nothing
  */
-const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
+const PairProgrammingBadge = ({ status, verbose }: PairProgrammingBadgeProps) => {
   if (!status) {
     return null;
   }
+
+  const verboseAddition = verbose ? "Pair Programming " : ""
 
   if (status === 'not_found') {
     return (
@@ -22,7 +25,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="gap-1.5 cursor-help text-warning border-warning/50 bg-warning/10">
-              Not Found
+              {verboseAddition} Not Found
             </Badge>
           </TooltipTrigger>
           <TooltipContent>
@@ -39,7 +42,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="gap-1.5 cursor-help text-warning border-warning/50 bg-warning/10">
-              Warning
+              {verboseAddition} Warning
             </Badge>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
@@ -59,7 +62,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="secondary" className="gap-1.5 cursor-help bg-success/10 text-success hover:bg-success/20">
-              Pass
+              {verboseAddition} Pass
             </Badge>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
@@ -75,7 +78,7 @@ const PairProgrammingBadge = ({ status }: PairProgrammingBadgeProps) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Badge variant="destructive" className="gap-1.5 cursor-help">
-            Fail
+            {verboseAddition} Fail
           </Badge>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">

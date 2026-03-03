@@ -408,7 +408,7 @@ const TeamDetail = ({
                       Analyzing...
                     </Badge>
                   )}
-                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true}/>
                 </div>
               </div>
             </div>

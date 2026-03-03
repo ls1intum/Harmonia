@@ -593,11 +593,18 @@ public class RequestService {
 
     /**
      * Recomputes pair programming metrics for all teams in an exercise.
-     * Each team's result is committed to the database immediately (entry-wise) so
-     * data is visible and durable without waiting for the full run to finish.
+     * <p>
+     * Runs in two passes so the lightweight status (PASS / FAIL / NOT_FOUND / WARNING)
+     * is visible in the webapp immediately, before the slower score computation begins:
+     * <ol>
+     *   <li><b>Fast pass</b> — derives the status from attendance data alone and commits
+     *       it per-team (each {@code save()} auto-commits its own transaction).</li>
+     *   <li><b>Slow pass</b> — computes the numeric score from commit chunks and
+     *       commits per-team in a new transaction.</li>
+     * </ol>
      *
      * @param exerciseId the exercise ID
-     * @return number of teams updated
+     * @return number of teams updated (status or score change)
      */
     public int recomputePairProgrammingForExercise(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
@@ -605,6 +612,20 @@ public class RequestService {
             return 0;
         }
 
+        // Fast pass: persist status for all teams immediately
+        for (TeamParticipation participation : participations) {
+            PairProgrammingStatus status = PairProgrammingStatus.fromAttendanceState(
+                    pairProgrammingService.hasTeamAttendance(participation.getName()),
+                    pairProgrammingService.hasCancelledSessionWarning(participation.getName()),
+                    pairProgrammingService.isPairedMandatorySessions(participation.getName()));
+            String statusValue = status != null ? status.name() : null;
+            if (!Objects.equals(participation.getCqiPairProgrammingStatus(), statusValue)) {
+                participation.setCqiPairProgrammingStatus(statusValue);
+                teamParticipationRepository.save(participation);
+            }
+        }
+
+        // Slow pass: compute and persist scores
         int updated = 0;
         for (TeamParticipation participation : participations) {
             if (requestServiceSelf.recomputeOneParticipationInNewTx(participation.getTeamParticipationId())) {
