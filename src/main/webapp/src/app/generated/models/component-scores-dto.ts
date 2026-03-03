@@ -19,5 +19,5 @@ export interface ComponentScoresDTO {
   pairProgramming?: number;
   pairProgrammingStatus?: string;
   temporalSpread?: number;
-  weeklyDistribution?: Array<number>;
+  dailyDistribution?: Array<number>;
 }

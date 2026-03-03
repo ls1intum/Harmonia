@@ -1343,7 +1343,7 @@ public class RequestService {
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
                 teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
-                teamParticipation.setCqiWeeklyDistribution(serializeWeeklyDistribution(gitComponents.weeklyDistribution()));
+                teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(gitComponents.dailyDistribution()));
                 teamParticipationRepository.save(teamParticipation);
 
                 return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
@@ -1382,7 +1382,7 @@ public class RequestService {
         teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
         teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
         teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
-        teamParticipation.setCqiWeeklyDistribution(serializeWeeklyDistribution(cqiDetails.components().weeklyDistribution()));
+        teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(cqiDetails.components().dailyDistribution()));
     }
 
     private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
@@ -1724,19 +1724,19 @@ public class RequestService {
         }
     }
 
-    private String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
+    private String serializeDailyDistribution(List<Double> dailyDistribution) {
         try {
-            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
+            if (dailyDistribution == null || dailyDistribution.isEmpty()) {
                 return null;
             }
-            return objectMapper.writeValueAsString(weeklyDistribution);
+            return objectMapper.writeValueAsString(dailyDistribution);
         } catch (Exception e) {
-            log.warn("Failed to serialize weekly distribution: {}", e.getMessage());
+            log.warn("Failed to serialize daily distribution: {}", e.getMessage());
             return null;
         }
     }
 
-    private List<Double> deserializeWeeklyDistribution(String json) {
+    private List<Double> deserializeDailyDistribution(String json) {
         try {
             if (json == null || json.isEmpty()) {
                 return null;
@@ -1744,7 +1744,7 @@ public class RequestService {
             return objectMapper.readValue(json,
                     objectMapper.getTypeFactory().constructCollectionType(List.class, Double.class));
         } catch (Exception e) {
-            log.warn("Failed to deserialize weekly distribution: {}", e.getMessage());
+            log.warn("Failed to deserialize daily distribution: {}", e.getMessage());
             return null;
         }
     }
@@ -1762,7 +1762,7 @@ public class RequestService {
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
                 participation.getCqiPairProgramming(),
                 participation.getCqiPairProgrammingStatus(),
-                deserializeWeeklyDistribution(participation.getCqiWeeklyDistribution()));
+                deserializeDailyDistribution(participation.getCqiDailyDistribution()));
 
         // Determine weights based on analysis mode
         ComponentWeightsDTO weights;

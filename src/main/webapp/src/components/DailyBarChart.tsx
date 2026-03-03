@@ -1,8 +1,8 @@
-interface WeeklyBarChartProps {
+interface DailyBarChartProps {
   data: number[];
 }
 
-const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
+const DailyBarChart = ({ data }: DailyBarChartProps) => {
   if (!data || data.length === 0) return null;
 
   const max = Math.max(...data);
@@ -46,4 +46,4 @@ const WeeklyBarChart = ({ data }: WeeklyBarChartProps) => {
   );
 };
 
-export default WeeklyBarChart;
+export default DailyBarChart;

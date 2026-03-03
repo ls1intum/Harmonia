@@ -164,7 +164,7 @@ public class CqiRecalculationService {
                 participation.setCqiOwnershipSpread(originalOwnership);
             }
             participation.setCqiBaseScore(finalBaseScore);
-            participation.setCqiWeeklyDistribution(serializeWeeklyDistribution(cqiResult.components().weeklyDistribution()));
+            participation.setCqiDailyDistribution(serializeDailyDistribution(cqiResult.components().dailyDistribution()));
         }
         teamParticipationRepository.save(participation);
     }
@@ -201,12 +201,12 @@ public class CqiRecalculationService {
         }
     }
 
-    private String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
+    private String serializeDailyDistribution(List<Double> dailyDistribution) {
         try {
-            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
+            if (dailyDistribution == null || dailyDistribution.isEmpty()) {
                 return null;
             }
-            return OBJECT_MAPPER.writeValueAsString(weeklyDistribution);
+            return OBJECT_MAPPER.writeValueAsString(dailyDistribution);
         } catch (Exception e) {
             return null;
         }

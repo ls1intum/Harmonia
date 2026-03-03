@@ -10,7 +10,7 @@
 | **pairProgramming**       | **number**              |             | [optional] [default to undefined] |
 | **pairProgrammingStatus** | **string**              |             | [optional] [default to undefined] |
 | **temporalSpread**        | **number**              |             | [optional] [default to undefined] |
-| **weeklyDistribution**    | **Array&lt;number&gt;** |             | [optional] [default to undefined] |
+| **dailyDistribution**    | **Array&lt;number&gt;** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -24,7 +24,7 @@ const instance: ComponentScoresDTO = {
   pairProgramming,
   pairProgrammingStatus,
   temporalSpread,
-  weeklyDistribution,
+  dailyDistribution,
 };
 ```
 

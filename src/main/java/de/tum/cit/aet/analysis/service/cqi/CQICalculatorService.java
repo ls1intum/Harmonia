@@ -35,7 +35,7 @@ public class CQICalculatorService {
     /**
      * Result of temporal spread calculation, containing both the score and the daily distribution data.
      */
-    public record TemporalSpreadResultDTO(double score, List<Double> weeklyDistribution) {
+    public record TemporalSpreadResultDTO(double score, List<Double> dailyDistribution) {
     }
 
     /**
@@ -92,7 +92,7 @@ public class CQICalculatorService {
 
         ComponentScoresDTO components = new ComponentScoresDTO(
                 effortScore, locScore, temporalResult.score(), ownershipScore, null, null,
-                temporalResult.weeklyDistribution());
+                temporalResult.dailyDistribution());
 
         // --- 4. Compute weighted CQI ---
         CQIConfig.Weights weights = cqiConfig.getWeights();
@@ -243,7 +243,7 @@ public class CQICalculatorService {
 
         // --- 5. Build result (effortBalance = 0 because it requires AI) ---
         return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, pairProgrammingStatus,
-                temporalResult.weeklyDistribution());
+                temporalResult.dailyDistribution());
     }
 
     /**
@@ -317,12 +317,12 @@ public class CQICalculatorService {
             dailyLines[dayIndex] += chunk.totalLinesChanged();
         }
 
-        List<Double> weeklyDistribution = Arrays.stream(dailyLines).boxed().toList();
+        List<Double> dailyDistribution = Arrays.stream(dailyLines).boxed().toList();
 
         // Calculate coefficient of variation
         double mean = Arrays.stream(dailyLines).average().orElse(0);
         if (mean == 0) {
-            return new TemporalSpreadResultDTO(50.0, weeklyDistribution);
+            return new TemporalSpreadResultDTO(50.0, dailyDistribution);
         }
 
         double variance = Arrays.stream(dailyLines)
@@ -335,7 +335,7 @@ public class CQICalculatorService {
         double normalizedCV = Math.min(cv / 5.0, 1.0);
 
         double score = 100.0 * (1.0 - normalizedCV);
-        return new TemporalSpreadResultDTO(score, weeklyDistribution);
+        return new TemporalSpreadResultDTO(score, dailyDistribution);
     }
 
     /**
@@ -447,12 +447,12 @@ public class CQICalculatorService {
             dailyEffort[dayIndex] += rc.chunk().totalLinesChanged();
         }
 
-        List<Double> weeklyDistribution = Arrays.stream(dailyEffort).boxed().toList();
+        List<Double> dailyDistribution = Arrays.stream(dailyEffort).boxed().toList();
 
         // Calculate coefficient of variation
         double mean = Arrays.stream(dailyEffort).average().orElse(0);
         if (mean == 0) {
-            return new TemporalSpreadResultDTO(50.0, weeklyDistribution);
+            return new TemporalSpreadResultDTO(50.0, dailyDistribution);
         }
 
         double variance = Arrays.stream(dailyEffort)
@@ -465,7 +465,7 @@ public class CQICalculatorService {
         double normalizedCV = Math.min(cv / 5.0, 1.0);
 
         double score = 100.0 * (1.0 - normalizedCV);
-        return new TemporalSpreadResultDTO(score, weeklyDistribution);
+        return new TemporalSpreadResultDTO(score, dailyDistribution);
     }
 
     /**
