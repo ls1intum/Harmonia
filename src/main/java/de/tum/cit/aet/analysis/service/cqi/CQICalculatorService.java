@@ -331,8 +331,8 @@ public class CQICalculatorService {
         double stdev = Math.sqrt(variance);
         double cv = stdev / mean;
 
-        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
-        double normalizedCV = Math.min(cv / 2.0, 1.0);
+        // Normalize: CV of 0 = perfect (score 100), CV of 5+ = poor (score 0)
+        double normalizedCV = Math.min(cv / 5.0, 1.0);
 
         double score = 100.0 * (1.0 - normalizedCV);
         return new TemporalSpreadResultDTO(score, weeklyDistribution);
@@ -461,8 +461,8 @@ public class CQICalculatorService {
         double stdev = Math.sqrt(variance);
         double cv = stdev / mean;
 
-        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
-        double normalizedCV = Math.min(cv / 2.0, 1.0);
+        // Normalize: CV of 0 = perfect (score 100), CV of 5+ = poor (score 0)
+        double normalizedCV = Math.min(cv / 5.0, 1.0);
 
         double score = 100.0 * (1.0 - normalizedCV);
         return new TemporalSpreadResultDTO(score, weeklyDistribution);
