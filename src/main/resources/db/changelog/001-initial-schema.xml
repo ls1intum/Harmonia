@@ -34,6 +34,7 @@
             <column name="cqi_pair_programming" type="DOUBLE"/>
             <column name="cqi_pair_programming_status" type="VARCHAR(255)"/>
             <column name="cqi_base_score" type="DOUBLE"/>
+            <column name="cqi_weekly_distribution" type="TEXT"/>
 
             <!-- LLM token usage aggregate columns -->
             <column name="llm_calls" type="BIGINT"/>

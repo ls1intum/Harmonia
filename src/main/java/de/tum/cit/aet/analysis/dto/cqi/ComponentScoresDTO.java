@@ -14,7 +14,8 @@ import java.util.List;
  * @param pairProgramming       pair programming collaboration score (0-100, nullable)
  * @param pairProgrammingStatus pair programming metric status: "FOUND", "NOT_FOUND",
  *                              "WARNING", or null if no attendance data uploaded
- * @param weeklyDistribution    weekly effort/LoC distribution buckets for temporal spread visualization (nullable)
+ * @param weeklyDistribution    daily lines of code changed (added + deleted) per day from prefiltered commits,
+ *                              used for temporal spread bar chart visualization (nullable)
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ComponentScoresDTO(

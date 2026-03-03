@@ -33,9 +33,9 @@ public class CQICalculatorService {
     private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
-     * Result of temporal spread calculation, containing both the score and the weekly distribution data.
+     * Result of temporal spread calculation, containing both the score and the daily distribution data.
      */
-    public record TemporalSpreadResult(double score, List<Double> weeklyDistribution) {
+    public record TemporalSpreadResultDTO(double score, List<Double> weeklyDistribution) {
     }
 
     /**
@@ -87,7 +87,7 @@ public class CQICalculatorService {
         // --- 3. Calculate component scores ---
         double effortScore = calculateEffortBalance(effortByAuthor);
         double locScore = calculateLocBalance(locByAuthor);
-        TemporalSpreadResult temporalResult = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
+        TemporalSpreadResultDTO temporalResult = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
         double ownershipScore = calculateOwnershipSpread(ratedChunks, teamSize);
 
         ComponentScoresDTO components = new ComponentScoresDTO(
@@ -208,7 +208,7 @@ public class CQICalculatorService {
             }
         }
 
-        TemporalSpreadResult temporalResult = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
+        TemporalSpreadResultDTO temporalResult = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
         // --- 4. Calculate pair programming score (teams of 2 only) ---
@@ -288,16 +288,16 @@ public class CQICalculatorService {
     /**
      * Calculate temporal spread from raw commit chunks (no AI rating needed).
      */
-    private TemporalSpreadResult calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
+    private TemporalSpreadResultDTO calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
                                                      LocalDateTime projectStart,
                                                      LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return new TemporalSpreadResult(50.0, List.of());
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
         long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
         if (totalDays <= 0) {
-            return new TemporalSpreadResult(50.0, List.of());
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
         // Divide project into days
@@ -322,7 +322,7 @@ public class CQICalculatorService {
         // Calculate coefficient of variation
         double mean = Arrays.stream(dailyLines).average().orElse(0);
         if (mean == 0) {
-            return new TemporalSpreadResult(50.0, weeklyDistribution);
+            return new TemporalSpreadResultDTO(50.0, weeklyDistribution);
         }
 
         double variance = Arrays.stream(dailyLines)
@@ -335,7 +335,7 @@ public class CQICalculatorService {
         double normalizedCV = Math.min(cv / 2.0, 1.0);
 
         double score = 100.0 * (1.0 - normalizedCV);
-        return new TemporalSpreadResult(score, weeklyDistribution);
+        return new TemporalSpreadResultDTO(score, weeklyDistribution);
     }
 
     /**
@@ -419,16 +419,16 @@ public class CQICalculatorService {
      * Calculate temporal spread score.
      * Rewards work spread evenly over project duration, penalizes cramming.
      */
-    private TemporalSpreadResult calculateTemporalSpread(List<CqiRatedChunkDTO> chunks,
+    private TemporalSpreadResultDTO calculateTemporalSpread(List<CqiRatedChunkDTO> chunks,
                                            LocalDateTime projectStart,
                                            LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return new TemporalSpreadResult(50.0, List.of());
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
         long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
         if (totalDays <= 0) {
-            return new TemporalSpreadResult(50.0, List.of());
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
         // Divide project into days
@@ -452,7 +452,7 @@ public class CQICalculatorService {
         // Calculate coefficient of variation
         double mean = Arrays.stream(dailyEffort).average().orElse(0);
         if (mean == 0) {
-            return new TemporalSpreadResult(50.0, weeklyDistribution);
+            return new TemporalSpreadResultDTO(50.0, weeklyDistribution);
         }
 
         double variance = Arrays.stream(dailyEffort)
@@ -465,7 +465,7 @@ public class CQICalculatorService {
         double normalizedCV = Math.min(cv / 2.0, 1.0);
 
         double score = 100.0 * (1.0 - normalizedCV);
-        return new TemporalSpreadResult(score, weeklyDistribution);
+        return new TemporalSpreadResultDTO(score, weeklyDistribution);
     }
 
     /**
