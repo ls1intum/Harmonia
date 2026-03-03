@@ -85,6 +85,7 @@ interface TeamsListProps {
   isClearing?: boolean;
   isAttendanceUploading?: boolean;
   isAttendanceClearing?: boolean;
+  isPairProgrammingScoresUpdating?: boolean;
 }
 
 /**
@@ -121,6 +122,7 @@ const TeamsList = ({
   isClearing = false,
   isAttendanceUploading = false,
   isAttendanceClearing = false,
+  isPairProgrammingScoresUpdating = false,
 }: TeamsListProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
@@ -530,7 +532,14 @@ const TeamsList = ({
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">Pair Programming</h3>
               <p className="text-sm text-muted-foreground">
-                Upload an XLSX attendance document at any time. Pair programming metrics are calculated independently from AI analysis.
+                {isPairProgrammingScoresUpdating ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
+                    Updating scores...
+                  </span>
+                ) : (
+                  'Upload an XLSX attendance document at any time. Pair programming metrics are calculated independently from AI analysis.'
+                )}
               </p>
             </div>
             <Button variant="outline" onClick={onAttendanceUpload} disabled={!attendanceFile || isAttendanceUploading}>

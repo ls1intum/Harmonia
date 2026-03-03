@@ -6,7 +6,13 @@ import type { TeamAttendanceDTO, TeamsScheduleDTO } from '@/app/generated';
 import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
-import { loadBasicTeamDataStream, transformSummaryToTeamDTO, type TemplateAuthorInfo, type TeamDTO } from '@/data/dataLoaders';
+import {
+  loadBasicTeamDataStream,
+  transformSummaryToTeamDTO,
+  type TemplateAuthorInfo,
+  type TeamDTO,
+  getPairProgrammingRecomputing
+} from '@/data/dataLoaders';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 import { normalizeTeamName } from '@/lib/utils';
 import {
@@ -104,6 +110,16 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
+  // Pair programming scores recomputing status (poll while PP enabled so card can show "Updating scores...")
+  const { data: pairProgrammingRecomputing } = useQuery({
+    queryKey: ['pairProgrammingRecomputing', exercise],
+    queryFn: () => getPairProgrammingRecomputing(parseInt(exercise)),
+    enabled: !!exercise && pairProgrammingEnabled,
+    refetchInterval: 2000,
+    staleTime: 0,
+  });
+  const isPairProgrammingScoresUpdating = pairProgrammingRecomputing?.recomputing ?? false;
+
   // Fetch team summaries from database on load (one-time, no polling).
   // During analysis, SSE is the single source of truth for updates.
   const isAnalysisRunning = status.state === 'RUNNING';
@@ -141,6 +157,7 @@ export default function Teams() {
       setPairProgrammingAttendanceByTeamName(pairProgrammingAttendanceMap);
       window.sessionStorage.setItem(pairProgrammingAttendanceMapStorageKey, JSON.stringify(pairProgrammingAttendanceMap));
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['pairProgrammingRecomputing', exercise] });
       toast({
         title: 'Attendance uploaded',
         description: 'Pair programming metrics were updated.',
@@ -516,6 +533,7 @@ export default function Teams() {
       isClearing={clearMutation.isPending}
       isAttendanceUploading={attendanceUploadMutation.isPending}
       isAttendanceClearing={clearAttendanceMutation.isPending}
+      isPairProgrammingScoresUpdating={isPairProgrammingScoresUpdating}
     />
   );
 }

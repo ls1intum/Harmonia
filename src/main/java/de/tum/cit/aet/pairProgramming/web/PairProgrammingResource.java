@@ -3,12 +3,15 @@ package de.tum.cit.aet.pairProgramming.web;
 import de.tum.cit.aet.artemis.CredentialResolverService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.service.RequestService;
+import de.tum.cit.aet.pairProgramming.dto.PairProgrammingRecomputingDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeTracker;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -27,13 +30,28 @@ public class PairProgrammingResource {
     private final PairProgrammingService pairProgrammingService;
     private final RequestService requestService;
     private final CredentialResolverService credentialResolver;
+    private final PairProgrammingRecomputeTracker recomputeTracker;
 
     public PairProgrammingResource(PairProgrammingService pairProgrammingService,
                                    RequestService requestService,
-                                   CredentialResolverService credentialResolver) {
+                                   CredentialResolverService credentialResolver,
+                                   PairProgrammingRecomputeTracker recomputeTracker) {
         this.pairProgrammingService = pairProgrammingService;
         this.requestService = requestService;
         this.credentialResolver = credentialResolver;
+        this.recomputeTracker = recomputeTracker;
+    }
+
+    /**
+     * Returns whether pair programming scores are currently being recomputed for the exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return DTO with recomputing flag
+     */
+    @GetMapping(value = "recomputing", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<PairProgrammingRecomputingDTO> isRecomputing(
+            @RequestParam("exerciseId") Long exerciseId) {
+        return ResponseEntity.ok(new PairProgrammingRecomputingDTO(recomputeTracker.isRecomputing(exerciseId)));
     }
 
     /**

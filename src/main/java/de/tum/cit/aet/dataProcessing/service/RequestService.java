@@ -1434,20 +1434,24 @@ public class RequestService {
         ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
                 filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName());
 
-        Double previousScore = participation.getCqiPairProgramming();
-        String previousStatus = participation.getCqiPairProgrammingStatus();
         PairProgrammingStatus nextStatus = components.pairProgrammingStatus();
-        Double nextScore = normalizePairProgrammingScore(components.pairProgramming(), nextStatus);
         String nextStatusValue = nextStatus != null ? nextStatus.name() : null;
 
-        boolean changed = !Objects.equals(previousScore, nextScore)
-                || !Objects.equals(previousStatus, nextStatus);
-        if (!changed) {
-            return false;
+        // Persist status as soon as it is computed, before the score (so UI can show status even if score lags)
+        boolean statusChanged = !Objects.equals(participation.getCqiPairProgrammingStatus(), nextStatusValue);
+        if (statusChanged) {
+            participation.setCqiPairProgrammingStatus(nextStatusValue);
+            teamParticipationRepository.save(participation);
+        }
+
+        Double previousScore = participation.getCqiPairProgramming();
+        Double nextScore = normalizePairProgrammingScore(components.pairProgramming(), nextStatus);
+        boolean scoreChanged = !Objects.equals(previousScore, nextScore);
+        if (!scoreChanged) {
+            return statusChanged;
         }
 
         participation.setCqiPairProgramming(nextScore);
-        participation.setCqiPairProgrammingStatus(nextStatusValue);
         teamParticipationRepository.save(participation);
         return true;
     }

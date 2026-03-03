@@ -44,15 +44,18 @@ public class PairProgrammingService {
     private final ArtemisClientService artemisClientService;
     private final AttendanceConfiguration attendanceConfiguration;
     private final RequestService requestService;
+    private final PairProgrammingRecomputeTracker recomputeTracker;
 
     private final Map<String, TeamAttendanceDTO> teamsByNormalizedName = new ConcurrentHashMap<>();
 
     public PairProgrammingService(ArtemisClientService artemisClientService,
                                   AttendanceConfiguration attendanceConfiguration,
-                                  @Lazy RequestService requestService) {
+                                  @Lazy RequestService requestService,
+                                  PairProgrammingRecomputeTracker recomputeTracker) {
         this.artemisClientService = artemisClientService;
         this.attendanceConfiguration = attendanceConfiguration;
         this.requestService = requestService;
+        this.recomputeTracker = recomputeTracker;
     }
 
     // ---- Attendance parsing ----
@@ -256,12 +259,15 @@ public class PairProgrammingService {
      */
     @Async("attendanceTaskExecutor")
     public void recomputeForExerciseAsync(Long exerciseId) {
+        recomputeTracker.startRecompute(exerciseId);
         try {
             int updatedTeams = requestService.recomputePairProgrammingForExercise(exerciseId);
             log.info("Async recomputed pair programming metrics for {} teams (exercise={})",
                     updatedTeams, exerciseId);
         } catch (Exception e) {
             log.error("Async pair programming recomputation failed for exercise {}", exerciseId, e);
+        } finally {
+            recomputeTracker.endRecompute(exerciseId);
         }
     }
 
