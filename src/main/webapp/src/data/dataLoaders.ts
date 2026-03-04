@@ -272,4 +272,3 @@ export function loadBasicTeamDataStream(
 
   return () => eventSource.close();
 }
-

@@ -6,12 +6,7 @@ import type { TeamAttendanceDTO, TeamsScheduleDTO } from '@/app/generated';
 import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
-import {
-  loadBasicTeamDataStream,
-  transformSummaryToTeamDTO,
-  type TemplateAuthorInfo,
-  type TeamDTO,
-} from '@/data/dataLoaders';
+import { loadBasicTeamDataStream, transformSummaryToTeamDTO, type TemplateAuthorInfo, type TeamDTO } from '@/data/dataLoaders';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 import { normalizeTeamName } from '@/lib/utils';
 import {
