@@ -267,7 +267,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
 
         assertNotNull(result.components().dailyDistribution());
         assertEquals(30, result.components().dailyDistribution().size());
@@ -280,7 +280,7 @@ class CQICalculatorServiceTest {
                 createChunk(2L, 100, projectStart.plusDays(15))
         );
 
-        ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, projectStart, projectEnd, teamName);
+        ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, projectStart, projectEnd, teamName, null);
 
         assertNotNull(components.dailyDistribution());
         assertFalse(components.dailyDistribution().isEmpty());
