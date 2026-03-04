@@ -256,7 +256,6 @@ public class CQICalculatorService {
     }
 
     /**
-    /**
      * Build a {@link ComponentWeightsDTO} from the default configuration.
      *
      * @return DTO containing the default weights for all CQI components
@@ -281,10 +280,11 @@ public class CQICalculatorService {
      * Used in SIMPLE mode where AI analysis is not run, so the remaining weights
      * (loc, temporal, ownership) are scaled proportionally to sum to 1.0.
      *
+     * @param exerciseId the exercise ID for resolving per-exercise weight configuration
      * @return DTO with effortBalance=0 and remaining weights summing to 1.0
      */
-    public ComponentWeightsDTO buildRenormalizedWeightsWithoutEffort() {
-        CQIConfig.Weights w = cqiConfig.getWeights();
+    public ComponentWeightsDTO buildRenormalizedWeightsWithoutEffort(Long exerciseId) {
+        CQIConfig.Weights w = cqiWeightService.getWeightsForExercise(exerciseId);
         double divisor = w.getLoc() + w.getTemporal() + w.getOwnership();
         if (divisor <= 0) {
             return new ComponentWeightsDTO(0.0, 0.0, 0.0, 0.0);
@@ -296,12 +296,13 @@ public class CQICalculatorService {
      * Returns a new {@link CQIResultDTO} with weights renormalized to exclude effort balance.
      * The component scores are preserved, only the weights are adjusted.
      *
-     * @param original the original CQI result with standard weights
+     * @param original   the original CQI result with standard weights
+     * @param exerciseId the exercise ID for resolving per-exercise weight configuration
      * @return a new CQI result with renormalized weights
      */
-    public CQIResultDTO renormalizeWithoutEffort(CQIResultDTO original) {
+    public CQIResultDTO renormalizeWithoutEffort(CQIResultDTO original, Long exerciseId) {
         return new CQIResultDTO(
-                original.cqi(), original.components(), buildRenormalizedWeightsWithoutEffort(),
+                original.cqi(), original.components(), buildRenormalizedWeightsWithoutEffort(exerciseId),
                 original.baseScore(), original.filterSummary());
     }
 

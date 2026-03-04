@@ -729,7 +729,7 @@ public class RequestService {
         // In SIMPLE mode, send renormalized weights (excluding effort balance)
         CQIResultDTO finalDetails = gitCqiDetails;
         if (mode == AnalysisMode.SIMPLE && gitCqiDetails != null) {
-            finalDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails);
+            finalDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails, exerciseId);
         }
 
         return new ClientResponseDTO(
@@ -1162,7 +1162,7 @@ public class RequestService {
         Double cqi = null;
         CQIResultDTO simpleCqiDetails = gitCqiDetails;
         if (gitCqiDetails != null && gitCqiDetails.components() != null) {
-            ComponentWeightsDTO weights = cqiCalculatorService.buildWeightsDTO();
+            ComponentWeightsDTO weights = cqiCalculatorService.buildWeightsDTO(exerciseId);
             double wLoc = weights.locBalance();
             double wTemporal = weights.temporalSpread();
             double wOwnership = weights.ownershipSpread();
@@ -1178,7 +1178,7 @@ public class RequestService {
             }
 
             // Use renormalized weights for display
-            simpleCqiDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails);
+            simpleCqiDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails, exerciseId);
         }
 
         // 3) Persist components and mark DONE
@@ -1737,18 +1737,19 @@ public class RequestService {
                 participation.getCqiPairProgrammingStatus());
 
         // Determine weights based on analysis mode
+        Long exerciseId = participation.getExerciseId();
         ComponentWeightsDTO weights;
         if (mode == AnalysisMode.FULL) {
-            weights = cqiCalculatorService.buildWeightsDTO();
+            weights = cqiCalculatorService.buildWeightsDTO(exerciseId);
         } else if (mode == AnalysisMode.SIMPLE) {
-            weights = cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+            weights = cqiCalculatorService.buildRenormalizedWeightsWithoutEffort(exerciseId);
         } else {
             // Null mode fallback: infer from whether effort balance was computed
             boolean hasEffortBalance = participation.getCqiEffortBalance() != null
                     && participation.getCqiEffortBalance() > 0;
             weights = hasEffortBalance
-                    ? cqiCalculatorService.buildWeightsDTO()
-                    : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+                    ? cqiCalculatorService.buildWeightsDTO(exerciseId)
+                    : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort(exerciseId);
         }
 
         return new CQIResultDTO(
