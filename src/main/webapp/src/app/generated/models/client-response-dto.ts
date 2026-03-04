@@ -38,6 +38,7 @@ export interface ClientResponseDTO {
   llmTokenTotals?: LlmTokenTotalsDTO;
   orphanCommitCount?: number;
   orphanCommits?: Array<OrphanCommitDTO>;
+  shortName?: string;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
   teamId?: number;

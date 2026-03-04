@@ -45,6 +45,7 @@ public class CQICalculatorService {
      * @param projectEnd    Project end date
      * @param filterSummary Summary from pre-filtering (optional)
      * @param teamName      The team name
+     * @param shortName     The team short name (optional fallback for attendance lookup)
      * @return CQI result with component scores
      */
     public CQIResultDTO calculate(
@@ -53,9 +54,10 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
             FilterSummaryDTO filterSummary,
-            String teamName) {
+            String teamName,
+            String shortName) {
 
-        PairProgrammingStatus pairProgrammingStatus = getPairProgrammingStatus(teamName);
+        PairProgrammingStatus pairProgrammingStatus = getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Build weights and check edge cases ---
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
@@ -96,14 +98,17 @@ public class CQICalculatorService {
     }
 
     /**
-     * Helper for getting the pair programming status
-     * @param teamName
-     * @return
+     * Helper for getting the pair programming status.
+     * Uses short name as fallback when attendance is keyed by short name in the Excel.
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @return the pair programming status
      */
-    private PairProgrammingStatus getPairProgrammingStatus(String teamName) {
-        boolean hasAttendanceData = pairProgrammingService.hasTeamAttendance(teamName);
-        boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName);
-        boolean pairedMandatorySessions = pairProgrammingService.isPairedMandatorySessions(teamName);
+    private PairProgrammingStatus getPairProgrammingStatus(String teamName, String shortName) {
+        boolean hasAttendanceData = pairProgrammingService.hasTeamAttendance(teamName, shortName);
+        boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName, shortName);
+        boolean pairedMandatorySessions = pairProgrammingService.isPairedMandatorySessions(teamName, shortName);
         return PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
     }
 
@@ -116,15 +121,17 @@ public class CQICalculatorService {
      * @param chunks        Pre-filtered commit chunks (not rated)
      * @param teamSize      Number of team members
      * @param filterSummary Summary from pre-filtering
+     * @param shortName     the team short name (optional fallback for attendance lookup)
      * @return CQI result based on LoC only
      */
     public CQIResultDTO calculateFallback(
             List<CommitChunkDTO> chunks,
             int teamSize,
             FilterSummaryDTO filterSummary,
-            String teamName) {
+            String teamName,
+            String shortName) {
 
-        PairProgrammingStatus pairProgrammingStatus = getPairProgrammingStatus(teamName);
+        PairProgrammingStatus pairProgrammingStatus = getPairProgrammingStatus(teamName, shortName);
 
         // 1) Validate input
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
@@ -169,6 +176,7 @@ public class CQICalculatorService {
      * @param projectStart Project start date (optional, uses first commit if null)
      * @param projectEnd   Project end date (optional, uses last commit if null)
      * @param teamName     Team name for retrieving paired session data (optional)
+     * @param shortName    Team short name (optional fallback for attendance lookup)
      * @return Component scores with only git-based metrics filled in
      */
     public ComponentScoresDTO calculateGitOnlyComponents(
@@ -176,12 +184,12 @@ public class CQICalculatorService {
             int teamSize,
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
-            String teamName) {
+            String teamName,
+            String shortName) {
 
-
-        boolean hasAttendanceData = pairProgrammingService.hasTeamAttendance(teamName);
-        boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName);
-        boolean pairedMandatorySessions = pairProgrammingService.isPairedMandatorySessions(teamName);
+        boolean hasAttendanceData = pairProgrammingService.hasTeamAttendance(teamName, shortName);
+        boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName, shortName);
+        boolean pairedMandatorySessions = pairProgrammingService.isPairedMandatorySessions(teamName, shortName);
         PairProgrammingStatus pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
 
         // --- 1. Validate input ---
@@ -230,8 +238,8 @@ public class CQICalculatorService {
         if (teamName != null && teamSize == 2) {
             try {
 
-                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName);
-                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName);
+                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName, shortName);
+                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName, shortName);
 
                 if (hasAttendanceData) {
                     if (hasCancelledSessionWarning) {

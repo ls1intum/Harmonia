@@ -615,9 +615,9 @@ public class RequestService {
         // Fast pass: persist status for all teams immediately
         for (TeamParticipation participation : participations) {
             PairProgrammingStatus status = PairProgrammingStatus.fromAttendanceState(
-                    pairProgrammingService.hasTeamAttendance(participation.getName()),
-                    pairProgrammingService.hasCancelledSessionWarning(participation.getName()),
-                    pairProgrammingService.isPairedMandatorySessions(participation.getName()));
+                    pairProgrammingService.hasTeamAttendance(participation.getName(), participation.getShortName()),
+                    pairProgrammingService.hasCancelledSessionWarning(participation.getName(), participation.getShortName()),
+                    pairProgrammingService.isPairedMandatorySessions(participation.getName(), participation.getShortName()));
             String statusValue = status != null ? status.name() : null;
             if (!Objects.equals(participation.getCqiPairProgrammingStatus(), statusValue)) {
                 participation.setCqiPairProgrammingStatus(statusValue);
@@ -762,7 +762,7 @@ public class RequestService {
         if (hasFailed) {
             return new ClientResponseDTO(
                     tutor != null ? tutor.getName() : "Unassigned",
-                    team.id(), team.name(), participation.submissionCount(),
+                    team.id(), team.name(), team.shortName(), participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
                     null, null, null, null, 0, true);
         }
@@ -778,7 +778,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), participation.submissionCount(),
+                team.id(), team.name(), team.shortName(), participation.submissionCount(),
                 studentDtos,
                 null,  // CQI — Phase 3
                 null,  // isSuspicious — Phase 3
@@ -874,7 +874,7 @@ public class RequestService {
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
                     PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
                     cqiDetails = cqiCalculatorService.calculateFallback(
-                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name());
+                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name(), team.shortName());
                     cqi = cqiDetails.cqi();
                 } catch (Exception e) {
                     log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -921,7 +921,7 @@ public class RequestService {
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
-                        team.id(), team.name(), participation.submissionCount(),
+                        team.id(), team.name(), team.shortName(), participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
                         teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
@@ -1243,7 +1243,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), participation.submissionCount(),
+                team.id(), team.name(), team.shortName(), participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
                 finalDetails, null, null, null, null, null);
     }
@@ -1379,7 +1379,7 @@ public class RequestService {
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
 
             ComponentScoresDTO gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
-                    filterResult.chunksToAnalyze(), students.size(), null, null, team.name());
+                    filterResult.chunksToAnalyze(), students.size(), null, null, team.name(), team.shortName());
 
             if (gitComponents != null) {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
@@ -1408,7 +1408,7 @@ public class RequestService {
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             CQIResultDTO result = cqiCalculatorService.calculateFallback(
-                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name());
+                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name(), team.shortName());
             return result.cqi();
         } catch (Exception e) {
             log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -1453,7 +1453,7 @@ public class RequestService {
         List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
         PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
         ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
-                filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName());
+                filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName(), participation.getShortName());
 
         PairProgrammingStatus nextStatus = components.pairProgrammingStatus();
         String nextStatusValue = nextStatus != null ? nextStatus.name() : null;
@@ -1533,7 +1533,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                participation.getTeam(), participation.getName(),
+                participation.getTeam(), participation.getName(), participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDtos, cqi, isSuspicious,
                 participation.getAnalysisStatus(),
@@ -1988,10 +1988,9 @@ public class RequestService {
 
         // 2) Check pair programming attendance (= "PP Failed" badge)
         if (!hasFailed) {
-            String teamName = tp.getName();
             if (pairProgrammingService.hasAttendanceData()
-                    && pairProgrammingService.hasTeamAttendance(teamName)
-                    && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
+                    && pairProgrammingService.hasTeamAttendance(tp.getName(), tp.getShortName())
+                    && !pairProgrammingService.isPairedMandatorySessions(tp.getName(), tp.getShortName())) {
                 hasFailed = true;
             }
         }

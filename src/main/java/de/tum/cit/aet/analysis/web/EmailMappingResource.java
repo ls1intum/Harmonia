@@ -456,6 +456,7 @@ public class EmailMappingResource {
                 participation.getTutor() != null ? participation.getTutor().getName() : "Unassigned",
                 participation.getTeam(),
                 participation.getName(),
+                participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDTOs,
                 participation.getCqi(),

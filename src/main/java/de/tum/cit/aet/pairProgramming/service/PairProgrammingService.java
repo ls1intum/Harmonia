@@ -147,39 +147,86 @@ public class PairProgrammingService {
     }
 
     /**
+     * Resolves the key used in the attendance map: tries normalized team name first,
+     * then normalized short name. Used so Excel rows keyed by short name still match
+     * Artemis teams that are displayed by full name.
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @return the key present in {@code teamsByNormalizedName}, or {@code null} if not found
+     */
+    private String resolveAttendanceKey(String teamName, String shortName) {
+        if (teamName != null) {
+            String key = normalize(teamName);
+            if (teamsByNormalizedName.containsKey(key)) {
+                return key;
+            }
+        }
+        if (shortName != null && !shortName.equals(teamName)) {
+            String key = normalize(shortName);
+            if (teamsByNormalizedName.containsKey(key)) {
+                return key;
+            }
+        }
+        return teamName != null ? normalize(teamName) : null;
+    }
+
+    /**
      * Retrieves the attendance information for a specific team.
+     * Tries full name first, then short name as fallback.
+     *
+     * @param teamName  the name of the team
+     * @param shortName the short name of the team (optional fallback when Excel uses short names)
+     * @return the team attendance DTO or {@code null} if not found
+     */
+    public TeamAttendanceDTO getTeamAttendance(String teamName, String shortName) {
+        String key = resolveAttendanceKey(teamName, shortName);
+        return key != null ? teamsByNormalizedName.get(key) : null;
+    }
+
+    /**
+     * Retrieves the attendance information for a specific team by name only.
      *
      * @param teamName the name of the team
      * @return the team attendance DTO or {@code null} if not found
      */
     public TeamAttendanceDTO getTeamAttendance(String teamName) {
-        if (teamName == null) {
-            return null;
-        }
-        return teamsByNormalizedName.get(normalize(teamName));
+        return getTeamAttendance(teamName, null);
     }
 
     /**
      * Checks if attendance data exists for a specific team.
+     * Tries full name first, then short name as fallback.
+     *
+     * @param teamName  the team name to look up
+     * @param shortName the short team name (optional fallback)
+     * @return {@code true} if the team exists in uploaded attendance data
+     */
+    public boolean hasTeamAttendance(String teamName, String shortName) {
+        String key = resolveAttendanceKey(teamName, shortName);
+        return key != null && teamsByNormalizedName.containsKey(key);
+    }
+
+    /**
+     * Checks if attendance data exists for a specific team by name only.
      *
      * @param teamName the team name to look up
      * @return {@code true} if the team exists in uploaded attendance data
      */
     public boolean hasTeamAttendance(String teamName) {
-        if (teamName == null) {
-            return false;
-        }
-        return teamsByNormalizedName.containsKey(normalize(teamName));
+        return hasTeamAttendance(teamName, null);
     }
 
     /**
      * Retrieves the class dates (non-null attendance entries) for a team.
+     * Uses short name as fallback when full name is not found.
      *
-     * @param teamName the name of the team
+     * @param teamName  the name of the team
+     * @param shortName the short team name (optional fallback)
      * @return a set of class dates
      */
-    public Set<OffsetDateTime> getClassDates(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+    public Set<OffsetDateTime> getClassDates(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
         if (attendance == null) {
             return Set.of();
         }
@@ -195,13 +242,25 @@ public class PairProgrammingService {
     }
 
     /**
-     * Retrieves the sessions where both students were present.
+     * Retrieves the class dates for a team by name only.
      *
      * @param teamName the name of the team
+     * @return a set of class dates
+     */
+    public Set<OffsetDateTime> getClassDates(String teamName) {
+        return getClassDates(teamName, null);
+    }
+
+    /**
+     * Retrieves the sessions where both students were present.
+     * Uses short name as fallback when full name is not found.
+     *
+     * @param teamName  the name of the team
+     * @param shortName the short team name (optional fallback)
      * @return a set of paired session dates
      */
-    public Set<OffsetDateTime> getPairedSessions(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+    public Set<OffsetDateTime> getPairedSessions(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
         if (attendance == null || attendance.pairedSessions() == null) {
             return Set.of();
         }
@@ -209,29 +268,63 @@ public class PairProgrammingService {
     }
 
     /**
+     * Retrieves the paired sessions for a team by name only.
+     *
+     * @param teamName the name of the team
+     * @return a set of paired session dates
+     */
+    public Set<OffsetDateTime> getPairedSessions(String teamName) {
+        return getPairedSessions(teamName, null);
+    }
+
+    /**
      * Checks whether the team met the mandatory paired session threshold.
+     * Uses short name as fallback when full name is not found.
+     *
+     * @param teamName  the team name
+     * @param shortName the short team name (optional fallback)
+     * @return {@code true} if mandatory sessions are fulfilled
+     */
+    public boolean isPairedMandatorySessions(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
+        return attendance != null && attendance.pairedMandatorySessions();
+    }
+
+    /**
+     * Checks whether the team met the mandatory paired session threshold by name only.
      *
      * @param teamName the team name
      * @return {@code true} if mandatory sessions are fulfilled
      */
     public boolean isPairedMandatorySessions(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
-        return attendance != null && attendance.pairedMandatorySessions();
+        return isPairedMandatorySessions(teamName, null);
     }
 
     /**
      * Indicates whether the team has cancelled tutorial sessions in attendance data.
+     * Uses short name as fallback when full name is not found.
      *
-     * @param teamName the team name to look up
+     * @param teamName  the team name to look up
+     * @param shortName the short team name (optional fallback)
      * @return {@code true} when any session attendance value is {@code null}
      */
-    public boolean hasCancelledSessionWarning(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+    public boolean hasCancelledSessionWarning(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
         if (attendance == null) {
             return false;
         }
         return hasNullAttendanceValue(attendance.student1Attendance())
                 || hasNullAttendanceValue(attendance.student2Attendance());
+    }
+
+    /**
+     * Indicates whether the team has cancelled tutorial sessions (by name only).
+     *
+     * @param teamName the team name to look up
+     * @return {@code true} when any session attendance value is {@code null}
+     */
+    public boolean hasCancelledSessionWarning(String teamName) {
+        return hasCancelledSessionWarning(teamName, null);
     }
 
     /**

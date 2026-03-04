@@ -314,7 +314,12 @@ const TeamsList = ({
     // Apply pair programming filter
     if (pairProgrammingFilter !== 'all' && hasValidPairProgrammingData) {
       filtered = filtered.filter(team => {
-        const badge = getPairProgrammingBadgeStatus(team.teamName ?? '', hasValidPairProgrammingData, pairProgrammingAttendanceByTeamName);
+        const badge = getPairProgrammingBadgeStatus(
+          team.teamName ?? '',
+          hasValidPairProgrammingData,
+          pairProgrammingAttendanceByTeamName,
+          team.shortName,
+        );
         return badge === pairProgrammingFilter;
       });
     }
@@ -876,6 +881,7 @@ const TeamsList = ({
                   team.teamName ?? '',
                   hasValidPairProgrammingData,
                   pairProgrammingAttendanceByTeamName,
+                  team.shortName,
                 );
 
                 return (
