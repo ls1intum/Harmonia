@@ -295,16 +295,16 @@ class EmailMappingResourceTest {
     }
 
     // ================================================================
-    //  setTemplateAuthor tests
+    //  setTemplateAuthors tests
     // ================================================================
 
     @Test
-    void setTemplateAuthor_newEmailMarksChunksAsExternal() {
+    void setTemplateAuthors_newEmailMarksChunksAsExternal() {
         TeamParticipation participation = makeParticipation();
         AnalyzedChunk chunk = makeChunk(participation, "template@example.com", false);
 
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.empty());
+                .thenReturn(List.of());
         when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
@@ -312,17 +312,18 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        EmailMappingResource.TemplateAuthorDTO request = new EmailMappingResource.TemplateAuthorDTO("template@example.com", false);
+        List<EmailMappingResource.TemplateAuthorDTO> request = List.of(
+                new EmailMappingResource.TemplateAuthorDTO("template@example.com", false));
 
         ResponseEntity<List<ClientResponseDTO>> response =
-                resource.setTemplateAuthor(EXERCISE_ID, request);
+                resource.setTemplateAuthors(EXERCISE_ID, request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertTrue(chunk.getIsExternalContributor());
     }
 
     @Test
-    void setTemplateAuthor_changedEmail_oldKnownStudentChunksNotMarkedExternal() {
+    void setTemplateAuthors_changedEmail_oldKnownStudentChunksNotMarkedExternal() {
         TeamParticipation participation = makeParticipation();
         // Old template email is alice@uni.de, which is a known student email
         Student alice = makeStudent(999L, "Alice", "alice@uni.de", participation);
@@ -332,7 +333,7 @@ class EmailMappingResourceTest {
         ExerciseTemplateAuthor existing = new ExerciseTemplateAuthor(
                 EXERCISE_ID, "alice@uni.de", false);
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.of(existing));
+                .thenReturn(List.of(existing));
         when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
@@ -340,9 +341,10 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of(alice));
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        EmailMappingResource.TemplateAuthorDTO request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
+        List<EmailMappingResource.TemplateAuthorDTO> request = List.of(
+                new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false));
 
-        resource.setTemplateAuthor(EXERCISE_ID, request);
+        resource.setTemplateAuthors(EXERCISE_ID, request);
 
         // Bug 3 fix: old email (alice@uni.de) is a known student → should NOT be marked external
         assertFalse(oldChunk.getIsExternalContributor());
@@ -351,14 +353,14 @@ class EmailMappingResourceTest {
     }
 
     @Test
-    void setTemplateAuthor_changedEmail_oldUnknownEmailStaysExternal() {
+    void setTemplateAuthors_changedEmail_oldUnknownEmailStaysExternal() {
         TeamParticipation participation = makeParticipation();
         AnalyzedChunk oldChunk = makeChunk(participation, "old-unknown@example.com", true);
 
         ExerciseTemplateAuthor existing = new ExerciseTemplateAuthor(
                 EXERCISE_ID, "old-unknown@example.com", false);
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.of(existing));
+                .thenReturn(List.of(existing));
         when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
@@ -367,34 +369,35 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        EmailMappingResource.TemplateAuthorDTO request = new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false);
+        List<EmailMappingResource.TemplateAuthorDTO> request = List.of(
+                new EmailMappingResource.TemplateAuthorDTO("new-template@example.com", false));
 
-        resource.setTemplateAuthor(EXERCISE_ID, request);
+        resource.setTemplateAuthors(EXERCISE_ID, request);
 
         // Old unknown email should become external (orphan)
         assertTrue(oldChunk.getIsExternalContributor());
     }
 
     // ================================================================
-    //  deleteTemplateAuthor tests
+    //  deleteTemplateAuthors tests
     // ================================================================
 
     @Test
-    void deleteTemplateAuthor_removesEntity() {
+    void deleteTemplateAuthors_removesEntities() {
         ExerciseTemplateAuthor ta = new ExerciseTemplateAuthor(
                 EXERCISE_ID, "template@example.com", false);
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.of(ta));
+                .thenReturn(List.of(ta));
         when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of());
 
-        resource.deleteTemplateAuthor(EXERCISE_ID);
+        resource.deleteTemplateAuthors(EXERCISE_ID);
 
-        verify(templateAuthorRepository).delete(ta);
+        verify(templateAuthorRepository).deleteByExerciseId(EXERCISE_ID);
     }
 
     @Test
-    void deleteTemplateAuthor_unmarksChunksIfOldEmailIsKnown() {
+    void deleteTemplateAuthors_unmarksChunksIfOldEmailIsKnown() {
         TeamParticipation participation = makeParticipation();
         Student alice = makeStudent(999L, "Alice", "template@example.com", participation);
         // Chunk was marked external because it was the template author
@@ -403,7 +406,7 @@ class EmailMappingResourceTest {
         ExerciseTemplateAuthor ta = new ExerciseTemplateAuthor(
                 EXERCISE_ID, "template@example.com", false);
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.of(ta));
+                .thenReturn(List.of(ta));
         when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
@@ -412,7 +415,7 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of(alice));
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        resource.deleteTemplateAuthor(EXERCISE_ID);
+        resource.deleteTemplateAuthors(EXERCISE_ID);
 
         // Bug 2 fix: known email → chunk should be unmarked (non-external)
         assertFalse(chunk.getIsExternalContributor());
@@ -420,14 +423,14 @@ class EmailMappingResourceTest {
     }
 
     @Test
-    void deleteTemplateAuthor_unknownEmailChunksStayExternal() {
+    void deleteTemplateAuthors_unknownEmailChunksStayExternal() {
         TeamParticipation participation = makeParticipation();
         AnalyzedChunk chunk = makeChunk(participation, "template@example.com", true);
 
         ExerciseTemplateAuthor ta = new ExerciseTemplateAuthor(
                 EXERCISE_ID, "template@example.com", false);
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.of(ta));
+                .thenReturn(List.of(ta));
         when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
@@ -436,22 +439,22 @@ class EmailMappingResourceTest {
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
-        resource.deleteTemplateAuthor(EXERCISE_ID);
+        resource.deleteTemplateAuthors(EXERCISE_ID);
 
         // Unknown email → chunk stays external
         assertTrue(chunk.getIsExternalContributor());
     }
 
     @Test
-    void deleteTemplateAuthor_returns204IfNoTemplateConfigured() {
+    void deleteTemplateAuthors_returns204IfNoTemplateConfigured() {
         when(templateAuthorRepository.findByExerciseId(EXERCISE_ID))
-                .thenReturn(Optional.empty());
+                .thenReturn(List.of());
 
         ResponseEntity<List<ClientResponseDTO>> response =
-                resource.deleteTemplateAuthor(EXERCISE_ID);
+                resource.deleteTemplateAuthors(EXERCISE_ID);
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        verify(templateAuthorRepository, never()).delete(any());
+        verify(templateAuthorRepository, never()).deleteByExerciseId(any());
     }
 
     // ================================================================

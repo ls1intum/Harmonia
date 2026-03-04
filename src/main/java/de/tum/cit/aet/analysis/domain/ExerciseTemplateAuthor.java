@@ -22,7 +22,7 @@ public class ExerciseTemplateAuthor {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "exercise_id", nullable = false, unique = true)
+    @Column(name = "exercise_id", nullable = false)
     private Long exerciseId;
 
     @Column(name = "template_email", nullable = false)

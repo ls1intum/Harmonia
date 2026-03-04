@@ -67,12 +67,12 @@ public class ContributionFairnessService {
     /**
      * Analyses a repository with optional template author exclusion.
      *
-     * @param repositoryDTO       the repository to analyse
-     * @param templateAuthorEmail email of the template author to exclude (lowercase), or {@code null}
+     * @param repositoryDTO        the repository to analyse
+     * @param templateAuthorEmails emails of the template authors to exclude (lowercase), or {@code null}
      * @return fairness report plus token usage
      */
     public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
-            String templateAuthorEmail) {
+            Set<String> templateAuthorEmails) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         int teamSize = repositoryDTO.participation().team().students().size();
@@ -89,7 +89,7 @@ public class ContributionFairnessService {
 
         try {
             // 1) Map commits to authors using full git history walk
-            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO, templateAuthorEmail);
+            AuthorMappingResult authorMapping = mapCommitsToAuthors(repositoryDTO, templateAuthorEmails);
 
             if (authorMapping.teamMemberCommits.isEmpty()) {
                 return new FairnessReportWithUsageDTO(
@@ -193,10 +193,10 @@ public class ContributionFairnessService {
      * and assigns synthetic negative IDs for external contributors (grouped by email).
      */
     private AuthorMappingResult mapCommitsToAuthors(TeamRepositoryDTO repositoryDTO,
-            String templateAuthorEmail) {
+            Set<String> templateAuthorEmails) {
         // 1) Delegate commit mapping to analysis service (single git walk)
         CommitMappingResultDTO mapping = gitContributionAnalysisService.mapCommitToAuthor(
-                repositoryDTO, templateAuthorEmail);
+                repositoryDTO, templateAuthorEmails);
 
         // 2) Filter assigned commits to team members only
         Set<Long> teamMemberIds = new HashSet<>();

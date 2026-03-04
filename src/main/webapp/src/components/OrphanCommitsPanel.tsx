@@ -16,7 +16,7 @@ interface OrphanCommitsPanelProps {
   teamParticipationId?: string;
   emailMappings: EmailMappingDTO[];
   onMappingChange: () => void;
-  templateAuthorEmail?: string;
+  templateAuthorEmails?: string[];
 }
 
 /**
@@ -33,7 +33,7 @@ const OrphanCommitsPanel = ({
   teamParticipationId,
   emailMappings,
   onMappingChange,
-  templateAuthorEmail,
+  templateAuthorEmails,
 }: OrphanCommitsPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<Record<string, string>>({});
@@ -69,18 +69,18 @@ const OrphanCommitsPanel = ({
     },
   });
 
-  const templateEmailLower = templateAuthorEmail?.toLowerCase();
+  const templateEmailSet = new Set((templateAuthorEmails ?? []).map(e => e.toLowerCase()));
 
-  // Derive external chunks from analysisHistory for this team (excluding template author)
+  // Derive external chunks from analysisHistory for this team (excluding template authors)
   const externalChunks =
-    analysisHistory?.filter(c => c.isExternalContributor && c.authorEmail && c.authorEmail.toLowerCase() !== templateEmailLower) || [];
+    analysisHistory?.filter(c => c.isExternalContributor && c.authorEmail && !templateEmailSet.has(c.authorEmail.toLowerCase())) || [];
 
-  // Get unique orphan emails from commits OR from external chunks (excluding template author)
+  // Get unique orphan emails from commits OR from external chunks (excluding template authors)
   const orphanEmailsFromCommits = new Set(
-    commits.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+    commits.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && !templateEmailSet.has(e)),
   );
   const orphanEmailsFromChunks = new Set(
-    externalChunks.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+    externalChunks.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && !templateEmailSet.has(e)),
   );
   const allOrphanEmails = new Set(Array.from(orphanEmailsFromCommits).concat(Array.from(orphanEmailsFromChunks)));
 

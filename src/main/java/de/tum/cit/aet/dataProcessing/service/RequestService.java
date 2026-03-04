@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
@@ -774,9 +776,10 @@ public class RequestService {
         teamParticipationRepository.save(teamParticipation);
 
         List<Student> students = studentRepository.findAllByTeam(teamParticipation);
-        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
-                .map(ExerciseTemplateAuthor::getTemplateEmail)
-                .orElse(null);
+        Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                .stream()
+                .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
 
         Double cqi = null;
         boolean isSuspicious = false;
@@ -788,7 +791,7 @@ public class RequestService {
         // 1) Detect orphan commits
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmails);
             orphanCommits = analysisResult.orphanCommits();
             if (orphanCommits != null && !orphanCommits.isEmpty()) {
                 log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
@@ -801,7 +804,7 @@ public class RequestService {
         boolean fairnessSucceeded = false;
         try {
             FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
-                    repo, templateAuthorEmail);
+                    repo, templateAuthorEmails);
             FairnessReportDTO report = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
 
@@ -1241,15 +1244,17 @@ public class RequestService {
     private void detectTemplateAuthor(Long exerciseId, Map<Long, TeamRepositoryDTO> clonedRepos,
                                        Consumer<Object> eventEmitter) {
         try {
-            ExerciseTemplateAuthor existing = templateAuthorRepository
-                    .findByExerciseId(exerciseId).orElse(null);
+            List<ExerciseTemplateAuthor> existing = templateAuthorRepository
+                    .findByExerciseId(exerciseId);
 
-            if (existing != null) {
-                synchronized (eventEmitter) {
-                    eventEmitter.accept(Map.of(
-                            "type", "TEMPLATE_AUTHOR",
-                            "email", existing.getTemplateEmail(),
-                            "autoDetected", existing.getAutoDetected()));
+            if (!existing.isEmpty()) {
+                for (ExerciseTemplateAuthor ta : existing) {
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of(
+                                "type", "TEMPLATE_AUTHOR",
+                                "email", ta.getTemplateEmail(),
+                                "autoDetected", ta.getAutoDetected()));
+                    }
                 }
                 return;
             }

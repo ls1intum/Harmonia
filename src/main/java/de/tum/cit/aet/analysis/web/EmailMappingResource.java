@@ -227,43 +227,52 @@ public class EmailMappingResource {
     }
 
     /**
-     * Returns the configured template author for the given exercise.
+     * Returns all configured template authors for the given exercise.
      *
      * @param exerciseId the exercise ID
-     * @return template author DTO, or 200 with null body if not configured
+     * @return list of template author DTOs (empty list if none configured)
      */
     @GetMapping("/template-author")
-    public ResponseEntity<TemplateAuthorDTO> getTemplateAuthor(@PathVariable Long exerciseId) {
-        return templateAuthorRepository.findByExerciseId(exerciseId)
-                .map(ta -> ResponseEntity.ok(
-                        new TemplateAuthorDTO(ta.getTemplateEmail(), ta.getAutoDetected())))
-                .orElse(ResponseEntity.ok(null));
+    public ResponseEntity<List<TemplateAuthorDTO>> getTemplateAuthors(@PathVariable Long exerciseId) {
+        List<TemplateAuthorDTO> dtos = templateAuthorRepository.findByExerciseId(exerciseId)
+                .stream()
+                .map(ta -> new TemplateAuthorDTO(ta.getTemplateEmail(), ta.getAutoDetected()))
+                .toList();
+        return ResponseEntity.ok(dtos);
     }
 
     /**
-     * Sets or updates the template author for an exercise.
+     * Sets or replaces all template authors for an exercise.
      * All affected teams' CQI is recalculated from persisted chunks.
      *
      * @param exerciseId the exercise ID
-     * @param request    the template author request with email
+     * @param request    list of template author DTOs with emails
      * @return list of updated client response DTOs
      */
     @PutMapping("/template-author")
     @Transactional
-    public ResponseEntity<List<ClientResponseDTO>> setTemplateAuthor(
+    public ResponseEntity<List<ClientResponseDTO>> setTemplateAuthors(
             @PathVariable Long exerciseId,
-            @RequestBody TemplateAuthorDTO request) {
+            @RequestBody List<TemplateAuthorDTO> request) {
 
-        String newEmail = request.templateEmail().toLowerCase(Locale.ROOT);
-        log.info("PUT setTemplateAuthor for exerciseId={}, email={}", exerciseId, newEmail);
+        // Collect old emails
+        Set<String> oldEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                .stream()
+                .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
 
-        // Load or create template author entity
-        ExerciseTemplateAuthor ta = templateAuthorRepository.findByExerciseId(exerciseId)
-                .orElse(new ExerciseTemplateAuthor(exerciseId, newEmail, false));
-        String oldEmail = ta.getTemplateEmail();
-        ta.setTemplateEmail(newEmail);
-        ta.setAutoDetected(false); // Manual override
-        templateAuthorRepository.save(ta);
+        // Delete all existing, save new (deduplicated, lowercase)
+        templateAuthorRepository.deleteByExerciseId(exerciseId);
+        Set<String> newEmails = new LinkedHashSet<>();
+        for (TemplateAuthorDTO dto : request) {
+            String email = dto.templateEmail().toLowerCase(Locale.ROOT);
+            if (newEmails.add(email)) {
+                templateAuthorRepository.save(
+                        new ExerciseTemplateAuthor(exerciseId, email, false));
+            }
+        }
+
+        log.info("PUT setTemplateAuthors for exerciseId={}, emails={}", exerciseId, newEmails);
 
         // Recalculate CQI for all teams of this exercise
         List<TeamParticipation> participations = teamParticipationRepository
@@ -274,22 +283,20 @@ public class EmailMappingResource {
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
             boolean changed = false;
 
-            // Build known emails so we don't accidentally orphan a known student
             Set<String> knownEmails = buildKnownEmails(participation, exerciseId);
 
             for (AnalyzedChunk chunk : chunks) {
                 String chunkEmail = chunk.getAuthorEmail() != null
                         ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
 
-                if (oldEmail != null && oldEmail.equalsIgnoreCase(chunkEmail)
-                        && !newEmail.equalsIgnoreCase(chunkEmail)) {
-                    // Old template email: only mark external if NOT a known student/mapping
-                    boolean shouldBeExternal = !knownEmails.contains(
-                            chunkEmail != null ? chunkEmail.toLowerCase(Locale.ROOT) : null);
+                if (chunkEmail != null && oldEmails.contains(chunkEmail)
+                        && !newEmails.contains(chunkEmail)) {
+                    // Was template, no longer template
+                    boolean shouldBeExternal = !knownEmails.contains(chunkEmail);
                     chunk.setIsExternalContributor(shouldBeExternal);
                     changed = true;
                 }
-                if (newEmail.equalsIgnoreCase(chunkEmail)) {
+                if (chunkEmail != null && newEmails.contains(chunkEmail)) {
                     // New template email → mark as external (template)
                     chunk.setIsExternalContributor(true);
                     changed = true;
@@ -307,26 +314,27 @@ public class EmailMappingResource {
     }
 
     /**
-     * Removes the template author configuration for an exercise.
-     * Chunks from the old template author become regular orphans again.
+     * Removes all template author configurations for an exercise.
+     * Chunks from the old template authors become regular orphans again.
      *
      * @param exerciseId the exercise ID
      * @return list of updated client response DTOs
      */
     @DeleteMapping("/template-author")
     @Transactional
-    public ResponseEntity<List<ClientResponseDTO>> deleteTemplateAuthor(
+    public ResponseEntity<List<ClientResponseDTO>> deleteTemplateAuthors(
             @PathVariable Long exerciseId) {
 
-        ExerciseTemplateAuthor ta = templateAuthorRepository.findByExerciseId(exerciseId)
-                .orElse(null);
-        if (ta == null) {
+        List<ExerciseTemplateAuthor> existing = templateAuthorRepository.findByExerciseId(exerciseId);
+        if (existing.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
 
-        String oldEmail = ta.getTemplateEmail().toLowerCase(Locale.ROOT);
-        log.info("DELETE deleteTemplateAuthor for exerciseId={}, email={}", exerciseId, oldEmail);
-        templateAuthorRepository.delete(ta);
+        Set<String> oldEmails = existing.stream()
+                .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
+        log.info("DELETE deleteTemplateAuthors for exerciseId={}, emails={}", exerciseId, oldEmails);
+        templateAuthorRepository.deleteByExerciseId(exerciseId);
 
         // Recalculate CQI for all teams — old template chunks stay as external/orphan
         // unless they match a student or email mapping
@@ -343,7 +351,7 @@ public class EmailMappingResource {
             for (AnalyzedChunk chunk : chunks) {
                 String chunkEmail = chunk.getAuthorEmail() != null
                         ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
-                if (oldEmail.equals(chunkEmail)
+                if (chunkEmail != null && oldEmails.contains(chunkEmail)
                         && Boolean.TRUE.equals(chunk.getIsExternalContributor())
                         && knownEmails.contains(chunkEmail)) {
                     chunk.setIsExternalContributor(false);
