@@ -121,6 +121,7 @@ public class CQICalculatorService {
      * @param chunks        Pre-filtered commit chunks (not rated)
      * @param teamSize      Number of team members
      * @param filterSummary Summary from pre-filtering
+     * @param teamName     the team (full/formatted) name
      * @param shortName     the team short name (optional fallback for attendance lookup)
      * @return CQI result based on LoC only
      */
