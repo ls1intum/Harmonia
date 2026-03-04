@@ -257,6 +257,35 @@ class CQICalculatorServiceTest {
         assertTrue(components.pairProgramming() >= 0.0 && components.pairProgramming() <= 100.0);
     }
 
+    // ==================== Daily Distribution Tests ====================
+
+    @Test
+    void testDailyDistribution_ReturnedWithCorrectLength() {
+        // 30-day project = 30 daily buckets
+        List<CqiRatedChunkDTO> chunks = List.of(
+                createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(5)),
+                createCqiRatedChunkDTO(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
+        );
+
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName);
+
+        assertNotNull(result.components().dailyDistribution());
+        assertEquals(30, result.components().dailyDistribution().size());
+    }
+
+    @Test
+    void testDailyDistribution_GitOnlyComponents() {
+        List<CommitChunkDTO> chunks = List.of(
+                createChunk(1L, 100, projectStart.plusDays(2)),
+                createChunk(2L, 100, projectStart.plusDays(15))
+        );
+
+        ComponentScoresDTO components = cqiService.calculateGitOnlyComponents(chunks, 2, projectStart, projectEnd, teamName);
+
+        assertNotNull(components.dailyDistribution());
+        assertFalse(components.dailyDistribution().isEmpty());
+    }
+
     // ==================== Helper Methods ====================
 
     private CqiRatedChunkDTO createCqiRatedChunkDTO(Long authorId, int loc, double effort,

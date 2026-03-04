@@ -223,6 +223,26 @@ public class RequestResource {
     }
 
     /**
+     * PATCH endpoint to toggle the review status of a team.
+     *
+     * @param exerciseId The exercise ID
+     * @param teamId     The team ID
+     * @return ResponseEntity containing the updated ClientResponseDTO
+     */
+    @PatchMapping("{exerciseId}/teams/{teamId}/reviewed")
+    public ResponseEntity<ClientResponseDTO> toggleReviewStatus(
+            @PathVariable Long exerciseId,
+            @PathVariable Long teamId) {
+        log.info("PATCH toggleReviewStatus for exerciseId: {}, teamId: {}", exerciseId, teamId);
+        try {
+            ClientResponseDTO updated = requestService.toggleReviewStatus(exerciseId, teamId);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
      * Returns already-analyzed data from the database without re-analyzing.
      *
      * @param exerciseId the exercise ID to fetch data for

@@ -9,6 +9,7 @@
 | **cqi**               | **number**                                                   |             | [optional] [default to undefined] |
 | **cqiDetails**        | [**CQIResultDTO**](CQIResultDTO.md)                          |             | [optional] [default to undefined] |
 | **isFailed**          | **boolean**                                                  |             | [optional] [default to undefined] |
+| **isReviewed**        | **boolean**                                                  |             | [optional] [default to undefined] |
 | **isSuspicious**      | **boolean**                                                  |             | [optional] [default to undefined] |
 | **llmTokenTotals**    | [**LlmTokenTotalsDTO**](LlmTokenTotalsDTO.md)                |             | [optional] [default to undefined] |
 | **orphanCommitCount** | **number**                                                   |             | [optional] [default to undefined] |
@@ -32,6 +33,7 @@ const instance: ClientResponseDTO = {
   cqi,
   cqiDetails,
   isFailed,
+  isReviewed,
   isSuspicious,
   llmTokenTotals,
   orphanCommitCount,

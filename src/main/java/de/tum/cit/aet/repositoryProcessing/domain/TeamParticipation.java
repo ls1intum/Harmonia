@@ -80,6 +80,9 @@ public class TeamParticipation {
     @Column(name = "cqi_base_score")
     private Double cqiBaseScore;
 
+    @Column(name = "cqi_daily_distribution", columnDefinition = "TEXT")
+    private String cqiDailyDistribution;
+
     @Column(name = "llm_calls")
     private Long llmCalls;
 
@@ -100,6 +103,9 @@ public class TeamParticipation {
 
     @Column(name = "is_failed")
     private Boolean isFailed;
+
+    @Column(name = "is_reviewed")
+    private Boolean isReviewed = false;
 
     public TeamParticipation(Long participation, Long team, Tutor tutor, String name, String shortName,
             String repositoryUrl, Integer submissionCount) {

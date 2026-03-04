@@ -259,20 +259,10 @@ public class GitContributionAnalysisService {
                     orphanCommitEmails.remove(hash);
                 }
             }
-
-            if (!templateHashes.isEmpty()) {
-                log.info("Detected {} template commit(s), excluded from orphans",
-                        templateHashes.size());
-            }
-
         } catch (IOException e) {
             log.error("Error walking git history at {}: {}", localPath, e.getMessage());
             return FullCommitMappingResultDTO.empty();
         }
-
-        log.info("Full commit map: {} assigned, {} orphan, {} template (from {} total reachable commits)",
-                commitToAuthor.size(), orphanCommitEmails.size(), templateHashes.size(),
-                commitToAuthor.size() + orphanCommitEmails.size() + templateHashes.size());
 
         return new FullCommitMappingResultDTO(commitToAuthor, orphanCommitEmails, commitToVcsEmail,
                 templateHashes);

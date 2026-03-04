@@ -7,34 +7,35 @@ All URIs are relative to _http://localhost:8080_
 | [**createMapping**](#createmapping)               | **POST** /api/exercises/{exerciseId}/email-mappings                   |             |
 | [**deleteMapping**](#deletemapping)               | **DELETE** /api/exercises/{exerciseId}/email-mappings/{mappingId}     |             |
 | [**deleteTemplateAuthor**](#deletetemplateauthor) | **DELETE** /api/exercises/{exerciseId}/email-mappings/template-author |             |
+| [**dismissEmail**](#dismissemail)                 | **POST** /api/exercises/{exerciseId}/email-mappings/dismiss           |             |
 | [**getAllMappings**](#getallmappings)             | **GET** /api/exercises/{exerciseId}/email-mappings                    |             |
 | [**getTemplateAuthor**](#gettemplateauthor)       | **GET** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
 | [**setTemplateAuthor**](#settemplateauthor)       | **PUT** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
 
 # **createMapping**
 
-> ClientResponseDTO createMapping(createEmailMappingRequest)
+> ClientResponseDTO createMapping(createEmailMappingRequestDTO)
 
 ### Example
 
 ```typescript
-import { EmailMappingResourceApi, Configuration, CreateEmailMappingRequest } from './api';
+import { EmailMappingResourceApi, Configuration, CreateEmailMappingRequestDTO } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new EmailMappingResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
-let createEmailMappingRequest: CreateEmailMappingRequest; //
+let createEmailMappingRequestDTO: CreateEmailMappingRequestDTO; //
 
-const { status, data } = await apiInstance.createMapping(exerciseId, createEmailMappingRequest);
+const { status, data } = await apiInstance.createMapping(exerciseId, createEmailMappingRequestDTO);
 ```
 
 ### Parameters
 
-| Name                          | Type                          | Description | Notes                 |
-| ----------------------------- | ----------------------------- | ----------- | --------------------- |
-| **createEmailMappingRequest** | **CreateEmailMappingRequest** |             |                       |
-| **exerciseId**                | [**number**]                  |             | defaults to undefined |
+| Name                             | Type                             | Description | Notes                 |
+| -------------------------------- | -------------------------------- | ----------- | --------------------- |
+| **createEmailMappingRequestDTO** | **CreateEmailMappingRequestDTO** |             |                       |
+| **exerciseId**                   | [**number**]                     |             | defaults to undefined |
 
 ### Return type
 
@@ -137,6 +138,52 @@ No authorization required
 ### HTTP request headers
 
 - **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **dismissEmail**
+
+> ClientResponseDTO dismissEmail(dismissEmailRequestDTO)
+
+### Example
+
+```typescript
+import { EmailMappingResourceApi, Configuration, DismissEmailRequestDTO } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new EmailMappingResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+let dismissEmailRequestDTO: DismissEmailRequestDTO; //
+
+const { status, data } = await apiInstance.dismissEmail(exerciseId, dismissEmailRequestDTO);
+```
+
+### Parameters
+
+| Name                       | Type                       | Description | Notes                 |
+| -------------------------- | -------------------------- | ----------- | --------------------- |
+| **dismissEmailRequestDTO** | **DismissEmailRequestDTO** |             |                       |
+| **exerciseId**             | [**number**]               |             | defaults to undefined |
+
+### Return type
+
+**ClientResponseDTO**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: application/json
 - **Accept**: application/json
 
 ### HTTP response details

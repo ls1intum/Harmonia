@@ -2,13 +2,14 @@
 
 ## Properties
 
-| Name            | Type       | Description | Notes                             |
-| --------------- | ---------- | ----------- | --------------------------------- |
-| **exerciseId**  | **number** |             | [optional] [default to undefined] |
-| **gitEmail**    | **string** |             | [optional] [default to undefined] |
-| **id**          | **string** |             | [optional] [default to undefined] |
-| **studentId**   | **number** |             | [optional] [default to undefined] |
-| **studentName** | **string** |             | [optional] [default to undefined] |
+| Name            | Type        | Description | Notes                             |
+| --------------- | ----------- | ----------- | --------------------------------- |
+| **exerciseId**  | **number**  |             | [optional] [default to undefined] |
+| **gitEmail**    | **string**  |             | [optional] [default to undefined] |
+| **id**          | **string**  |             | [optional] [default to undefined] |
+| **isDismissed** | **boolean** |             | [optional] [default to undefined] |
+| **studentId**   | **number**  |             | [optional] [default to undefined] |
+| **studentName** | **string**  |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -19,6 +20,7 @@ const instance: EmailMappingDTO = {
   exerciseId,
   gitEmail,
   id,
+  isDismissed,
   studentId,
   studentName,
 };

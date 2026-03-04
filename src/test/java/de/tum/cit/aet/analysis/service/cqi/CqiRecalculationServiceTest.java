@@ -55,7 +55,7 @@ class CqiRecalculationServiceTest {
 
         CQIResultDTO cqiResult = new CQIResultDTO(
                 80.0,
-                new ComponentScoresDTO(90.0, 85.0, 37.0, 50.0, null, null),
+                new ComponentScoresDTO(90.0, 85.0, 37.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 80.0, FilterSummaryDTO.empty());
         when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
@@ -87,7 +87,7 @@ class CqiRecalculationServiceTest {
 
         CQIResultDTO cqiResult = new CQIResultDTO(
                 80.0,
-                new ComponentScoresDTO(90.0, 85.0, 37.0, 50.0, null, null),
+                new ComponentScoresDTO(90.0, 85.0, 37.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 80.0, FilterSummaryDTO.empty());
         when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
@@ -119,7 +119,7 @@ class CqiRecalculationServiceTest {
         // After remapping, CQI calculator returns corrected temporal spread of 37
         CQIResultDTO cqiResult = new CQIResultDTO(
                 85.0,
-                new ComponentScoresDTO(98.0, 97.0, 37.0, 50.0, null, null),
+                new ComponentScoresDTO(98.0, 97.0, 37.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 85.0, FilterSummaryDTO.empty());
         when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
@@ -151,7 +151,7 @@ class CqiRecalculationServiceTest {
 
         CQIResultDTO cqiResult = new CQIResultDTO(
                 80.0,
-                new ComponentScoresDTO(90.0, 85.0, 60.0, 50.0, null, null),
+                new ComponentScoresDTO(90.0, 85.0, 60.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 80.0, FilterSummaryDTO.empty());
         when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))

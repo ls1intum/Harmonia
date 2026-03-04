@@ -64,7 +64,7 @@ public record CQIResultDTO(
     public static CQIResultDTO fallback(ComponentWeightsDTO weights, double locScore, FilterSummaryDTO filterSummary, PairProgrammingStatus pairProgrammingStatus) {
         return new CQIResultDTO(
                 locScore,
-                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, pairProgrammingStatus),
+                new ComponentScoresDTO(0.0, locScore, 0.0, 0.0, null, pairProgrammingStatus, null),
                 weights,
                 locScore,
                 filterSummary);

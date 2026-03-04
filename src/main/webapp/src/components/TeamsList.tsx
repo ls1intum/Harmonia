@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Search,
   X,
+  CircleCheck,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -60,6 +61,7 @@ interface TeamsListProps {
   teams: TeamDTO[];
   courseAverages: CourseAverages | null;
   onTeamSelect: (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
+  onToggleReviewed: (teamId: string) => void;
   onBackToHome: () => void;
   onStart: (mode: AnalysisMode) => void;
   onCancel: () => void;
@@ -97,6 +99,7 @@ const TeamsList = ({
   teams,
   courseAverages,
   onTeamSelect,
+  onToggleReviewed,
   onBackToHome,
   onStart,
   onCancel,
@@ -308,6 +311,14 @@ const TeamsList = ({
         filtered = filtered.filter(team => team.isSuspicious);
       } else if (statusFilter === 'normal') {
         filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
+      } else if (statusFilter === 'has-unmatched') {
+        filtered = filtered.filter(team => team.orphanCommitCount != null && team.orphanCommitCount > 0);
+      } else if (statusFilter === 'no-unmatched') {
+        filtered = filtered.filter(team => team.orphanCommitCount == null || team.orphanCommitCount === 0);
+      } else if (statusFilter === 'reviewed') {
+        filtered = filtered.filter(team => team.isReviewed === true);
+      } else if (statusFilter === 'unreviewed') {
+        filtered = filtered.filter(team => !team.isReviewed);
       }
     }
 
@@ -845,6 +856,7 @@ const TeamsList = ({
           <table className="w-full">
             <thead className="bg-primary/10 border-b">
               <tr>
+                <th className="py-4 px-3 w-10" />
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <SortableHeader
                     column="name"
@@ -899,6 +911,21 @@ const TeamsList = ({
                     onClick={() => onTeamSelect(team, pairProgrammingBadgeStatus)}
                     className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
                   >
+                    <td className="py-4 px-3">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onToggleReviewed(String(team.teamId));
+                        }}
+                        className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
+                        title={team.isReviewed ? 'Mark as unreviewed' : 'Mark as reviewed'}
+                      >
+                        <CircleCheck
+                          className={`h-5 w-5 ${team.isReviewed ? 'text-primary fill-primary/20' : 'text-muted-foreground/40'}`}
+                        />
+                      </button>
+                    </td>
                     <td className="py-4 px-6">
                       <p className="font-semibold">{(team.teamName ?? '').replace('Team ', '')}</p>
                     </td>

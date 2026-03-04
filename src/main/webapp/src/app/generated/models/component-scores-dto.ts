@@ -13,6 +13,7 @@
  */
 
 export interface ComponentScoresDTO {
+  dailyDistribution?: Array<number>;
   effortBalance?: number;
   locBalance?: number;
   ownershipSpread?: number;
