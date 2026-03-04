@@ -43,6 +43,7 @@ interface TeamDetailProps {
  * @param pairProgrammingBadgeStatus - status of the PP badge
  * @param courseAverages - course average
  * @param onTeamUpdate
+ * @param onToggleReviewed
  * @param analysisMode
  */
 const TeamDetail = ({
