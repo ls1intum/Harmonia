@@ -110,15 +110,17 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
-  // Pair programming scores recomputing status (poll while PP enabled so card can show "Updating scores...")
+  // Pair programming scores recomputing status
   const { data: pairProgrammingRecomputing } = useQuery({
     queryKey: ['pairProgrammingRecomputing', exercise],
     queryFn: () => getPairProgrammingRecomputing(parseInt(exercise)),
-    enabled: !!exercise && pairProgrammingEnabled,
-    refetchInterval: 2000,
+    enabled: !!exercise && pairProgrammingEnabled && !!uploadedAttendanceFileName,
+    refetchInterval: query => (query.state.data?.recomputing ? 2000 : false),
     staleTime: 0,
   });
-  const isPairProgrammingScoresUpdating = pairProgrammingRecomputing?.recomputing ?? false;
+
+  const isPairProgrammingScoresUpdating =
+    !!uploadedAttendanceFileName && (pairProgrammingRecomputing?.recomputing ?? false);
 
   // Fetch team summaries from database on load (one-time, no polling).
   // During analysis, SSE is the single source of truth for updates.
@@ -160,7 +162,7 @@ export default function Teams() {
       queryClient.invalidateQueries({ queryKey: ['pairProgrammingRecomputing', exercise] });
       toast({
         title: 'Attendance uploaded',
-        description: 'Pair programming metrics were updated.',
+        description: 'Pair programming metrics are being updated.',
       });
     },
     onError: () => {
