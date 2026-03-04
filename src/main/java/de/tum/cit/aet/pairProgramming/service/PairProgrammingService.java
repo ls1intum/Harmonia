@@ -190,58 +190,66 @@ public class PairProgrammingService {
      */
     private String resolveFuzzyAttendanceKey(String teamName, String shortName) {
         if (teamsByNormalizedName.isEmpty()) {
+            log.debug("No attendance data available for fuzzy matching");
             return null;
         }
+
+        log.debug("Attempting fuzzy match for team: '{}' (short: '{}')", teamName, shortName);
 
         String fuzzyTeamName = teamName != null ? normalizeForFuzzyMatch(teamName) : null;
         String fuzzyShortName = (shortName != null && !shortName.equals(teamName))
                 ? normalizeForFuzzyMatch(shortName)
                 : null;
 
+        log.debug("Fuzzy normalized: '{}' / '{}'", fuzzyTeamName, fuzzyShortName);
+
         int bestDistance = Integer.MAX_VALUE;
         String bestMatchKey = null;
+        double bestSimilarity = 0.0;
 
         for (String storedKey : teamsByNormalizedName.keySet()) {
             String storedNormalized = normalizeForFuzzyMatch(storedKey);
+            int distance = Integer.MAX_VALUE;
 
             // Try distance with full team name
             if (fuzzyTeamName != null && !fuzzyTeamName.isEmpty()) {
-                int distance = levenshteinDistance(fuzzyTeamName, storedNormalized);
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestMatchKey = storedKey;
+                int d = levenshteinDistance(fuzzyTeamName, storedNormalized);
+                if (d < distance) {
+                    distance = d;
                 }
             }
 
             // Try distance with short team name as well
             if (fuzzyShortName != null && !fuzzyShortName.isEmpty()) {
-                int distance = levenshteinDistance(fuzzyShortName, storedNormalized);
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestMatchKey = storedKey;
+                int d = levenshteinDistance(fuzzyShortName, storedNormalized);
+                if (d < distance) {
+                    distance = d;
                 }
+            }
+
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestMatchKey = storedKey;
+                int maxLength = Math.max(
+                        fuzzyTeamName != null ? fuzzyTeamName.length() : 0,
+                        storedNormalized.length()
+                );
+                bestSimilarity = maxLength > 0 ? 1.0 - (double) distance / maxLength : 0.0;
+                log.debug("  Candidate '{}' (normalized: '{}') - distance: {}, similarity: {:.2f}",
+                        storedKey, storedNormalized, distance, bestSimilarity);
             }
         }
 
         // Only accept match if similarity is above threshold (80%)
-        // Calculate based on the longer of the two strings being compared
-        if (bestMatchKey != null) {
-            String storedNormalized = normalizeForFuzzyMatch(bestMatchKey);
-            int maxLength = Math.max(
-                    fuzzyTeamName != null ? fuzzyTeamName.length() : 0,
-                    storedNormalized.length()
-            );
-
-            if (maxLength > 0) {
-                double similarity = 1.0 - (double) bestDistance / maxLength;
-                if (similarity >= 0.80) {
-                    log.debug("Fuzzy matched team '{}' to '{}' with similarity {}",
-                            teamName, storedNormalized, String.format("%.2f", similarity * 100));
-                    return bestMatchKey;
-                }
-            }
+        if (bestMatchKey != null && bestSimilarity >= 0.80) {
+            log.debug("Fuzzy matched team '{}' to '{}' with similarity {:.2f}%",
+                    teamName, bestMatchKey, bestSimilarity * 100);
+            return bestMatchKey;
         }
 
+        if (bestMatchKey != null) {
+            log.debug("Best fuzzy match '{}' has similarity {:.2f}% (below 80% threshold)", bestMatchKey, bestSimilarity * 100);
+        }
         return null;
     }
 
