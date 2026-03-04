@@ -223,7 +223,7 @@ public class PairProgrammingService {
             }
         }
 
-        // Only accept match if similarity is above threshold (85%)
+        // Only accept match if similarity is above threshold (80%)
         // Calculate based on the longer of the two strings being compared
         if (bestMatchKey != null) {
             String storedNormalized = normalizeForFuzzyMatch(bestMatchKey);
@@ -234,7 +234,7 @@ public class PairProgrammingService {
 
             if (maxLength > 0) {
                 double similarity = 1.0 - (double) bestDistance / maxLength;
-                if (similarity >= 0.85) {
+                if (similarity >= 0.80) {
                     log.debug("Fuzzy matched team '{}' to '{}' with similarity {}",
                             teamName, storedNormalized, String.format("%.2f", similarity * 100));
                     return bestMatchKey;

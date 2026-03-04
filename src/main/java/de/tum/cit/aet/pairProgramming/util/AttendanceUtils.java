@@ -47,21 +47,23 @@ public class AttendanceUtils {
         // Start with standard normalization
         String normalized = normalize(teamName);
 
-        // Replace common special character sequences with their word equivalents
+        // Replace common special character sequences with their word equivalents first
         normalized = normalized.replace(" & ", "and")
-                .replace("&", "and")
-                .replace(".", "");
+                .replace("&", "and");
 
         // Remove common prefixes and suffixes (with or without spaces)
         // This handles: "team seven", "teamseven", "Team Seven", etc.
         normalized = normalized.replaceAll("(?i)^team\\s*", "")      // Remove leading "team" with optional space
                 .replaceAll("(?i)^group\\s*", "")                    // Remove leading "group" with optional space
                 .replaceAll("(?i)\\s*team$", "")                     // Remove trailing "team" with optional space
-                .replaceAll("(?i)\\s*group$", "")                    // Remove trailing "group" with optional space
-                .replaceAll("(?i)\\s*\\+?\\s*co\\.?\\s*kg\\s*$", ""); // Remove "+ Co. KG" or "Co. KG"
+                .replaceAll("(?i)\\s*group$", "");                   // Remove trailing "group" with optional space
 
-        // Remove all non-alphanumeric characters (including spaces)
-        // This handles: "crop and code" vs "cropandcode", spacing variations, etc.
+        // Remove company suffixes (+ Co. KG, Co. KG, Co., Ltd., Inc., etc.).
+        normalized = normalized.replaceAll("(?i)\\s*\\+\\s*co\\.?\\s*kg\\s*$", "")  // "+ Co. KG" variant
+                .replaceAll("(?i)\\s+co\\.?\\s*kg\\s*$", "")         // "Co. KG" without +
+                .replaceAll("(?i)\\s+(co\\.?|ltd|inc|llc)\\s*$", ""); // "Co.", "Ltd.", "Inc.", "LLC"
+
+        // Remove all non-alphanumeric characters (dots, spaces, special chars)
         normalized = SPECIAL_CHARS_PATTERN.matcher(normalized).replaceAll("");
         normalized = WHITESPACE_PATTERN.matcher(normalized).replaceAll("");
 
