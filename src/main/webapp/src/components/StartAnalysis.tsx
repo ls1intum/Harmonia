@@ -97,7 +97,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
       // Store server URL in localStorage for later usage
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem('artemis_server_url', baseUrl);
+          window.localStorage.setItem('harmonia.serverUrl', baseUrl);
         }
       } catch {
         // Ignore errors
