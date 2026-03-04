@@ -132,7 +132,7 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
     <Collapsible open={open} onOpenChange={setOpen}>
       <Card>
         <CollapsibleTrigger asChild>
-          <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+          <CardHeader className="py-4 cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-sm font-medium">
                 <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} />
