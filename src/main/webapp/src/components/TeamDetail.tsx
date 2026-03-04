@@ -77,6 +77,26 @@ const TeamDetail = ({
     enabled: !!exercise,
   });
 
+  const dismissedEmails = useMemo(() => {
+    const emails = new Set<string>();
+    for (const m of emailMappings) {
+      if (m.isDismissed && m.gitEmail) {
+        emails.add(m.gitEmail.toLowerCase());
+      }
+    }
+    return emails;
+  }, [emailMappings]);
+
+  const assignedEmails = useMemo(() => {
+    const map = new Map<string, { mappingId: string; studentName: string }>();
+    for (const m of emailMappings) {
+      if (!m.isDismissed && m.gitEmail && m.studentName && m.id) {
+        map.set(m.gitEmail.toLowerCase(), { mappingId: m.id, studentName: m.studentName });
+      }
+    }
+    return map;
+  }, [emailMappings]);
+
   const { data: templateAuthorEmail } = useQuery<string | undefined>({
     queryKey: ['templateAuthorEmail', exercise],
     queryFn: async () => {
@@ -105,6 +125,28 @@ const TeamDetail = ({
   const handleMappingChange = useCallback(() => {
     mappingChangeMutation.mutate();
   }, [mappingChangeMutation]);
+
+  const handleUndoDismiss = useCallback(
+    async (email: string) => {
+      const mapping = emailMappings.find(m => m.isDismissed && m.gitEmail?.toLowerCase() === email.toLowerCase());
+      if (mapping?.id && exercise) {
+        await emailMappingApi.deleteMapping(parseInt(exercise), mapping.id);
+        handleMappingChange();
+      }
+    },
+    [emailMappings, exercise, handleMappingChange],
+  );
+
+  const handleUndoAssignment = useCallback(
+    async (email: string) => {
+      const info = assignedEmails.get(email.toLowerCase());
+      if (info && exercise) {
+        await emailMappingApi.deleteMapping(parseInt(exercise), info.mappingId);
+        handleMappingChange();
+      }
+    },
+    [assignedEmails, exercise, handleMappingChange],
+  );
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -693,7 +735,14 @@ const TeamDetail = ({
               templateAuthorEmail={templateAuthorEmail}
             />
 
-            <AnalysisFeed chunks={team.analysisHistory || []} isDevMode={isDevMode} />
+            <AnalysisFeed
+              chunks={team.analysisHistory || []}
+              isDevMode={isDevMode}
+              dismissedEmails={dismissedEmails}
+              onUndoDismiss={handleUndoDismiss}
+              assignedEmails={assignedEmails}
+              onUndoAssignment={handleUndoAssignment}
+            />
           </>
         ) : team.isFailed ? (
           <Card className="p-8 flex items-center justify-center">

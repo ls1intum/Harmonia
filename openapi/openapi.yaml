@@ -198,7 +198,27 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/CreateEmailMappingRequest'}
+            schema: {$ref: '#/components/schemas/CreateEmailMappingRequestDTO'}
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/exercises/{exerciseId}/email-mappings/dismiss:
+    post:
+      tags: [email-mapping-resource]
+      operationId: dismissEmail
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DismissEmailRequestDTO'}
         required: true
       responses:
         '200':
@@ -575,12 +595,17 @@ components:
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         temporalSpread: {type: number, format: double}
-    CreateEmailMappingRequest:
+    CreateEmailMappingRequestDTO:
       type: object
       properties:
         gitEmail: {type: string}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
+        teamParticipationId: {type: integer, format: int64}
+    DismissEmailRequestDTO:
+      type: object
+      properties:
+        gitEmail: {type: string}
         teamParticipationId: {type: integer, format: int64}
     EmailMappingDTO:
       type: object
@@ -588,6 +613,7 @@ components:
         exerciseId: {type: integer, format: int64}
         gitEmail: {type: string}
         id: {type: string, format: uuid}
+        isDismissed: {type: boolean}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
     FilterSummaryDTO:
