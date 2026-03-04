@@ -80,6 +80,9 @@ public class TeamParticipation {
     @Column(name = "cqi_base_score")
     private Double cqiBaseScore;
 
+    @Column(name = "cqi_daily_distribution", columnDefinition = "TEXT")
+    private String cqiDailyDistribution;
+
     @Column(name = "llm_calls")
     private Long llmCalls;
 

@@ -225,7 +225,7 @@ const TeamDetail = ({
         value: -1,
         weight: 0,
         description: 'Is work spread over time or crammed at deadline?',
-        details: 'Will be calculated after analysis completes.',
+        details: 'Higher scores mean work was spread consistently throughout the project period. Based on prefiltered commits.',
       },
       {
         name: 'File Ownership Spread',

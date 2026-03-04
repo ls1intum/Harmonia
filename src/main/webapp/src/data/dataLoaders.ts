@@ -8,6 +8,7 @@ export interface SubMetric {
   description: string;
   details: string;
   status?: 'FOUND' | 'NOT_FOUND' | 'WARNING' | null;
+  dailyDistribution?: number[];
 }
 
 /** A ClientResponseDTO extended with client-computed sub-metrics and review status. */
@@ -69,7 +70,8 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
             value: Math.round(serverCqiDetails.components.temporalSpread ?? 0),
             weight: Math.round((weights?.temporalSpread ?? 0) * 100),
             description: 'Is work spread over time or crammed at deadline?',
-            details: 'Higher scores mean work was spread consistently throughout the project period.',
+            details: 'Higher scores mean work was spread consistently throughout the project period. Based on prefiltered commits.',
+            dailyDistribution: serverCqiDetails.components.dailyDistribution ?? undefined,
           },
           {
             name: 'File Ownership Spread',

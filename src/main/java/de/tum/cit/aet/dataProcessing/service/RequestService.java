@@ -1345,6 +1345,7 @@ public class RequestService {
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
                 teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(gitComponents.dailyDistribution()));
                 teamParticipationRepository.save(teamParticipation);
 
                 return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
@@ -1383,6 +1384,7 @@ public class RequestService {
         teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
         teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
         teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
+        teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(cqiDetails.components().dailyDistribution()));
     }
 
     private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
@@ -1743,6 +1745,31 @@ public class RequestService {
         }
     }
 
+    private String serializeDailyDistribution(List<Double> dailyDistribution) {
+        try {
+            if (dailyDistribution == null || dailyDistribution.isEmpty()) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(dailyDistribution);
+        } catch (Exception e) {
+            log.warn("Failed to serialize daily distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<Double> deserializeDailyDistribution(String json) {
+        try {
+            if (json == null || json.isEmpty()) {
+                return null;
+            }
+            return objectMapper.readValue(json,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, Double.class));
+        } catch (Exception e) {
+            log.warn("Failed to deserialize daily distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private CQIResultDTO reconstructCqiDetails(TeamParticipation participation, AnalysisMode mode) {
         if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
                 && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
@@ -1755,7 +1782,8 @@ public class RequestService {
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
                 participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                participation.getCqiPairProgrammingStatus(),
+                deserializeDailyDistribution(participation.getCqiDailyDistribution()));
 
         // Determine weights based on analysis mode
         ComponentWeightsDTO weights;
