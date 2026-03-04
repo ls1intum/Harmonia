@@ -762,7 +762,7 @@ public class RequestService {
         if (hasFailed) {
             return new ClientResponseDTO(
                     tutor != null ? tutor.getName() : "Unassigned",
-                    team.id(), team.name(), team.shortName(), participation.submissionCount(),
+                    team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
                     null, null, null, null, 0, true);
         }
@@ -778,7 +778,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), team.shortName(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                 studentDtos,
                 null,  // CQI — Phase 3
                 null,  // isSuspicious — Phase 3
@@ -921,7 +921,7 @@ public class RequestService {
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
-                        team.id(), team.name(), team.shortName(), participation.submissionCount(),
+                        team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
                         teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
@@ -1243,7 +1243,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), team.shortName(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
                 finalDetails, null, null, null, null, null);
     }
@@ -1264,6 +1264,7 @@ public class RequestService {
             pendingTeam.put("repositoryUri", participation.repositoryUri());
             pendingTeam.put("submissionCount", participation.submissionCount());
             pendingTeam.put("tutor", team.owner() != null ? team.owner().name() : "Unassigned");
+            pendingTeam.put("participationId", participation.id());
 
             List<Map<String, Object>> students = new ArrayList<>();
             if (team.students() != null) {
@@ -1533,7 +1534,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                participation.getTeam(), participation.getName(), participation.getShortName(),
+                participation.getTeam(), participation.getParticipation(), participation.getName(), participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDtos, cqi, isSuspicious,
                 participation.getAnalysisStatus(),

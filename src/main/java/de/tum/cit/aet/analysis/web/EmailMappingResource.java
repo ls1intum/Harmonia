@@ -455,6 +455,7 @@ public class EmailMappingResource {
         return new ClientResponseDTO(
                 participation.getTutor() != null ? participation.getTutor().getName() : "Unassigned",
                 participation.getTeam(),
+                participation.getParticipation(),
                 participation.getName(),
                 participation.getShortName(),
                 participation.getSubmissionCount(),
