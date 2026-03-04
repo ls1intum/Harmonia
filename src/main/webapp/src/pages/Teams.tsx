@@ -123,6 +123,28 @@ export default function Teams() {
     refetchOnWindowFocus: !isAnalysisRunning,
   });
 
+  const toggleReviewedMutation = useMutation({
+    mutationFn: async (teamId: string) => {
+      const response = await requestApi.toggleReviewStatus(parseInt(exercise), parseInt(teamId));
+      return response.data;
+    },
+    onMutate: async teamId => {
+      await queryClient.cancelQueries({ queryKey: ['teams', exercise] });
+      const previous = queryClient.getQueryData<TeamDTO[]>(['teams', exercise]);
+      queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
+        old.map(t => (String(t.teamId) === teamId ? Object.assign({}, t, { isReviewed: !t.isReviewed }) : t)),
+      );
+      return { previous };
+    },
+    onError: (_err, _teamId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['teams', exercise], context.previous);
+      }
+      toast({ variant: 'destructive', title: 'Failed to toggle review status' });
+    },
+    onSuccess: () => {},
+  });
+
   // --- Mutations ---
 
   const attendanceUploadMutation = useMutation({
@@ -490,6 +512,7 @@ export default function Teams() {
       teams={teams}
       courseAverages={courseAverages}
       onTeamSelect={handleTeamSelect}
+      onToggleReviewed={teamId => toggleReviewedMutation.mutate(teamId)}
       onBackToHome={() => navigate('/')}
       onStart={(mode: AnalysisMode) => startMutation.mutate(mode)}
       onCancel={() => cancelMutation.mutate()}

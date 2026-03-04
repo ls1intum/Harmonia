@@ -2,15 +2,16 @@
 
 All URIs are relative to _http://localhost:8080_
 
-| Method                                        | HTTP request                                            | Description |
-| --------------------------------------------- | ------------------------------------------------------- | ----------- |
-| [**fetchData**](#fetchdata)                   | **GET** /api/requestResource/fetchData                  |             |
-| [**getData**](#getdata)                       | **GET** /api/requestResource/{exerciseId}/getData       |             |
-| [**getTeamDetail**](#getteamdetail)           | **GET** /api/requestResource/team/{exerciseId}/{teamId} |             |
-| [**getTeamSummaries**](#getteamsummaries)     | **GET** /api/requestResource/teams/{exerciseId}/summary |             |
-| [**getTeamsByExercise**](#getteamsbyexercise) | **GET** /api/requestResource/teams/{exerciseId}         |             |
-| [**hasAnalyzedData**](#hasanalyzeddata)       | **GET** /api/requestResource/hasData/{exerciseId}       |             |
-| [**streamAnalysis**](#streamanalysis)         | **GET** /api/requestResource/stream                     |             |
+| Method                                        | HTTP request                                                        | Description |
+| --------------------------------------------- | ------------------------------------------------------------------- | ----------- |
+| [**fetchData**](#fetchdata)                   | **GET** /api/requestResource/fetchData                              |             |
+| [**getData**](#getdata)                       | **GET** /api/requestResource/{exerciseId}/getData                   |             |
+| [**getTeamDetail**](#getteamdetail)           | **GET** /api/requestResource/team/{exerciseId}/{teamId}             |             |
+| [**getTeamSummaries**](#getteamsummaries)     | **GET** /api/requestResource/teams/{exerciseId}/summary             |             |
+| [**getTeamsByExercise**](#getteamsbyexercise) | **GET** /api/requestResource/teams/{exerciseId}                     |             |
+| [**hasAnalyzedData**](#hasanalyzeddata)       | **GET** /api/requestResource/hasData/{exerciseId}                   |             |
+| [**streamAnalysis**](#streamanalysis)         | **GET** /api/requestResource/stream                                 |             |
+| [**toggleReviewStatus**](#togglereviewstatus) | **PATCH** /api/requestResource/{exerciseId}/teams/{teamId}/reviewed |             |
 
 # **fetchData**
 
@@ -338,6 +339,52 @@ No authorization required
 
 - **Content-Type**: Not defined
 - **Accept**: text/event-stream
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **toggleReviewStatus**
+
+> ClientResponseDTO toggleReviewStatus()
+
+### Example
+
+```typescript
+import { RequestResourceApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new RequestResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+let teamId: number; // (default to undefined)
+
+const { status, data } = await apiInstance.toggleReviewStatus(exerciseId, teamId);
+```
+
+### Parameters
+
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
+| **teamId**     | [**number**] |             | defaults to undefined |
+
+### Return type
+
+**ClientResponseDTO**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
 ### HTTP response details
 

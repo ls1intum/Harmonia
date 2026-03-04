@@ -28,6 +28,7 @@ import java.util.List;
  * @param llmTokenTotals   aggregated LLM token usage
  * @param orphanCommitCount number of orphan commits
  * @param isFailed         whether the analysis failed for this team
+ * @param isReviewed       whether the team has been marked as reviewed
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClientResponseDTO(
@@ -45,5 +46,6 @@ public record ClientResponseDTO(
                 List<OrphanCommitDTO> orphanCommits,
                 LlmTokenTotalsDTO llmTokenTotals,
                 Integer orphanCommitCount,
-                Boolean isFailed) {
+                Boolean isFailed,
+                Boolean isReviewed) {
 }

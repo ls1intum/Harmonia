@@ -720,7 +720,7 @@ public class RequestService {
                     tutor != null ? tutor.getName() : "Unassigned",
                     team.id(), participation.id(), team.name(), participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
-                    null, null, null, null, 0, true);
+                    null, null, null, null, 0, true, null);
         }
 
         // 5) Calculate git-only CQI components (no AI needed)
@@ -744,7 +744,8 @@ public class RequestService {
                 null,  // orphanCommits
                 readTeamTokenTotals(teamParticipation),
                 null,  // orphanCommitCount — Phase 3
-                null); // isFailed
+                null,  // isFailed
+                null); // isReviewed
     }
 
     // =====================================================================
@@ -880,7 +881,7 @@ public class RequestService {
                         team.id(), participation.id(), team.name(), participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
-                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
+                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null, null),
                 teamTokenTotals);
     }
 
@@ -1201,7 +1202,7 @@ public class RequestService {
                 tutor != null ? tutor.getName() : "Unassigned",
                 team.id(), participation.id(), team.name(), participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
-                finalDetails, null, null, null, null, null);
+                finalDetails, null, null, null, null, null, null);
     }
 
     /** Emits INIT events for all pending teams. */
@@ -1467,6 +1468,24 @@ public class RequestService {
         return true;
     }
 
+
+    /**
+     * Toggles the review status of a team participation.
+     *
+     * @param exerciseId The Artemis exercise ID
+     * @param teamId     The Artemis team ID
+     * @return Updated ClientResponseDTO
+     */
+    @Transactional
+    public ClientResponseDTO toggleReviewStatus(Long exerciseId, Long teamId) {
+        TeamParticipation participation = teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Team not found for exerciseId=" + exerciseId + ", teamId=" + teamId));
+        participation.setIsReviewed(!Boolean.TRUE.equals(participation.getIsReviewed()));
+        teamParticipationRepository.save(participation);
+        return mapParticipationToClientResponse(participation);
+    }
+
     private ClientResponseDTO mapParticipationToClientResponse(TeamParticipation participation) {
         List<Student> students = studentRepository.findAllByTeam(participation);
         Tutor tutor = participation.getTutor();
@@ -1493,7 +1512,8 @@ public class RequestService {
                 null, // Orphan commits not persisted
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     private void initializePendingTeams(List<ParticipationDTO> participations, Long exerciseId, boolean isResume) {

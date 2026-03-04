@@ -51,6 +51,9 @@
 
             <!-- failure tracking -->
             <column name="is_failed" type="BOOLEAN"/>
+
+            <!-- review tracking -->
+            <column name="is_reviewed" type="BOOLEAN" defaultValueBoolean="false"/>
         </createTable>
     </changeSet>
 

@@ -10,8 +10,8 @@ export interface SubMetric {
   status?: 'FOUND' | 'NOT_FOUND' | 'WARNING' | null;
 }
 
-/** A ClientResponseDTO extended with client-computed sub-metrics. */
-export type TeamDTO = ClientResponseDTO & { subMetrics?: SubMetric[] };
+/** A ClientResponseDTO extended with client-computed sub-metrics and review status. */
+export type TeamDTO = ClientResponseDTO & { subMetrics?: SubMetric[]; isReviewed?: boolean };
 
 // ============================================================
 // DATA TRANSFORMATION - Convert DTO to Client Types
@@ -135,8 +135,10 @@ export function transformSummaryToTeamDTO(summary: TeamSummaryDTO): TeamDTO {
     llmTokenTotals: summary.llmTokenTotals,
     orphanCommitCount: summary.orphanCommitCount,
     isFailed: summary.isFailed,
-  };
-  return transformToComplexTeamData(asClientResponse);
+  } as ClientResponseDTO;
+  return Object.assign(transformToComplexTeamData(asClientResponse), {
+    isReviewed: (summary as TeamSummaryDTO & { isReviewed?: boolean }).isReviewed,
+  });
 }
 
 // ============================================================
