@@ -1,12 +1,13 @@
-import { useReducer } from 'react';
+import { useReducer, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Settings, RotateCcw } from 'lucide-react';
+import { Settings, RotateCcw, ChevronRight } from 'lucide-react';
 import type { CqiWeightsDTO } from '@/app/generated';
 import { cqiWeightsApi } from '@/lib/apiClient';
 
@@ -58,6 +59,7 @@ const DEFAULT_STATE: WeightState = { effort: 55, loc: 25, temporal: 5, ownership
 
 export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPanelProps) {
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
   const [state, dispatch] = useReducer(weightReducer, DEFAULT_STATE);
 
   const { data: weights, isLoading } = useQuery<CqiWeightsDTO>({
@@ -127,61 +129,68 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
   ];
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <Settings className="h-4 w-4" />
-            CQI Weights
-          </CardTitle>
-          <Badge variant={weights?.isDefault ? 'secondary' : 'default'}>{weights?.isDefault ? 'Default' : 'Custom'}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          {fields.map(({ label, value, action }) => (
-            <div key={label} className="space-y-1">
-              <Label className="text-xs">{label}</Label>
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={value}
-                  onChange={e => dispatch({ type: action, value: parseInt(e.target.value) || 0 })}
-                  disabled={disabled}
-                  className="h-8 text-sm"
-                />
-                <span className="text-xs text-muted-foreground">%</span>
-              </div>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+                <Settings className="h-4 w-4" />
+                CQI Weights
+              </CardTitle>
+              <Badge variant={weights?.isDefault ? 'secondary' : 'default'}>{weights?.isDefault ? 'Default' : 'Custom'}</Badge>
             </div>
-          ))}
-        </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {fields.map(({ label, value, action }) => (
+                <div key={label} className="space-y-1">
+                  <Label className="text-xs">{label}</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={value}
+                      onChange={e => dispatch({ type: action, value: parseInt(e.target.value) || 0 })}
+                      disabled={disabled}
+                      className="h-8 text-sm"
+                    />
+                    <span className="text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-        <div className={`text-xs font-medium ${isValid ? 'text-muted-foreground' : 'text-destructive'}`}>
-          Total: {total}% {!isValid && '(must equal 100%)'}
-        </div>
+            <div className={`text-xs font-medium ${isValid ? 'text-muted-foreground' : 'text-destructive'}`}>
+              Total: {total}% {!isValid && '(must equal 100%)'}
+            </div>
 
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={() => saveMutation.mutate()}
-            disabled={disabled || !isValid || saveMutation.isPending}
-            className="flex-1"
-          >
-            Save
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => resetMutation.mutate()}
-            disabled={disabled || weights?.isDefault || resetMutation.isPending}
-          >
-            <RotateCcw className="h-3 w-3 mr-1" />
-            Reset
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => saveMutation.mutate()}
+                disabled={disabled || !isValid || saveMutation.isPending}
+                className="flex-1"
+              >
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => resetMutation.mutate()}
+                disabled={disabled || weights?.isDefault || resetMutation.isPending}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Reset
+              </Button>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

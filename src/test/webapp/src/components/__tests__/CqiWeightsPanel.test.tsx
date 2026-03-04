@@ -49,6 +49,13 @@ function renderPanel(exerciseId = '42') {
   );
 }
 
+async function expandPanel() {
+  await waitFor(() => {
+    expect(screen.getByText('CQI Weights')).toBeInTheDocument();
+  });
+  fireEvent.click(screen.getByText('CQI Weights'));
+}
+
 describe('CqiWeightsPanel', () => {
   beforeEach(() => {
     vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: defaultWeights } as any);
@@ -60,11 +67,20 @@ describe('CqiWeightsPanel', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders weight inputs after data loads', async () => {
+  it('is collapsed by default and expands on click', async () => {
     renderPanel();
     await waitFor(() => {
       expect(screen.getByText('CQI Weights')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Effort Balance')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('CQI Weights'));
+    expect(screen.getByText('Effort Balance')).toBeInTheDocument();
+  });
+
+  it('renders weight inputs after expanding', async () => {
+    renderPanel();
+    await expandPanel();
     expect(screen.getByText('Effort Balance')).toBeInTheDocument();
     expect(screen.getByText('LoC Balance')).toBeInTheDocument();
     expect(screen.getByText('Temporal Spread')).toBeInTheDocument();
@@ -89,9 +105,9 @@ describe('CqiWeightsPanel', () => {
 
   it('displays correct total and updates on input change', async () => {
     renderPanel();
-    await waitFor(() => {
-      expect(screen.getByText('Total: 100%')).toBeInTheDocument();
-    });
+    await expandPanel();
+
+    expect(screen.getByText('Total: 100%')).toBeInTheDocument();
 
     const effortInput = screen.getByDisplayValue('55');
     fireEvent.change(effortInput, { target: { value: '50' } });
@@ -101,9 +117,7 @@ describe('CqiWeightsPanel', () => {
 
   it('disables save button when total is not 100%', async () => {
     renderPanel();
-    await waitFor(() => {
-      expect(screen.getByText('Save')).toBeInTheDocument();
-    });
+    await expandPanel();
 
     const effortInput = screen.getByDisplayValue('55');
     fireEvent.change(effortInput, { target: { value: '50' } });
@@ -113,24 +127,21 @@ describe('CqiWeightsPanel', () => {
 
   it('enables save button when total equals 100%', async () => {
     renderPanel();
-    await waitFor(() => {
-      expect(screen.getByText('Save')).not.toBeDisabled();
-    });
+    await expandPanel();
+    expect(screen.getByText('Save')).not.toBeDisabled();
   });
 
   it('disables reset button when isDefault is true', async () => {
     vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: defaultWeights } as any);
     renderPanel();
-    await waitFor(() => {
-      expect(screen.getByText('Reset')).toBeDisabled();
-    });
+    await expandPanel();
+    expect(screen.getByText('Reset')).toBeDisabled();
   });
 
   it('enables reset button when isDefault is false', async () => {
     vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: customWeights } as any);
     renderPanel();
-    await waitFor(() => {
-      expect(screen.getByText('Reset')).not.toBeDisabled();
-    });
+    await expandPanel();
+    expect(screen.getByText('Reset')).not.toBeDisabled();
   });
 });
