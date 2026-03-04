@@ -1,6 +1,5 @@
 package de.tum.cit.aet.analysis.dto.cqi;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.List;
