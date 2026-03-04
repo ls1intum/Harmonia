@@ -98,7 +98,7 @@ const OrphanCommitsPanel = ({
   );
   // Include mapping emails that have chunks in this team (even after assignment mutates is_external)
   const allChunkEmails = new Set(
-    (analysisHistory ?? []).map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+    (analysisHistory ?? []).map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && !templateEmailSet.has(e)),
   );
   const mappingEmails = emailMappings
     .filter(m => m.gitEmail && allChunkEmails.has(m.gitEmail.toLowerCase()))
