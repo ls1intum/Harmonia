@@ -218,8 +218,16 @@ public class CQICalculatorService {
         // --- 4. Calculate pair programming score (teams of 2 only) ---
         Double pairProgrammingScore = pairProgrammingService.calculateScore(teamName, shortName, chunks, teamSize);
 
-        // --- 5. Build result (effortBalance = 0 because it requires AI) ---
-        return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, pairProgrammingStatus,
+        // --- 5. Resolve status: If fuzzy matching found the team and achieved a perfect score (≥100),
+        //     treat it as PASS  ---
+        PairProgrammingStatus finalStatus = pairProgrammingStatus;
+        if (pairProgrammingScore != null && pairProgrammingScore >= 100
+                && pairProgrammingStatus == PairProgrammingStatus.NOT_FOUND) {
+            finalStatus = PairProgrammingStatus.PASS;
+        }
+
+        // --- 6. Build result (effortBalance = 0 because it requires AI) ---
+        return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, finalStatus,
                 temporalResult.dailyDistribution());
     }
 
