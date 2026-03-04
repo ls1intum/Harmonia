@@ -2,6 +2,8 @@ package de.tum.cit.aet.analysis.dto.cqi;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.util.List;
+
 /**
  * Individual component scores for CQI calculation.
  *
@@ -12,6 +14,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * @param pairProgramming       pair programming collaboration score (0-100, nullable)
  * @param pairProgrammingStatus pair programming metric status: "FOUND", "NOT_FOUND",
  *                              "WARNING", or null if no attendance data uploaded
+ * @param dailyDistribution     daily lines of code changed (added + deleted) per day from prefiltered commits,
+ *                              used for temporal spread bar chart visualization (nullable)
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ComponentScoresDTO(
@@ -20,13 +24,14 @@ public record ComponentScoresDTO(
         double temporalSpread,
         double ownershipSpread,
         Double pairProgramming,
-        String pairProgrammingStatus
+        String pairProgrammingStatus,
+        List<Double> dailyDistribution
 ) {
     /**
      * Create zero scores.
      */
     public static ComponentScoresDTO zero() {
-        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, null);
+        return new ComponentScoresDTO(0.0, 0.0, 0.0, 0.0, null, null, null);
     }
 
     /**

@@ -479,6 +479,25 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/{exerciseId}/teams/{teamId}/reviewed:
+    patch:
+      tags: [request-resource]
+      operationId: toggleReviewStatus
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      - name: teamId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
 components:
   schemas:
     AnalysisStatusDTO:
@@ -542,12 +561,14 @@ components:
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isFailed: {type: boolean}
+        isReviewed: {type: boolean}
         isSuspicious: {type: boolean}
         llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}
         orphanCommits:
           type: array
           items: {$ref: '#/components/schemas/OrphanCommitDTO'}
+        participationId: {type: integer, format: int64}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
@@ -558,6 +579,9 @@ components:
     ComponentScoresDTO:
       type: object
       properties:
+        dailyDistribution:
+          type: array
+          items: {type: number, format: double}
         effortBalance: {type: number, format: double}
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
@@ -684,6 +708,7 @@ components:
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isFailed: {type: boolean}
+        isReviewed: {type: boolean}
         isSuspicious: {type: boolean}
         llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}

@@ -718,9 +718,9 @@ public class RequestService {
         if (hasFailed) {
             return new ClientResponseDTO(
                     tutor != null ? tutor.getName() : "Unassigned",
-                    team.id(), team.name(), participation.submissionCount(),
+                    team.id(), participation.id(), team.name(), participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
-                    null, null, null, null, 0, true);
+                    null, null, null, null, 0, true, null);
         }
 
         // 5) Calculate git-only CQI components (no AI needed)
@@ -734,7 +734,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), participation.submissionCount(),
                 studentDtos,
                 null,  // CQI — Phase 3
                 null,  // isSuspicious — Phase 3
@@ -744,7 +744,8 @@ public class RequestService {
                 null,  // orphanCommits
                 readTeamTokenTotals(teamParticipation),
                 null,  // orphanCommitCount — Phase 3
-                null); // isFailed
+                null,  // isFailed
+                null); // isReviewed
     }
 
     // =====================================================================
@@ -877,10 +878,10 @@ public class RequestService {
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
-                        team.id(), team.name(), participation.submissionCount(),
+                        team.id(), participation.id(), team.name(), participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
-                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
+                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null, null),
                 teamTokenTotals);
     }
 
@@ -1199,9 +1200,9 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
-                finalDetails, null, null, null, null, null);
+                finalDetails, null, null, null, null, null, null);
     }
 
     /** Emits INIT events for all pending teams. */
@@ -1220,6 +1221,7 @@ public class RequestService {
             pendingTeam.put("repositoryUri", participation.repositoryUri());
             pendingTeam.put("submissionCount", participation.submissionCount());
             pendingTeam.put("tutor", team.owner() != null ? team.owner().name() : "Unassigned");
+            pendingTeam.put("participationId", participation.id());
 
             List<Map<String, Object>> students = new ArrayList<>();
             if (team.students() != null) {
@@ -1343,6 +1345,7 @@ public class RequestService {
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
                 teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(gitComponents.dailyDistribution()));
                 teamParticipationRepository.save(teamParticipation);
 
                 return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
@@ -1381,6 +1384,7 @@ public class RequestService {
         teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
         teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
         teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
+        teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(cqiDetails.components().dailyDistribution()));
     }
 
     private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
@@ -1466,6 +1470,24 @@ public class RequestService {
         return true;
     }
 
+
+    /**
+     * Toggles the review status of a team participation.
+     *
+     * @param exerciseId The Artemis exercise ID
+     * @param teamId     The Artemis team ID
+     * @return Updated ClientResponseDTO
+     */
+    @Transactional
+    public ClientResponseDTO toggleReviewStatus(Long exerciseId, Long teamId) {
+        TeamParticipation participation = teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Team not found for exerciseId=" + exerciseId + ", teamId=" + teamId));
+        participation.setIsReviewed(!Boolean.TRUE.equals(participation.getIsReviewed()));
+        teamParticipationRepository.save(participation);
+        return mapParticipationToClientResponse(participation);
+    }
+
     private ClientResponseDTO mapParticipationToClientResponse(TeamParticipation participation) {
         List<Student> students = studentRepository.findAllByTeam(participation);
         Tutor tutor = participation.getTutor();
@@ -1483,7 +1505,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                participation.getTeam(), participation.getName(),
+                participation.getTeam(), participation.getParticipation(), participation.getName(),
                 participation.getSubmissionCount(),
                 studentDtos, cqi, isSuspicious,
                 participation.getAnalysisStatus(),
@@ -1492,7 +1514,8 @@ public class RequestService {
                 null, // Orphan commits not persisted
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     private void initializePendingTeams(List<ParticipationDTO> participations, Long exerciseId, boolean isResume) {
@@ -1725,6 +1748,31 @@ public class RequestService {
         }
     }
 
+    private String serializeDailyDistribution(List<Double> dailyDistribution) {
+        try {
+            if (dailyDistribution == null || dailyDistribution.isEmpty()) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(dailyDistribution);
+        } catch (Exception e) {
+            log.warn("Failed to serialize daily distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<Double> deserializeDailyDistribution(String json) {
+        try {
+            if (json == null || json.isEmpty()) {
+                return null;
+            }
+            return objectMapper.readValue(json,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, Double.class));
+        } catch (Exception e) {
+            log.warn("Failed to deserialize daily distribution: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private CQIResultDTO reconstructCqiDetails(TeamParticipation participation, AnalysisMode mode) {
         if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
                 && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
@@ -1737,7 +1785,8 @@ public class RequestService {
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
                 participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                participation.getCqiPairProgrammingStatus(),
+                deserializeDailyDistribution(participation.getCqiDailyDistribution()));
 
         // Determine weights based on analysis mode
         ComponentWeightsDTO weights;

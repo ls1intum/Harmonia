@@ -488,6 +488,7 @@ public class EmailMappingResource {
         return new ClientResponseDTO(
                 participation.getTutor() != null ? participation.getTutor().getName() : "Unassigned",
                 participation.getTeam(),
+                participation.getParticipation(),
                 participation.getName(),
                 participation.getSubmissionCount(),
                 studentDTOs,
@@ -499,7 +500,8 @@ public class EmailMappingResource {
                 null, // orphan commits not persisted
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     private List<AnalyzedChunkDTO> loadAnalyzedChunkDTOs(TeamParticipation participation) {

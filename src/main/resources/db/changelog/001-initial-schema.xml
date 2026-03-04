@@ -34,6 +34,7 @@
             <column name="cqi_pair_programming" type="DOUBLE"/>
             <column name="cqi_pair_programming_status" type="VARCHAR(255)"/>
             <column name="cqi_base_score" type="DOUBLE"/>
+            <column name="cqi_daily_distribution" type="TEXT"/>
 
             <!-- LLM token usage aggregate columns -->
             <column name="llm_calls" type="BIGINT"/>
@@ -51,6 +52,9 @@
 
             <!-- failure tracking -->
             <column name="is_failed" type="BOOLEAN"/>
+
+            <!-- review tracking -->
+            <column name="is_reviewed" type="BOOLEAN" defaultValueBoolean="false"/>
         </createTable>
     </changeSet>
 
@@ -177,7 +181,9 @@
             <column name="reasoning" type="TEXT"/>
             <column name="commit_shas" type="TEXT"/>
             <column name="commit_messages" type="TEXT"/>
-            <column name="timestamp" type="TIMESTAMP"/>
+            <column name="timestamp" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
             <column name="lines_changed" type="INT"/>
             <column name="is_bundled" type="BOOLEAN"/>
             <column name="chunk_index" type="INT"/>

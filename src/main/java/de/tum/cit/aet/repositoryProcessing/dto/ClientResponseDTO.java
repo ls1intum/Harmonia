@@ -15,6 +15,7 @@ import java.util.List;
  *
  * @param tutor            the assigned tutor name
  * @param teamId           the Artemis team ID
+ * @param participationId  the Artemis participation ID
  * @param teamName         the team display name
  * @param submissionCount  number of submissions
  * @param students         list of student contribution summaries
@@ -27,11 +28,13 @@ import java.util.List;
  * @param llmTokenTotals   aggregated LLM token usage
  * @param orphanCommitCount number of orphan commits
  * @param isFailed         whether the analysis failed for this team
+ * @param isReviewed       whether the team has been marked as reviewed
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClientResponseDTO(
                 String tutor,
                 Long teamId,
+                Long participationId,
                 String teamName,
                 Integer submissionCount,
                 List<StudentAnalysisDTO> students,
@@ -43,5 +46,6 @@ public record ClientResponseDTO(
                 List<OrphanCommitDTO> orphanCommits,
                 LlmTokenTotalsDTO llmTokenTotals,
                 Integer orphanCommitCount,
-                Boolean isFailed) {
+                Boolean isFailed,
+                Boolean isReviewed) {
 }
