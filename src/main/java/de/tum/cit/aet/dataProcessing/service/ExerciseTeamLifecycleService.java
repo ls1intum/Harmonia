@@ -21,11 +21,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Database clearing, team initialization, and team status management for exercises.
+ * Manages the lifecycle of exercise team participations: initialization, status
+ * transitions (pending, failed, cancelled), tutor resolution, and full teardown.
  */
 @Service
 @Slf4j
-public class ExerciseDataCleanupService {
+public class ExerciseTeamLifecycleService {
 
     private final TeamParticipationRepository teamParticipationRepository;
     private final TeamRepositoryRepository teamRepositoryRepository;
@@ -33,7 +34,7 @@ public class ExerciseDataCleanupService {
     private final StudentRepository studentRepository;
     private final TutorRepository tutorRepository;
 
-    public ExerciseDataCleanupService(TeamParticipationRepository teamParticipationRepository,
+    public ExerciseTeamLifecycleService(TeamParticipationRepository teamParticipationRepository,
                                       TeamRepositoryRepository teamRepositoryRepository,
                                       AnalyzedChunkRepository analyzedChunkRepository,
                                       StudentRepository studentRepository,
@@ -52,15 +53,6 @@ public class ExerciseDataCleanupService {
      */
     @Transactional
     public void clearDatabaseForExercise(Long exerciseId) {
-        clearDatabaseForExerciseInternal(exerciseId);
-    }
-
-    /**
-     * Internal implementation that performs the actual database cleanup for an exercise.
-     *
-     * @param exerciseId the exercise to clear
-     */
-    public void clearDatabaseForExerciseInternal(Long exerciseId) {
         List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
         if (participations.isEmpty()) {
             return;
@@ -84,8 +76,6 @@ public class ExerciseDataCleanupService {
         if (!tutorIds.isEmpty()) {
             tutorRepository.deleteOrphanedByIds(tutorIds);
         }
-
-        log.info("Cleared {} participations for exerciseId={}", participations.size(), exerciseId);
     }
 
     /**
@@ -174,10 +164,6 @@ public class ExerciseDataCleanupService {
             for (TeamParticipation team : pendingTeams) {
                 team.setAnalysisStatus(TeamAnalysisStatus.CANCELLED);
                 teamParticipationRepository.save(team);
-            }
-
-            if (!pendingTeams.isEmpty()) {
-                log.info("Marked {} pending teams as CANCELLED for exerciseId={}", pendingTeams.size(), exerciseId);
             }
         } catch (Exception e) {
             log.error("Failed to mark pending teams as cancelled for exerciseId={}", exerciseId, e);

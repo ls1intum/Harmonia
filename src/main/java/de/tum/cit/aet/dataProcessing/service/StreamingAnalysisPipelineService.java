@@ -49,7 +49,7 @@ public class StreamingAnalysisPipelineService {
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
 
     private final AnalysisTaskManager analysisTaskManager;
-    private final ExerciseDataCleanupService exerciseDataCleanupService;
+    private final ExerciseTeamLifecycleService exerciseDataCleanupService;
     private final AnalysisResultPersistenceService persistenceService;
 
     public StreamingAnalysisPipelineService(
@@ -61,7 +61,7 @@ public class StreamingAnalysisPipelineService {
             TeamParticipationRepository teamParticipationRepository,
             ExerciseTemplateAuthorRepository templateAuthorRepository,
             AnalysisTaskManager analysisTaskManager,
-            ExerciseDataCleanupService exerciseDataCleanupService,
+            ExerciseTeamLifecycleService exerciseDataCleanupService,
             AnalysisResultPersistenceService persistenceService) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
@@ -111,7 +111,10 @@ public class StreamingAnalysisPipelineService {
             runTokenTotals = runTokenTotals.merge(aiResult.tokenTotals());
         }
 
-        persistenceService.logTotalUsage("sync", exerciseId, results.size(), runTokenTotals);
+        log.info("LLM_USAGE scope=sync exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
+                exerciseId, results.size(),
+                runTokenTotals.llmCalls(), runTokenTotals.promptTokens(),
+                runTokenTotals.completionTokens(), runTokenTotals.totalTokens());
         return results;
     }
 
@@ -154,7 +157,7 @@ public class StreamingAnalysisPipelineService {
         try {
             // 1) Clear existing data for a clean slate
             transactionTemplate.executeWithoutResult(status ->
-                    exerciseDataCleanupService.clearDatabaseForExerciseInternal(exerciseId));
+                    exerciseDataCleanupService.clearDatabaseForExercise(exerciseId));
 
             // 2) Fetch team participations from Artemis and filter to those with repositories
             List<ParticipationDTO> participations = artemisClientService.fetchParticipations(
@@ -302,7 +305,10 @@ public class StreamingAnalysisPipelineService {
                 }
 
                 log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
-                persistenceService.logTotalUsage("stream", exerciseId, aiAnalyzedCount.get(), runTokenTotals);
+                log.info("LLM_USAGE scope=stream exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
+                        exerciseId, aiAnalyzedCount.get(),
+                        runTokenTotals.llmCalls(), runTokenTotals.promptTokens(),
+                        runTokenTotals.completionTokens(), runTokenTotals.totalTokens());
 
                 if (analysisStateService.isRunning(exerciseId)) {
                     analysisStateService.completeAnalysis(exerciseId);
@@ -628,15 +634,11 @@ public class StreamingAnalysisPipelineService {
             if (unanimousAuthor.isPresent() && totalRepos > 0) {
                 String email = unanimousAuthor.get();
                 templateAuthorRepository.save(new ExerciseTemplateAuthor(exerciseId, email, true));
-                log.info("Auto-detected template author for exerciseId={}: {} (unanimous across {} repos)",
-                        exerciseId, email, totalRepos);
                 synchronized (eventEmitter) {
                     eventEmitter.accept(Map.of("type", "TEMPLATE_AUTHOR",
                             "email", email, "autoDetected", true));
                 }
             } else if (!rootAuthorCounts.isEmpty()) {
-                log.info("Ambiguous template author for exerciseId={}: candidates={}",
-                        exerciseId, rootAuthorCounts.keySet());
                 synchronized (eventEmitter) {
                     eventEmitter.accept(Map.of("type", "TEMPLATE_AUTHOR_AMBIGUOUS",
                             "candidates", new ArrayList<>(rootAuthorCounts.keySet())));

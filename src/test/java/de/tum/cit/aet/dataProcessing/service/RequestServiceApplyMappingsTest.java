@@ -52,7 +52,7 @@ class RequestServiceApplyMappingsTest {
     @Mock private ExerciseTemplateAuthorRepository templateAuthorRepository;
     @Mock private GitContributionAnalysisService gitContributionAnalysisService;
     @Mock private CqiRecalculationService cqiRecalculationService;
-    @Mock private ExerciseDataCleanupService cleanupService;
+    @Mock private ExerciseTeamLifecycleService cleanupService;
     @Mock private AnalysisQueryService queryService;
 
     @Captor private ArgumentCaptor<List<AnalyzedChunk>> chunksCaptor;

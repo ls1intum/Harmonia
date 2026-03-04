@@ -27,7 +27,7 @@ import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator;
 import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
-import de.tum.cit.aet.dataProcessing.service.ExerciseDataCleanupService;
+import de.tum.cit.aet.dataProcessing.service.ExerciseTeamLifecycleService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
@@ -75,7 +75,7 @@ public class AnalysisResultPersistenceService {
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
     private final ExerciseEmailMappingRepository emailMappingRepository;
 
-    private final ExerciseDataCleanupService cleanupService;
+    private final ExerciseTeamLifecycleService cleanupService;
     private final AnalysisQueryService queryService;
     private final TransactionTemplate transactionTemplate;
 
@@ -100,7 +100,7 @@ public class AnalysisResultPersistenceService {
             AnalyzedChunkRepository analyzedChunkRepository,
             ExerciseTemplateAuthorRepository templateAuthorRepository,
             ExerciseEmailMappingRepository emailMappingRepository,
-            ExerciseDataCleanupService cleanupService,
+            ExerciseTeamLifecycleService cleanupService,
             AnalysisQueryService queryService,
             TransactionTemplate transactionTemplate) {
         this.balanceCalculator = balanceCalculator;
@@ -272,9 +272,6 @@ public class AnalysisResultPersistenceService {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
                     .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
             orphanCommits = analysisResult.orphanCommits();
-            if (orphanCommits != null && !orphanCommits.isEmpty()) {
-                log.info("Found {} orphan commits for team {}", orphanCommits.size(), team.name());
-            }
         } catch (Exception e) {
             log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
         }
@@ -601,9 +598,6 @@ public class AnalysisResultPersistenceService {
                                 });
                     }
                 }
-
-                log.info("Applied {} email mapping(s) to chunks for team {}, updated {} student(s)",
-                        mappings.size(), participation.getName(), remappedByStudent.size());
                 cqiRecalculationService.recalculateFromChunks(participation, chunks);
             }
         } catch (Exception e) {
@@ -632,21 +626,6 @@ public class AnalysisResultPersistenceService {
         tp.setLlmPromptTokens(totals.promptTokens());
         tp.setLlmCompletionTokens(totals.completionTokens());
         tp.setLlmTotalTokens(totals.totalTokens());
-    }
-
-    /**
-     * Logs aggregated LLM token usage for an analysis run.
-     *
-     * @param scope         descriptive label for the log entry (e.g. "FULL" or "SIMPLE")
-     * @param exerciseId    the exercise that was analyzed
-     * @param analyzedTeams number of teams analyzed
-     * @param tokenTotals   the aggregated token usage
-     */
-    public void logTotalUsage(String scope, Long exerciseId, int analyzedTeams, LlmTokenTotalsDTO tokenTotals) {
-        log.info("LLM_USAGE scope={} exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
-                scope, exerciseId, analyzedTeams,
-                tokenTotals.llmCalls(), tokenTotals.promptTokens(),
-                tokenTotals.completionTokens(), tokenTotals.totalTokens());
     }
 
     /**

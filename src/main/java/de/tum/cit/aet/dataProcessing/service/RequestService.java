@@ -25,14 +25,14 @@ public class RequestService {
 
     private final AnalysisTaskManager analysisTaskManager;
     private final AnalysisQueryService analysisQueryService;
-    private final ExerciseDataCleanupService exerciseDataCleanupService;
+    private final ExerciseTeamLifecycleService exerciseDataCleanupService;
     private final AnalysisResultPersistenceService persistenceService;
     private final StreamingAnalysisPipelineService pipelineService;
 
     public RequestService(
             AnalysisTaskManager analysisTaskManager,
             AnalysisQueryService analysisQueryService,
-            ExerciseDataCleanupService exerciseDataCleanupService,
+            ExerciseTeamLifecycleService exerciseDataCleanupService,
             AnalysisResultPersistenceService persistenceService,
             StreamingAnalysisPipelineService pipelineService) {
         this.analysisTaskManager = analysisTaskManager;

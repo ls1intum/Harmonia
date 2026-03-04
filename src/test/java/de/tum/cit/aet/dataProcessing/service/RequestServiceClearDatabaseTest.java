@@ -31,7 +31,7 @@ class RequestServiceClearDatabaseTest {
     @Mock private TutorRepository tutorRepository;
 
     @InjectMocks
-    private ExerciseDataCleanupService service;
+    private ExerciseTeamLifecycleService service;
 
     @Test
     void clearDatabase_deletesOrphanedTutors() {
