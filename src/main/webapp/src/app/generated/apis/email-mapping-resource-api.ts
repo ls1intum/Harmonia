@@ -128,9 +128,9 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    deleteTemplateAuthor: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+    deleteTemplateAuthors: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
-      assertParamExists('deleteTemplateAuthor', 'exerciseId', exerciseId);
+      assertParamExists('deleteTemplateAuthors', 'exerciseId', exerciseId);
       const localVarPath = `/api/exercises/{exerciseId}/email-mappings/template-author`.replace(
         `{${'exerciseId'}}`,
         encodeURIComponent(String(exerciseId)),
@@ -194,9 +194,9 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getTemplateAuthor: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+    getTemplateAuthors: async (exerciseId: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
-      assertParamExists('getTemplateAuthor', 'exerciseId', exerciseId);
+      assertParamExists('getTemplateAuthors', 'exerciseId', exerciseId);
       const localVarPath = `/api/exercises/{exerciseId}/email-mappings/template-author`.replace(
         `{${'exerciseId'}}`,
         encodeURIComponent(String(exerciseId)),
@@ -224,19 +224,19 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
     /**
      *
      * @param {number} exerciseId
-     * @param {TemplateAuthorDTO} templateAuthorDTO
+     * @param {Array<TemplateAuthorDTO>} templateAuthorDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    setTemplateAuthor: async (
+    setTemplateAuthors: async (
       exerciseId: number,
-      templateAuthorDTO: TemplateAuthorDTO,
+      templateAuthorDTO: Array<TemplateAuthorDTO>,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
-      assertParamExists('setTemplateAuthor', 'exerciseId', exerciseId);
+      assertParamExists('setTemplateAuthors', 'exerciseId', exerciseId);
       // verify required parameter 'templateAuthorDTO' is not null or undefined
-      assertParamExists('setTemplateAuthor', 'templateAuthorDTO', templateAuthorDTO);
+      assertParamExists('setTemplateAuthors', 'templateAuthorDTO', templateAuthorDTO);
       const localVarPath = `/api/exercises/{exerciseId}/email-mappings/template-author`.replace(
         `{${'exerciseId'}}`,
         encodeURIComponent(String(exerciseId)),
@@ -317,14 +317,14 @@ export const EmailMappingResourceApiFp = function (configuration?: Configuration
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    async deleteTemplateAuthor(
+    async deleteTemplateAuthors(
       exerciseId: number,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.deleteTemplateAuthor(exerciseId, options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.deleteTemplateAuthors(exerciseId, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap['EmailMappingResourceApi.deleteTemplateAuthor']?.[localVarOperationServerIndex]?.url;
+        operationServerMap['EmailMappingResourceApi.deleteTemplateAuthors']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
@@ -351,33 +351,33 @@ export const EmailMappingResourceApiFp = function (configuration?: Configuration
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    async getTemplateAuthor(
+    async getTemplateAuthors(
       exerciseId: number,
       options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TemplateAuthorDTO>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.getTemplateAuthor(exerciseId, options);
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<TemplateAuthorDTO>>> {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getTemplateAuthors(exerciseId, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap['EmailMappingResourceApi.getTemplateAuthor']?.[localVarOperationServerIndex]?.url;
+        operationServerMap['EmailMappingResourceApi.getTemplateAuthors']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
     /**
      *
      * @param {number} exerciseId
-     * @param {TemplateAuthorDTO} templateAuthorDTO
+     * @param {Array<TemplateAuthorDTO>} templateAuthorDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    async setTemplateAuthor(
+    async setTemplateAuthors(
       exerciseId: number,
-      templateAuthorDTO: TemplateAuthorDTO,
+      templateAuthorDTO: Array<TemplateAuthorDTO>,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ClientResponseDTO>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.setTemplateAuthor(exerciseId, templateAuthorDTO, options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.setTemplateAuthors(exerciseId, templateAuthorDTO, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap['EmailMappingResourceApi.setTemplateAuthor']?.[localVarOperationServerIndex]?.url;
+        operationServerMap['EmailMappingResourceApi.setTemplateAuthors']?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
     },
@@ -420,8 +420,8 @@ export const EmailMappingResourceApiFactory = function (configuration?: Configur
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    deleteTemplateAuthor(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<Array<ClientResponseDTO>> {
-      return localVarFp.deleteTemplateAuthor(exerciseId, options).then(request => request(axios, basePath));
+    deleteTemplateAuthors(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<Array<ClientResponseDTO>> {
+      return localVarFp.deleteTemplateAuthors(exerciseId, options).then(request => request(axios, basePath));
     },
     /**
      *
@@ -438,22 +438,22 @@ export const EmailMappingResourceApiFactory = function (configuration?: Configur
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getTemplateAuthor(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<TemplateAuthorDTO> {
-      return localVarFp.getTemplateAuthor(exerciseId, options).then(request => request(axios, basePath));
+    getTemplateAuthors(exerciseId: number, options?: RawAxiosRequestConfig): AxiosPromise<Array<TemplateAuthorDTO>> {
+      return localVarFp.getTemplateAuthors(exerciseId, options).then(request => request(axios, basePath));
     },
     /**
      *
      * @param {number} exerciseId
-     * @param {TemplateAuthorDTO} templateAuthorDTO
+     * @param {Array<TemplateAuthorDTO>} templateAuthorDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    setTemplateAuthor(
+    setTemplateAuthors(
       exerciseId: number,
-      templateAuthorDTO: TemplateAuthorDTO,
+      templateAuthorDTO: Array<TemplateAuthorDTO>,
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<Array<ClientResponseDTO>> {
-      return localVarFp.setTemplateAuthor(exerciseId, templateAuthorDTO, options).then(request => request(axios, basePath));
+      return localVarFp.setTemplateAuthors(exerciseId, templateAuthorDTO, options).then(request => request(axios, basePath));
     },
   };
 };
@@ -494,9 +494,9 @@ export class EmailMappingResourceApi extends BaseAPI {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public deleteTemplateAuthor(exerciseId: number, options?: RawAxiosRequestConfig) {
+  public deleteTemplateAuthors(exerciseId: number, options?: RawAxiosRequestConfig) {
     return EmailMappingResourceApiFp(this.configuration)
-      .deleteTemplateAuthor(exerciseId, options)
+      .deleteTemplateAuthors(exerciseId, options)
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -518,22 +518,22 @@ export class EmailMappingResourceApi extends BaseAPI {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getTemplateAuthor(exerciseId: number, options?: RawAxiosRequestConfig) {
+  public getTemplateAuthors(exerciseId: number, options?: RawAxiosRequestConfig) {
     return EmailMappingResourceApiFp(this.configuration)
-      .getTemplateAuthor(exerciseId, options)
+      .getTemplateAuthors(exerciseId, options)
       .then(request => request(this.axios, this.basePath));
   }
 
   /**
    *
    * @param {number} exerciseId
-   * @param {TemplateAuthorDTO} templateAuthorDTO
+   * @param {Array<TemplateAuthorDTO>} templateAuthorDTO
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public setTemplateAuthor(exerciseId: number, templateAuthorDTO: TemplateAuthorDTO, options?: RawAxiosRequestConfig) {
+  public setTemplateAuthors(exerciseId: number, templateAuthorDTO: Array<TemplateAuthorDTO>, options?: RawAxiosRequestConfig) {
     return EmailMappingResourceApiFp(this.configuration)
-      .setTemplateAuthor(exerciseId, templateAuthorDTO, options)
+      .setTemplateAuthors(exerciseId, templateAuthorDTO, options)
       .then(request => request(this.axios, this.basePath));
   }
 }
