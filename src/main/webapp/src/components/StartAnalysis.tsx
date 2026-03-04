@@ -176,14 +176,18 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
         <div className="space-y-2">
           <Label htmlFor="pair-programming-mode">Includes pair programming</Label>
-          <Select value={pairProgrammingMode} onValueChange={value => {
+          <Select
+            value={pairProgrammingMode}
+            onValueChange={value => {
               setPairProgrammingMode(value as 'yes' | 'no');
               try {
                 window.localStorage.setItem('harmonia.pairProgrammingMode', value);
               } catch {
                 // Ignore errors
               }
-            }} disabled={isLoading}>
+            }}
+            disabled={isLoading}
+          >
             <SelectTrigger id="pair-programming-mode">
               <SelectValue />
             </SelectTrigger>
