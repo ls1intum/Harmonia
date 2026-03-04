@@ -1,5 +1,8 @@
 package de.tum.cit.aet.analysis.web;
 
+import de.tum.cit.aet.analysis.dto.CreateEmailMappingRequestDTO;
+import de.tum.cit.aet.analysis.dto.DismissEmailRequestDTO;
+import de.tum.cit.aet.analysis.dto.EmailMappingDTO;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
@@ -125,7 +128,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
-        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
+        CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -150,7 +153,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(externalChunk)));
 
-        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
+        CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -173,7 +176,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
-        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
+        CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -187,7 +190,7 @@ class EmailMappingResourceTest {
         when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.empty());
 
-        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
+        CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
         assertThrows(IllegalArgumentException.class,
@@ -209,7 +212,7 @@ class EmailMappingResourceTest {
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
         // Student name "Unknown" does not match any student → falls back to request ID (77)
-        EmailMappingResource.CreateEmailMappingRequest request = new EmailMappingResource.CreateEmailMappingRequest(
+        CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 77L, "Unknown", TEAM_ID);
 
         resource.createMapping(EXERCISE_ID, request);
@@ -479,7 +482,7 @@ class EmailMappingResourceTest {
                 .thenReturn(new ArrayList<>(List.of(chunk2)));
         when(studentRepository.findAllByTeam(any())).thenReturn(List.of());
 
-        var request = new EmailMappingResource.DismissEmailRequest("orphan@gmail.com", TEAM_ID);
+        var request = new DismissEmailRequestDTO("orphan@gmail.com", TEAM_ID);
 
         ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
 
@@ -495,7 +498,7 @@ class EmailMappingResourceTest {
         when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
                 .thenReturn(true);
 
-        var request = new EmailMappingResource.DismissEmailRequest("orphan@gmail.com", TEAM_ID);
+        var request = new DismissEmailRequestDTO("orphan@gmail.com", TEAM_ID);
 
         ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
 
@@ -515,7 +518,7 @@ class EmailMappingResourceTest {
                 .thenReturn(new ArrayList<>(List.of(chunk)));
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
 
-        var request = new EmailMappingResource.DismissEmailRequest("orphan@gmail.com", TEAM_ID);
+        var request = new DismissEmailRequestDTO("orphan@gmail.com", TEAM_ID);
 
         resource.dismissEmail(EXERCISE_ID, request);
 
@@ -561,7 +564,7 @@ class EmailMappingResourceTest {
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID))
                 .thenReturn(List.of(m1, m2));
 
-        ResponseEntity<List<EmailMappingResource.EmailMappingDTO>> response =
+        ResponseEntity<List<EmailMappingDTO>> response =
                 resource.getAllMappings(EXERCISE_ID);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());

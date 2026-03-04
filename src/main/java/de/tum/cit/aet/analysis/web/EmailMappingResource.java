@@ -3,6 +3,9 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
+import de.tum.cit.aet.analysis.dto.CreateEmailMappingRequestDTO;
+import de.tum.cit.aet.analysis.dto.DismissEmailRequestDTO;
+import de.tum.cit.aet.analysis.dto.EmailMappingDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
@@ -43,36 +46,6 @@ public class EmailMappingResource {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * DTO for creating a new email mapping.
-     */
-    public record CreateEmailMappingRequest(
-            String gitEmail,
-            Long studentId,
-            String studentName,
-            Long teamParticipationId) {
-    }
-
-    /**
-     * DTO returned for each persisted mapping.
-     */
-    public record EmailMappingDTO(
-            UUID id,
-            Long exerciseId,
-            String gitEmail,
-            Long studentId,
-            String studentName,
-            Boolean isDismissed) {
-    }
-
-    /**
-     * DTO for dismissing an orphan email without student assignment.
-     */
-    public record DismissEmailRequest(
-            String gitEmail,
-            Long teamParticipationId) {
-    }
-
-    /**
      * Returns all email mappings for the given exercise.
      *
      * @param exerciseId the exercise ID
@@ -100,7 +73,7 @@ public class EmailMappingResource {
     @Transactional
     public ResponseEntity<ClientResponseDTO> createMapping(
             @PathVariable Long exerciseId,
-            @RequestBody CreateEmailMappingRequest request) {
+            @RequestBody CreateEmailMappingRequestDTO request) {
 
         log.info("POST createMapping for exerciseId={}, gitEmail={}, studentId={}",
                 exerciseId, request.gitEmail(), request.studentId());
@@ -175,7 +148,7 @@ public class EmailMappingResource {
     @Transactional
     public ResponseEntity<ClientResponseDTO> dismissEmail(
             @PathVariable Long exerciseId,
-            @RequestBody DismissEmailRequest request) {
+            @RequestBody DismissEmailRequestDTO request) {
 
         log.info("POST dismissEmail for exerciseId={}, gitEmail={}", exerciseId, request.gitEmail());
 
