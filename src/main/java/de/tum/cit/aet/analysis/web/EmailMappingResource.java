@@ -137,7 +137,7 @@ public class EmailMappingResource {
 
     /**
      * Dismisses an orphan email without assigning it to a student.
-     * Chunks are NOT mutated — the frontend uses the dismissed mapping
+     * Chunks are NOT mutated — the client uses the dismissed mapping
      * to display them in a separate "Dismissed" section.
      *
      * @param exerciseId the exercise ID
