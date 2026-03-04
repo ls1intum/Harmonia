@@ -417,7 +417,10 @@ export default function Teams() {
 
   const setTemplateAuthorsMutation = useMutation({
     mutationFn: async (emails: string[]) => {
-      await emailMappingApi.setTemplateAuthor(parseInt(exercise), emails.map(e => ({ templateEmail: e })));
+      await emailMappingApi.setTemplateAuthors(
+        parseInt(exercise),
+        emails.map(e => ({ templateEmail: e })),
+      );
       return emails;
     },
     onSuccess: emails => {
