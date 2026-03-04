@@ -11,6 +11,7 @@ export * from './llm-token-totals-dto';
 export * from './llm-token-usage-dto';
 export * from './login-request-dto';
 export * from './orphan-commit-dto';
+export * from './pair-programming-recomputing-dto';
 export * from './sse-emitter';
 export * from './student-analysis-dto';
 export * from './student-summary-dto';

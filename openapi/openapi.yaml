@@ -104,6 +104,21 @@ paths:
           content:
             application/json:
               schema: {type: string}
+  /api/attendance/recomputing:
+    get:
+      tags: [pair-programming-resource]
+      operationId: isRecomputing
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PairProgrammingRecomputingDTO'}
   /api/attendance/upload:
     post:
       tags: [pair-programming-resource]
@@ -529,6 +544,7 @@ components:
           type: array
           items: {$ref: '#/components/schemas/OrphanCommitDTO'}
         participationId: {type: integer, format: int64}
+        shortName: {type: string}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
@@ -543,7 +559,9 @@ components:
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         pairProgramming: {type: number, format: double}
-        pairProgrammingStatus: {type: string}
+        pairProgrammingStatus:
+          type: string
+          enum: [PASS, FAIL, NOT_FOUND, WARNING]
         temporalSpread: {type: number, format: double}
     ComponentWeightsDTO:
       type: object
@@ -616,6 +634,10 @@ components:
         linesDeleted: {type: integer, format: int32}
         message: {type: string}
         timestamp: {type: string, format: date-time}
+    PairProgrammingRecomputingDTO:
+      type: object
+      properties:
+        recomputing: {type: boolean}
     SseEmitter:
       type: object
       properties:
@@ -662,6 +684,7 @@ components:
         isSuspicious: {type: boolean}
         llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}
+        shortName: {type: string}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentSummaryDTO'}

@@ -27,6 +27,7 @@ docs/LlmTokenTotalsDTO.md
 docs/LlmTokenUsageDTO.md
 docs/LoginRequestDTO.md
 docs/OrphanCommitDTO.md
+docs/PairProgrammingRecomputingDTO.md
 docs/PairProgrammingResourceApi.md
 docs/RequestResourceApi.md
 docs/SseEmitter.md
@@ -52,6 +53,7 @@ models/llm-token-totals-dto.ts
 models/llm-token-usage-dto.ts
 models/login-request-dto.ts
 models/orphan-commit-dto.ts
+models/pair-programming-recomputing-dto.ts
 models/sse-emitter.ts
 models/student-analysis-dto.ts
 models/student-summary-dto.ts
