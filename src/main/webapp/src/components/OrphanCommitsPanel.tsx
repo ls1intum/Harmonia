@@ -103,7 +103,9 @@ const OrphanCommitsPanel = ({
   const mappingEmails = emailMappings
     .filter(m => m.gitEmail && allChunkEmails.has(m.gitEmail.toLowerCase()))
     .map(m => m.gitEmail!.toLowerCase());
-  const allOrphanEmails = new Set([...orphanEmailsFromCommits, ...orphanEmailsFromChunks, ...mappingEmails]);
+  const allOrphanEmails = new Set(orphanEmailsFromCommits);
+  orphanEmailsFromChunks.forEach(e => allOrphanEmails.add(e));
+  mappingEmails.forEach(e => allOrphanEmails.add(e));
 
   // Split mappings into assigned and dismissed
   const assignedMappings = emailMappings.filter(m => !m.isDismissed && m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
