@@ -117,12 +117,12 @@ class ContributionFairnessServiceTest {
         // Mock CQI result with uneven distribution
         CQIResultDTO cqiResult = new CQIResultDTO(
                 35.0,
-                new ComponentScoresDTO(35.0, 40.0, 80.0, 50.0, null, null),
+                new ComponentScoresDTO(35.0, 40.0, 80.0, 50.0, null, null, null),
                 null,
                 50.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
@@ -145,12 +145,12 @@ class ContributionFairnessServiceTest {
         // Mock CQI result with balanced scores
         CQIResultDTO cqiResult = new CQIResultDTO(
                 95.0,
-                new ComponentScoresDTO(95.0, 90.0, 85.0, 80.0, null, null),
+                new ComponentScoresDTO(95.0, 90.0, 85.0, 80.0, null, null, null),
                 null,
                 95.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
@@ -169,12 +169,12 @@ class ContributionFairnessServiceTest {
         // Mock CQI result with solo contributor
         CQIResultDTO cqiResult = new CQIResultDTO(
                 0.0,
-                new ComponentScoresDTO(0.0, 0.0, 50.0, 0.0, null, null),
+                new ComponentScoresDTO(0.0, 0.0, 50.0, 0.0, null, null, null),
                 null,
                 50.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
@@ -194,12 +194,12 @@ class ContributionFairnessServiceTest {
 
         CQIResultDTO cqiResult = new CQIResultDTO(
                 70.0,
-                new ComponentScoresDTO(70.0, 70.0, 70.0, 70.0, null, null),
+                new ComponentScoresDTO(70.0, 70.0, 70.0, 70.0, null, null, null),
                 null,
                 70.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportWithUsageDTO reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo);
 

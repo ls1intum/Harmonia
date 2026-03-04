@@ -162,7 +162,7 @@ class EndToEndAnalysisIntegrationTest {
     @Test
     @Order(2)
     @DisplayName("Authenticate with Artemis and fetch/analyze teams")
-    void shouldFetchAndAnalyzeTeamsFromArtemis() throws Exception {
+    void shouldFetchAndAnalyzeTeamsFromArtemis() {
         logStep("2. AUTHENTICATE & ANALYZE", "Connecting to Artemis and analyzing " + MAX_TEAMS + " teams");
 
         // Validate credentials

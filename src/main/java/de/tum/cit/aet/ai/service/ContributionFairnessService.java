@@ -88,6 +88,7 @@ public class ContributionFairnessService {
             String templateAuthorEmail, Long exerciseId) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
+        String shortName = repositoryDTO.participation().team().shortName();
         int teamSize = repositoryDTO.participation().team().students().size();
         List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
         LlmTokenTotalsDTO teamTokenTotals = LlmTokenTotalsDTO.empty();
@@ -157,7 +158,7 @@ public class ContributionFairnessService {
                     .toList();
 
             CQIResultDTO cqiResult = cqiCalculatorService.calculate(
-                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName, exerciseId);
+                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName, shortName, exerciseId);
 
             // 6) Aggregate author stats
             Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);
@@ -313,7 +314,7 @@ public class ContributionFairnessService {
     private Map<Long, AuthorStats> aggregateStats(List<RatedChunkDTO> ratedChunks) {
         Map<Long, AuthorStats> stats = new HashMap<>();
         for (RatedChunkDTO rc : ratedChunks) {
-            AuthorStats s = stats.computeIfAbsent(rc.chunk().authorId(), _ -> new AuthorStats());
+            AuthorStats s = stats.computeIfAbsent(rc.chunk().authorId(), key -> new AuthorStats());
             s.totalEffort += rc.rating().weightedEffort();
             s.chunkCount++;
             s.commitsByType.merge(rc.rating().type(), 1, Integer::sum);

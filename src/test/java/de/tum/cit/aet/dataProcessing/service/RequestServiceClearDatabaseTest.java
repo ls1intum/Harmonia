@@ -1,7 +1,6 @@
 package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
-import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.domain.Tutor;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
@@ -30,10 +29,9 @@ class RequestServiceClearDatabaseTest {
     @Mock private AnalyzedChunkRepository analyzedChunkRepository;
     @Mock private StudentRepository studentRepository;
     @Mock private TutorRepository tutorRepository;
-    @Mock private ExerciseEmailMappingRepository emailMappingRepository;
 
     @InjectMocks
-    private RequestService service;
+    private ExerciseTeamLifecycleService service;
 
     @Test
     void clearDatabase_deletesOrphanedTutors() {
@@ -95,25 +93,6 @@ class RequestServiceClearDatabaseTest {
 
         // Other deletions should still happen
         verify(teamParticipationRepository).deleteAllByExerciseId(exerciseId);
-    }
-
-    @Test
-    void clearDatabase_doesNotDeleteEmailMappings() {
-        Long exerciseId = 1L;
-
-        Tutor tutor = new Tutor(100L, "tutor1", "Tutor One", "tutor@uni.de");
-        tutor.setTutorId(UUID.randomUUID());
-
-        TeamParticipation participation = new TeamParticipation(
-                10L, 1L, tutor, "Team A", "team-a", "https://repo", 5);
-
-        when(teamParticipationRepository.findAllByExerciseId(exerciseId))
-                .thenReturn(List.of(participation));
-
-        service.clearDatabaseForExercise(exerciseId);
-
-        // Email mappings should NOT be deleted by clearDatabase — controlled by clearMappings flag in AnalysisResource
-        verify(emailMappingRepository, never()).deleteAllByExerciseId(any());
     }
 
     @Test

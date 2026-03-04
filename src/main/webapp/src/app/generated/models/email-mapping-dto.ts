@@ -16,6 +16,7 @@ export interface EmailMappingDTO {
   exerciseId?: number;
   gitEmail?: string;
   id?: string;
+  isDismissed?: boolean;
   studentId?: number;
   studentName?: string;
 }

@@ -2,6 +2,7 @@ import type { SubMetric } from '@/data/dataLoaders';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { AlertTriangle } from 'lucide-react';
+import DailyBarChart from '@/components/DailyBarChart';
 
 interface MetricCardProps {
   metric: SubMetric;
@@ -102,6 +103,9 @@ const MetricCard = ({ metric }: MetricCardProps) => {
             <Progress value={metric.value} className="h-2 bg-muted/50" indicatorClassName={getProgressColor(metric.value)} />
           )}
         </div>
+        {!isPending && !isNotFound && !isWarning && metric.dailyDistribution && metric.dailyDistribution.length > 0 && (
+          <DailyBarChart data={metric.dailyDistribution} />
+        )}
         <div className="pt-2 border-t">
           <div className="text-sm text-muted-foreground leading-relaxed space-y-1">
             {metric.details

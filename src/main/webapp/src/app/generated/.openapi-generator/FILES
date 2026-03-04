@@ -21,7 +21,8 @@ docs/ComponentScoresDTO.md
 docs/ComponentWeightsDTO.md
 docs/CqiWeightResourceApi.md
 docs/CqiWeightsDTO.md
-docs/CreateEmailMappingRequest.md
+docs/CreateEmailMappingRequestDTO.md
+docs/DismissEmailRequestDTO.md
 docs/EmailMappingDTO.md
 docs/EmailMappingResourceApi.md
 docs/ExportResourceApi.md
@@ -30,6 +31,7 @@ docs/LlmTokenTotalsDTO.md
 docs/LlmTokenUsageDTO.md
 docs/LoginRequestDTO.md
 docs/OrphanCommitDTO.md
+docs/PairProgrammingRecomputingDTO.md
 docs/PairProgrammingResourceApi.md
 docs/RequestResourceApi.md
 docs/SseEmitter.md
@@ -48,7 +50,8 @@ models/component-scores-dto.ts
 models/component-weights-dto.ts
 models/cqi-weights-dto.ts
 models/cqiresult-dto.ts
-models/create-email-mapping-request.ts
+models/create-email-mapping-request-dto.ts
+models/dismiss-email-request-dto.ts
 models/email-mapping-dto.ts
 models/filter-summary-dto.ts
 models/index.ts
@@ -56,6 +59,7 @@ models/llm-token-totals-dto.ts
 models/llm-token-usage-dto.ts
 models/login-request-dto.ts
 models/orphan-commit-dto.ts
+models/pair-programming-recomputing-dto.ts
 models/sse-emitter.ts
 models/student-analysis-dto.ts
 models/student-summary-dto.ts
