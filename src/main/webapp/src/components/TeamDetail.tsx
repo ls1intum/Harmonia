@@ -56,7 +56,7 @@ const TeamDetail = ({
     let baseUrl: string | null = null;
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        baseUrl = window.localStorage.getItem('artemis_server_url');
+        baseUrl = window.localStorage.getItem('harmonia.serverUrl');
       }
     } catch {
       baseUrl = null;
