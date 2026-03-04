@@ -130,6 +130,8 @@ public class EmailMappingResource {
 
         // 7. Recalculate CQI from persisted chunks
         cqiRecalculationService.recalculateFromChunks(participation, chunks);
+        // Recompute and persist orphan commit count so clients see updated unmatched counts
+        recomputeAndPersistOrphanCount(participation, exerciseId);
 
         // 8. Return updated response
         return ResponseEntity.ok(buildResponse(participation));
@@ -170,6 +172,7 @@ public class EmailMappingResource {
         if (participation != null) {
             List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
             cqiRecalculationService.recalculateFromChunks(participation, chunks);
+            recomputeAndPersistOrphanCount(participation, exerciseId);
             return ResponseEntity.ok(buildResponse(participation));
         }
         return ResponseEntity.noContent().build();
@@ -231,6 +234,7 @@ public class EmailMappingResource {
                     subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
                 }
                 cqiRecalculationService.recalculateFromChunks(participation, chunks);
+                recomputeAndPersistOrphanCount(participation, exerciseId);
                 lastResponse = buildResponse(participation);
             }
         }
@@ -288,8 +292,10 @@ public class EmailMappingResource {
                 .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
                 .collect(java.util.stream.Collectors.toSet());
 
-        // Delete all existing, save new (deduplicated, lowercase)
+        // Delete all existing, flush to ensure DB state is updated, then save new (deduplicated, lowercase)
         templateAuthorRepository.deleteByExerciseId(exerciseId);
+        // Ensure the bulk delete is executed in the database before inserting new records to avoid unique constraint races
+        templateAuthorRepository.flush();
         Set<String> newEmails = new LinkedHashSet<>();
         for (TemplateAuthorDTO dto : request) {
             String email = dto.templateEmail().toLowerCase(Locale.ROOT);
@@ -334,6 +340,7 @@ public class EmailMappingResource {
                 analyzedChunkRepository.saveAll(chunks);
             }
             cqiRecalculationService.recalculateFromChunks(participation, chunks);
+            recomputeAndPersistOrphanCount(participation, exerciseId);
             responses.add(buildResponse(participation));
         }
 
@@ -362,6 +369,8 @@ public class EmailMappingResource {
                 .collect(java.util.stream.Collectors.toSet());
         log.info("DELETE deleteTemplateAuthors for exerciseId={}, emails={}", exerciseId, oldEmails);
         templateAuthorRepository.deleteByExerciseId(exerciseId);
+        // Make sure deletions hit the DB before recalculations / further processing
+        templateAuthorRepository.flush();
 
         // Recalculate CQI for all teams — old template chunks stay as external/orphan
         // unless they match a student or email mapping
@@ -390,6 +399,7 @@ public class EmailMappingResource {
             }
 
             cqiRecalculationService.recalculateFromChunks(participation, chunks);
+            recomputeAndPersistOrphanCount(participation, exerciseId);
             responses.add(buildResponse(participation));
         }
 
@@ -553,11 +563,11 @@ public class EmailMappingResource {
     }
 
     private LlmTokenTotalsDTO readTeamTokenTotals(TeamParticipation p) {
-        if (p.getLlmCalls() == null) {
+        if (p == null || p.getLlmCalls() == null) {
             return null;
         }
         return new LlmTokenTotalsDTO(
-                p.getLlmCalls() != null ? p.getLlmCalls() : 0L,
+                p.getLlmCalls(),
                 p.getLlmCallsWithUsage() != null ? p.getLlmCallsWithUsage() : 0L,
                 p.getLlmPromptTokens() != null ? p.getLlmPromptTokens() : 0L,
                 p.getLlmCompletionTokens() != null ? p.getLlmCompletionTokens() : 0L,
@@ -574,6 +584,31 @@ public class EmailMappingResource {
         } catch (Exception e) {
             return List.of();
         }
+    }
+
+    /**
+     * Recomputes the orphan commit count for the participation by counting
+     * commits from chunks still marked as external contributors and persists
+     * the updated TeamParticipation so clients see the change immediately.
+     */
+    private void recomputeAndPersistOrphanCount(TeamParticipation participation, Long exerciseId) {
+        List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+        Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                .stream().map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT)).collect(java.util.stream.Collectors.toSet());
+        int remainingOrphanCommits = 0;
+        for (AnalyzedChunk c : chunks) {
+            if (Boolean.TRUE.equals(c.getIsExternalContributor())) {
+                String chunkEmail = c.getAuthorEmail() != null ? c.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
+                if (chunkEmail != null && templateAuthorEmails.contains(chunkEmail)) {
+                    continue; // do not count template authors as unmatched
+                }
+                if (c.getCommitShas() != null && !c.getCommitShas().isEmpty()) {
+                    remainingOrphanCommits += c.getCommitShas().split(",").length;
+                }
+            }
+        }
+        participation.setOrphanCommitCount(remainingOrphanCommits);
+        teamParticipationRepository.save(participation);
     }
 
 }

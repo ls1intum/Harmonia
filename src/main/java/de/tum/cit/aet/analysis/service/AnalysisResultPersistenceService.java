@@ -549,7 +549,7 @@ public class AnalysisResultPersistenceService {
                 for (AnalyzedChunk chunk : chunks) {
                     if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
                             && emailLower.equals(chunk.getAuthorEmail() != null
-                                    ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
+                            ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
                         chunk.setIsExternalContributor(false);
                         chunk.setAuthorName(mapping.getStudentName());
                         remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
@@ -591,6 +591,27 @@ public class AnalysisResultPersistenceService {
                     }
                 }
                 cqiRecalculationService.recalculateFromChunks(participation, chunks);
+
+                // Recompute orphan commit count from remaining external-contributor chunks,
+                // but exclude template authors (they should not be considered "unmatched")
+                Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                        .stream().map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT)).collect(java.util.stream.Collectors.toSet());
+                int remainingOrphanCommits = 0;
+                for (AnalyzedChunk c : chunks) {
+                    if (Boolean.TRUE.equals(c.getIsExternalContributor())) {
+                        String chunkEmail = c.getAuthorEmail() != null ? c.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
+                        if (chunkEmail != null && templateAuthorEmails.contains(chunkEmail)) {
+                            // skip template authors
+                            continue;
+                        }
+                        if (c.getCommitShas() != null && !c.getCommitShas().isEmpty()) {
+                            remainingOrphanCommits += c.getCommitShas().split(",").length;
+                        }
+                    }
+                }
+                participation.setOrphanCommitCount(remainingOrphanCommits);
+                // persist updated participation so UI queries see new value
+                teamParticipationRepository.save(participation);
             }
         } catch (Exception e) {
             log.warn("Failed to apply existing email mappings for team {}: {}",
@@ -698,7 +719,7 @@ public class AnalysisResultPersistenceService {
         boolean hasFailed = false;
 
         boolean hasFailedStudent = students.stream()
-                .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 10);
+                .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 3);
         if (hasFailedStudent) {
             hasFailed = true;
         }
