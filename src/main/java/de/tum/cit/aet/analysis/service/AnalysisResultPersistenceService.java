@@ -634,24 +634,6 @@ public class AnalysisResultPersistenceService {
         }
     }
 
-    /**
-     * Serializes a weekly effort distribution to a JSON string.
-     *
-     * @param weeklyDistribution the weekly effort values
-     * @return JSON array string, or {@code null} if empty or on error
-     */
-    public String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
-        try {
-            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
-                return null;
-            }
-            return objectMapper.writeValueAsString(weeklyDistribution);
-        } catch (Exception e) {
-            log.warn("Failed to serialize weekly distribution: {}", e.getMessage());
-            return null;
-        }
-    }
-
     // =====================================================================
     //  Internal helpers
     // =====================================================================
