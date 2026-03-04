@@ -1,11 +1,12 @@
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import TeamDetail from '@/components/TeamDetail';
 import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 import { transformToComplexTeamData, type TeamDTO } from '@/data/dataLoaders';
 import type { CourseAverages } from '@/lib/courseAverages';
 import { requestApi } from '@/lib/apiClient';
+import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 /** Route page for a single team. Fetches full team detail on demand via API. */
@@ -31,6 +32,7 @@ export default function TeamDetailPage() {
     analysisMode?: 'SIMPLE' | 'FULL';
   };
 
+  const queryClient = useQueryClient();
   const resolvedTeamId = stateTeamId ?? (teamIdParam ? parseInt(teamIdParam) : undefined);
 
   // Lazy fetch full team detail from server
@@ -51,6 +53,36 @@ export default function TeamDetailPage() {
 
   const [team, setTeam] = useState<TeamDTO | undefined>(undefined);
   const displayTeam = team ?? fetchedTeam ?? undefined;
+
+  const toggleReviewedMutation = useMutation({
+    mutationFn: async () => {
+      const response = await requestApi.toggleReviewStatus(parseInt(exercise!), resolvedTeamId!);
+      return response.data;
+    },
+    onMutate: async () => {
+      // Optimistic update on the local display team
+      setTeam(prev => {
+        const current = prev ?? fetchedTeam ?? undefined;
+        if (!current) return prev;
+        return Object.assign({}, current, { isReviewed: !current.isReviewed });
+      });
+      // Also update the teams list cache so the list stays in sync
+      await queryClient.cancelQueries({ queryKey: ['teams', exercise] });
+      queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
+        old.map(t => (String(t.teamId) === String(resolvedTeamId) ? Object.assign({}, t, { isReviewed: !t.isReviewed }) : t)),
+      );
+    },
+    onError: () => {
+      // Revert optimistic update
+      setTeam(prev => {
+        const current = prev ?? fetchedTeam ?? undefined;
+        if (!current) return prev;
+        return Object.assign({}, current, { isReviewed: !current.isReviewed });
+      });
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      toast({ variant: 'destructive', title: 'Failed to toggle review status' });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -88,6 +120,7 @@ export default function TeamDetailPage() {
       pairProgrammingBadgeStatus={pairProgrammingBadgeStatus}
       courseAverages={courseAverages}
       onTeamUpdate={setTeam}
+      onToggleReviewed={() => toggleReviewedMutation.mutate()}
       analysisMode={analysisMode}
     />
   );

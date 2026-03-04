@@ -2,13 +2,13 @@ package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,7 +30,6 @@ public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
     private final PairProgrammingService pairProgrammingService;
-    private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
      * Calculate CQI from LLM-rated commits.
@@ -44,6 +43,7 @@ public class CQICalculatorService {
      * @param projectEnd    Project end date
      * @param filterSummary Summary from pre-filtering (optional)
      * @param teamName      The team name
+     * @param shortName     The team short name (optional fallback for attendance lookup)
      * @return CQI result with component scores
      */
     public CQIResultDTO calculate(
@@ -52,21 +52,21 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
             FilterSummaryDTO filterSummary,
-            String teamName) {
+            String teamName,
+            String shortName) {
+
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Build weights and check edge cases ---
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
 
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
         if (ratedChunks == null || ratedChunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary, pairProgrammingStatus);
         }
-        if (teamName != null && !teamName.isEmpty()
-                && pairProgrammingService.getTeamAttendance(teamName) != null
-                && !pairProgrammingService.hasCancelledSessionWarning(teamName)
-                && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
+        if (pairProgrammingStatus == PairProgrammingStatus.FAIL) {
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }
 
@@ -75,17 +75,18 @@ public class CQICalculatorService {
         Map<Long, Integer> locByAuthor = aggregateLoc(ratedChunks);
 
         if (effortByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         // --- 3. Calculate component scores ---
         double effortScore = calculateEffortBalance(effortByAuthor);
         double locScore = calculateLocBalance(locByAuthor);
-        double temporalScore = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
+        TemporalSpreadResultDTO temporalResult = calculateTemporalSpread(ratedChunks, projectStart, projectEnd);
         double ownershipScore = calculateOwnershipSpread(ratedChunks, teamSize);
 
         ComponentScoresDTO components = new ComponentScoresDTO(
-                effortScore, locScore, temporalScore, ownershipScore, null, null);
+                effortScore, locScore, temporalResult.score(), ownershipScore, null, null,
+                temporalResult.dailyDistribution());
 
         // --- 4. Compute weighted CQI ---
         CQIConfig.Weights weights = cqiConfig.getWeights();
@@ -104,20 +105,26 @@ public class CQICalculatorService {
      * @param chunks        Pre-filtered commit chunks (not rated)
      * @param teamSize      Number of team members
      * @param filterSummary Summary from pre-filtering
+     * @param teamName     the team (full/formatted) name
+     * @param shortName     the team short name (optional fallback for attendance lookup)
      * @return CQI result based on LoC only
      */
     public CQIResultDTO calculateFallback(
             List<CommitChunkDTO> chunks,
             int teamSize,
-            FilterSummaryDTO filterSummary) {
+            FilterSummaryDTO filterSummary,
+            String teamName,
+            String shortName) {
+
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // 1) Validate input
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
         if (chunks == null || chunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary, pairProgrammingStatus);
         }
 
         // 2) Aggregate LoC by author
@@ -129,12 +136,12 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         // 3) Return LoC-only CQI
         double locScore = calculateLocBalance(locByAuthor);
-        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary);
+        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary, pairProgrammingStatus);
     }
 
     /**
@@ -154,6 +161,7 @@ public class CQICalculatorService {
      * @param projectStart Project start date (optional, uses first commit if null)
      * @param projectEnd   Project end date (optional, uses last commit if null)
      * @param teamName     Team name for retrieving paired session data (optional)
+     * @param shortName    Team short name (optional fallback for attendance lookup)
      * @return Component scores with only git-based metrics filled in
      */
     public ComponentScoresDTO calculateGitOnlyComponents(
@@ -161,11 +169,14 @@ public class CQICalculatorService {
             int teamSize,
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
-            String teamName) {
+            String teamName,
+            String shortName) {
+
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Validate input ---
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
-            return ComponentScoresDTO.zero();
+            return ComponentScoresDTO.zero(pairProgrammingStatus);
         }
 
         // --- 2. Aggregate LoC by author ---
@@ -177,7 +188,7 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return ComponentScoresDTO.zero();
+            return ComponentScoresDTO.zero(pairProgrammingStatus);
         }
 
         // --- 3. Calculate git-based component scores ---
@@ -201,41 +212,15 @@ public class CQICalculatorService {
             }
         }
 
-        double temporalScore = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
+        TemporalSpreadResultDTO temporalResult = calculateTemporalSpreadFromChunks(chunks, effectiveStart, effectiveEnd);
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
         // --- 4. Calculate pair programming score (teams of 2 only) ---
-        Double pairProgrammingScore = null;
-        String pairProgrammingStatus = null;
-        if (teamName != null && teamSize == 2) {
-            try {
-                boolean hasAttendanceData = pairProgrammingService.hasAttendanceData();
-                boolean hasTeamAttendance = pairProgrammingService.hasTeamAttendance(teamName);
-                boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName);
-
-                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName);
-                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName);
-
-                if (hasTeamAttendance) {
-                    pairProgrammingStatus = hasCancelledSessionWarning ? "WARNING" : "FOUND";
-                    if (hasCancelledSessionWarning) {
-                        log.warn("Team '{}' has cancelled sessions affecting mandatory attendance", teamName);
-                    } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
-                        pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
-                                pairedSessions, allSessions, chunks, teamSize);
-                    } else {
-                        pairProgrammingScore = 0.0;
-                    }
-                } else if (hasAttendanceData) {
-                    pairProgrammingStatus = "NOT_FOUND";
-                }
-            } catch (Exception e) {
-                log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
-            }
-        }
+        Double pairProgrammingScore = pairProgrammingService.calculateScore(teamName, shortName, chunks, teamSize);
 
         // --- 5. Build result (effortBalance = 0 because it requires AI) ---
-        return new ComponentScoresDTO(0.0, locScore, temporalScore, ownershipScore, pairProgrammingScore, pairProgrammingStatus);
+        return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, pairProgrammingStatus,
+                temporalResult.dailyDistribution());
     }
 
     /**
@@ -280,21 +265,21 @@ public class CQICalculatorService {
     /**
      * Calculate temporal spread from raw commit chunks (no AI rating needed).
      */
-    private double calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
+    private TemporalSpreadResultDTO calculateTemporalSpreadFromChunks(List<CommitChunkDTO> chunks,
                                                      LocalDateTime projectStart,
                                                      LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return 50.0; // Neutral score if no temporal data
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
         long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
         if (totalDays <= 0) {
-            return 50.0;
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
-        // Divide project into weeks
-        int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
-        double[] weeklyLines = new double[numWeeks];
+        // Divide project into days
+        int numDays = Math.max(1, (int) totalDays);
+        double[] dailyLines = new double[numDays];
 
         for (CommitChunkDTO chunk : chunks) {
             if (chunk.timestamp() == null) {
@@ -302,29 +287,32 @@ public class CQICalculatorService {
             }
 
             long daysSinceStart = ChronoUnit.DAYS.between(projectStart, chunk.timestamp());
-            int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
-            weekIndex = Math.max(0, weekIndex);
+            int dayIndex = Math.min((int) daysSinceStart, numDays - 1);
+            dayIndex = Math.max(0, dayIndex);
 
             // Use lines changed as proxy for effort
-            weeklyLines[weekIndex] += chunk.totalLinesChanged();
+            dailyLines[dayIndex] += chunk.totalLinesChanged();
         }
+
+        List<Double> dailyDistribution = Arrays.stream(dailyLines).boxed().toList();
 
         // Calculate coefficient of variation
-        double mean = Arrays.stream(weeklyLines).average().orElse(0);
+        double mean = Arrays.stream(dailyLines).average().orElse(0);
         if (mean == 0) {
-            return 50.0;
+            return new TemporalSpreadResultDTO(50.0, dailyDistribution);
         }
 
-        double variance = Arrays.stream(weeklyLines)
+        double variance = Arrays.stream(dailyLines)
                 .map(v -> Math.pow(v - mean, 2))
                 .average().orElse(0);
         double stdev = Math.sqrt(variance);
         double cv = stdev / mean;
 
-        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
-        double normalizedCV = Math.min(cv / 2.0, 1.0);
+        // Normalize: CV of 0 = perfect (score 100), CV of 5+ = poor (score 0)
+        double normalizedCV = Math.min(cv / 5.0, 1.0);
 
-        return 100.0 * (1.0 - normalizedCV);
+        double score = 100.0 * (1.0 - normalizedCV);
+        return new TemporalSpreadResultDTO(score, dailyDistribution);
     }
 
     /**
@@ -408,21 +396,21 @@ public class CQICalculatorService {
      * Calculate temporal spread score.
      * Rewards work spread evenly over project duration, penalizes cramming.
      */
-    private double calculateTemporalSpread(List<CqiRatedChunkDTO> chunks,
+    private TemporalSpreadResultDTO calculateTemporalSpread(List<CqiRatedChunkDTO> chunks,
                                            LocalDateTime projectStart,
                                            LocalDateTime projectEnd) {
         if (chunks.isEmpty() || projectStart == null || projectEnd == null) {
-            return 50.0; // Neutral score if no temporal data
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
         long totalDays = ChronoUnit.DAYS.between(projectStart, projectEnd);
         if (totalDays <= 0) {
-            return 50.0;
+            return new TemporalSpreadResultDTO(50.0, List.of());
         }
 
-        // Divide project into weeks
-        int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
-        double[] weeklyEffort = new double[numWeeks];
+        // Divide project into days
+        int numDays = Math.max(1, (int) totalDays);
+        double[] dailyEffort = new double[numDays];
 
         for (CqiRatedChunkDTO rc : chunks) {
             if (rc.chunk().timestamp() == null) {
@@ -430,29 +418,31 @@ public class CQICalculatorService {
             }
 
             long daysSinceStart = ChronoUnit.DAYS.between(projectStart, rc.chunk().timestamp());
-            int weekIndex = Math.min((int) (daysSinceStart / 7), numWeeks - 1);
-            weekIndex = Math.max(0, weekIndex);
+            int dayIndex = Math.min((int) daysSinceStart, numDays - 1);
+            dayIndex = Math.max(0, dayIndex);
 
-            double effort = rc.rating() != null ? rc.rating().weightedEffort() : 1.0;
-            weeklyEffort[weekIndex] += effort;
+            dailyEffort[dayIndex] += rc.chunk().totalLinesChanged();
         }
+
+        List<Double> dailyDistribution = Arrays.stream(dailyEffort).boxed().toList();
 
         // Calculate coefficient of variation
-        double mean = Arrays.stream(weeklyEffort).average().orElse(0);
+        double mean = Arrays.stream(dailyEffort).average().orElse(0);
         if (mean == 0) {
-            return 50.0;
+            return new TemporalSpreadResultDTO(50.0, dailyDistribution);
         }
 
-        double variance = Arrays.stream(weeklyEffort)
+        double variance = Arrays.stream(dailyEffort)
                 .map(v -> Math.pow(v - mean, 2))
                 .average().orElse(0);
         double stdev = Math.sqrt(variance);
         double cv = stdev / mean;
 
-        // Normalize: CV of 0 = perfect (score 100), CV of 2+ = poor (score 0)
-        double normalizedCV = Math.min(cv / 2.0, 1.0);
+        // Normalize: CV of 0 = perfect (score 100), CV of 5+ = poor (score 0)
+        double normalizedCV = Math.min(cv / 5.0, 1.0);
 
-        return 100.0 * (1.0 - normalizedCV);
+        double score = 100.0 * (1.0 - normalizedCV);
+        return new TemporalSpreadResultDTO(score, dailyDistribution);
     }
 
     /**

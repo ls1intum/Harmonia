@@ -104,6 +104,17 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
+  // Pair programming scores recomputing status
+  const { data: pairProgrammingRecomputing } = useQuery({
+    queryKey: ['pairProgrammingRecomputing', exercise],
+    queryFn: () => pairProgrammingApi.isRecomputing(parseInt(exercise)).then(res => res.data),
+    enabled: !!exercise && pairProgrammingEnabled && !!uploadedAttendanceFileName,
+    refetchInterval: query => (query.state.data?.recomputing ? 2000 : false),
+    staleTime: 0,
+  });
+
+  const isPairProgrammingScoresUpdating = !!uploadedAttendanceFileName && (pairProgrammingRecomputing?.recomputing ?? false);
+
   // Fetch team summaries from database on load (one-time, no polling).
   // During analysis, SSE is the single source of truth for updates.
   const isAnalysisRunning = status.state === 'RUNNING';
@@ -121,6 +132,28 @@ export default function Teams() {
     gcTime: 10 * 60 * 1000,
     enabled: !!exercise,
     refetchOnWindowFocus: !isAnalysisRunning,
+  });
+
+  const toggleReviewedMutation = useMutation({
+    mutationFn: async (teamId: string) => {
+      const response = await requestApi.toggleReviewStatus(parseInt(exercise), parseInt(teamId));
+      return response.data;
+    },
+    onMutate: async teamId => {
+      await queryClient.cancelQueries({ queryKey: ['teams', exercise] });
+      const previous = queryClient.getQueryData<TeamDTO[]>(['teams', exercise]);
+      queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
+        old.map(t => (String(t.teamId) === teamId ? Object.assign({}, t, { isReviewed: !t.isReviewed }) : t)),
+      );
+      return { previous };
+    },
+    onError: (_err, _teamId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['teams', exercise], context.previous);
+      }
+      toast({ variant: 'destructive', title: 'Failed to toggle review status' });
+    },
+    onSuccess: () => {},
   });
 
   // --- Mutations ---
@@ -141,9 +174,10 @@ export default function Teams() {
       setPairProgrammingAttendanceByTeamName(pairProgrammingAttendanceMap);
       window.sessionStorage.setItem(pairProgrammingAttendanceMapStorageKey, JSON.stringify(pairProgrammingAttendanceMap));
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['pairProgrammingRecomputing', exercise] });
       toast({
         title: 'Attendance uploaded',
-        description: 'Pair programming metrics were updated.',
+        description: 'Pair programming metrics are being updated.',
       });
     },
     onError: () => {
@@ -504,6 +538,7 @@ export default function Teams() {
       teams={teams}
       courseAverages={courseAverages}
       onTeamSelect={handleTeamSelect}
+      onToggleReviewed={teamId => toggleReviewedMutation.mutate(teamId)}
       onBackToHome={() => navigate('/')}
       onStart={(mode: AnalysisMode) => startMutation.mutate(mode)}
       onCancel={() => cancelMutation.mutate()}
@@ -530,6 +565,7 @@ export default function Teams() {
       isClearing={clearMutation.isPending}
       isAttendanceUploading={attendanceUploadMutation.isPending}
       isAttendanceClearing={clearAttendanceMutation.isPending}
+      isPairProgrammingScoresUpdating={isPairProgrammingScoresUpdating}
     />
   );
 }

@@ -13,10 +13,21 @@
  */
 
 export interface ComponentScoresDTO {
+  dailyDistribution?: Array<number>;
   effortBalance?: number;
   locBalance?: number;
   ownershipSpread?: number;
   pairProgramming?: number;
-  pairProgrammingStatus?: string;
+  pairProgrammingStatus?: ComponentScoresDTOPairProgrammingStatusEnum;
   temporalSpread?: number;
 }
+
+export const ComponentScoresDTOPairProgrammingStatusEnum = {
+  Pass: 'PASS',
+  Fail: 'FAIL',
+  NotFound: 'NOT_FOUND',
+  Warning: 'WARNING',
+} as const;
+
+export type ComponentScoresDTOPairProgrammingStatusEnum =
+  (typeof ComponentScoresDTOPairProgrammingStatusEnum)[keyof typeof ComponentScoresDTOPairProgrammingStatusEnum];

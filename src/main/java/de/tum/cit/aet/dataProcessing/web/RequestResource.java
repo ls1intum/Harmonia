@@ -191,35 +191,23 @@ public class RequestResource {
     }
 
     /**
-     * Synchronous endpoint that fetches, analyzes, and saves repository data.
-     * Prefer the streaming endpoint {@link #streamAnalysis} for new integrations.
+     * PATCH endpoint to toggle the review status of a team.
      *
-     * @param exerciseId        the exercise ID to analyze
-     * @param jwtToken          JWT token from cookie
-     * @param serverUrl         Artemis server URL from cookie
-     * @param username          Artemis username from cookie
-     * @param encryptedPassword encrypted Artemis password from cookie
-     * @return list of analyzed team results
+     * @param exerciseId The exercise ID
+     * @param teamId     The team ID
+     * @return ResponseEntity containing the updated ClientResponseDTO
      */
-    @GetMapping("fetchData")
-    public ResponseEntity<List<ClientResponseDTO>> fetchData(
-            @RequestParam(value = "exerciseId") Long exerciseId,
-            @CookieValue(value = "jwt", required = false) String jwtToken,
-            @CookieValue(value = "artemis_server_url", required = false) String serverUrl,
-            @CookieValue(value = "artemis_username", required = false) String username,
-            @CookieValue(value = "artemis_password", required = false) String encryptedPassword) {
-        log.info("GET fetchData for exerciseId={}", exerciseId);
-
-        // 1) Resolve and validate credentials
-        ArtemisCredentials credentials = credentialResolver.resolve(jwtToken, serverUrl, username, encryptedPassword);
-        if (!credentials.isValid()) {
-            log.warn("Authentication required for fetchData (exerciseId={})", exerciseId);
-            return ResponseEntity.status(401).build();
+    @PatchMapping("{exerciseId}/teams/{teamId}/reviewed")
+    public ResponseEntity<ClientResponseDTO> toggleReviewStatus(
+            @PathVariable Long exerciseId,
+            @PathVariable Long teamId) {
+        log.info("PATCH toggleReviewStatus for exerciseId: {}, teamId: {}", exerciseId, teamId);
+        try {
+            ClientResponseDTO updated = requestService.toggleReviewStatus(exerciseId, teamId);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
         }
-
-        // 2) Run synchronous analysis pipeline
-        requestService.fetchAnalyzeAndSaveRepositories(credentials, exerciseId);
-        return ResponseEntity.ok(requestService.getTeamsByExerciseId(exerciseId));
     }
 
     /**

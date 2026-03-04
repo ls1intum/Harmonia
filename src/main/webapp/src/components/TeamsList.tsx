@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Search,
   X,
+  CircleCheck,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -48,6 +49,7 @@ import ExportButton from '@/components/ExportButton';
 import FileUpload from '@/components/FileUpload';
 import { getFailedReason } from '@/lib/utils';
 import PairProgrammingBadge from '@/components/PairProgrammingBadge';
+import { PairProgrammingFilterButton, type PairProgrammingFilter } from '@/components/PairProgrammingFilterButton';
 import {
   getPairProgrammingBadgeStatus,
   hasValidPairProgrammingAttendanceData,
@@ -59,6 +61,7 @@ interface TeamsListProps {
   teams: TeamDTO[];
   courseAverages: CourseAverages | null;
   onTeamSelect: (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
+  onToggleReviewed: (teamId: string) => void;
   onBackToHome: () => void;
   onStart: (mode: AnalysisMode) => void;
   onCancel: () => void;
@@ -85,6 +88,7 @@ interface TeamsListProps {
   isClearing?: boolean;
   isAttendanceUploading?: boolean;
   isAttendanceClearing?: boolean;
+  isPairProgrammingScoresUpdating?: boolean;
 }
 
 /**
@@ -95,6 +99,7 @@ const TeamsList = ({
   teams,
   courseAverages,
   onTeamSelect,
+  onToggleReviewed,
   onBackToHome,
   onStart,
   onCancel,
@@ -121,11 +126,13 @@ const TeamsList = ({
   isClearing = false,
   isAttendanceUploading = false,
   isAttendanceClearing = false,
+  isPairProgrammingScoresUpdating = false,
 }: TeamsListProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [pairProgrammingFilter, setPairProgrammingFilter] = useState<PairProgrammingFilter>('all');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
@@ -290,6 +297,12 @@ const TeamsList = ({
     }
   };
 
+  const hasValidPairProgrammingData = hasValidPairProgrammingAttendanceData(
+    pairProgrammingEnabled,
+    uploadedAttendanceFileName,
+    pairProgrammingAttendanceByTeamName,
+  );
+
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = teams.slice();
 
@@ -312,7 +325,28 @@ const TeamsList = ({
         filtered = filtered.filter(team => team.isSuspicious);
       } else if (statusFilter === 'normal') {
         filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
+      } else if (statusFilter === 'has-unmatched') {
+        filtered = filtered.filter(team => team.orphanCommitCount != null && team.orphanCommitCount > 0);
+      } else if (statusFilter === 'no-unmatched') {
+        filtered = filtered.filter(team => team.orphanCommitCount == null || team.orphanCommitCount === 0);
+      } else if (statusFilter === 'reviewed') {
+        filtered = filtered.filter(team => team.isReviewed === true);
+      } else if (statusFilter === 'unreviewed') {
+        filtered = filtered.filter(team => !team.isReviewed);
       }
+    }
+
+    // Apply pair programming filter
+    if (pairProgrammingFilter !== 'all' && hasValidPairProgrammingData) {
+      filtered = filtered.filter(team => {
+        const badge = getPairProgrammingBadgeStatus(
+          team.teamName ?? '',
+          hasValidPairProgrammingData,
+          pairProgrammingAttendanceByTeamName,
+          team.shortName,
+        );
+        return badge === pairProgrammingFilter;
+      });
     }
 
     // First, sort by analysis status priority (DONE first, then in-progress, then pending)
@@ -368,7 +402,16 @@ const TeamsList = ({
     }
 
     return filtered;
-  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter]);
+  }, [
+    teams,
+    searchQuery,
+    sortColumn,
+    sortDirection,
+    statusFilter,
+    pairProgrammingFilter,
+    hasValidPairProgrammingData,
+    pairProgrammingAttendanceByTeamName,
+  ]);
 
   const renderStartDropdown = (label: string, isPending: boolean, onAction: (mode: AnalysisMode) => void) => (
     <DropdownMenu>
@@ -469,12 +512,6 @@ const TeamsList = ({
     [teams],
   );
 
-  const hasValidPairProgrammingData = hasValidPairProgrammingAttendanceData(
-    pairProgrammingEnabled,
-    uploadedAttendanceFileName,
-    pairProgrammingAttendanceByTeamName,
-  );
-
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
       <Button variant="outline" onClick={onBackToHome} className="mb-4">
@@ -544,7 +581,14 @@ const TeamsList = ({
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">Pair Programming</h3>
               <p className="text-sm text-muted-foreground">
-                Upload an XLSX attendance document at any time. Pair programming metrics are calculated independently from AI analysis.
+                {isPairProgrammingScoresUpdating ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
+                    Updating scores...
+                  </span>
+                ) : (
+                  'Upload an XLSX attendance document at any time. Pair programming metrics are calculated independently from AI analysis.'
+                )}
               </p>
             </div>
             <Button variant="outline" onClick={onAttendanceUpload} disabled={!attendanceFile || isAttendanceUploading}>
@@ -862,6 +906,7 @@ const TeamsList = ({
           <table className="w-full">
             <thead className="bg-primary/10 border-b">
               <tr>
+                <th className="py-4 px-3 w-10" />
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <SortableHeader
                     column="name"
@@ -891,7 +936,11 @@ const TeamsList = ({
                   />
                 </th>
                 {isDevMode && <th className="text-left py-4 px-6 font-semibold text-sm">LLM Tokens</th>}
-                {pairProgrammingEnabled && <th className="text-center py-4 px-6 font-semibold text-sm">Pair Programming</th>}
+                {pairProgrammingEnabled && (
+                  <th className="text-center py-4 px-6 font-semibold text-sm">
+                    <PairProgrammingFilterButton filter={pairProgrammingFilter} setFilter={setPairProgrammingFilter} />
+                  </th>
+                )}
                 <th className="text-left py-4 px-6 font-semibold text-sm">
                   <StatusFilterButton statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                 </th>
@@ -903,6 +952,7 @@ const TeamsList = ({
                   team.teamName ?? '',
                   hasValidPairProgrammingData,
                   pairProgrammingAttendanceByTeamName,
+                  team.shortName,
                 );
 
                 return (
@@ -911,6 +961,21 @@ const TeamsList = ({
                     onClick={() => onTeamSelect(team, pairProgrammingBadgeStatus)}
                     className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
                   >
+                    <td className="py-4 px-3">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onToggleReviewed(String(team.teamId));
+                        }}
+                        className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
+                        title={team.isReviewed ? 'Mark as unreviewed' : 'Mark as reviewed'}
+                      >
+                        <CircleCheck
+                          className={`h-5 w-5 ${team.isReviewed ? 'text-primary fill-primary/20' : 'text-muted-foreground/40'}`}
+                        />
+                      </button>
+                    </td>
                     <td className="py-4 px-6">
                       <p className="font-semibold">{(team.teamName ?? '').replace('Team ', '')}</p>
                     </td>

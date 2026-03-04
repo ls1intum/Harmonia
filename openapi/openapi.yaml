@@ -104,6 +104,21 @@ paths:
           content:
             application/json:
               schema: {type: string}
+  /api/attendance/recomputing:
+    get:
+      tags: [pair-programming-resource]
+      operationId: isRecomputing
+      parameters:
+      - name: exerciseId
+        in: query
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PairProgrammingRecomputingDTO'}
   /api/attendance/upload:
     post:
       tags: [pair-programming-resource]
@@ -198,7 +213,27 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/CreateEmailMappingRequest'}
+            schema: {$ref: '#/components/schemas/CreateEmailMappingRequestDTO'}
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/exercises/{exerciseId}/email-mappings/dismiss:
+    post:
+      tags: [email-mapping-resource]
+      operationId: dismissEmail
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DismissEmailRequestDTO'}
         required: true
       responses:
         '200':
@@ -310,39 +345,6 @@ paths:
           content:
             application/json:
               schema: {type: string, format: byte}
-  /api/requestResource/fetchData:
-    get:
-      tags: [request-resource]
-      operationId: fetchData
-      parameters:
-      - name: exerciseId
-        in: query
-        required: true
-        schema: {type: integer, format: int64}
-      - name: jwt
-        in: cookie
-        required: false
-        schema: {type: string}
-      - name: artemis_server_url
-        in: cookie
-        required: false
-        schema: {type: string}
-      - name: artemis_username
-        in: cookie
-        required: false
-        schema: {type: string}
-      - name: artemis_password
-        in: cookie
-        required: false
-        schema: {type: string}
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items: {$ref: '#/components/schemas/ClientResponseDTO'}
   /api/requestResource/hasData/{exerciseId}:
     get:
       tags: [request-resource]
@@ -463,6 +465,25 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/ClientResponseDTO'}
+  /api/requestResource/{exerciseId}/teams/{teamId}/reviewed:
+    patch:
+      tags: [request-resource]
+      operationId: toggleReviewStatus
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      - name: teamId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientResponseDTO'}
 components:
   schemas:
     AnalysisStatusDTO:
@@ -526,6 +547,7 @@ components:
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isFailed: {type: boolean}
+        isReviewed: {type: boolean}
         isSuspicious: {type: boolean}
         llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}
@@ -533,6 +555,7 @@ components:
           type: array
           items: {$ref: '#/components/schemas/OrphanCommitDTO'}
         participationId: {type: integer, format: int64}
+        shortName: {type: string}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentAnalysisDTO'}
@@ -543,11 +566,16 @@ components:
     ComponentScoresDTO:
       type: object
       properties:
+        dailyDistribution:
+          type: array
+          items: {type: number, format: double}
         effortBalance: {type: number, format: double}
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         pairProgramming: {type: number, format: double}
-        pairProgrammingStatus: {type: string}
+        pairProgrammingStatus:
+          type: string
+          enum: [PASS, FAIL, NOT_FOUND, WARNING]
         temporalSpread: {type: number, format: double}
     ComponentWeightsDTO:
       type: object
@@ -556,12 +584,17 @@ components:
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         temporalSpread: {type: number, format: double}
-    CreateEmailMappingRequest:
+    CreateEmailMappingRequestDTO:
       type: object
       properties:
         gitEmail: {type: string}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
+        teamParticipationId: {type: integer, format: int64}
+    DismissEmailRequestDTO:
+      type: object
+      properties:
+        gitEmail: {type: string}
         teamParticipationId: {type: integer, format: int64}
     EmailMappingDTO:
       type: object
@@ -569,6 +602,7 @@ components:
         exerciseId: {type: integer, format: int64}
         gitEmail: {type: string}
         id: {type: string, format: uuid}
+        isDismissed: {type: boolean}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
     FilterSummaryDTO:
@@ -620,6 +654,10 @@ components:
         linesDeleted: {type: integer, format: int32}
         message: {type: string}
         timestamp: {type: string, format: date-time}
+    PairProgrammingRecomputingDTO:
+      type: object
+      properties:
+        recomputing: {type: boolean}
     SseEmitter:
       type: object
       properties:
@@ -663,9 +701,11 @@ components:
         cqi: {type: number, format: double}
         cqiDetails: {$ref: '#/components/schemas/CQIResultDTO'}
         isFailed: {type: boolean}
+        isReviewed: {type: boolean}
         isSuspicious: {type: boolean}
         llmTokenTotals: {$ref: '#/components/schemas/LlmTokenTotalsDTO'}
         orphanCommitCount: {type: integer, format: int32}
+        shortName: {type: string}
         students:
           type: array
           items: {$ref: '#/components/schemas/StudentSummaryDTO'}

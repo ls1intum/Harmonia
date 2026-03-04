@@ -2,11 +2,12 @@
 
 All URIs are relative to _http://localhost:8080_
 
-| Method                                    | HTTP request                     | Description |
-| ----------------------------------------- | -------------------------------- | ----------- |
-| [**clearAttendance**](#clearattendance)   | **POST** /api/attendance/clear   |             |
-| [**clearAttendance1**](#clearattendance1) | **DELETE** /api/attendance/clear |             |
-| [**uploadAttendance**](#uploadattendance) | **POST** /api/attendance/upload  |             |
+| Method                                    | HTTP request                        | Description |
+| ----------------------------------------- | ----------------------------------- | ----------- |
+| [**clearAttendance**](#clearattendance)   | **POST** /api/attendance/clear      |             |
+| [**clearAttendance1**](#clearattendance1) | **DELETE** /api/attendance/clear    |             |
+| [**isRecomputing**](#isrecomputing)       | **GET** /api/attendance/recomputing |             |
+| [**uploadAttendance**](#uploadattendance) | **POST** /api/attendance/upload     |             |
 
 # **clearAttendance**
 
@@ -78,6 +79,50 @@ const { status, data } = await apiInstance.clearAttendance1(exerciseId);
 ### Return type
 
 **string**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+| ----------- | ----------- | ---------------- |
+| **200**     | OK          | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **isRecomputing**
+
+> PairProgrammingRecomputingDTO isRecomputing()
+
+### Example
+
+```typescript
+import { PairProgrammingResourceApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new PairProgrammingResourceApi(configuration);
+
+let exerciseId: number; // (default to undefined)
+
+const { status, data } = await apiInstance.isRecomputing(exerciseId);
+```
+
+### Parameters
+
+| Name           | Type         | Description | Notes                 |
+| -------------- | ------------ | ----------- | --------------------- |
+| **exerciseId** | [**number**] |             | defaults to undefined |
+
+### Return type
+
+**PairProgrammingRecomputingDTO**
 
 ### Authorization
 

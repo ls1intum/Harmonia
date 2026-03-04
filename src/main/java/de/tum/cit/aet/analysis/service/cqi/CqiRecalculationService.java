@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -25,6 +27,8 @@ import java.util.*;
 @Slf4j
 @RequiredArgsConstructor
 public class CqiRecalculationService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final StudentRepository studentRepository;
     private final ExerciseEmailMappingRepository emailMappingRepository;
@@ -50,8 +54,22 @@ public class CqiRecalculationService {
                 .filter(c -> !Boolean.TRUE.equals(c.getIsExternalContributor()))
                 .toList();
 
+        // Build set of dismissed emails so they don't count toward the badge
+        Set<String> dismissedEmails = new HashSet<>();
+        for (ExerciseEmailMapping m : emailMappingRepository
+                .findAllByExerciseId(participation.getExerciseId())) {
+            if (Boolean.TRUE.equals(m.getIsDismissed())) {
+                dismissedEmails.add(m.getGitEmail().toLowerCase(Locale.ROOT));
+            }
+        }
+
         long orphanCount = allChunks.stream()
                 .filter(c -> Boolean.TRUE.equals(c.getIsExternalContributor()))
+                .filter(c -> {
+                    String email = c.getAuthorEmail() != null
+                            ? c.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
+                    return !dismissedEmails.contains(email);
+                })
                 .count();
         participation.setOrphanCommitCount((int) orphanCount);
 
@@ -71,7 +89,9 @@ public class CqiRecalculationService {
         List<ExerciseEmailMapping> mappings = emailMappingRepository
                 .findAllByExerciseId(participation.getExerciseId());
         for (ExerciseEmailMapping m : mappings) {
-            emailToStudentId.put(m.getGitEmail().toLowerCase(Locale.ROOT), m.getStudentId());
+            if (m.getStudentId() != null) {
+                emailToStudentId.put(m.getGitEmail().toLowerCase(Locale.ROOT), m.getStudentId());
+            }
         }
 
         // 3) Reconstruct RatedChunks from persisted data
@@ -128,7 +148,7 @@ public class CqiRecalculationService {
 
         CQIResultDTO cqiResult = cqiCalculatorService.calculate(
                 ratedChunks, teamSize, projectStart, projectEnd,
-                FilterSummaryDTO.empty(), participation.getName());
+                FilterSummaryDTO.empty(), participation.getName(), participation.getShortName());
 
         // 5) Preserve original ownership spread (file list not available during recalc)
         Double originalOwnership = participation.getCqiOwnershipSpread();
@@ -155,6 +175,7 @@ public class CqiRecalculationService {
                 participation.setCqiOwnershipSpread(originalOwnership);
             }
             participation.setCqiBaseScore(finalBaseScore);
+            participation.setCqiDailyDistribution(serializeDailyDistribution(cqiResult.components().dailyDistribution()));
         }
         teamParticipationRepository.save(participation);
     }
@@ -191,4 +212,14 @@ public class CqiRecalculationService {
         }
     }
 
+    private String serializeDailyDistribution(List<Double> dailyDistribution) {
+        try {
+            if (dailyDistribution == null || dailyDistribution.isEmpty()) {
+                return null;
+            }
+            return OBJECT_MAPPER.writeValueAsString(dailyDistribution);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

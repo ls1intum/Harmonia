@@ -62,7 +62,7 @@ public class AnalyzedChunk {
     @Column(name = "commit_messages", columnDefinition = "TEXT")
     private String commitMessages; // Stored as JSON array
 
-    @Column(name = "timestamp")
+    @Column(name = "timestamp", nullable = false)
     private LocalDateTime timestamp;
 
     @Column(name = "lines_changed")

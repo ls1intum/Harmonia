@@ -10,6 +10,8 @@ import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
+import de.tum.cit.aet.analysis.service.AnalysisQueryService;
+import de.tum.cit.aet.analysis.service.AnalysisResultPersistenceService;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -38,7 +40,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for email-mapping application logic in {@link RequestService}.
+ * Tests for email-mapping application logic in {@link AnalysisResultPersistenceService}.
  */
 @ExtendWith(MockitoExtension.class)
 class RequestServiceApplyMappingsTest {
@@ -51,19 +53,22 @@ class RequestServiceApplyMappingsTest {
     @Mock private ExerciseTemplateAuthorRepository templateAuthorRepository;
     @Mock private GitContributionAnalysisService gitContributionAnalysisService;
     @Mock private CqiRecalculationService cqiRecalculationService;
+    @Mock private ExerciseTeamLifecycleService cleanupService;
+    @Mock private AnalysisQueryService queryService;
 
     @Captor private ArgumentCaptor<List<AnalyzedChunk>> chunksCaptor;
 
-    private RequestService service;
+    private AnalysisResultPersistenceService service;
 
     @BeforeEach
     void setUp() {
-        service = new RequestService(
-                null, null, null, fairnessService, null,
+        service = new AnalysisResultPersistenceService(
+                null, fairnessService, null,
+                gitContributionAnalysisService, null, null, null,
+                cqiRecalculationService, null,
                 null, teamParticipationRepository, null, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
-                gitContributionAnalysisService, null, null, null, null,
-                cqiRecalculationService, null);
+                cleanupService, queryService, null);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
@@ -167,10 +172,10 @@ class RequestServiceApplyMappingsTest {
         verify(cqiRecalculationService, never()).recalculateFromChunks(any(), any());
     }
 
-    // ── Integration test: saveAIAnalysisResult calls applyExistingEmailMappings ──
+    // ── Integration test: saveAIAnalysisResultWithUsage calls applyExistingEmailMappings ──
 
     @Test
-    void saveAIAnalysisResult_withExistingMapping_appliesMappingToSavedChunks() {
+    void saveAIAnalysisResultWithUsage_withExistingMapping_appliesMappingToSavedChunks() {
         Long exerciseId = 42L;
 
         // Build a minimal TeamRepositoryDTO
@@ -233,7 +238,7 @@ class RequestServiceApplyMappingsTest {
         });
 
         // Act
-        service.saveAIAnalysisResult(repo, exerciseId);
+        service.saveAIAnalysisResultWithUsage(repo, exerciseId);
 
         // Assert: saveAll was called twice — once for saveAnalyzedChunks,
         // once for applyExistingEmailMappings

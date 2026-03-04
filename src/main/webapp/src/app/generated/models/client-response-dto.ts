@@ -34,11 +34,13 @@ export interface ClientResponseDTO {
   cqi?: number;
   cqiDetails?: CQIResultDTO;
   isFailed?: boolean;
+  isReviewed?: boolean;
   isSuspicious?: boolean;
   llmTokenTotals?: LlmTokenTotalsDTO;
   orphanCommitCount?: number;
   orphanCommits?: Array<OrphanCommitDTO>;
   participationId?: number;
+  shortName?: string;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
   teamId?: number;
