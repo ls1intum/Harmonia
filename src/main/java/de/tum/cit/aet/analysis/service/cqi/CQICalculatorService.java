@@ -2,13 +2,13 @@ package de.tum.cit.aet.analysis.service.cqi;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,7 +30,6 @@ public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
     private final PairProgrammingService pairProgrammingService;
-    private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
      * Calculate CQI from LLM-rated commits.
@@ -44,6 +43,7 @@ public class CQICalculatorService {
      * @param projectEnd    Project end date
      * @param filterSummary Summary from pre-filtering (optional)
      * @param teamName      The team name
+     * @param shortName     The team short name (optional fallback for attendance lookup)
      * @return CQI result with component scores
      */
     public CQIResultDTO calculate(
@@ -52,21 +52,21 @@ public class CQICalculatorService {
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
             FilterSummaryDTO filterSummary,
-            String teamName) {
+            String teamName,
+            String shortName) {
+
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Build weights and check edge cases ---
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
 
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
         if (ratedChunks == null || ratedChunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary, pairProgrammingStatus);
         }
-        if (teamName != null && !teamName.isEmpty()
-                && pairProgrammingService.getTeamAttendance(teamName) != null
-                && !pairProgrammingService.hasCancelledSessionWarning(teamName)
-                && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
+        if (pairProgrammingStatus == PairProgrammingStatus.FAIL) {
             return CQIResultDTO.noPairProgramming(weightsDTO);
         }
 
@@ -75,7 +75,7 @@ public class CQICalculatorService {
         Map<Long, Integer> locByAuthor = aggregateLoc(ratedChunks);
 
         if (effortByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         // --- 3. Calculate component scores ---
@@ -105,20 +105,26 @@ public class CQICalculatorService {
      * @param chunks        Pre-filtered commit chunks (not rated)
      * @param teamSize      Number of team members
      * @param filterSummary Summary from pre-filtering
+     * @param teamName     the team (full/formatted) name
+     * @param shortName     the team short name (optional fallback for attendance lookup)
      * @return CQI result based on LoC only
      */
     public CQIResultDTO calculateFallback(
             List<CommitChunkDTO> chunks,
             int teamSize,
-            FilterSummaryDTO filterSummary) {
+            FilterSummaryDTO filterSummary,
+            String teamName,
+            String shortName) {
+
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // 1) Validate input
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
         if (teamSize <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
         if (chunks == null || chunks.isEmpty()) {
-            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary);
+            return CQIResultDTO.noProductiveWork(weightsDTO, filterSummary, pairProgrammingStatus);
         }
 
         // 2) Aggregate LoC by author
@@ -130,12 +136,12 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return CQIResultDTO.singleContributor(weightsDTO);
+            return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
 
         // 3) Return LoC-only CQI
         double locScore = calculateLocBalance(locByAuthor);
-        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary);
+        return CQIResultDTO.fallback(weightsDTO, locScore, filterSummary, pairProgrammingStatus);
     }
 
     /**
@@ -155,6 +161,7 @@ public class CQICalculatorService {
      * @param projectStart Project start date (optional, uses first commit if null)
      * @param projectEnd   Project end date (optional, uses last commit if null)
      * @param teamName     Team name for retrieving paired session data (optional)
+     * @param shortName    Team short name (optional fallback for attendance lookup)
      * @return Component scores with only git-based metrics filled in
      */
     public ComponentScoresDTO calculateGitOnlyComponents(
@@ -162,11 +169,14 @@ public class CQICalculatorService {
             int teamSize,
             LocalDateTime projectStart,
             LocalDateTime projectEnd,
-            String teamName) {
+            String teamName,
+            String shortName) {
+
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Validate input ---
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
-            return ComponentScoresDTO.zero();
+            return ComponentScoresDTO.zero(pairProgrammingStatus);
         }
 
         // --- 2. Aggregate LoC by author ---
@@ -178,7 +188,7 @@ public class CQICalculatorService {
                 ));
 
         if (locByAuthor.size() <= 1) {
-            return ComponentScoresDTO.zero();
+            return ComponentScoresDTO.zero(pairProgrammingStatus);
         }
 
         // --- 3. Calculate git-based component scores ---
@@ -206,34 +216,7 @@ public class CQICalculatorService {
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
         // --- 4. Calculate pair programming score (teams of 2 only) ---
-        Double pairProgrammingScore = null;
-        String pairProgrammingStatus = null;
-        if (teamName != null && teamSize == 2) {
-            try {
-                boolean hasAttendanceData = pairProgrammingService.hasAttendanceData();
-                boolean hasTeamAttendance = pairProgrammingService.hasTeamAttendance(teamName);
-                boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName);
-
-                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName);
-                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName);
-
-                if (hasTeamAttendance) {
-                    pairProgrammingStatus = hasCancelledSessionWarning ? "WARNING" : "FOUND";
-                    if (hasCancelledSessionWarning) {
-                        log.warn("Team '{}' has cancelled sessions affecting mandatory attendance", teamName);
-                    } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
-                        pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
-                                pairedSessions, allSessions, chunks, teamSize);
-                    } else {
-                        pairProgrammingScore = 0.0;
-                    }
-                } else if (hasAttendanceData) {
-                    pairProgrammingStatus = "NOT_FOUND";
-                }
-            } catch (Exception e) {
-                log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
-            }
-        }
+        Double pairProgrammingScore = pairProgrammingService.calculateScore(teamName, shortName, chunks, teamSize);
 
         // --- 5. Build result (effortBalance = 0 because it requires AI) ---
         return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, pairProgrammingStatus,

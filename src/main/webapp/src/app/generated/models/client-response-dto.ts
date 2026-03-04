@@ -40,6 +40,7 @@ export interface ClientResponseDTO {
   orphanCommitCount?: number;
   orphanCommits?: Array<OrphanCommitDTO>;
   participationId?: number;
+  shortName?: string;
   students?: Array<StudentAnalysisDTO>;
   submissionCount?: number;
   teamId?: number;

@@ -148,7 +148,7 @@ public class CqiRecalculationService {
 
         CQIResultDTO cqiResult = cqiCalculatorService.calculate(
                 ratedChunks, teamSize, projectStart, projectEnd,
-                FilterSummaryDTO.empty(), participation.getName());
+                FilterSummaryDTO.empty(), participation.getName(), participation.getShortName());
 
         // 5) Preserve original ownership spread (file list not available during recalc)
         Double originalOwnership = participation.getCqiOwnershipSpread();

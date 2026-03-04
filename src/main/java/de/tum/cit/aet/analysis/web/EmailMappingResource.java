@@ -490,6 +490,7 @@ public class EmailMappingResource {
                 participation.getTeam(),
                 participation.getParticipation(),
                 participation.getName(),
+                participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDTOs,
                 participation.getCqi(),

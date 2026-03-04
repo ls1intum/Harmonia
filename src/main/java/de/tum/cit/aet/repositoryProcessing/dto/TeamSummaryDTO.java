@@ -13,6 +13,7 @@ import java.util.List;
  *
  * @param teamId           the Artemis team ID
  * @param teamName         the team display name
+ * @param shortName        the team short name (optional, for pair programming attendance fallback)
  * @param tutor            the assigned tutor name
  * @param analysisStatus   current analysis status
  * @param cqi              final CQI score
@@ -28,6 +29,7 @@ import java.util.List;
 public record TeamSummaryDTO(
         Long teamId,
         String teamName,
+        String shortName,
         String tutor,
         TeamAnalysisStatus analysisStatus,
         Double cqi,
@@ -50,6 +52,7 @@ public record TeamSummaryDTO(
         return new TeamSummaryDTO(
                 dto.teamId(),
                 dto.teamName(),
+                dto.shortName(),
                 dto.tutor(),
                 dto.analysisStatus(),
                 dto.cqi(),

@@ -17,6 +17,7 @@ import java.util.List;
  * @param teamId           the Artemis team ID
  * @param participationId  the Artemis participation ID
  * @param teamName         the team display name
+ * @param shortName        the team short name (optional, used for pair programming attendance fallback)
  * @param submissionCount  number of submissions
  * @param students         list of student contribution summaries
  * @param cqi              final CQI score
@@ -36,6 +37,7 @@ public record ClientResponseDTO(
                 Long teamId,
                 Long participationId,
                 String teamName,
+                String shortName,
                 Integer submissionCount,
                 List<StudentAnalysisDTO> students,
                 Double cqi,

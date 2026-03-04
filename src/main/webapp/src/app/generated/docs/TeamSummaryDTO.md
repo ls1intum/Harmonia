@@ -12,6 +12,7 @@
 | **isSuspicious**      | **boolean**                                                |             | [optional] [default to undefined] |
 | **llmTokenTotals**    | [**LlmTokenTotalsDTO**](LlmTokenTotalsDTO.md)              |             | [optional] [default to undefined] |
 | **orphanCommitCount** | **number**                                                 |             | [optional] [default to undefined] |
+| **shortName**         | **string**                                                 |             | [optional] [default to undefined] |
 | **students**          | [**Array&lt;StudentSummaryDTO&gt;**](StudentSummaryDTO.md) |             | [optional] [default to undefined] |
 | **teamId**            | **number**                                                 |             | [optional] [default to undefined] |
 | **teamName**          | **string**                                                 |             | [optional] [default to undefined] |
@@ -31,6 +32,7 @@ const instance: TeamSummaryDTO = {
   isSuspicious,
   llmTokenTotals,
   orphanCommitCount,
+  shortName,
   students,
   teamId,
   teamName,

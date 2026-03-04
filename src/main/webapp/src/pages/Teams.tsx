@@ -104,6 +104,17 @@ export default function Teams() {
     enabled: !!exercise,
   });
 
+  // Pair programming scores recomputing status
+  const { data: pairProgrammingRecomputing } = useQuery({
+    queryKey: ['pairProgrammingRecomputing', exercise],
+    queryFn: () => pairProgrammingApi.isRecomputing(parseInt(exercise)).then(res => res.data),
+    enabled: !!exercise && pairProgrammingEnabled && !!uploadedAttendanceFileName,
+    refetchInterval: query => (query.state.data?.recomputing ? 2000 : false),
+    staleTime: 0,
+  });
+
+  const isPairProgrammingScoresUpdating = !!uploadedAttendanceFileName && (pairProgrammingRecomputing?.recomputing ?? false);
+
   // Fetch team summaries from database on load (one-time, no polling).
   // During analysis, SSE is the single source of truth for updates.
   const isAnalysisRunning = status.state === 'RUNNING';
@@ -163,9 +174,10 @@ export default function Teams() {
       setPairProgrammingAttendanceByTeamName(pairProgrammingAttendanceMap);
       window.sessionStorage.setItem(pairProgrammingAttendanceMapStorageKey, JSON.stringify(pairProgrammingAttendanceMap));
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['pairProgrammingRecomputing', exercise] });
       toast({
         title: 'Attendance uploaded',
-        description: 'Pair programming metrics were updated.',
+        description: 'Pair programming metrics are being updated.',
       });
     },
     onError: () => {
@@ -539,6 +551,7 @@ export default function Teams() {
       isClearing={clearMutation.isPending}
       isAttendanceUploading={attendanceUploadMutation.isPending}
       isAttendanceClearing={clearAttendanceMutation.isPending}
+      isPairProgrammingScoresUpdating={isPairProgrammingScoresUpdating}
     />
   );
 }

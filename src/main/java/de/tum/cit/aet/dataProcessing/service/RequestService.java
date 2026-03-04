@@ -7,6 +7,7 @@ import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.*;
@@ -24,7 +25,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -34,7 +34,6 @@ import java.util.function.Consumer;
 
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
-import de.tum.cit.aet.analysis.dto.FullCommitMappingResultDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
@@ -52,6 +51,7 @@ import de.tum.cit.aet.ai.dto.FairnessReportWithUsageDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -582,58 +582,6 @@ public class RequestService {
 
 
     // =====================================================================
-    //  Pair programming support
-    // =====================================================================
-
-    /**
-     * Recomputes pair programming metrics for all teams in an exercise.
-     *
-     * @param exerciseId the exercise ID
-     * @return number of teams updated
-     */
-    @Transactional
-    public int recomputePairProgrammingForExercise(Long exerciseId) {
-        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
-        if (participations.isEmpty()) {
-            return 0;
-        }
-
-        int updated = 0;
-        for (TeamParticipation participation : participations) {
-            if (recomputePairProgrammingForParticipation(participation)) {
-                updated++;
-            }
-        }
-        log.info("Recomputed pair programming metrics for {}/{} teams in exerciseId={}",
-                updated, participations.size(), exerciseId);
-        return updated;
-    }
-
-    /**
-     * Clears pair programming metrics for all teams in an exercise.
-     *
-     * @param exerciseId the exercise ID
-     * @return number of teams cleared
-     */
-    @Transactional
-    public int clearPairProgrammingForExercise(Long exerciseId) {
-        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
-        if (participations.isEmpty()) {
-            return 0;
-        }
-
-        int updated = 0;
-        for (TeamParticipation participation : participations) {
-            if (clearPairProgrammingFields(participation)) {
-                updated++;
-            }
-        }
-        log.info("Cleared pair programming metrics for {}/{} teams in exerciseId={}",
-                updated, participations.size(), exerciseId);
-        return updated;
-    }
-
-    // =====================================================================
     //  Phase 2: Git analysis persistence
     // =====================================================================
 
@@ -718,7 +666,7 @@ public class RequestService {
         if (hasFailed) {
             return new ClientResponseDTO(
                     tutor != null ? tutor.getName() : "Unassigned",
-                    team.id(), participation.id(), team.name(), participation.submissionCount(),
+                    team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
                     null, null, null, null, 0, true, null);
         }
@@ -734,7 +682,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), participation.id(), team.name(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                 studentDtos,
                 null,  // CQI — Phase 3
                 null,  // isSuspicious — Phase 3
@@ -831,7 +779,7 @@ public class RequestService {
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
                     PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
                     cqiDetails = cqiCalculatorService.calculateFallback(
-                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
+                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name(), team.shortName());
                     cqi = cqiDetails.cqi();
                 } catch (Exception e) {
                     log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -878,7 +826,7 @@ public class RequestService {
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
-                        team.id(), participation.id(), team.name(), participation.submissionCount(),
+                        team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
                         teamTokenTotals, teamParticipation.getOrphanCommitCount(), null, null),
@@ -1200,7 +1148,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), participation.id(), team.name(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), team.shortName(), participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
                 finalDetails, null, null, null, null, null, null);
     }
@@ -1337,14 +1285,15 @@ public class RequestService {
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
 
             ComponentScoresDTO gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
-                    filterResult.chunksToAnalyze(), students.size(), null, null, team.name());
+                    filterResult.chunksToAnalyze(), students.size(), null, null, team.name(), team.shortName());
 
             if (gitComponents != null) {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
-                teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                PairProgrammingStatus pairProgrammingStatus = gitComponents.pairProgrammingStatus();
+                teamParticipation.setCqiPairProgrammingStatus(pairProgrammingStatus != null ? pairProgrammingStatus.name() : null);
                 teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(gitComponents.dailyDistribution()));
                 teamParticipationRepository.save(teamParticipation);
 
@@ -1366,7 +1315,7 @@ public class RequestService {
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             CQIResultDTO result = cqiCalculatorService.calculateFallback(
-                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
+                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary(), team.name(), team.shortName());
             return result.cqi();
         } catch (Exception e) {
             log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -1386,90 +1335,6 @@ public class RequestService {
         teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
         teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(cqiDetails.components().dailyDistribution()));
     }
-
-    private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
-        List<Student> students = studentRepository.findAllByTeam(participation);
-        if (students.size() != 2) {
-            return clearPairProgrammingFields(participation);
-        }
-
-        Optional<TeamRepository> teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
-        if (teamRepositoryOptional.isEmpty()) {
-            return false;
-        }
-
-        TeamRepository teamRepository = teamRepositoryOptional.get();
-        String localPath = teamRepository.getLocalPath();
-        if (localPath == null || localPath.isBlank() || !Files.exists(Path.of(localPath, ".git"))) {
-            return false;
-        }
-
-        Map<String, Long> commitToAuthor = buildCommitToAuthorMap(teamRepository, students);
-        if (commitToAuthor.isEmpty()) {
-            return false;
-        }
-
-        List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
-        PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
-        ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
-                filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName());
-
-        Double previousScore = participation.getCqiPairProgramming();
-        String previousStatus = participation.getCqiPairProgrammingStatus();
-        Double nextScore = components.pairProgramming();
-        String nextStatus = components.pairProgrammingStatus();
-
-        boolean changed = !Objects.equals(previousScore, nextScore)
-                || !Objects.equals(previousStatus, nextStatus);
-        if (!changed) {
-            return false;
-        }
-
-        participation.setCqiPairProgramming(nextScore);
-        participation.setCqiPairProgrammingStatus(nextStatus);
-        teamParticipationRepository.save(participation);
-        return true;
-    }
-
-    private Map<String, Long> buildCommitToAuthorMap(TeamRepository teamRepository, List<Student> students) {
-        String localPath = teamRepository.getLocalPath();
-
-        List<VCSLogDTO> vcsLogDTOs = new ArrayList<>();
-        if (teamRepository.getVcsLogs() != null) {
-            for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
-                if (vcsLog.getCommitHash() != null && vcsLog.getEmail() != null) {
-                    vcsLogDTOs.add(new VCSLogDTO(vcsLog.getEmail(), null, vcsLog.getCommitHash()));
-                }
-            }
-        }
-
-        long syntheticId = -1L;
-        List<ParticipantDTO> participantDTOs = new ArrayList<>();
-        for (Student student : students) {
-            if (student.getEmail() == null || student.getEmail().isBlank()) {
-                continue;
-            }
-            Long authorId = student.getId();
-            if (authorId == null) {
-                authorId = syntheticId--;
-            }
-            participantDTOs.add(new ParticipantDTO(authorId, student.getLogin(), student.getName(), student.getEmail()));
-        }
-
-        FullCommitMappingResultDTO result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs, Map.of(), null);
-        return new HashMap<>(result.commitToAuthor());
-    }
-
-    private boolean clearPairProgrammingFields(TeamParticipation participation) {
-        if (participation.getCqiPairProgramming() == null && participation.getCqiPairProgrammingStatus() == null) {
-            return false;
-        }
-        participation.setCqiPairProgramming(null);
-        participation.setCqiPairProgrammingStatus(null);
-        teamParticipationRepository.save(participation);
-        return true;
-    }
-
 
     /**
      * Toggles the review status of a team participation.
@@ -1505,7 +1370,7 @@ public class RequestService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                participation.getTeam(), participation.getParticipation(), participation.getName(),
+                participation.getTeam(), participation.getParticipation(), participation.getName(), participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDtos, cqi, isSuspicious,
                 participation.getAnalysisStatus(),
@@ -1779,13 +1644,18 @@ public class RequestService {
             return null;
         }
 
+        PairProgrammingStatus pairProgrammingStatus = PairProgrammingRecomputeService.parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus());
+        Double pairProgrammingScore = PairProgrammingRecomputeService.normalizePairProgrammingScore(
+                participation.getCqiPairProgramming(),
+                pairProgrammingStatus);
+
         ComponentScoresDTO components = new ComponentScoresDTO(
                 participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
-                participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus(),
+                pairProgrammingScore,
+                pairProgrammingStatus,
                 deserializeDailyDistribution(participation.getCqiDailyDistribution()));
 
         // Determine weights based on analysis mode
@@ -1985,10 +1855,9 @@ public class RequestService {
 
         // 2) Check pair programming attendance (= "PP Failed" badge)
         if (!hasFailed) {
-            String teamName = tp.getName();
             if (pairProgrammingService.hasAttendanceData()
-                    && pairProgrammingService.hasTeamAttendance(teamName)
-                    && !pairProgrammingService.isPairedMandatorySessions(teamName)) {
+                    && pairProgrammingService.hasTeamAttendance(tp.getName(), tp.getShortName())
+                    && !pairProgrammingService.isPairedMandatorySessions(tp.getName(), tp.getShortName())) {
                 hasFailed = true;
             }
         }
@@ -2030,4 +1899,5 @@ public class RequestService {
             }
         }
     }
+
 }

@@ -31,6 +31,7 @@ export interface TeamSummaryDTO {
   isSuspicious?: boolean;
   llmTokenTotals?: LlmTokenTotalsDTO;
   orphanCommitCount?: number;
+  shortName?: string;
   students?: Array<StudentSummaryDTO>;
   teamId?: number;
   teamName?: string;
