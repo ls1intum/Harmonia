@@ -66,7 +66,7 @@ class RequestServiceApplyMappingsTest {
                 null, fairnessService, null,
                 gitContributionAnalysisService, null, null, null,
                 cqiRecalculationService, null,
-                null, teamParticipationRepository, null, studentRepository,
+                null, teamParticipationRepository, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
                 cleanupService, queryService, null);
     }

@@ -11,7 +11,6 @@ import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
-import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -34,7 +33,6 @@ import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
-import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,11 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Persists Phase-2 (git analysis) and Phase-3 (AI analysis) results.
@@ -69,7 +63,6 @@ public class AnalysisResultPersistenceService {
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
-    private final TutorRepository tutorRepository;
     private final StudentRepository studentRepository;
     private final AnalyzedChunkRepository analyzedChunkRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
@@ -95,7 +88,6 @@ public class AnalysisResultPersistenceService {
             PairProgrammingService pairProgrammingService,
             TeamRepositoryRepository teamRepositoryRepository,
             TeamParticipationRepository teamParticipationRepository,
-            TutorRepository tutorRepository,
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
             ExerciseTemplateAuthorRepository templateAuthorRepository,
@@ -114,7 +106,6 @@ public class AnalysisResultPersistenceService {
         this.pairProgrammingService = pairProgrammingService;
         this.teamRepositoryRepository = teamRepositoryRepository;
         this.teamParticipationRepository = teamParticipationRepository;
-        this.tutorRepository = tutorRepository;
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
         this.templateAuthorRepository = templateAuthorRepository;
@@ -256,9 +247,10 @@ public class AnalysisResultPersistenceService {
         teamParticipationRepository.save(teamParticipation);
 
         List<Student> students = studentRepository.findAllByTeam(teamParticipation);
-        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
-                .map(ExerciseTemplateAuthor::getTemplateEmail)
-                .orElse(null);
+        Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                .stream()
+                .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
 
         Double cqi = null;
         boolean isSuspicious = false;
@@ -270,7 +262,7 @@ public class AnalysisResultPersistenceService {
         // 1) Detect orphan commits
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmails);
             orphanCommits = analysisResult.orphanCommits();
         } catch (Exception e) {
             log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
@@ -280,7 +272,7 @@ public class AnalysisResultPersistenceService {
         boolean fairnessSucceeded = false;
         try {
             FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
-                    repo, templateAuthorEmail);
+                    repo, templateAuthorEmails);
             FairnessReportDTO report = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
 
