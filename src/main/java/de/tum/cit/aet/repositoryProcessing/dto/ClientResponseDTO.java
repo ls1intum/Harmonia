@@ -15,6 +15,7 @@ import java.util.List;
  *
  * @param tutor            the assigned tutor name
  * @param teamId           the Artemis team ID
+ * @param participationId  the Artemis participation ID
  * @param teamName         the team display name
  * @param submissionCount  number of submissions
  * @param students         list of student contribution summaries
@@ -33,6 +34,7 @@ import java.util.List;
 public record ClientResponseDTO(
                 String tutor,
                 Long teamId,
+                Long participationId,
                 String teamName,
                 Integer submissionCount,
                 List<StudentAnalysisDTO> students,

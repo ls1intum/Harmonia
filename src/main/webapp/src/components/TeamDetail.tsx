@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, Sparkles, Loader2, Ban, CircleCheck } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, ExternalLink, Sparkles, Loader2, Ban, CircleCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
@@ -52,6 +52,21 @@ const TeamDetail = ({
 }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
   const queryClient = useQueryClient();
+
+  const artemisRepoUrl = useMemo(() => {
+    if (!course || !exercise || !team.participationId) return null;
+    let baseUrl: string | null = null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        baseUrl = window.localStorage.getItem('artemis_server_url');
+      }
+    } catch {
+      baseUrl = null;
+    }
+    if (!baseUrl) return null;
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    return `${baseUrl}/course-management/${course}/programming-exercises/${exercise}/repository/USER/${team.participationId}`;
+  }, [course, exercise, team.participationId]);
 
   const { data: emailMappings = [] } = useQuery<EmailMappingDTO[]>({
     queryKey: ['emailMappings', exercise],
@@ -333,7 +348,20 @@ const TeamDetail = ({
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div className="space-y-4 flex-1">
               <div className="space-y-1 mb-4">
-                <h2 className="text-2xl font-bold">{team.teamName}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold">{team.teamName}</h2>
+                  {artemisRepoUrl && (
+                    <a
+                      href={artemisRepoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      title="Open repository on Artemis"
+                    >
+                      <ExternalLink className="h-5 w-5" />
+                    </a>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">Team Details</p>
               </div>
 

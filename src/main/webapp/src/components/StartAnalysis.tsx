@@ -75,6 +75,15 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
         courseId,
       });
 
+      // Store server URL in localStorage for later usage
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('artemis_server_url', baseUrl);
+        }
+      } catch {
+        // Ignore errors
+      }
+
       // Step 2: Navigate to analysis
       onStart(courseId, exerciseId, username, password, pairProgrammingMode === 'yes');
     } catch (error) {

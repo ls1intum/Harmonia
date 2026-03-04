@@ -14,6 +14,7 @@
 | **llmTokenTotals**    | [**LlmTokenTotalsDTO**](LlmTokenTotalsDTO.md)                |             | [optional] [default to undefined] |
 | **orphanCommitCount** | **number**                                                   |             | [optional] [default to undefined] |
 | **orphanCommits**     | [**Array&lt;OrphanCommitDTO&gt;**](OrphanCommitDTO.md)       |             | [optional] [default to undefined] |
+| **participationId**   | **number**                                                   |             | [optional] [default to undefined] |
 | **students**          | [**Array&lt;StudentAnalysisDTO&gt;**](StudentAnalysisDTO.md) |             | [optional] [default to undefined] |
 | **submissionCount**   | **number**                                                   |             | [optional] [default to undefined] |
 | **teamId**            | **number**                                                   |             | [optional] [default to undefined] |
@@ -36,6 +37,7 @@ const instance: ClientResponseDTO = {
   llmTokenTotals,
   orphanCommitCount,
   orphanCommits,
+  participationId,
   students,
   submissionCount,
   teamId,
