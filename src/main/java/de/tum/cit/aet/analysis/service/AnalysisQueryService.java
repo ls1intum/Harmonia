@@ -130,11 +130,11 @@ public class AnalysisQueryService {
                         s.getLinesDeleted(), s.getLinesChanged()))
                 .toList();
 
-        Double cqi = participation.getCqi();
         Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious() : false;
 
         AnalysisMode mode = analysisStateService.getStatus(participation.getExerciseId()).getAnalysisMode();
         CQIResultDTO cqiDetails = reconstructCqiDetails(participation, mode);
+        Double cqi = cqiDetails != null ? cqiDetails.cqi() : participation.getCqi();
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
@@ -260,12 +260,12 @@ public class AnalysisQueryService {
                     : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort(exerciseId);
         }
 
-        return new CQIResultDTO(
-                participation.getCqi() != null ? participation.getCqi() : 0.0,
-                components,
-                weights,
-                participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
-                null);
+        double baseScore = components.weightedSum(
+                weights.effortBalance(), weights.locBalance(),
+                weights.temporalSpread(), weights.ownershipSpread());
+        double cqi = Math.max(0, Math.min(100, baseScore));
+
+        return new CQIResultDTO(cqi, components, weights, baseScore, null);
     }
 
     /**
