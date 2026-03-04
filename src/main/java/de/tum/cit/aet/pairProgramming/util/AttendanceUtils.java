@@ -24,6 +24,10 @@ public class AttendanceUtils {
                 .replace('\u202F', ' ')
                 .strip()
                 .toLowerCase(Locale.ROOT);
+
+        // Convert & to and
+        normalized = normalized.replace(" & ", " and ").replace("&", "and");
+
         normalized = FORMAT_CHAR_PATTERN.matcher(normalized).replaceAll("");
         return WHITESPACE_PATTERN.matcher(normalized).replaceAll(" ");
     }
@@ -31,8 +35,9 @@ public class AttendanceUtils {
     /**
      * Normalizes a team name for fuzzy matching by:
      * - Applying standard normalization
-     * - Removing common prefixes/suffixes (Team, Group, Co., KG, etc.)
+     * - Removing common prefixes/suffixes (Team, Group, Co., KG, etc.) with or without spaces
      * - Converting special characters to their word equivalents (& to and)
+     * - Removing ALL whitespace to handle spacing variations (team seven vs teamseven)
      * - Removing all non-alphanumeric characters
      *
      * @param teamName - team name
@@ -46,19 +51,23 @@ public class AttendanceUtils {
         // Start with standard normalization
         String normalized = normalize(teamName);
 
-        // Replace common special character sequences with their word equivalents
-        normalized = normalized.replace(" & ", " and ")
-                .replace("&", "and")
-                .replace(".", "");
+        // Replace common special character sequences with their word equivalents first
+        normalized = normalized.replace(" & ", "and")
+                .replace("&", "and");
 
-        // Remove common prefixes and suffixes (case-insensitive, word boundaries)
-        normalized = normalized.replaceAll("^(team|group)\\s+", "")
-                .replaceAll("\\s+(team|group)$", "");
+        // Remove common prefixes and suffixes (with or without spaces)
+        normalized = normalized.replaceAll("(?i)^team\\s*", "")      // Remove leading "team" with optional space
+                .replaceAll("(?i)^group\\s*", "")                    // Remove leading "group" with optional space
+                .replaceAll("(?i)\\s*team$", "")                     // Remove trailing "team" with optional space
+                .replaceAll("(?i)\\s*group$", "");                   // Remove trailing "group" with optional space
 
-        // Remove all non-alphanumeric characters for core comparison
+        // Remove company suffixes (+ Co. KG, Co. KG, Co., Ltd., Inc., etc.).
+        normalized = normalized.replaceAll("(?i)\\s*\\+\\s*co\\.?\\s*kg\\s*$", "")  // "+ Co. KG" variant
+                .replaceAll("(?i)\\s+co\\.?\\s*kg\\s*$", "")         // "Co. KG" without +
+                .replaceAll("(?i)\\s+(co\\.?|ltd|inc|llc)\\s*$", ""); // "Co.", "Ltd.", "Inc.", "LLC"
+
+        // Remove all non-alphanumeric characters (dots, spaces, special chars)
         normalized = SPECIAL_CHARS_PATTERN.matcher(normalized).replaceAll("");
-
-        // Normalize whitespace again after transformations
         normalized = WHITESPACE_PATTERN.matcher(normalized).replaceAll("");
 
         return normalized.toLowerCase(Locale.ROOT);

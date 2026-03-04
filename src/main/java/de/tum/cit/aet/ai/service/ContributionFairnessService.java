@@ -301,7 +301,7 @@ public class ContributionFairnessService {
     private Map<Long, AuthorStats> aggregateStats(List<RatedChunkDTO> ratedChunks) {
         Map<Long, AuthorStats> stats = new HashMap<>();
         for (RatedChunkDTO rc : ratedChunks) {
-            AuthorStats s = stats.computeIfAbsent(rc.chunk().authorId(), _ -> new AuthorStats());
+            AuthorStats s = stats.computeIfAbsent(rc.chunk().authorId(), key -> new AuthorStats());
             s.totalEffort += rc.rating().weightedEffort();
             s.chunkCount++;
             s.commitsByType.merge(rc.rating().type(), 1, Integer::sum);

@@ -31,6 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.normalize;
+import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.normalizeForFuzzyMatch;
+import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.levenshteinDistance;
 
 /**
  * Central service for pair programming and attendance management.
@@ -96,20 +98,12 @@ public class PairProgrammingService {
                 String sheetName = sheet.getSheetName();
                 List<TutorialGroupSessionDTO> sessionInfos = normalizedSessions.getOrDefault(normalize(sheetName), List.of());
 
-                if (sessionInfos.isEmpty()) {
-                    log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
-                }
-
                 List<TutorialGroupSessionDTO> sortedSessions = filterAndSortSessions(sessionInfos, submissionDeadline);
 
                 Map<String, TeamAttendanceDTO> parsedTeams = parseSheet(sheet, sortedSessions, formatter);
                 for (Map.Entry<String, TeamAttendanceDTO> entry : parsedTeams.entrySet()) {
                     String teamName = entry.getKey();
                     String normalizedName = normalize(teamName);
-                    if (normalizedTeamNames.contains(normalizedName)) {
-                        log.warn("Duplicate team name '{}' found in sheet '{}'; keeping first entry", teamName, sheetName);
-                        continue;
-                    }
                     normalizedTeamNames.add(normalizedName);
                     teams.put(teamName, entry.getValue());
                 }
@@ -145,27 +139,98 @@ public class PairProgrammingService {
 
     /**
      * Resolves the key used in the attendance map: tries normalized team name first,
-     * then normalized short name. Used so Excel rows keyed by short name still match
-     * Artemis teams that are displayed by full name.
+     * then normalized short name, then fuzzy matching. Used so Excel rows keyed by short name still match
+     * Artemis teams that are displayed by full name, and teams with slightly different names still match.
      *
      * @param teamName  the full team name
      * @param shortName the short team name (optional fallback)
      * @return the key present in {@code teamsByNormalizedName}, or {@code null} if not found
      */
     private String resolveAttendanceKey(String teamName, String shortName) {
+        // 1) Try exact normalized match with full team name
         if (teamName != null) {
             String key = normalize(teamName);
             if (teamsByNormalizedName.containsKey(key)) {
                 return key;
             }
         }
+
+        // 2) Try exact normalized match with short team name
         if (shortName != null && !shortName.equals(teamName)) {
             String key = normalize(shortName);
             if (teamsByNormalizedName.containsKey(key)) {
                 return key;
             }
         }
+
+        // 3) Try fuzzy matching if exact match fails
+        String fuzzyMatchedKey = resolveFuzzyAttendanceKey(teamName, shortName);
+        if (fuzzyMatchedKey != null) {
+            return fuzzyMatchedKey;
+        }
+
         return teamName != null ? normalize(teamName) : null;
+    }
+
+    /**
+     * Resolves team name using fuzzy matching when exact normalized match fails.
+     * Uses Levenshtein distance to find the best match above a similarity threshold.
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional)
+     * @return the best fuzzy-matched key, or {@code null} if no match above threshold
+     */
+    private String resolveFuzzyAttendanceKey(String teamName, String shortName) {
+        if (teamsByNormalizedName.isEmpty()) {
+            return null;
+        }
+
+        String fuzzyTeamName = teamName != null ? normalizeForFuzzyMatch(teamName) : null;
+        String fuzzyShortName = (shortName != null && !shortName.equals(teamName))
+                ? normalizeForFuzzyMatch(shortName)
+                : null;
+
+        int bestDistance = Integer.MAX_VALUE;
+        String bestMatchKey = null;
+        double bestSimilarity = 0.0;
+
+        for (String storedKey : teamsByNormalizedName.keySet()) {
+            String storedNormalized = normalizeForFuzzyMatch(storedKey);
+            int distance = Integer.MAX_VALUE;
+
+            // Try distance with full team name
+            if (fuzzyTeamName != null && !fuzzyTeamName.isEmpty()) {
+                int d = levenshteinDistance(fuzzyTeamName, storedNormalized);
+                if (d < distance) {
+                    distance = d;
+                }
+            }
+
+            // Try distance with short team name as well
+            if (fuzzyShortName != null && !fuzzyShortName.isEmpty()) {
+                int d = levenshteinDistance(fuzzyShortName, storedNormalized);
+                if (d < distance) {
+                    distance = d;
+                }
+            }
+
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestMatchKey = storedKey;
+                int maxLength = Math.max(
+                        fuzzyTeamName != null ? fuzzyTeamName.length() : 0,
+                        storedNormalized.length()
+                );
+                bestSimilarity = maxLength > 0 ? 1.0 - (double) distance / maxLength : 0.0;
+            }
+        }
+
+        // Only accept match if similarity is above threshold (80%)
+        if (bestMatchKey != null && bestSimilarity >= 0.80) {
+            return bestMatchKey;
+        }
+
+        return null;
     }
 
     /**
@@ -382,7 +447,6 @@ public class PairProgrammingService {
             Set<OffsetDateTime> allSessions = getClassDates(teamName, shortName);
 
             if (hasCancelledWarning) {
-                log.warn("Team '{}' has cancelled tutorial sessions; pair programming status set to WARNING", teamName);
                 return null;
             }
 
@@ -391,8 +455,6 @@ public class PairProgrammingService {
                         pairedSessions, allSessions, chunks, teamSize);
             }
 
-            log.warn("Team '{}' found in attendance but has no {} sessions; treating as failed (score 0)",
-                    teamName, allSessions.isEmpty() ? "mapped tutorial" : "paired");
             return 0.0;
         } catch (Exception e) {
             log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
