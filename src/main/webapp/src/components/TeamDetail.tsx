@@ -323,9 +323,7 @@ const TeamDetail = ({
                     onClick={onToggleReviewed}
                     className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
                   >
-                    <CircleCheck
-                      className={`h-5 w-5 ${team.isReviewed ? 'text-primary fill-primary/20' : 'text-muted-foreground/40'}`}
-                    />
+                    <CircleCheck className={`h-5 w-5 ${team.isReviewed ? 'text-primary fill-primary/20' : 'text-muted-foreground/40'}`} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
