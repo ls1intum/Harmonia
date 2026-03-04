@@ -98,20 +98,12 @@ public class PairProgrammingService {
                 String sheetName = sheet.getSheetName();
                 List<TutorialGroupSessionDTO> sessionInfos = normalizedSessions.getOrDefault(normalize(sheetName), List.of());
 
-                if (sessionInfos.isEmpty()) {
-                    log.warn("No tutorial group sessions found for sheet '{}'", sheetName);
-                }
-
                 List<TutorialGroupSessionDTO> sortedSessions = filterAndSortSessions(sessionInfos, submissionDeadline);
 
                 Map<String, TeamAttendanceDTO> parsedTeams = parseSheet(sheet, sortedSessions, formatter);
                 for (Map.Entry<String, TeamAttendanceDTO> entry : parsedTeams.entrySet()) {
                     String teamName = entry.getKey();
                     String normalizedName = normalize(teamName);
-                    if (normalizedTeamNames.contains(normalizedName)) {
-                        log.warn("Duplicate team name '{}' found in sheet '{}'; keeping first entry", teamName, sheetName);
-                        continue;
-                    }
                     normalizedTeamNames.add(normalizedName);
                     teams.put(teamName, entry.getValue());
                 }
@@ -190,18 +182,13 @@ public class PairProgrammingService {
      */
     private String resolveFuzzyAttendanceKey(String teamName, String shortName) {
         if (teamsByNormalizedName.isEmpty()) {
-            log.debug("No attendance data available for fuzzy matching");
             return null;
         }
-
-        log.debug("Attempting fuzzy match for team: '{}' (short: '{}')", teamName, shortName);
 
         String fuzzyTeamName = teamName != null ? normalizeForFuzzyMatch(teamName) : null;
         String fuzzyShortName = (shortName != null && !shortName.equals(teamName))
                 ? normalizeForFuzzyMatch(shortName)
                 : null;
-
-        log.debug("Fuzzy normalized: '{}' / '{}'", fuzzyTeamName, fuzzyShortName);
 
         int bestDistance = Integer.MAX_VALUE;
         String bestMatchKey = null;
@@ -235,21 +222,14 @@ public class PairProgrammingService {
                         storedNormalized.length()
                 );
                 bestSimilarity = maxLength > 0 ? 1.0 - (double) distance / maxLength : 0.0;
-                log.debug("  Candidate '{}' (normalized: '{}') - distance: {}, similarity: {:.2f}",
-                        storedKey, storedNormalized, distance, bestSimilarity);
             }
         }
 
         // Only accept match if similarity is above threshold (80%)
         if (bestMatchKey != null && bestSimilarity >= 0.80) {
-            log.debug("Fuzzy matched team '{}' to '{}' with similarity {:.2f}%",
-                    teamName, bestMatchKey, bestSimilarity * 100);
             return bestMatchKey;
         }
 
-        if (bestMatchKey != null) {
-            log.debug("Best fuzzy match '{}' has similarity {:.2f}% (below 80% threshold)", bestMatchKey, bestSimilarity * 100);
-        }
         return null;
     }
 
@@ -467,7 +447,6 @@ public class PairProgrammingService {
             Set<OffsetDateTime> allSessions = getClassDates(teamName, shortName);
 
             if (hasCancelledWarning) {
-                log.warn("Team '{}' has cancelled tutorial sessions; pair programming status set to WARNING", teamName);
                 return null;
             }
 
@@ -476,8 +455,6 @@ public class PairProgrammingService {
                         pairedSessions, allSessions, chunks, teamSize);
             }
 
-            log.warn("Team '{}' found in attendance but has no {} sessions; treating as failed (score 0)",
-                    teamName, allSessions.isEmpty() ? "mapped tutorial" : "paired");
             return 0.0;
         } catch (Exception e) {
             log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
