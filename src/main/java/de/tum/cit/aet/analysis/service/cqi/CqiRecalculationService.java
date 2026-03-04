@@ -50,8 +50,22 @@ public class CqiRecalculationService {
                 .filter(c -> !Boolean.TRUE.equals(c.getIsExternalContributor()))
                 .toList();
 
+        // Build set of dismissed emails so they don't count toward the badge
+        Set<String> dismissedEmails = new HashSet<>();
+        for (ExerciseEmailMapping m : emailMappingRepository
+                .findAllByExerciseId(participation.getExerciseId())) {
+            if (Boolean.TRUE.equals(m.getIsDismissed())) {
+                dismissedEmails.add(m.getGitEmail().toLowerCase(Locale.ROOT));
+            }
+        }
+
         long orphanCount = allChunks.stream()
                 .filter(c -> Boolean.TRUE.equals(c.getIsExternalContributor()))
+                .filter(c -> {
+                    String email = c.getAuthorEmail() != null
+                            ? c.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
+                    return !dismissedEmails.contains(email);
+                })
                 .count();
         participation.setOrphanCommitCount((int) orphanCount);
 

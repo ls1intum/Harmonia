@@ -189,12 +189,14 @@ public class EmailMappingResource {
         ExerciseEmailMapping mapping = new ExerciseEmailMapping(exerciseId, normalizedEmail, true);
         emailMappingRepository.save(mapping);
 
-        // 3. Look up the requested participation and return response
+        // 3. Recalculate so orphanCommitCount excludes dismissed emails
         TeamParticipation participation = teamParticipationRepository
                 .findByExerciseIdAndTeam(exerciseId, request.teamParticipationId())
                 .orElse(null);
 
         if (participation != null) {
+            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+            cqiRecalculationService.recalculateFromChunks(participation, chunks);
             return ResponseEntity.ok(buildResponse(participation));
         }
         return ResponseEntity.noContent().build();
