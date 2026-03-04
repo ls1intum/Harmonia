@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, Sparkles, Loader2, Ban } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, Sparkles, Loader2, Ban, CircleCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
@@ -28,6 +28,7 @@ interface TeamDetailProps {
   pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
   courseAverages?: CourseAverages | null;
   onTeamUpdate?: (team: TeamDTO) => void;
+  onToggleReviewed?: () => void;
   analysisMode?: 'SIMPLE' | 'FULL';
 }
 
@@ -46,6 +47,7 @@ const TeamDetail = ({
   pairProgrammingBadgeStatus = null,
   courseAverages = null,
   onTeamUpdate,
+  onToggleReviewed,
   analysisMode,
 }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
@@ -297,12 +299,33 @@ const TeamDetail = ({
         <p className="text-sm text-muted-foreground">
           Course: <span className="font-medium">{course}</span> | Exercise: <span className="font-medium">{exercise}</span>
         </p>
-        {canComputeAi && (
-          <Button size="sm" variant="outline" onClick={() => computeAiMutation.mutate()} disabled={isAiComputing}>
-            {isAiComputing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
-            {isAiComputing ? 'Computing AI...' : hasAiResult ? 'Recompute AI' : 'Compute AI'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {onToggleReviewed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onToggleReviewed}
+                    className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
+                  >
+                    <CircleCheck
+                      className={`h-5 w-5 ${team.isReviewed ? 'text-primary fill-primary/20' : 'text-muted-foreground/40'}`}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{team.isReviewed ? 'Mark as unreviewed' : 'Mark as reviewed'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {canComputeAi && (
+            <Button size="sm" variant="outline" onClick={() => computeAiMutation.mutate()} disabled={isAiComputing}>
+              {isAiComputing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+              {isAiComputing ? 'Computing AI...' : hasAiResult ? 'Recompute AI' : 'Compute AI'}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="shadow-elevated bg-white">

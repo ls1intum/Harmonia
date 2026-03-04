@@ -466,7 +466,8 @@ public class EmailMappingResource {
                 null, // orphan commits not persisted
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     private List<AnalyzedChunkDTO> loadAnalyzedChunkDTOs(TeamParticipation participation) {

@@ -233,7 +233,7 @@ public class RequestResource {
     public ResponseEntity<ClientResponseDTO> toggleReviewStatus(
             @PathVariable Long exerciseId,
             @PathVariable Long teamId) {
-        log.info("PATCH request received: toggleReviewStatus for exerciseId: {}, teamId: {}", exerciseId, teamId);
+        log.info("PATCH toggleReviewStatus for exerciseId: {}, teamId: {}", exerciseId, teamId);
         try {
             ClientResponseDTO updated = requestService.toggleReviewStatus(exerciseId, teamId);
             return ResponseEntity.ok(updated);

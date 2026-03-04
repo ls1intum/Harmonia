@@ -720,7 +720,7 @@ public class RequestService {
                     tutor != null ? tutor.getName() : "Unassigned",
                     team.id(), team.name(), participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
-                    null, null, null, null, 0, true);
+                    null, null, null, null, 0, true, null);
         }
 
         // 5) Calculate git-only CQI components (no AI needed)
@@ -744,7 +744,8 @@ public class RequestService {
                 null,  // orphanCommits
                 readTeamTokenTotals(teamParticipation),
                 null,  // orphanCommitCount — Phase 3
-                null); // isFailed
+                null,  // isFailed
+                null); // isReviewed
     }
 
     // =====================================================================
@@ -880,7 +881,7 @@ public class RequestService {
                         team.id(), team.name(), participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
-                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
+                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null, null),
                 teamTokenTotals);
     }
 
@@ -1201,7 +1202,7 @@ public class RequestService {
                 tutor != null ? tutor.getName() : "Unassigned",
                 team.id(), team.name(), participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
-                finalDetails, null, null, null, null, null);
+                finalDetails, null, null, null, null, null, null);
     }
 
     /** Emits INIT events for all pending teams. */
@@ -1484,11 +1485,6 @@ public class RequestService {
         return mapParticipationToClientResponse(participation);
     }
 
-    /**
-     * Helper method to map a TeamParticipation entity to ClientResponseDTO.
-     * Reduces code duplication between getAllRepositoryData and
-     * getTeamsByExerciseId.
-     */
     private ClientResponseDTO mapParticipationToClientResponse(TeamParticipation participation) {
         List<Student> students = studentRepository.findAllByTeam(participation);
         Tutor tutor = participation.getTutor();

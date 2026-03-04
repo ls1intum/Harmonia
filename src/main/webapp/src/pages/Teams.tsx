@@ -125,18 +125,14 @@ export default function Teams() {
 
   const toggleReviewedMutation = useMutation({
     mutationFn: async (teamId: string) => {
-      const response = await fetch(`/api/requestResource/${exercise}/teams/${teamId}/reviewed`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to toggle review status');
-      return response.json();
+      const response = await requestApi.toggleReviewStatus(parseInt(exercise), parseInt(teamId));
+      return response.data;
     },
     onMutate: async teamId => {
       await queryClient.cancelQueries({ queryKey: ['teams', exercise] });
       const previous = queryClient.getQueryData<TeamDTO[]>(['teams', exercise]);
       queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
-        old.map(t => (String(t.teamId) === teamId ? { ...t, isReviewed: !t.isReviewed } : t)),
+        old.map(t => (String(t.teamId) === teamId ? Object.assign({}, t, { isReviewed: !t.isReviewed }) : t)),
       );
       return { previous };
     },
