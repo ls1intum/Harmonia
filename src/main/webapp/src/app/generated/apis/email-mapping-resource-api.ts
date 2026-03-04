@@ -34,9 +34,9 @@ import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError
 // @ts-ignore
 import type { ClientResponseDTO } from '../models';
 // @ts-ignore
-import type { CreateEmailMappingRequest } from '../models';
+import type { CreateEmailMappingRequestDTO } from '../models';
 // @ts-ignore
-import type { DismissEmailRequest } from '../models';
+import type { DismissEmailRequestDTO } from '../models';
 // @ts-ignore
 import type { EmailMappingDTO } from '../models';
 // @ts-ignore
@@ -49,19 +49,19 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
     /**
      *
      * @param {number} exerciseId
-     * @param {CreateEmailMappingRequest} createEmailMappingRequest
+     * @param {CreateEmailMappingRequestDTO} createEmailMappingRequestDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     createMapping: async (
       exerciseId: number,
-      createEmailMappingRequest: CreateEmailMappingRequest,
+      createEmailMappingRequestDTO: CreateEmailMappingRequestDTO,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
       assertParamExists('createMapping', 'exerciseId', exerciseId);
-      // verify required parameter 'createEmailMappingRequest' is not null or undefined
-      assertParamExists('createMapping', 'createEmailMappingRequest', createEmailMappingRequest);
+      // verify required parameter 'createEmailMappingRequestDTO' is not null or undefined
+      assertParamExists('createMapping', 'createEmailMappingRequestDTO', createEmailMappingRequestDTO);
       const localVarPath = `/api/exercises/{exerciseId}/email-mappings`.replace(
         `{${'exerciseId'}}`,
         encodeURIComponent(String(exerciseId)),
@@ -82,7 +82,7 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
-      localVarRequestOptions.data = serializeDataIfNeeded(createEmailMappingRequest, localVarRequestOptions, configuration);
+      localVarRequestOptions.data = serializeDataIfNeeded(createEmailMappingRequestDTO, localVarRequestOptions, configuration);
 
       return {
         url: toPathString(localVarUrlObj),
@@ -160,19 +160,19 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
     /**
      *
      * @param {number} exerciseId
-     * @param {DismissEmailRequest} dismissEmailRequest
+     * @param {DismissEmailRequestDTO} dismissEmailRequestDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     dismissEmail: async (
       exerciseId: number,
-      dismissEmailRequest: DismissEmailRequest,
+      dismissEmailRequestDTO: DismissEmailRequestDTO,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'exerciseId' is not null or undefined
       assertParamExists('dismissEmail', 'exerciseId', exerciseId);
-      // verify required parameter 'dismissEmailRequest' is not null or undefined
-      assertParamExists('dismissEmail', 'dismissEmailRequest', dismissEmailRequest);
+      // verify required parameter 'dismissEmailRequestDTO' is not null or undefined
+      assertParamExists('dismissEmail', 'dismissEmailRequestDTO', dismissEmailRequestDTO);
       const localVarPath = `/api/exercises/{exerciseId}/email-mappings/dismiss`.replace(
         `{${'exerciseId'}}`,
         encodeURIComponent(String(exerciseId)),
@@ -193,7 +193,7 @@ export const EmailMappingResourceApiAxiosParamCreator = function (configuration?
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
-      localVarRequestOptions.data = serializeDataIfNeeded(dismissEmailRequest, localVarRequestOptions, configuration);
+      localVarRequestOptions.data = serializeDataIfNeeded(dismissEmailRequestDTO, localVarRequestOptions, configuration);
 
       return {
         url: toPathString(localVarUrlObj),
@@ -321,16 +321,16 @@ export const EmailMappingResourceApiFp = function (configuration?: Configuration
     /**
      *
      * @param {number} exerciseId
-     * @param {CreateEmailMappingRequest} createEmailMappingRequest
+     * @param {CreateEmailMappingRequestDTO} createEmailMappingRequestDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async createMapping(
       exerciseId: number,
-      createEmailMappingRequest: CreateEmailMappingRequest,
+      createEmailMappingRequestDTO: CreateEmailMappingRequestDTO,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ClientResponseDTO>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.createMapping(exerciseId, createEmailMappingRequest, options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.createMapping(exerciseId, createEmailMappingRequestDTO, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['EmailMappingResourceApi.createMapping']?.[localVarOperationServerIndex]?.url;
@@ -376,16 +376,16 @@ export const EmailMappingResourceApiFp = function (configuration?: Configuration
     /**
      *
      * @param {number} exerciseId
-     * @param {DismissEmailRequest} dismissEmailRequest
+     * @param {DismissEmailRequestDTO} dismissEmailRequestDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async dismissEmail(
       exerciseId: number,
-      dismissEmailRequest: DismissEmailRequest,
+      dismissEmailRequestDTO: DismissEmailRequestDTO,
       options?: RawAxiosRequestConfig,
     ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ClientResponseDTO>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.dismissEmail(exerciseId, dismissEmailRequest, options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.dismissEmail(exerciseId, dismissEmailRequestDTO, options);
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['EmailMappingResourceApi.dismissEmail']?.[localVarOperationServerIndex]?.url;
@@ -457,16 +457,16 @@ export const EmailMappingResourceApiFactory = function (configuration?: Configur
     /**
      *
      * @param {number} exerciseId
-     * @param {CreateEmailMappingRequest} createEmailMappingRequest
+     * @param {CreateEmailMappingRequestDTO} createEmailMappingRequestDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     createMapping(
       exerciseId: number,
-      createEmailMappingRequest: CreateEmailMappingRequest,
+      createEmailMappingRequestDTO: CreateEmailMappingRequestDTO,
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<ClientResponseDTO> {
-      return localVarFp.createMapping(exerciseId, createEmailMappingRequest, options).then(request => request(axios, basePath));
+      return localVarFp.createMapping(exerciseId, createEmailMappingRequestDTO, options).then(request => request(axios, basePath));
     },
     /**
      *
@@ -490,16 +490,16 @@ export const EmailMappingResourceApiFactory = function (configuration?: Configur
     /**
      *
      * @param {number} exerciseId
-     * @param {DismissEmailRequest} dismissEmailRequest
+     * @param {DismissEmailRequestDTO} dismissEmailRequestDTO
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     dismissEmail(
       exerciseId: number,
-      dismissEmailRequest: DismissEmailRequest,
+      dismissEmailRequestDTO: DismissEmailRequestDTO,
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<ClientResponseDTO> {
-      return localVarFp.dismissEmail(exerciseId, dismissEmailRequest, options).then(request => request(axios, basePath));
+      return localVarFp.dismissEmail(exerciseId, dismissEmailRequestDTO, options).then(request => request(axios, basePath));
     },
     /**
      *
@@ -543,13 +543,13 @@ export class EmailMappingResourceApi extends BaseAPI {
   /**
    *
    * @param {number} exerciseId
-   * @param {CreateEmailMappingRequest} createEmailMappingRequest
+   * @param {CreateEmailMappingRequestDTO} createEmailMappingRequestDTO
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public createMapping(exerciseId: number, createEmailMappingRequest: CreateEmailMappingRequest, options?: RawAxiosRequestConfig) {
+  public createMapping(exerciseId: number, createEmailMappingRequestDTO: CreateEmailMappingRequestDTO, options?: RawAxiosRequestConfig) {
     return EmailMappingResourceApiFp(this.configuration)
-      .createMapping(exerciseId, createEmailMappingRequest, options)
+      .createMapping(exerciseId, createEmailMappingRequestDTO, options)
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -581,13 +581,13 @@ export class EmailMappingResourceApi extends BaseAPI {
   /**
    *
    * @param {number} exerciseId
-   * @param {DismissEmailRequest} dismissEmailRequest
+   * @param {DismissEmailRequestDTO} dismissEmailRequestDTO
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public dismissEmail(exerciseId: number, dismissEmailRequest: DismissEmailRequest, options?: RawAxiosRequestConfig) {
+  public dismissEmail(exerciseId: number, dismissEmailRequestDTO: DismissEmailRequestDTO, options?: RawAxiosRequestConfig) {
     return EmailMappingResourceApiFp(this.configuration)
-      .dismissEmail(exerciseId, dismissEmailRequest, options)
+      .dismissEmail(exerciseId, dismissEmailRequestDTO, options)
       .then(request => request(this.axios, this.basePath));
   }
 

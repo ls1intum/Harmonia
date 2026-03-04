@@ -14,28 +14,28 @@ All URIs are relative to _http://localhost:8080_
 
 # **createMapping**
 
-> ClientResponseDTO createMapping(createEmailMappingRequest)
+> ClientResponseDTO createMapping(createEmailMappingRequestDTO)
 
 ### Example
 
 ```typescript
-import { EmailMappingResourceApi, Configuration, CreateEmailMappingRequest } from './api';
+import { EmailMappingResourceApi, Configuration, CreateEmailMappingRequestDTO } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new EmailMappingResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
-let createEmailMappingRequest: CreateEmailMappingRequest; //
+let createEmailMappingRequestDTO: CreateEmailMappingRequestDTO; //
 
-const { status, data } = await apiInstance.createMapping(exerciseId, createEmailMappingRequest);
+const { status, data } = await apiInstance.createMapping(exerciseId, createEmailMappingRequestDTO);
 ```
 
 ### Parameters
 
-| Name                          | Type                          | Description | Notes                 |
-| ----------------------------- | ----------------------------- | ----------- | --------------------- |
-| **createEmailMappingRequest** | **CreateEmailMappingRequest** |             |                       |
-| **exerciseId**                | [**number**]                  |             | defaults to undefined |
+| Name                             | Type                             | Description | Notes                 |
+| -------------------------------- | -------------------------------- | ----------- | --------------------- |
+| **createEmailMappingRequestDTO** | **CreateEmailMappingRequestDTO** |             |                       |
+| **exerciseId**                   | [**number**]                     |             | defaults to undefined |
 
 ### Return type
 
@@ -150,28 +150,28 @@ No authorization required
 
 # **dismissEmail**
 
-> ClientResponseDTO dismissEmail(dismissEmailRequest)
+> ClientResponseDTO dismissEmail(dismissEmailRequestDTO)
 
 ### Example
 
 ```typescript
-import { EmailMappingResourceApi, Configuration, DismissEmailRequest } from './api';
+import { EmailMappingResourceApi, Configuration, DismissEmailRequestDTO } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new EmailMappingResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
-let dismissEmailRequest: DismissEmailRequest; //
+let dismissEmailRequestDTO: DismissEmailRequestDTO; //
 
-const { status, data } = await apiInstance.dismissEmail(exerciseId, dismissEmailRequest);
+const { status, data } = await apiInstance.dismissEmail(exerciseId, dismissEmailRequestDTO);
 ```
 
 ### Parameters
 
-| Name                    | Type                    | Description | Notes                 |
-| ----------------------- | ----------------------- | ----------- | --------------------- |
-| **dismissEmailRequest** | **DismissEmailRequest** |             |                       |
-| **exerciseId**          | [**number**]            |             | defaults to undefined |
+| Name                       | Type                       | Description | Notes                 |
+| -------------------------- | -------------------------- | ----------- | --------------------- |
+| **dismissEmailRequestDTO** | **DismissEmailRequestDTO** |             |                       |
+| **exerciseId**             | [**number**]               |             | defaults to undefined |
 
 ### Return type
 

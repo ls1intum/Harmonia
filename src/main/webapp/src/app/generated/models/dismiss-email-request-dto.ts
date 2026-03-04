@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-export interface DismissEmailRequest {
+export interface DismissEmailRequestDTO {
   gitEmail?: string;
   teamParticipationId?: number;
 }

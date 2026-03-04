@@ -198,7 +198,7 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/CreateEmailMappingRequest'}
+            schema: {$ref: '#/components/schemas/CreateEmailMappingRequestDTO'}
         required: true
       responses:
         '200':
@@ -218,7 +218,7 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/DismissEmailRequest'}
+            schema: {$ref: '#/components/schemas/DismissEmailRequestDTO'}
         required: true
       responses:
         '200':
@@ -595,14 +595,14 @@ components:
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         temporalSpread: {type: number, format: double}
-    CreateEmailMappingRequest:
+    CreateEmailMappingRequestDTO:
       type: object
       properties:
         gitEmail: {type: string}
         studentId: {type: integer, format: int64}
         studentName: {type: string}
         teamParticipationId: {type: integer, format: int64}
-    DismissEmailRequest:
+    DismissEmailRequestDTO:
       type: object
       properties:
         gitEmail: {type: string}

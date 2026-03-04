@@ -1,19 +1,23 @@
-# DismissEmailRequest
+# CreateEmailMappingRequestDTO
 
 ## Properties
 
 | Name                    | Type       | Description | Notes                             |
 | ----------------------- | ---------- | ----------- | --------------------------------- |
 | **gitEmail**            | **string** |             | [optional] [default to undefined] |
+| **studentId**           | **number** |             | [optional] [default to undefined] |
+| **studentName**         | **string** |             | [optional] [default to undefined] |
 | **teamParticipationId** | **number** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { DismissEmailRequest } from './api';
+import { CreateEmailMappingRequestDTO } from './api';
 
-const instance: DismissEmailRequest = {
+const instance: CreateEmailMappingRequestDTO = {
   gitEmail,
+  studentId,
+  studentName,
   teamParticipationId,
 };
 ```

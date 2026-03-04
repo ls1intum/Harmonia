@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-export interface CreateEmailMappingRequest {
+export interface CreateEmailMappingRequestDTO {
   gitEmail?: string;
   studentId?: number;
   studentName?: string;
