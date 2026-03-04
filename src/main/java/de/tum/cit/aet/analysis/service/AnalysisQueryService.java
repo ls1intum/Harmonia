@@ -9,7 +9,6 @@ import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentWeightsDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
-import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
 import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;

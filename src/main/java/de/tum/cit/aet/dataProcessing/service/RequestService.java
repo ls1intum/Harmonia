@@ -1,6 +1,7 @@
 package de.tum.cit.aet.dataProcessing.service;
 
 import de.tum.cit.aet.analysis.service.AnalysisQueryService;
+import de.tum.cit.aet.analysis.service.AnalysisTaskManager;
 import de.tum.cit.aet.analysis.service.AnalysisResultPersistenceService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;

@@ -4,6 +4,7 @@ import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
 import de.tum.cit.aet.analysis.service.AnalysisResultPersistenceService;
+import de.tum.cit.aet.analysis.service.AnalysisTaskManager;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;

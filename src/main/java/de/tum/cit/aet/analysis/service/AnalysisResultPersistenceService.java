@@ -22,8 +22,6 @@ import de.tum.cit.aet.analysis.dto.cqi.PreFilterResultDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
-import de.tum.cit.aet.analysis.service.AnalysisStateService;
-import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator;
