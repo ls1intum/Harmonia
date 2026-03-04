@@ -2,7 +2,21 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX, EyeOff, Link, Info, Search, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  GitCommit,
+  Clock,
+  FileCode,
+  AlertCircle,
+  AlertTriangle,
+  UserX,
+  EyeOff,
+  Link,
+  Info,
+  Search,
+  X,
+} from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
@@ -78,7 +92,14 @@ const MetricLabel = ({ label, tooltip }: { label: string; tooltip: string }) => 
  * @param props.chunks - analyzed commit chunks from the server
  * @param props.isDevMode - when true, shows LLM token usage details
  */
-const AnalysisFeed = ({ chunks, isDevMode = false, dismissedEmails = new Set(), onUndoDismiss, assignedEmails = new Map(), onUndoAssignment }: AnalysisFeedProps) => {
+const AnalysisFeed = ({
+  chunks,
+  isDevMode = false,
+  dismissedEmails = new Set(),
+  onUndoDismiss,
+  assignedEmails = new Map(),
+  onUndoAssignment,
+}: AnalysisFeedProps) => {
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const [externalOpen, setExternalOpen] = useState(false);
   const [dismissedOpen, setDismissedOpen] = useState(false);
@@ -100,18 +121,30 @@ const AnalysisFeed = ({ chunks, isDevMode = false, dismissedEmails = new Set(), 
 
   // Three-way chunk split: team members, external contributors, dismissed
   // Email-first priority: if email is dismissed, it goes to dismissed regardless of isExternalContributor (handles old data)
-  const teamChunks = useMemo(() => (chunks ?? []).filter(chunk => {
-    const email = chunk.authorEmail?.toLowerCase();
-    return !chunk.isExternalContributor && !(email && dismissedEmails.has(email));
-  }), [chunks, dismissedEmails]);
-  const externalChunks = useMemo(() => (chunks ?? []).filter(chunk => {
-    const email = chunk.authorEmail?.toLowerCase();
-    return chunk.isExternalContributor && !(email && dismissedEmails.has(email));
-  }), [chunks, dismissedEmails]);
-  const dismissedChunks = useMemo(() => (chunks ?? []).filter(chunk => {
-    const email = chunk.authorEmail?.toLowerCase();
-    return email ? dismissedEmails.has(email) : false;
-  }), [chunks, dismissedEmails]);
+  const teamChunks = useMemo(
+    () =>
+      (chunks ?? []).filter(chunk => {
+        const email = chunk.authorEmail?.toLowerCase();
+        return !chunk.isExternalContributor && !(email && dismissedEmails.has(email));
+      }),
+    [chunks, dismissedEmails],
+  );
+  const externalChunks = useMemo(
+    () =>
+      (chunks ?? []).filter(chunk => {
+        const email = chunk.authorEmail?.toLowerCase();
+        return chunk.isExternalContributor && !(email && dismissedEmails.has(email));
+      }),
+    [chunks, dismissedEmails],
+  );
+  const dismissedChunks = useMemo(
+    () =>
+      (chunks ?? []).filter(chunk => {
+        const email = chunk.authorEmail?.toLowerCase();
+        return email ? dismissedEmails.has(email) : false;
+      }),
+    [chunks, dismissedEmails],
+  );
 
   // Group by author for summary (filtering out errors and external contributors)
   const authorSummary = teamChunks
@@ -751,7 +784,9 @@ const AnalysisFeed = ({ chunks, isDevMode = false, dismissedEmails = new Set(), 
                           <Badge variant="outline" className="shrink-0 text-slate-500 border-slate-300">
                             <EyeOff className="w-3 h-3 mr-1" /> Dismissed
                           </Badge>
-                          <span className="font-medium truncate text-slate-500">{chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0]}</span>
+                          <span className="font-medium truncate text-slate-500">
+                            {chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0]}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-4">

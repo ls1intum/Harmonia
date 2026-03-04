@@ -108,9 +108,7 @@ const OrphanCommitsPanel = ({
   // Split mappings into assigned and dismissed
   const assignedMappings = emailMappings.filter(m => !m.isDismissed && m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
   const dismissedMappings = emailMappings.filter(m => m.isDismissed && m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
-  const mappedEmailSet = new Set(
-    assignedMappings.concat(dismissedMappings).map(m => (m.gitEmail ?? '').toLowerCase()),
-  );
+  const mappedEmailSet = new Set(assignedMappings.concat(dismissedMappings).map(m => (m.gitEmail ?? '').toLowerCase()));
 
   // Unmapped orphan emails
   const unmappedEmails = Array.from(allOrphanEmails).filter(e => e && !mappedEmailSet.has(e));

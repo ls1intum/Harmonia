@@ -109,23 +109,27 @@ const TeamDetail = ({
     mappingChangeMutation.mutate();
   }, [mappingChangeMutation]);
 
-  const handleUndoDismiss = useCallback(async (email: string) => {
-    const mapping = emailMappings.find(
-      m => m.isDismissed && m.gitEmail?.toLowerCase() === email.toLowerCase(),
-    );
-    if (mapping?.id && exercise) {
-      await emailMappingApi.deleteMapping(parseInt(exercise), mapping.id);
-      handleMappingChange();
-    }
-  }, [emailMappings, exercise, handleMappingChange]);
+  const handleUndoDismiss = useCallback(
+    async (email: string) => {
+      const mapping = emailMappings.find(m => m.isDismissed && m.gitEmail?.toLowerCase() === email.toLowerCase());
+      if (mapping?.id && exercise) {
+        await emailMappingApi.deleteMapping(parseInt(exercise), mapping.id);
+        handleMappingChange();
+      }
+    },
+    [emailMappings, exercise, handleMappingChange],
+  );
 
-  const handleUndoAssignment = useCallback(async (email: string) => {
-    const info = assignedEmails.get(email.toLowerCase());
-    if (info && exercise) {
-      await emailMappingApi.deleteMapping(parseInt(exercise), info.mappingId);
-      handleMappingChange();
-    }
-  }, [assignedEmails, exercise, handleMappingChange]);
+  const handleUndoAssignment = useCallback(
+    async (email: string) => {
+      const info = assignedEmails.get(email.toLowerCase());
+      if (info && exercise) {
+        await emailMappingApi.deleteMapping(parseInt(exercise), info.mappingId);
+        handleMappingChange();
+      }
+    },
+    [assignedEmails, exercise, handleMappingChange],
+  );
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
