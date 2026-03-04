@@ -31,6 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.normalize;
+import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.normalizeForFuzzyMatch;
+import static de.tum.cit.aet.pairProgramming.util.AttendanceUtils.levenshteinDistance;
 
 /**
  * Central service for pair programming and attendance management.
@@ -145,27 +147,102 @@ public class PairProgrammingService {
 
     /**
      * Resolves the key used in the attendance map: tries normalized team name first,
-     * then normalized short name. Used so Excel rows keyed by short name still match
-     * Artemis teams that are displayed by full name.
+     * then normalized short name, then fuzzy matching. Used so Excel rows keyed by short name still match
+     * Artemis teams that are displayed by full name, and teams with slightly different names still match.
      *
      * @param teamName  the full team name
      * @param shortName the short team name (optional fallback)
      * @return the key present in {@code teamsByNormalizedName}, or {@code null} if not found
      */
     private String resolveAttendanceKey(String teamName, String shortName) {
+        // 1) Try exact normalized match with full team name
         if (teamName != null) {
             String key = normalize(teamName);
             if (teamsByNormalizedName.containsKey(key)) {
                 return key;
             }
         }
+
+        // 2) Try exact normalized match with short team name
         if (shortName != null && !shortName.equals(teamName)) {
             String key = normalize(shortName);
             if (teamsByNormalizedName.containsKey(key)) {
                 return key;
             }
         }
+
+        // 3) Try fuzzy matching if exact match fails
+        String fuzzyMatchedKey = resolveFuzzyAttendanceKey(teamName, shortName);
+        if (fuzzyMatchedKey != null) {
+            return fuzzyMatchedKey;
+        }
+
         return teamName != null ? normalize(teamName) : null;
+    }
+
+    /**
+     * Resolves team name using fuzzy matching when exact normalized match fails.
+     * Uses Levenshtein distance to find the best match above a similarity threshold.
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional)
+     * @return the best fuzzy-matched key, or {@code null} if no match above threshold
+     */
+    private String resolveFuzzyAttendanceKey(String teamName, String shortName) {
+        if (teamsByNormalizedName.isEmpty()) {
+            return null;
+        }
+
+        String fuzzyTeamName = teamName != null ? normalizeForFuzzyMatch(teamName) : null;
+        String fuzzyShortName = (shortName != null && !shortName.equals(teamName))
+                ? normalizeForFuzzyMatch(shortName)
+                : null;
+
+        int bestDistance = Integer.MAX_VALUE;
+        String bestMatchKey = null;
+
+        for (String storedKey : teamsByNormalizedName.keySet()) {
+            String storedNormalized = normalizeForFuzzyMatch(storedKey);
+
+            // Try distance with full team name
+            if (fuzzyTeamName != null && !fuzzyTeamName.isEmpty()) {
+                int distance = levenshteinDistance(fuzzyTeamName, storedNormalized);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestMatchKey = storedKey;
+                }
+            }
+
+            // Try distance with short team name as well
+            if (fuzzyShortName != null && !fuzzyShortName.isEmpty()) {
+                int distance = levenshteinDistance(fuzzyShortName, storedNormalized);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestMatchKey = storedKey;
+                }
+            }
+        }
+
+        // Only accept match if similarity is above threshold (85%)
+        // Calculate based on the longer of the two strings being compared
+        if (bestMatchKey != null) {
+            String storedNormalized = normalizeForFuzzyMatch(bestMatchKey);
+            int maxLength = Math.max(
+                    fuzzyTeamName != null ? fuzzyTeamName.length() : 0,
+                    storedNormalized.length()
+            );
+
+            if (maxLength > 0) {
+                double similarity = 1.0 - (double) bestDistance / maxLength;
+                if (similarity >= 0.85) {
+                    log.debug("Fuzzy matched team '{}' to '{}' with similarity {}",
+                            teamName, storedNormalized, String.format("%.2f", similarity * 100));
+                    return bestMatchKey;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
