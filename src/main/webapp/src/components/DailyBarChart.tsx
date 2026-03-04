@@ -5,7 +5,7 @@ interface DailyBarChartProps {
 const DailyBarChart = ({ data }: DailyBarChartProps) => {
   if (!data || data.length === 0) return null;
 
-  const max = Math.max(...data);
+  const max = data.reduce((a, b) => Math.max(a, b), 0);
 
   const getBarColor = (value: number) => {
     if (max === 0) return 'bg-primary/20';

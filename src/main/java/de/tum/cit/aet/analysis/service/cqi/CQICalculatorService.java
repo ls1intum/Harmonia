@@ -33,12 +33,6 @@ public class CQICalculatorService {
     private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
-     * Result of temporal spread calculation, containing both the score and the daily distribution data.
-     */
-    public record TemporalSpreadResultDTO(double score, List<Double> dailyDistribution) {
-    }
-
-    /**
      * Calculate CQI from LLM-rated commits.
      * <p>
      * The rated chunks should come from commits that passed the pre-filter.

@@ -85,11 +85,6 @@ public class CqiRecalculationService {
                             ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : "";
                     Long authorId = emailToStudentId.getOrDefault(chunkEmail, -1L);
 
-                    if (chunk.getTimestamp() == null) {
-                        log.warn("AnalyzedChunk {} has null timestamp — skipping from recalculation",
-                                chunk.getChunkId());
-                    }
-
                     CommitChunkDTO chunkDTO = CommitChunkDTO.single(
                             chunk.getCommitShas() != null ? chunk.getCommitShas().split(",")[0] : "",
                             authorId,
