@@ -78,7 +78,7 @@ const TeamDetail = ({
   const { data: templateAuthorEmails = [] } = useQuery<string[]>({
     queryKey: ['templateAuthorEmails', exercise],
     queryFn: async () => {
-      const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise!));
+      const response = await emailMappingApi.getTemplateAuthors(parseInt(exercise!));
       const data = response.data;
       if (!Array.isArray(data)) return [];
       return data.map(d => (d.templateEmail ?? '').toLowerCase()).filter(Boolean);
