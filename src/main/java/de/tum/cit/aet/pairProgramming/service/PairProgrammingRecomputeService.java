@@ -65,8 +65,6 @@ public class PairProgrammingRecomputeService {
         recomputeTracker.startRecompute(exerciseId);
         try {
             int updatedTeams = recomputePairProgrammingForExercise(exerciseId);
-            log.info("Async recomputed pair programming metrics for {} teams (exercise={})",
-                    updatedTeams, exerciseId);
         } catch (Exception e) {
             log.error("Async pair programming recomputation failed for exercise {}", exerciseId, e);
         } finally {
@@ -107,9 +105,6 @@ public class PairProgrammingRecomputeService {
                 updated++;
             }
         }
-
-        log.info("Recomputed pair programming metrics for {}/{} teams in exerciseId={}",
-                updated, participations.size(), exerciseId);
         return updated;
     }
 
@@ -147,8 +142,6 @@ public class PairProgrammingRecomputeService {
                 updated++;
             }
         }
-        log.info("Cleared pair programming metrics for {}/{} teams in exerciseId={}",
-                updated, participations.size(), exerciseId);
         return updated;
     }
 
