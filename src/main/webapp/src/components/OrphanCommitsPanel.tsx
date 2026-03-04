@@ -72,16 +72,10 @@ const OrphanCommitsPanel = ({
   const dismissMutation = useMutation({
     mutationFn: async (email: string) => {
       if (!exerciseId || !teamParticipationId) throw new Error('Missing IDs');
-      const response = await fetch(`/api/exercises/${exerciseId}/email-mappings/dismiss`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          gitEmail: email,
-          teamParticipationId: teamParticipationId,
-        }),
+      await emailMappingApi.dismissEmail(parseInt(exerciseId), {
+        gitEmail: email,
+        teamParticipationId: parseInt(teamParticipationId),
       });
-      if (!response.ok) throw new Error('Failed to dismiss email');
       return email;
     },
     onSuccess: () => {
@@ -102,15 +96,21 @@ const OrphanCommitsPanel = ({
   const orphanEmailsFromChunks = new Set(
     externalChunks.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
   );
-  const allOrphanEmails = new Set(Array.from(orphanEmailsFromCommits).concat(Array.from(orphanEmailsFromChunks)));
+  // Include mapping emails that have chunks in this team (even after assignment mutates is_external)
+  const allChunkEmails = new Set(
+    (analysisHistory ?? []).map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+  );
+  const mappingEmails = emailMappings
+    .filter(m => m.gitEmail && allChunkEmails.has(m.gitEmail.toLowerCase()))
+    .map(m => m.gitEmail!.toLowerCase());
+  const allOrphanEmails = new Set([...orphanEmailsFromCommits, ...orphanEmailsFromChunks, ...mappingEmails]);
 
   // Split mappings into assigned and dismissed
   const assignedMappings = emailMappings.filter(m => !m.isDismissed && m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
   const dismissedMappings = emailMappings.filter(m => m.isDismissed && m.gitEmail && allOrphanEmails.has(m.gitEmail.toLowerCase()));
-  const mappedEmailSet = new Set([
-    ...assignedMappings.map(m => (m.gitEmail ?? '').toLowerCase()),
-    ...dismissedMappings.map(m => (m.gitEmail ?? '').toLowerCase()),
-  ]);
+  const mappedEmailSet = new Set(
+    assignedMappings.concat(dismissedMappings).map(m => (m.gitEmail ?? '').toLowerCase()),
+  );
 
   // Unmapped orphan emails
   const unmappedEmails = Array.from(allOrphanEmails).filter(e => e && !mappedEmailSet.has(e));

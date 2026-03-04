@@ -164,12 +164,12 @@ public class EmailMappingResource {
 
     /**
      * Dismisses an orphan email without assigning it to a student.
-     * The email's chunks are marked as non-external (no longer orphan) but
-     * no stats are added to any student.
+     * Chunks are NOT mutated — the frontend uses the dismissed mapping
+     * to display them in a separate "Dismissed" section.
      *
      * @param exerciseId the exercise ID
      * @param request    the dismiss request with git email and participation ID
-     * @return updated client response DTO with recalculated CQI
+     * @return updated client response DTO
      */
     @PostMapping("/dismiss")
     @Transactional
@@ -189,31 +189,13 @@ public class EmailMappingResource {
         ExerciseEmailMapping mapping = new ExerciseEmailMapping(exerciseId, normalizedEmail, true);
         emailMappingRepository.save(mapping);
 
-        // 3. Mark matching external chunks as non-external across ALL participations
-        List<TeamParticipation> participations = teamParticipationRepository
-                .findAllByExerciseId(exerciseId);
+        // 3. Look up the requested participation and return response
+        TeamParticipation participation = teamParticipationRepository
+                .findByExerciseIdAndTeam(exerciseId, request.teamParticipationId())
+                .orElse(null);
 
-        ClientResponseDTO requestedResponse = null;
-        for (TeamParticipation participation : participations) {
-            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
-            List<AnalyzedChunk> dismissedChunks = new ArrayList<>();
-            for (AnalyzedChunk chunk : chunks) {
-                if (isExternalChunkForEmail(chunk, normalizedEmail)) {
-                    chunk.setIsExternalContributor(false);
-                    dismissedChunks.add(chunk);
-                }
-            }
-            if (!dismissedChunks.isEmpty()) {
-                analyzedChunkRepository.saveAll(dismissedChunks);
-                cqiRecalculationService.recalculateFromChunks(participation, chunks);
-            }
-            if (participation.getTeam().equals(request.teamParticipationId())) {
-                requestedResponse = buildResponse(participation);
-            }
-        }
-
-        if (requestedResponse != null) {
-            return ResponseEntity.ok(requestedResponse);
+        if (participation != null) {
+            return ResponseEntity.ok(buildResponse(participation));
         }
         return ResponseEntity.noContent().build();
     }

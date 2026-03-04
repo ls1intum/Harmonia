@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX, Info, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, GitCommit, Clock, FileCode, AlertCircle, AlertTriangle, UserX, EyeOff, Link, Info, Search, X } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,10 @@ import type { AnalyzedChunkDTO } from '@/app/generated';
 interface AnalysisFeedProps {
   chunks: AnalyzedChunkDTO[];
   isDevMode?: boolean;
+  dismissedEmails?: Set<string>;
+  onUndoDismiss?: (email: string) => void;
+  assignedEmails?: Map<string, { mappingId: string; studentName: string }>;
+  onUndoAssignment?: (email: string) => void;
 }
 
 // Badge-only colors for classification labels
@@ -74,9 +78,10 @@ const MetricLabel = ({ label, tooltip }: { label: string; tooltip: string }) => 
  * @param props.chunks - analyzed commit chunks from the server
  * @param props.isDevMode - when true, shows LLM token usage details
  */
-const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
+const AnalysisFeed = ({ chunks, isDevMode = false, dismissedEmails = new Set(), onUndoDismiss, assignedEmails = new Map(), onUndoAssignment }: AnalysisFeedProps) => {
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const [externalOpen, setExternalOpen] = useState(false);
+  const [dismissedOpen, setDismissedOpen] = useState(false);
   const [authorFilter, setAuthorFilter] = useState('all');
   const [classificationFilter, setClassificationFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,9 +98,20 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
     });
   };
 
-  // Separate team member chunks from external contributor chunks
-  const teamChunks = useMemo(() => (chunks ?? []).filter(chunk => !chunk.isExternalContributor), [chunks]);
-  const externalChunks = useMemo(() => (chunks ?? []).filter(chunk => chunk.isExternalContributor), [chunks]);
+  // Three-way chunk split: team members, external contributors, dismissed
+  // Email-first priority: if email is dismissed, it goes to dismissed regardless of isExternalContributor (handles old data)
+  const teamChunks = useMemo(() => (chunks ?? []).filter(chunk => {
+    const email = chunk.authorEmail?.toLowerCase();
+    return !chunk.isExternalContributor && !(email && dismissedEmails.has(email));
+  }), [chunks, dismissedEmails]);
+  const externalChunks = useMemo(() => (chunks ?? []).filter(chunk => {
+    const email = chunk.authorEmail?.toLowerCase();
+    return chunk.isExternalContributor && !(email && dismissedEmails.has(email));
+  }), [chunks, dismissedEmails]);
+  const dismissedChunks = useMemo(() => (chunks ?? []).filter(chunk => {
+    const email = chunk.authorEmail?.toLowerCase();
+    return email ? dismissedEmails.has(email) : false;
+  }), [chunks, dismissedEmails]);
 
   // Group by author for summary (filtering out errors and external contributors)
   const authorSummary = teamChunks
@@ -363,6 +379,8 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
           const isError = chunk.isError;
           const badgeClass = isError ? '' : badgeColors[chunk.classification ?? 'TRIVIAL'] || badgeColors.TRIVIAL;
           const isLowEffort = !isError && (chunk.effortScore ?? 0) < 3.0;
+          const chunkEmail = chunk.authorEmail?.toLowerCase();
+          const assignedInfo = chunkEmail ? assignedEmails.get(chunkEmail) : undefined;
           const cardStyle = isError
             ? {
                 backgroundColor: '#fef2f2',
@@ -395,6 +413,11 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
                   <span className="font-medium truncate text-foreground">
                     {chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0]}
                   </span>
+                  {assignedInfo && (
+                    <Badge variant="outline" className="shrink-0 text-xs text-blue-600 border-blue-300 hidden sm:inline-flex">
+                      <Link className="w-3 h-3 mr-1" /> {chunk.authorEmail}
+                    </Badge>
+                  )}
                   {chunk.isBundled && (
                     <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
                       Bundled
@@ -408,6 +431,19 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
                 </div>
 
                 <div className="flex items-center gap-4">
+                  {assignedInfo && onUndoAssignment && chunk.authorEmail && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onUndoAssignment(chunk.authorEmail!);
+                      }}
+                    >
+                      Undo
+                    </Button>
+                  )}
                   {isLowEffort && <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />}
                   {!isError && (
                     <div className="hidden sm:flex items-center gap-2">
@@ -630,6 +666,128 @@ const AnalysisFeed = ({ chunks, isDevMode = false }: AnalysisFeedProps) => {
                             </div>
                           )}
 
+                          {/* AI Reasoning */}
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>
+                            <p className="text-sm">{chunk.reasoning || 'No reasoning provided.'}</p>
+                          </div>
+
+                          {/* Commit details */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground">Commits ({(chunk.commitShas ?? []).length}):</p>
+                            {(chunk.commitShas ?? []).map((sha, idx) => (
+                              <div key={sha} className="flex items-start gap-2 text-sm">
+                                <GitCommit className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                <div className="min-w-0">
+                                  <code className="text-xs bg-muted px-1 py-0.5 rounded">{sha.slice(0, 7)}</code>
+                                  <span className="ml-2 break-all">{(chunk.commitMessages ?? [])[idx]}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Metadata */}
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <FileCode className="h-3 w-3" />
+                              {chunk.linesChanged ?? 0} lines
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(chunk.timestamp ?? new Date().toISOString()).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </CardContent>
+                      )}
+                    </Card>
+                  );
+                })}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
+      {/* Dismissed Contributions Section */}
+      {dismissedChunks.length > 0 && (
+        <Collapsible open={dismissedOpen} onOpenChange={setDismissedOpen}>
+          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-background opacity-60">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <EyeOff className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                    <CardTitle className="text-lg text-slate-600 dark:text-slate-300">
+                      Dismissed Contributions ({dismissedChunks.length} chunks)
+                    </CardTitle>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {dismissedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  These contributions were dismissed by a tutor. They are <strong>not included</strong> in the CQI calculation.
+                </p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                {dismissedChunks.map(chunk => {
+                  const chunkId = `dismissed-${chunk.id ?? ''}`;
+                  const isExpanded = expandedChunks.has(chunkId);
+                  const badgeClass = badgeColors[chunk.classification ?? 'TRIVIAL'] || badgeColors.TRIVIAL;
+
+                  return (
+                    <Card
+                      key={chunkId}
+                      className="overflow-hidden transition-colors bg-white dark:bg-background border border-slate-200 dark:border-slate-700"
+                    >
+                      <div
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleExpand(chunkId)}
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <Badge className={`shrink-0 ${badgeClass}`}>{chunk.classification}</Badge>
+                          <Badge variant="outline" className="shrink-0 text-slate-500 border-slate-300">
+                            <EyeOff className="w-3 h-3 mr-1" /> Dismissed
+                          </Badge>
+                          <span className="font-medium truncate text-slate-500">{chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0]}</span>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          {onUndoDismiss && chunk.authorEmail && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={e => {
+                                e.stopPropagation();
+                                onUndoDismiss(chunk.authorEmail!);
+                              }}
+                            >
+                              Undo
+                            </Button>
+                          )}
+                          <div className="hidden sm:flex items-center gap-2">
+                            <span className="text-sm font-semibold text-muted-foreground">{(chunk.effortScore ?? 0).toFixed(1)}</span>
+                            <span className="text-xs text-muted-foreground">effort</span>
+                          </div>
+                          {isDevMode && (
+                            <div className="hidden sm:flex items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">
+                                {(chunk.llmTokenUsage?.totalTokens ?? 0).toLocaleString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">tokens</span>
+                            </div>
+                          )}
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <CardContent className="border-t bg-muted/30 pt-4 space-y-3">
                           {/* AI Reasoning */}
                           <div>
                             <p className="text-sm font-medium text-muted-foreground mb-1">AI Reasoning:</p>
