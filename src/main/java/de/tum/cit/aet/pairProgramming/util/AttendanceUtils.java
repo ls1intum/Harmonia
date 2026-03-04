@@ -24,6 +24,10 @@ public class AttendanceUtils {
                 .replace('\u202F', ' ')
                 .strip()
                 .toLowerCase(Locale.ROOT);
+
+        // Convert & to and
+        normalized = normalized.replace(" & ", " and ").replace("&", "and");
+
         normalized = FORMAT_CHAR_PATTERN.matcher(normalized).replaceAll("");
         return WHITESPACE_PATTERN.matcher(normalized).replaceAll(" ");
     }
@@ -52,7 +56,6 @@ public class AttendanceUtils {
                 .replace("&", "and");
 
         // Remove common prefixes and suffixes (with or without spaces)
-        // This handles: "team seven", "teamseven", "Team Seven", etc.
         normalized = normalized.replaceAll("(?i)^team\\s*", "")      // Remove leading "team" with optional space
                 .replaceAll("(?i)^group\\s*", "")                    // Remove leading "group" with optional space
                 .replaceAll("(?i)\\s*team$", "")                     // Remove trailing "team" with optional space
