@@ -377,7 +377,16 @@ const TeamsList = ({
     }
 
     return filtered;
-  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter, pairProgrammingFilter, hasValidPairProgrammingData, pairProgrammingAttendanceByTeamName]);
+  }, [
+    teams,
+    searchQuery,
+    sortColumn,
+    sortDirection,
+    statusFilter,
+    pairProgrammingFilter,
+    hasValidPairProgrammingData,
+    pairProgrammingAttendanceByTeamName,
+  ]);
 
   const renderStartDropdown = (label: string, isPending: boolean, onAction: (mode: AnalysisMode) => void) => (
     <DropdownMenu>

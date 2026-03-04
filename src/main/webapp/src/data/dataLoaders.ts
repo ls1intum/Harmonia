@@ -1,7 +1,7 @@
 import type { ClientResponseDTO, CQIResultDTO, TeamSummaryDTO } from '@/app/generated';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 import axios from 'axios';
-import {apiConfig} from "@/lib/apiClient.ts";
+import { apiConfig } from '@/lib/apiClient.ts';
 
 export interface SubMetric {
   name: string;
@@ -39,8 +39,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
   const weights = serverCqiDetails?.weights;
   const pairProgrammingStatus = serverCqiDetails?.components?.pairProgrammingStatus;
   const ppFound = pairProgrammingStatus === 'PASS' || pairProgrammingStatus === 'FAIL';
-  const showPairProgramming =
-    ppFound || pairProgrammingStatus === 'NOT_FOUND' || pairProgrammingStatus === 'WARNING';
+  const showPairProgramming = ppFound || pairProgrammingStatus === 'NOT_FOUND' || pairProgrammingStatus === 'WARNING';
 
   const subMetrics: SubMetric[] | undefined = serverCqiDetails?.components
     ? (
@@ -83,26 +82,26 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
           },
         ] as SubMetric[]
       ).concat(
-          showPairProgramming
-              ? [
-                {
-                  name: 'Pair Programming',
-                  value: ppFound
-                      ? Math.round(serverCqiDetails.components.pairProgramming ?? 0)
-                      : pairProgrammingStatus === 'WARNING'
-                          ? -3 // -3 indicates cancelled-session warning
-                          : -2, // -2 indicates NOT_FOUND
-                  weight: 0,
-                  description: 'Did both students commit during pair programming sessions?',
-                  details: ppFound
-                      ? 'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.'
-                      : pairProgrammingStatus === 'WARNING'
-                          ? 'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.'
-                          : 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
-                  status: pairProgrammingStatus as 'PASS' | 'FAIL' | 'NOT_FOUND' | 'WARNING',
-                },
-              ]
-              : [],
+        showPairProgramming
+          ? [
+              {
+                name: 'Pair Programming',
+                value: ppFound
+                  ? Math.round(serverCqiDetails.components.pairProgramming ?? 0)
+                  : pairProgrammingStatus === 'WARNING'
+                    ? -3 // -3 indicates cancelled-session warning
+                    : -2, // -2 indicates NOT_FOUND
+                weight: 0,
+                description: 'Did both students commit during pair programming sessions?',
+                details: ppFound
+                  ? 'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.'
+                  : pairProgrammingStatus === 'WARNING'
+                    ? 'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.'
+                    : 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
+                status: pairProgrammingStatus as 'PASS' | 'FAIL' | 'NOT_FOUND' | 'WARNING',
+              },
+            ]
+          : [],
       )
     : undefined;
 

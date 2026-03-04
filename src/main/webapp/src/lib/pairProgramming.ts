@@ -63,8 +63,7 @@ export const getPairProgrammingBadgeStatus = (
   }
 
   const normalizedTeamName = normalizeTeamName(teamName);
-  let status: PairProgrammingAttendanceStatus | undefined =
-    pairProgrammingAttendanceByTeamName[normalizedTeamName];
+  let status: PairProgrammingAttendanceStatus | undefined = pairProgrammingAttendanceByTeamName[normalizedTeamName];
 
   if (status === undefined && shortName != null) {
     const normalizedShortName = normalizeTeamName(shortName);

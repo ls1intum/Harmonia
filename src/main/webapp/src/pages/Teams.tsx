@@ -11,7 +11,7 @@ import {
   transformSummaryToTeamDTO,
   type TemplateAuthorInfo,
   type TeamDTO,
-  getPairProgrammingRecomputing
+  getPairProgrammingRecomputing,
 } from '@/data/dataLoaders';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 import { normalizeTeamName } from '@/lib/utils';
@@ -119,8 +119,7 @@ export default function Teams() {
     staleTime: 0,
   });
 
-  const isPairProgrammingScoresUpdating =
-    !!uploadedAttendanceFileName && (pairProgrammingRecomputing?.recomputing ?? false);
+  const isPairProgrammingScoresUpdating = !!uploadedAttendanceFileName && (pairProgrammingRecomputing?.recomputing ?? false);
 
   // Fetch team summaries from database on load (one-time, no polling).
   // During analysis, SSE is the single source of truth for updates.

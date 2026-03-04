@@ -35,8 +35,14 @@ interface TeamDetailProps {
  * Full detail view for a single team — CQI score, student list, metrics cards,
  * orphan-commit mapping, and the AI analysis feed.
  *
- * @param props.team - team to display
- * @param props.onBack - navigate back to the teams list
+ * @param team - team to display
+ * @param onBack - navigate back to the teams list
+ * @param course - course
+ * @param exercise - exercise
+ * @param pairProgrammingBadgeStatus - status of the PP badge
+ * @param courseAverages - course average
+ * @param onTeamUpdate
+ * @param analysisMode
  */
 const TeamDetail = ({
   team,
@@ -408,7 +414,7 @@ const TeamDetail = ({
                       Analyzing...
                     </Badge>
                   )}
-                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true}/>
+                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true} />
                 </div>
               </div>
             </div>

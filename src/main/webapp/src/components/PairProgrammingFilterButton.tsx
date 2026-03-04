@@ -20,8 +20,8 @@ interface PairProgrammingFilterButtonProps {
 /**
  * Dropdown filter for pair-programming attendance status.
  *
- * @param props.filter - currently active filter value
- * @param props.setFilter - callback to change the filter
+ * @param filter - currently active filter value
+ * @param setFilter - callback to change the filter
  */
 export const PairProgrammingFilterButton = ({ filter, setFilter }: PairProgrammingFilterButtonProps) => {
   const isActive = filter !== 'all';
@@ -40,7 +40,7 @@ export const PairProgrammingFilterButton = ({ filter, setFilter }: PairProgrammi
           <DropdownMenuLabel>Filter by</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
-          <DropdownMenuRadioGroup value={filter} onValueChange={(value) => setFilter(value as PairProgrammingFilter)}>
+          <DropdownMenuRadioGroup value={filter} onValueChange={value => setFilter(value as PairProgrammingFilter)}>
             <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="pass">Pass</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="fail">Fail</DropdownMenuRadioItem>

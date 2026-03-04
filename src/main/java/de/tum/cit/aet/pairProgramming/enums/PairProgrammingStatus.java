@@ -28,4 +28,3 @@ public enum PairProgrammingStatus {
         return pairedMandatorySessions ? PASS : FAIL;
     }
 }
-

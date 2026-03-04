@@ -4,20 +4,21 @@ import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface PairProgrammingBadgeProps {
   status: PairProgrammingBadgeStatus | null;
-  verbose?: boolean
+  verbose?: boolean;
 }
 
 /**
  * Badge indicating pair-programming attendance status (pass / fail / warning / not found).
  *
- * @param props.status - attendance status, or null to render nothing
+ * @param status - attendance status, or null to render nothing
+ * @param verbose - whether the prefix "Pair Programming" is included
  */
 const PairProgrammingBadge = ({ status, verbose }: PairProgrammingBadgeProps) => {
   if (!status) {
     return null;
   }
 
-  const verboseAddition = verbose ? "Pair Programming " : ""
+  const verboseAddition = verbose ? 'Pair Programming ' : '';
 
   if (status === 'not_found') {
     return (
