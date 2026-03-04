@@ -3,6 +3,15 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom/vitest';
 import CqiWeightsPanel from '@/components/CqiWeightsPanel';
+import { cqiWeightsApi } from '@/lib/apiClient';
+
+vi.mock('@/lib/apiClient', () => ({
+  cqiWeightsApi: {
+    getWeights: vi.fn(),
+    saveWeights: vi.fn(),
+    resetWeights: vi.fn(),
+  },
+}));
 
 afterEach(() => {
   cleanup();
@@ -12,15 +21,6 @@ afterEach(() => {
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  });
-}
-
-function mockFetchResponse(data: unknown, ok = true, status = 200) {
-  return vi.fn().mockResolvedValue({
-    ok,
-    status,
-    json: () => Promise.resolve(data),
-    text: () => Promise.resolve(typeof data === 'string' ? data : JSON.stringify(data)),
   });
 }
 
@@ -51,12 +51,11 @@ function renderPanel(exerciseId = '42') {
 
 describe('CqiWeightsPanel', () => {
   beforeEach(() => {
-    globalThis.fetch = mockFetchResponse(defaultWeights);
+    vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: defaultWeights } as any);
   });
 
   it('returns null while loading', () => {
-    // Make fetch hang so the component stays in loading state
-    globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
+    vi.mocked(cqiWeightsApi.getWeights).mockReturnValue(new Promise(() => {}));
     const { container } = renderPanel();
     expect(container.innerHTML).toBe('');
   });
@@ -73,7 +72,7 @@ describe('CqiWeightsPanel', () => {
   });
 
   it('shows "Default" badge when isDefault is true', async () => {
-    globalThis.fetch = mockFetchResponse(defaultWeights);
+    vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: defaultWeights } as any);
     renderPanel();
     await waitFor(() => {
       expect(screen.getByText('Default')).toBeInTheDocument();
@@ -81,7 +80,7 @@ describe('CqiWeightsPanel', () => {
   });
 
   it('shows "Custom" badge when isDefault is false', async () => {
-    globalThis.fetch = mockFetchResponse(customWeights);
+    vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: customWeights } as any);
     renderPanel();
     await waitFor(() => {
       expect(screen.getByText('Custom')).toBeInTheDocument();
@@ -120,7 +119,7 @@ describe('CqiWeightsPanel', () => {
   });
 
   it('disables reset button when isDefault is true', async () => {
-    globalThis.fetch = mockFetchResponse(defaultWeights);
+    vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: defaultWeights } as any);
     renderPanel();
     await waitFor(() => {
       expect(screen.getByText('Reset')).toBeDisabled();
@@ -128,7 +127,7 @@ describe('CqiWeightsPanel', () => {
   });
 
   it('enables reset button when isDefault is false', async () => {
-    globalThis.fetch = mockFetchResponse(customWeights);
+    vi.mocked(cqiWeightsApi.getWeights).mockResolvedValue({ data: customWeights } as any);
     renderPanel();
     await waitFor(() => {
       expect(screen.getByText('Reset')).not.toBeDisabled();

@@ -61,9 +61,4 @@ public class CqiWeightConfiguration {
         updatedAt = LocalDateTime.now();
     }
 
-    public boolean isValid() {
-        double sum = effortWeight + locWeight + temporalWeight + ownershipWeight;
-        return Math.abs(sum - 1.0) < 0.001
-                && effortWeight >= 0 && locWeight >= 0 && temporalWeight >= 0 && ownershipWeight >= 0;
-    }
 }

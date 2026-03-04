@@ -7,14 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Settings, RotateCcw } from 'lucide-react';
-
-interface CqiWeightsData {
-  effortBalance: number;
-  locBalance: number;
-  temporalSpread: number;
-  ownershipSpread: number;
-  isDefault: boolean;
-}
+import type { CqiWeightsDTO } from '@/app/generated';
+import { cqiWeightsApi } from '@/lib/apiClient';
 
 interface CqiWeightsPanelProps {
   exerciseId: string;
@@ -51,12 +45,12 @@ function weightReducer(state: WeightState, action: WeightAction): WeightState {
   }
 }
 
-function toPercentState(data: CqiWeightsData): WeightState {
+function toPercentState(data: CqiWeightsDTO): WeightState {
   return {
-    effort: Math.round(data.effortBalance * 100),
-    loc: Math.round(data.locBalance * 100),
-    temporal: Math.round(data.temporalSpread * 100),
-    ownership: Math.round(data.ownershipSpread * 100),
+    effort: Math.round((data.effortBalance ?? 0) * 100),
+    loc: Math.round((data.locBalance ?? 0) * 100),
+    temporal: Math.round((data.temporalSpread ?? 0) * 100),
+    ownership: Math.round((data.ownershipSpread ?? 0) * 100),
   };
 }
 
@@ -66,14 +60,11 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
   const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(weightReducer, DEFAULT_STATE);
 
-  const { data: weights, isLoading } = useQuery<CqiWeightsData>({
+  const { data: weights, isLoading } = useQuery<CqiWeightsDTO>({
     queryKey: ['cqiWeights', exerciseId],
     queryFn: async () => {
-      const response = await fetch(`/api/exercises/${exerciseId}/cqi-weights`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to fetch CQI weights');
-      const data: CqiWeightsData = await response.json();
+      const response = await cqiWeightsApi.getWeights(parseInt(exerciseId));
+      const data = response.data;
       dispatch({ type: 'RESET', state: toPercentState(data) });
       return data;
     },
@@ -85,50 +76,44 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/exercises/${exerciseId}/cqi-weights`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          effortBalance: state.effort / 100,
-          locBalance: state.loc / 100,
-          temporalSpread: state.temporal / 100,
-          ownershipSpread: state.ownership / 100,
-        }),
+      const response = await cqiWeightsApi.saveWeights(parseInt(exerciseId), {
+        effortBalance: state.effort / 100,
+        locBalance: state.loc / 100,
+        temporalSpread: state.temporal / 100,
+        ownershipSpread: state.ownership / 100,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to save weights');
-      }
-      return response.json();
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cqiWeights', exerciseId] });
       toast({ title: 'CQI weights saved' });
     },
-    onError: (error: Error) => {
-      toast({ title: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      const axiosError = error as { response?: { data?: string } };
+      toast({
+        title: 'Failed to save CQI weights',
+        description: axiosError.response?.data || 'An unexpected error occurred',
+        variant: 'destructive',
+      });
     },
   });
 
   const resetMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/exercises/${exerciseId}/cqi-weights`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to reset weights');
-      }
-      return response.json();
+      const response = await cqiWeightsApi.resetWeights(parseInt(exerciseId));
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cqiWeights', exerciseId] });
       toast({ title: 'CQI weights reset to defaults' });
     },
-    onError: (error: Error) => {
-      toast({ title: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      const axiosError = error as { response?: { data?: string } };
+      toast({
+        title: 'Failed to reset CQI weights',
+        description: axiosError.response?.data || 'An unexpected error occurred',
+        variant: 'destructive',
+      });
     },
   });
 

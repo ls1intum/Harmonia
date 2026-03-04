@@ -23,7 +23,7 @@ public class CqiWeightResource {
             double locBalance,
             double temporalSpread,
             double ownershipSpread,
-            boolean isDefault
+            Boolean isDefault
     ) {}
 
     /**
