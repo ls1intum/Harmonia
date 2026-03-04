@@ -7,7 +7,6 @@ import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
-import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeTracker;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,8 +33,8 @@ class CQICalculatorServiceTest {
 
     @BeforeEach
     void setUp() {
-        pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration(), null, new PairProgrammingRecomputeTracker());
-        cqiService = new CQICalculatorService(new CQIConfig(), pairProgrammingService, new PairProgrammingCalculator(new AttendanceConfiguration()));
+        pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration(), new PairProgrammingCalculator(new AttendanceConfiguration()));
+        cqiService = new CQICalculatorService(new CQIConfig(), pairProgrammingService);
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
         teamName = "team1";

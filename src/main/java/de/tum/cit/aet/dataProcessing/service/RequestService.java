@@ -15,9 +15,7 @@ import de.tum.cit.aet.artemis.ArtemisClientService;
 import de.tum.cit.aet.repositoryProcessing.service.GitOperationsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.channels.ClosedByInterruptException;
@@ -37,7 +35,6 @@ import java.util.function.Consumer;
 
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
-import de.tum.cit.aet.analysis.dto.FullCommitMappingResultDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
@@ -55,6 +52,7 @@ import de.tum.cit.aet.ai.dto.FairnessReportWithUsageDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -98,7 +96,6 @@ public class RequestService {
     private final ExerciseEmailMappingRepository emailMappingRepository;
     private final CqiRecalculationService cqiRecalculationService;
     private final PairProgrammingService pairProgrammingService;
-    private final RequestService requestServiceSelf;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -130,8 +127,7 @@ public class RequestService {
             CommitChunkerService commitChunkerService,
             TransactionTemplate transactionTemplate,
             CqiRecalculationService cqiRecalculationService,
-            PairProgrammingService pairProgrammingService,
-            @Lazy RequestService requestServiceSelf) {
+            PairProgrammingService pairProgrammingService) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
         this.balanceCalculator = balanceCalculator;
@@ -151,7 +147,6 @@ public class RequestService {
         this.transactionTemplate = transactionTemplate;
         this.cqiRecalculationService = cqiRecalculationService;
         this.pairProgrammingService = pairProgrammingService;
-        this.requestServiceSelf = requestServiceSelf;
     }
 
     // =====================================================================
@@ -586,96 +581,6 @@ public class RequestService {
         clearDatabaseForExerciseInternal(exerciseId);
     }
 
-
-    // =====================================================================
-    //  Pair programming support
-    // =====================================================================
-
-    /**
-     * Recomputes pair programming metrics for all teams in an exercise.
-     * <p>
-     * Runs in two passes so the lightweight status (PASS / FAIL / NOT_FOUND / WARNING)
-     * is visible in the webapp immediately, before the slower score computation begins:
-     * <ol>
-     *   <li><b>Fast pass</b> — derives the status from attendance data alone and commits
-     *       it per-team (each {@code save()} auto-commits its own transaction).</li>
-     *   <li><b>Slow pass</b> — computes the numeric score from commit chunks and
-     *       commits per-team in a new transaction.</li>
-     * </ol>
-     *
-     * @param exerciseId the exercise ID
-     * @return number of teams updated (status or score change)
-     */
-    public int recomputePairProgrammingForExercise(Long exerciseId) {
-        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
-        if (participations.isEmpty()) {
-            return 0;
-        }
-
-        // Fast pass: persist status for all teams immediately
-        for (TeamParticipation participation : participations) {
-            PairProgrammingStatus status = PairProgrammingStatus.fromAttendanceState(
-                    pairProgrammingService.hasTeamAttendance(participation.getName(), participation.getShortName()),
-                    pairProgrammingService.hasCancelledSessionWarning(participation.getName(), participation.getShortName()),
-                    pairProgrammingService.isPairedMandatorySessions(participation.getName(), participation.getShortName()));
-            String statusValue = status != null ? status.name() : null;
-            if (!Objects.equals(participation.getCqiPairProgrammingStatus(), statusValue)) {
-                participation.setCqiPairProgrammingStatus(statusValue);
-                teamParticipationRepository.save(participation);
-            }
-        }
-
-        // Slow pass: compute and persist scores
-        int updated = 0;
-        for (TeamParticipation participation : participations) {
-            if (requestServiceSelf.recomputeOneParticipationInNewTx(participation.getTeamParticipationId())) {
-                updated++;
-            }
-        }
-
-        log.info("Recomputed pair programming metrics for {}/{} teams in exerciseId={}",
-                updated, participations.size(), exerciseId);
-        return updated;
-    }
-
-    /**
-     * Recomputes pair programming for a single participation in its own transaction.
-     * Commits immediately so the result is visible and durable without waiting for
-     * the full exercise recompute to finish.
-     *
-     * @param teamParticipationId the participation ID
-     * @return true if the participation was updated
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean recomputeOneParticipationInNewTx(UUID teamParticipationId) {
-        return teamParticipationRepository.findById(teamParticipationId)
-                .map(this::recomputePairProgrammingForParticipation)
-                .orElse(false);
-    }
-
-    /**
-     * Clears pair programming metrics for all teams in an exercise.
-     *
-     * @param exerciseId the exercise ID
-     * @return number of teams cleared
-     */
-    @Transactional
-    public int clearPairProgrammingForExercise(Long exerciseId) {
-        List<TeamParticipation> participations = teamParticipationRepository.findAllByExerciseId(exerciseId);
-        if (participations.isEmpty()) {
-            return 0;
-        }
-
-        int updated = 0;
-        for (TeamParticipation participation : participations) {
-            if (clearPairProgrammingFields(participation)) {
-                updated++;
-            }
-        }
-        log.info("Cleared pair programming metrics for {}/{} teams in exerciseId={}",
-                updated, participations.size(), exerciseId);
-        return updated;
-    }
 
     // =====================================================================
     //  Phase 2: Git analysis persistence
@@ -1432,95 +1337,6 @@ public class RequestService {
         teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(cqiDetails.components().dailyDistribution()));
     }
 
-    private boolean recomputePairProgrammingForParticipation(TeamParticipation participation) {
-        List<Student> students = studentRepository.findAllByTeam(participation);
-        if (students.size() != 2) {
-            return clearPairProgrammingFields(participation);
-        }
-
-        Optional<TeamRepository> teamRepositoryOptional = teamRepositoryRepository.findByTeamParticipation(participation);
-        if (teamRepositoryOptional.isEmpty()) {
-            return false;
-        }
-
-        TeamRepository teamRepository = teamRepositoryOptional.get();
-        String localPath = teamRepository.getLocalPath();
-        if (localPath == null || localPath.isBlank() || !Files.exists(Path.of(localPath, ".git"))) {
-            return false;
-        }
-
-        Map<String, Long> commitToAuthor = buildCommitToAuthorMap(teamRepository, students);
-        if (commitToAuthor.isEmpty()) {
-            return false;
-        }
-
-        List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
-        PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
-        ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
-                filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName(), participation.getShortName());
-
-        PairProgrammingStatus nextStatus = components.pairProgrammingStatus();
-        String nextStatusValue = nextStatus != null ? nextStatus.name() : null;
-
-        // Persist status as soon as it is computed, before the score (so UI can show status even if score lags)
-        boolean statusChanged = !Objects.equals(participation.getCqiPairProgrammingStatus(), nextStatusValue);
-        if (statusChanged) {
-            participation.setCqiPairProgrammingStatus(nextStatusValue);
-            teamParticipationRepository.save(participation);
-        }
-
-        Double previousScore = participation.getCqiPairProgramming();
-        Double nextScore = normalizePairProgrammingScore(components.pairProgramming(), nextStatus);
-        boolean scoreChanged = !Objects.equals(previousScore, nextScore);
-        if (!scoreChanged) {
-            return statusChanged;
-        }
-
-        participation.setCqiPairProgramming(nextScore);
-        teamParticipationRepository.save(participation);
-        return true;
-    }
-
-    private Map<String, Long> buildCommitToAuthorMap(TeamRepository teamRepository, List<Student> students) {
-        String localPath = teamRepository.getLocalPath();
-
-        List<VCSLogDTO> vcsLogDTOs = new ArrayList<>();
-        if (teamRepository.getVcsLogs() != null) {
-            for (VCSLog vcsLog : teamRepository.getVcsLogs()) {
-                if (vcsLog.getCommitHash() != null && vcsLog.getEmail() != null) {
-                    vcsLogDTOs.add(new VCSLogDTO(vcsLog.getEmail(), null, vcsLog.getCommitHash()));
-                }
-            }
-        }
-
-        long syntheticId = -1L;
-        List<ParticipantDTO> participantDTOs = new ArrayList<>();
-        for (Student student : students) {
-            if (student.getEmail() == null || student.getEmail().isBlank()) {
-                continue;
-            }
-            Long authorId = student.getId();
-            if (authorId == null) {
-                authorId = syntheticId--;
-            }
-            participantDTOs.add(new ParticipantDTO(authorId, student.getLogin(), student.getName(), student.getEmail()));
-        }
-
-        FullCommitMappingResultDTO result = gitContributionAnalysisService.buildFullCommitMap(localPath, vcsLogDTOs, participantDTOs, Map.of(), null);
-        return new HashMap<>(result.commitToAuthor());
-    }
-
-    private boolean clearPairProgrammingFields(TeamParticipation participation) {
-        if (participation.getCqiPairProgramming() == null && participation.getCqiPairProgrammingStatus() == null) {
-            return false;
-        }
-        participation.setCqiPairProgramming(null);
-        participation.setCqiPairProgrammingStatus(null);
-        teamParticipationRepository.save(participation);
-        return true;
-    }
-
-
     /**
      * Toggles the review status of a team participation.
      *
@@ -1829,8 +1645,8 @@ public class RequestService {
             return null;
         }
 
-        PairProgrammingStatus pairProgrammingStatus = parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus());
-        Double pairProgrammingScore = normalizePairProgrammingScore(
+        PairProgrammingStatus pairProgrammingStatus = PairProgrammingRecomputeService.parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus());
+        Double pairProgrammingScore = PairProgrammingRecomputeService.normalizePairProgrammingScore(
                 participation.getCqiPairProgramming(),
                 pairProgrammingStatus);
 
@@ -2085,35 +1901,4 @@ public class RequestService {
         }
     }
 
-    /**
-     * Parse programming status
-     * @param status Status as String
-     * @return
-     */
-    private PairProgrammingStatus parsePairProgrammingStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return null;
-        }
-        try {
-            return PairProgrammingStatus.valueOf(status);
-        } catch (IllegalArgumentException e) {
-            log.warn("Unknown pair programming status '{}' in persisted data, ignoring", status);
-            return null;
-        }
-    }
-
-    /**
-     * Normalizes persisted pair-programming score values.
-     * Score should remain null for NOT_FOUND and default to 0 for other statuses
-     * when a numeric score is absent.
-     */
-    private Double normalizePairProgrammingScore(Double score, PairProgrammingStatus status) {
-        if (score != null) {
-            return score;
-        }
-        if (status == null || status == PairProgrammingStatus.NOT_FOUND) {
-            return null;
-        }
-        return 0.0;
-    }
 }

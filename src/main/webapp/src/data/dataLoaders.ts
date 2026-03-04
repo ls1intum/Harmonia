@@ -1,7 +1,5 @@
 import type { ClientResponseDTO, CQIResultDTO, TeamSummaryDTO } from '@/app/generated';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
-import axios from 'axios';
-import { apiConfig } from '@/lib/apiClient.ts';
 
 export interface SubMetric {
   name: string;
@@ -275,19 +273,3 @@ export function loadBasicTeamDataStream(
   return () => eventSource.close();
 }
 
-/** Response from GET /api/attendance/recomputing (until openApiGenerate adds it). */
-export interface PairProgrammingRecomputingResponse {
-  recomputing: boolean;
-}
-
-/**
- * Returns whether pair programming scores are currently being recomputed for the exercise.
- */
-export async function getPairProgrammingRecomputing(exerciseId: number): Promise<PairProgrammingRecomputingResponse> {
-  const base = apiConfig.basePath ?? window.location.origin;
-  const { data } = await axios.get<PairProgrammingRecomputingResponse>(`${base}/api/attendance/recomputing`, {
-    params: { exerciseId },
-    withCredentials: true,
-  });
-  return data;
-}

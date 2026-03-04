@@ -11,7 +11,6 @@ import {
   transformSummaryToTeamDTO,
   type TemplateAuthorInfo,
   type TeamDTO,
-  getPairProgrammingRecomputing,
 } from '@/data/dataLoaders';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
 import { normalizeTeamName } from '@/lib/utils';
@@ -113,7 +112,7 @@ export default function Teams() {
   // Pair programming scores recomputing status
   const { data: pairProgrammingRecomputing } = useQuery({
     queryKey: ['pairProgrammingRecomputing', exercise],
-    queryFn: () => getPairProgrammingRecomputing(parseInt(exercise)),
+    queryFn: () => pairProgrammingApi.isRecomputing(parseInt(exercise)).then(res => res.data),
     enabled: !!exercise && pairProgrammingEnabled && !!uploadedAttendanceFileName,
     refetchInterval: query => (query.state.data?.recomputing ? 2000 : false),
     staleTime: 0,

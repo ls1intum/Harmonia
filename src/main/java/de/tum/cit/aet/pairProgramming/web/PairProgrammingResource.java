@@ -2,9 +2,9 @@ package de.tum.cit.aet.pairProgramming.web;
 
 import de.tum.cit.aet.artemis.CredentialResolverService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.dto.PairProgrammingRecomputingDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeTracker;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import lombok.extern.slf4j.Slf4j;
@@ -28,16 +28,16 @@ import org.springframework.web.multipart.MultipartFile;
 public class PairProgrammingResource {
 
     private final PairProgrammingService pairProgrammingService;
-    private final RequestService requestService;
+    private final PairProgrammingRecomputeService pairProgrammingRecomputeService;
     private final CredentialResolverService credentialResolver;
     private final PairProgrammingRecomputeTracker recomputeTracker;
 
     public PairProgrammingResource(PairProgrammingService pairProgrammingService,
-                                   RequestService requestService,
+                                   PairProgrammingRecomputeService pairProgrammingRecomputeService,
                                    CredentialResolverService credentialResolver,
                                    PairProgrammingRecomputeTracker recomputeTracker) {
         this.pairProgrammingService = pairProgrammingService;
-        this.requestService = requestService;
+        this.pairProgrammingRecomputeService = pairProgrammingRecomputeService;
         this.credentialResolver = credentialResolver;
         this.recomputeTracker = recomputeTracker;
     }
@@ -100,7 +100,7 @@ public class PairProgrammingResource {
 
         // 2) Parse attendance and trigger async recomputation
         TeamsScheduleDTO results = pairProgrammingService.parseAttendance(file, credentials, courseId, exerciseId);
-        pairProgrammingService.recomputeForExerciseAsync(exerciseId);
+        pairProgrammingRecomputeService.recomputeForExerciseAsync(exerciseId);
 
         return ResponseEntity.ok(results);
     }
@@ -115,7 +115,7 @@ public class PairProgrammingResource {
     @RequestMapping(value = "clear", method = {RequestMethod.DELETE, RequestMethod.POST})
     public ResponseEntity<String> clearAttendance(@RequestParam("exerciseId") Long exerciseId) {
         pairProgrammingService.clear();
-        int updatedTeams = requestService.clearPairProgrammingForExercise(exerciseId);
+        int updatedTeams = pairProgrammingRecomputeService.clearPairProgrammingForExercise(exerciseId);
         log.info("DELETE clearAttendance for exerciseId={}, teamsUpdated={}", exerciseId, updatedTeams);
         return ResponseEntity.ok("Attendance cleared successfully");
     }

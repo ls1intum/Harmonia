@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,7 +30,6 @@ public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
     private final PairProgrammingService pairProgrammingService;
-    private final PairProgrammingCalculator pairProgrammingCalculator;
 
     /**
      * Calculate CQI from LLM-rated commits.
@@ -57,7 +55,7 @@ public class CQICalculatorService {
             String teamName,
             String shortName) {
 
-        PairProgrammingStatus pairProgrammingStatus = getPairProgrammingStatus(teamName, shortName);
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Build weights and check edge cases ---
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
@@ -99,21 +97,6 @@ public class CQICalculatorService {
     }
 
     /**
-     * Helper for getting the pair programming status.
-     * Uses short name as fallback when attendance is keyed by short name in the Excel.
-     *
-     * @param teamName  the full team name
-     * @param shortName the short team name (optional fallback)
-     * @return the pair programming status
-     */
-    private PairProgrammingStatus getPairProgrammingStatus(String teamName, String shortName) {
-        boolean hasAttendanceData = pairProgrammingService.hasTeamAttendance(teamName, shortName);
-        boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName, shortName);
-        boolean pairedMandatorySessions = pairProgrammingService.isPairedMandatorySessions(teamName, shortName);
-        return PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
-    }
-
-    /**
      * Calculate CQI using fallback (when LLM is unavailable).
      * Uses only Lines of Code distribution.
      * <p>
@@ -133,7 +116,7 @@ public class CQICalculatorService {
             String teamName,
             String shortName) {
 
-        PairProgrammingStatus pairProgrammingStatus = getPairProgrammingStatus(teamName, shortName);
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // 1) Validate input
         ComponentWeightsDTO weightsDTO = buildWeightsDTO();
@@ -189,10 +172,7 @@ public class CQICalculatorService {
             String teamName,
             String shortName) {
 
-        boolean hasAttendanceData = pairProgrammingService.hasTeamAttendance(teamName, shortName);
-        boolean hasCancelledSessionWarning = pairProgrammingService.hasCancelledSessionWarning(teamName, shortName);
-        boolean pairedMandatorySessions = pairProgrammingService.isPairedMandatorySessions(teamName, shortName);
-        PairProgrammingStatus pairProgrammingStatus = PairProgrammingStatus.fromAttendanceState(hasAttendanceData, hasCancelledSessionWarning, pairedMandatorySessions);
+        PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Validate input ---
         if (chunks == null || chunks.isEmpty() || teamSize <= 1) {
@@ -236,29 +216,7 @@ public class CQICalculatorService {
         double ownershipScore = calculateOwnershipSpreadFromChunks(chunks, teamSize);
 
         // --- 4. Calculate pair programming score (teams of 2 only) ---
-        Double pairProgrammingScore = null;
-        if (teamName != null && teamSize == 2) {
-            try {
-
-                Set<OffsetDateTime> pairedSessions = pairProgrammingService.getPairedSessions(teamName, shortName);
-                Set<OffsetDateTime> allSessions = pairProgrammingService.getClassDates(teamName, shortName);
-
-                if (hasAttendanceData) {
-                    if (hasCancelledSessionWarning) {
-                        log.warn("Team '{}' has cancelled tutorial sessions; pair programming status set to WARNING", teamName);
-                    } else if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
-                        pairProgrammingScore = pairProgrammingCalculator.calculateFromChunks(
-                                pairedSessions, allSessions, chunks, teamSize);
-                    } else {
-                        pairProgrammingScore = 0.0;
-                        log.warn("Team '{}' found in attendance but has no {} sessions; treating as failed (score 0)",
-                                teamName, allSessions.isEmpty() ? "mapped tutorial" : "paired");
-                    }
-                }
-            } catch (Exception e) {
-                log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
-            }
-        }
+        Double pairProgrammingScore = pairProgrammingService.calculateScore(teamName, shortName, chunks, teamSize);
 
         // --- 5. Build result (effortBalance = 0 because it requires AI) ---
         return new ComponentScoresDTO(0.0, locScore, temporalResult.score(), ownershipScore, pairProgrammingScore, pairProgrammingStatus,

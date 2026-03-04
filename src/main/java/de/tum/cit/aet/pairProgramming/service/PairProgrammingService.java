@@ -1,10 +1,12 @@
 package de.tum.cit.aet.pairProgramming.service;
 
+import de.tum.cit.aet.ai.dto.CommitChunkDTO;
+import de.tum.cit.aet.analysis.service.cqi.PairProgrammingCalculator;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 import de.tum.cit.aet.repositoryProcessing.dto.TutorialGroupSessionDTO;
 import de.tum.cit.aet.artemis.ArtemisClientService;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +15,6 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,19 +43,16 @@ public class PairProgrammingService {
 
     private final ArtemisClientService artemisClientService;
     private final AttendanceConfiguration attendanceConfiguration;
-    private final RequestService requestService;
-    private final PairProgrammingRecomputeTracker recomputeTracker;
+    private final PairProgrammingCalculator pairProgrammingCalculator;
 
     private final Map<String, TeamAttendanceDTO> teamsByNormalizedName = new ConcurrentHashMap<>();
 
     public PairProgrammingService(ArtemisClientService artemisClientService,
                                   AttendanceConfiguration attendanceConfiguration,
-                                  @Lazy RequestService requestService,
-                                  PairProgrammingRecomputeTracker recomputeTracker) {
+                                  PairProgrammingCalculator pairProgrammingCalculator) {
         this.artemisClientService = artemisClientService;
         this.attendanceConfiguration = attendanceConfiguration;
-        this.requestService = requestService;
-        this.recomputeTracker = recomputeTracker;
+        this.pairProgrammingCalculator = pairProgrammingCalculator;
     }
 
     // ---- Attendance parsing ----
@@ -343,24 +340,63 @@ public class PairProgrammingService {
         teamsByNormalizedName.clear();
     }
 
-    // ---- Async recomputation ----
+    // ---- Pair programming status & score ----
 
     /**
-     * Recomputes pair programming metrics for an exercise asynchronously.
+     * Resolves the pair programming status from attendance state.
      *
-     * @param exerciseId the exercise ID
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @return the pair programming status
      */
-    @Async("attendanceTaskExecutor")
-    public void recomputeForExerciseAsync(Long exerciseId) {
-        recomputeTracker.startRecompute(exerciseId);
+    public PairProgrammingStatus getPairProgrammingStatus(String teamName, String shortName) {
+        boolean hasAttendance = hasTeamAttendance(teamName, shortName);
+        boolean hasCancelledWarning = hasCancelledSessionWarning(teamName, shortName);
+        boolean pairedMandatory = isPairedMandatorySessions(teamName, shortName);
+        return PairProgrammingStatus.fromAttendanceState(hasAttendance, hasCancelledWarning, pairedMandatory);
+    }
+
+    /**
+     * Calculates the pair programming score for a team (teams of 2 only).
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @param chunks    the commit chunks
+     * @param teamSize  the number of team members
+     * @return score 0-100, or {@code null} if not applicable
+     */
+    public Double calculateScore(String teamName, String shortName,
+                                 List<CommitChunkDTO> chunks, int teamSize) {
+        if (teamName == null || teamSize != 2) {
+            return null;
+        }
         try {
-            int updatedTeams = requestService.recomputePairProgrammingForExercise(exerciseId);
-            log.info("Async recomputed pair programming metrics for {} teams (exercise={})",
-                    updatedTeams, exerciseId);
+            boolean hasAttendance = hasTeamAttendance(teamName, shortName);
+            boolean hasCancelledWarning = hasCancelledSessionWarning(teamName, shortName);
+
+            if (!hasAttendance) {
+                return null;
+            }
+
+            Set<OffsetDateTime> pairedSessions = getPairedSessions(teamName, shortName);
+            Set<OffsetDateTime> allSessions = getClassDates(teamName, shortName);
+
+            if (hasCancelledWarning) {
+                log.warn("Team '{}' has cancelled tutorial sessions; pair programming status set to WARNING", teamName);
+                return null;
+            }
+
+            if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
+                return pairProgrammingCalculator.calculateFromChunks(
+                        pairedSessions, allSessions, chunks, teamSize);
+            }
+
+            log.warn("Team '{}' found in attendance but has no {} sessions; treating as failed (score 0)",
+                    teamName, allSessions.isEmpty() ? "mapped tutorial" : "paired");
+            return 0.0;
         } catch (Exception e) {
-            log.error("Async pair programming recomputation failed for exercise {}", exerciseId, e);
-        } finally {
-            recomputeTracker.endRecompute(exerciseId);
+            log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
+            return null;
         }
     }
 
