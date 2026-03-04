@@ -75,6 +75,7 @@ public class ContributionFairnessService {
             String templateAuthorEmail) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
+        String shortName = repositoryDTO.participation().team().shortName();
         int teamSize = repositoryDTO.participation().team().students().size();
         List<ParticipantDTO> teamMembers = repositoryDTO.participation().team().students();
         LlmTokenTotalsDTO teamTokenTotals = LlmTokenTotalsDTO.empty();
@@ -144,7 +145,7 @@ public class ContributionFairnessService {
                     .toList();
 
             CQIResultDTO cqiResult = cqiCalculatorService.calculate(
-                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName);
+                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName, shortName);
 
             // 6) Aggregate author stats
             Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);

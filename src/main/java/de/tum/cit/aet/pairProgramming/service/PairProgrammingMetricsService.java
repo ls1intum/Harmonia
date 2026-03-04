@@ -1,4 +1,4 @@
-package de.tum.cit.aet.dataProcessing.service;
+package de.tum.cit.aet.pairProgramming.service;
 
 import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.analysis.dto.FullCommitMappingResultDTO;
@@ -135,12 +135,12 @@ public class PairProgrammingMetricsService {
         List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(localPath, commitToAuthor);
         PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
         ComponentScoresDTO components = cqiCalculatorService.calculateGitOnlyComponents(
-                filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName());
+                filterResult.chunksToAnalyze(), students.size(), null, null, participation.getName(), participation.getShortName());
 
         Double previousScore = participation.getCqiPairProgramming();
         String previousStatus = participation.getCqiPairProgrammingStatus();
         Double nextScore = components.pairProgramming();
-        String nextStatus = components.pairProgrammingStatus();
+        String nextStatus = components.pairProgrammingStatus() != null ? components.pairProgrammingStatus().name() : null;
 
         boolean changed = !Objects.equals(previousScore, nextScore)
                 || !Objects.equals(previousStatus, nextStatus);

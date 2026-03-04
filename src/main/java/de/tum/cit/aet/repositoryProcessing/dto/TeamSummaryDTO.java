@@ -13,6 +13,7 @@ import java.util.List;
  *
  * @param teamId           the Artemis team ID
  * @param teamName         the team display name
+ * @param shortName        the team short name (optional, for pair programming attendance fallback)
  * @param tutor            the assigned tutor name
  * @param analysisStatus   current analysis status
  * @param cqi              final CQI score
@@ -22,11 +23,13 @@ import java.util.List;
  * @param llmTokenTotals   aggregated LLM token usage
  * @param orphanCommitCount number of orphan commits
  * @param isFailed         whether the analysis failed for this team
+ * @param isReviewed       whether the team has been marked as reviewed
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TeamSummaryDTO(
         Long teamId,
         String teamName,
+        String shortName,
         String tutor,
         TeamAnalysisStatus analysisStatus,
         Double cqi,
@@ -35,7 +38,8 @@ public record TeamSummaryDTO(
         CQIResultDTO cqiDetails,
         LlmTokenTotalsDTO llmTokenTotals,
         Integer orphanCommitCount,
-        Boolean isFailed
+        Boolean isFailed,
+        Boolean isReviewed
 ) {
     /**
      * Create a summary from a full ClientResponseDTO.
@@ -48,6 +52,7 @@ public record TeamSummaryDTO(
         return new TeamSummaryDTO(
                 dto.teamId(),
                 dto.teamName(),
+                dto.shortName(),
                 dto.tutor(),
                 dto.analysisStatus(),
                 dto.cqi(),
@@ -56,6 +61,7 @@ public record TeamSummaryDTO(
                 dto.cqiDetails(),
                 dto.llmTokenTotals(),
                 dto.orphanCommitCount(),
-                dto.isFailed());
+                dto.isFailed(),
+                dto.isReviewed());
     }
 }

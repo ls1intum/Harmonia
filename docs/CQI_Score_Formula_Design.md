@@ -259,10 +259,10 @@ public double calculateLocBalance(Map<Long, Integer> locByAuthor) {
 **Formula:**
 
 $$
-S_{\text{temporal}} = 100 \times (1 - \frac{\text{CV}_{\text{weekly}}}{2})
+S_{\text{temporal}} = 100 \times (1 - \frac{\text{CV}_{\text{daily}}}{5})
 $$
 
-Where CV = coefficient of variation of weekly effort distribution.
+Where CV = coefficient of variation of daily effort distribution.
 
 **Implementation:**
 
@@ -270,19 +270,19 @@ Where CV = coefficient of variation of weekly effort distribution.
 private double calculateTemporalSpread(List<FilteredChunkDTO> chunks,
                                        LocalDateTime projectStart,
                                        LocalDateTime projectEnd) {
-    // Divide project into weeks
-    int numWeeks = Math.max(1, (int) Math.ceil(totalDays / 7.0));
-    double[] weeklyEffort = new double[numWeeks];
-    
+    // Divide project into days
+    int numDays = Math.max(1, (int) totalDays);
+    double[] dailyEffort = new double[numDays];
+
     for (FilteredChunkDTO chunk : chunks) {
-        int weekIndex = (int) (daysSinceStart / 7);
-        weeklyEffort[weekIndex] += chunk.effectiveEffort();
+        int dayIndex = (int) daysSinceStart;
+        dailyEffort[dayIndex] += chunk.effectiveEffort();
     }
-    
+
     // Calculate coefficient of variation
     double cv = stdev / mean;
-    double normalizedCV = Math.min(cv / 2.0, 1.0);
-    
+    double normalizedCV = Math.min(cv / 5.0, 1.0);
+
     return 100.0 * (1.0 - normalizedCV);
 }
 ```

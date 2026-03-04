@@ -1,4 +1,4 @@
-package de.tum.cit.aet.dataProcessing.service;
+package de.tum.cit.aet.analysis.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
@@ -12,6 +12,8 @@ import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.analysis.service.cqi.CQICalculatorService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeService;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.domain.Tutor;
@@ -137,7 +139,8 @@ public class AnalysisQueryService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                participation.getTeam(), participation.getName(),
+                participation.getTeam(), participation.getParticipation(),
+                participation.getName(), participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDtos, cqi, isSuspicious,
                 participation.getAnalysisStatus(),
@@ -146,7 +149,8 @@ public class AnalysisQueryService {
                 null,
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     /**
@@ -230,13 +234,18 @@ public class AnalysisQueryService {
             return null;
         }
 
+        PairProgrammingStatus pairProgrammingStatus = PairProgrammingRecomputeService.parsePairProgrammingStatus(participation.getCqiPairProgrammingStatus());
+        Double pairProgrammingScore = PairProgrammingRecomputeService.normalizePairProgrammingScore(
+                participation.getCqiPairProgramming(), pairProgrammingStatus);
+
         ComponentScoresDTO components = new ComponentScoresDTO(
                 participation.getCqiEffortBalance() != null ? participation.getCqiEffortBalance() : 0.0,
                 participation.getCqiLocBalance() != null ? participation.getCqiLocBalance() : 0.0,
                 participation.getCqiTemporalSpread() != null ? participation.getCqiTemporalSpread() : 0.0,
                 participation.getCqiOwnershipSpread() != null ? participation.getCqiOwnershipSpread() : 0.0,
-                participation.getCqiPairProgramming(),
-                participation.getCqiPairProgrammingStatus());
+                pairProgrammingScore,
+                pairProgrammingStatus,
+                deserializeDailyDistribution(participation.getCqiDailyDistribution()));
 
         ComponentWeightsDTO weights;
         if (mode == AnalysisMode.FULL) {
@@ -284,6 +293,10 @@ public class AnalysisQueryService {
      * @return list of weekly effort values, or {@code null} if empty or on error
      */
     public List<Double> deserializeWeeklyDistribution(String json) {
+        return deserializeDailyDistribution(json);
+    }
+
+    private List<Double> deserializeDailyDistribution(String json) {
         try {
             if (json == null || json.isEmpty()) {
                 return null;
@@ -291,7 +304,7 @@ public class AnalysisQueryService {
             return objectMapper.readValue(json,
                     objectMapper.getTypeFactory().constructCollectionType(List.class, Double.class));
         } catch (Exception e) {
-            log.warn("Failed to deserialize weekly distribution: {}", e.getMessage());
+            log.warn("Failed to deserialize daily distribution: {}", e.getMessage());
             return null;
         }
     }

@@ -1,10 +1,12 @@
 package de.tum.cit.aet.pairProgramming.service;
 
+import de.tum.cit.aet.ai.dto.CommitChunkDTO;
+import de.tum.cit.aet.analysis.service.cqi.PairProgrammingCalculator;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
-import de.tum.cit.aet.dataProcessing.service.RequestService;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
+import de.tum.cit.aet.pairProgramming.enums.PairProgrammingStatus;
 import de.tum.cit.aet.repositoryProcessing.dto.TutorialGroupSessionDTO;
 import de.tum.cit.aet.artemis.ArtemisClientService;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +15,6 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,16 +43,16 @@ public class PairProgrammingService {
 
     private final ArtemisClientService artemisClientService;
     private final AttendanceConfiguration attendanceConfiguration;
-    private final RequestService requestService;
+    private final PairProgrammingCalculator pairProgrammingCalculator;
 
     private final Map<String, TeamAttendanceDTO> teamsByNormalizedName = new ConcurrentHashMap<>();
 
     public PairProgrammingService(ArtemisClientService artemisClientService,
                                   AttendanceConfiguration attendanceConfiguration,
-                                  @Lazy RequestService requestService) {
+                                  PairProgrammingCalculator pairProgrammingCalculator) {
         this.artemisClientService = artemisClientService;
         this.attendanceConfiguration = attendanceConfiguration;
-        this.requestService = requestService;
+        this.pairProgrammingCalculator = pairProgrammingCalculator;
     }
 
     // ---- Attendance parsing ----
@@ -144,39 +144,86 @@ public class PairProgrammingService {
     }
 
     /**
+     * Resolves the key used in the attendance map: tries normalized team name first,
+     * then normalized short name. Used so Excel rows keyed by short name still match
+     * Artemis teams that are displayed by full name.
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @return the key present in {@code teamsByNormalizedName}, or {@code null} if not found
+     */
+    private String resolveAttendanceKey(String teamName, String shortName) {
+        if (teamName != null) {
+            String key = normalize(teamName);
+            if (teamsByNormalizedName.containsKey(key)) {
+                return key;
+            }
+        }
+        if (shortName != null && !shortName.equals(teamName)) {
+            String key = normalize(shortName);
+            if (teamsByNormalizedName.containsKey(key)) {
+                return key;
+            }
+        }
+        return teamName != null ? normalize(teamName) : null;
+    }
+
+    /**
      * Retrieves the attendance information for a specific team.
+     * Tries full name first, then short name as fallback.
+     *
+     * @param teamName  the name of the team
+     * @param shortName the short name of the team (optional fallback when Excel uses short names)
+     * @return the team attendance DTO or {@code null} if not found
+     */
+    public TeamAttendanceDTO getTeamAttendance(String teamName, String shortName) {
+        String key = resolveAttendanceKey(teamName, shortName);
+        return key != null ? teamsByNormalizedName.get(key) : null;
+    }
+
+    /**
+     * Retrieves the attendance information for a specific team by name only.
      *
      * @param teamName the name of the team
      * @return the team attendance DTO or {@code null} if not found
      */
     public TeamAttendanceDTO getTeamAttendance(String teamName) {
-        if (teamName == null) {
-            return null;
-        }
-        return teamsByNormalizedName.get(normalize(teamName));
+        return getTeamAttendance(teamName, null);
     }
 
     /**
      * Checks if attendance data exists for a specific team.
+     * Tries full name first, then short name as fallback.
+     *
+     * @param teamName  the team name to look up
+     * @param shortName the short team name (optional fallback)
+     * @return {@code true} if the team exists in uploaded attendance data
+     */
+    public boolean hasTeamAttendance(String teamName, String shortName) {
+        String key = resolveAttendanceKey(teamName, shortName);
+        return key != null && teamsByNormalizedName.containsKey(key);
+    }
+
+    /**
+     * Checks if attendance data exists for a specific team by name only.
      *
      * @param teamName the team name to look up
      * @return {@code true} if the team exists in uploaded attendance data
      */
     public boolean hasTeamAttendance(String teamName) {
-        if (teamName == null) {
-            return false;
-        }
-        return teamsByNormalizedName.containsKey(normalize(teamName));
+        return hasTeamAttendance(teamName, null);
     }
 
     /**
      * Retrieves the class dates (non-null attendance entries) for a team.
+     * Uses short name as fallback when full name is not found.
      *
-     * @param teamName the name of the team
+     * @param teamName  the name of the team
+     * @param shortName the short team name (optional fallback)
      * @return a set of class dates
      */
-    public Set<OffsetDateTime> getClassDates(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+    public Set<OffsetDateTime> getClassDates(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
         if (attendance == null) {
             return Set.of();
         }
@@ -192,13 +239,25 @@ public class PairProgrammingService {
     }
 
     /**
-     * Retrieves the sessions where both students were present.
+     * Retrieves the class dates for a team by name only.
      *
      * @param teamName the name of the team
+     * @return a set of class dates
+     */
+    public Set<OffsetDateTime> getClassDates(String teamName) {
+        return getClassDates(teamName, null);
+    }
+
+    /**
+     * Retrieves the sessions where both students were present.
+     * Uses short name as fallback when full name is not found.
+     *
+     * @param teamName  the name of the team
+     * @param shortName the short team name (optional fallback)
      * @return a set of paired session dates
      */
-    public Set<OffsetDateTime> getPairedSessions(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+    public Set<OffsetDateTime> getPairedSessions(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
         if (attendance == null || attendance.pairedSessions() == null) {
             return Set.of();
         }
@@ -206,29 +265,63 @@ public class PairProgrammingService {
     }
 
     /**
+     * Retrieves the paired sessions for a team by name only.
+     *
+     * @param teamName the name of the team
+     * @return a set of paired session dates
+     */
+    public Set<OffsetDateTime> getPairedSessions(String teamName) {
+        return getPairedSessions(teamName, null);
+    }
+
+    /**
      * Checks whether the team met the mandatory paired session threshold.
+     * Uses short name as fallback when full name is not found.
+     *
+     * @param teamName  the team name
+     * @param shortName the short team name (optional fallback)
+     * @return {@code true} if mandatory sessions are fulfilled
+     */
+    public boolean isPairedMandatorySessions(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
+        return attendance != null && attendance.pairedMandatorySessions();
+    }
+
+    /**
+     * Checks whether the team met the mandatory paired session threshold by name only.
      *
      * @param teamName the team name
      * @return {@code true} if mandatory sessions are fulfilled
      */
     public boolean isPairedMandatorySessions(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
-        return attendance != null && attendance.pairedMandatorySessions();
+        return isPairedMandatorySessions(teamName, null);
     }
 
     /**
      * Indicates whether the team has cancelled tutorial sessions in attendance data.
+     * Uses short name as fallback when full name is not found.
      *
-     * @param teamName the team name to look up
+     * @param teamName  the team name to look up
+     * @param shortName the short team name (optional fallback)
      * @return {@code true} when any session attendance value is {@code null}
      */
-    public boolean hasCancelledSessionWarning(String teamName) {
-        TeamAttendanceDTO attendance = getTeamAttendance(teamName);
+    public boolean hasCancelledSessionWarning(String teamName, String shortName) {
+        TeamAttendanceDTO attendance = getTeamAttendance(teamName, shortName);
         if (attendance == null) {
             return false;
         }
         return hasNullAttendanceValue(attendance.student1Attendance())
                 || hasNullAttendanceValue(attendance.student2Attendance());
+    }
+
+    /**
+     * Indicates whether the team has cancelled tutorial sessions (by name only).
+     *
+     * @param teamName the team name to look up
+     * @return {@code true} when any session attendance value is {@code null}
+     */
+    public boolean hasCancelledSessionWarning(String teamName) {
+        return hasCancelledSessionWarning(teamName, null);
     }
 
     /**
@@ -247,21 +340,63 @@ public class PairProgrammingService {
         teamsByNormalizedName.clear();
     }
 
-    // ---- Async recomputation ----
+    // ---- Pair programming status & score ----
 
     /**
-     * Recomputes pair programming metrics for an exercise asynchronously.
+     * Resolves the pair programming status from attendance state.
      *
-     * @param exerciseId the exercise ID
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @return the pair programming status
      */
-    @Async("attendanceTaskExecutor")
-    public void recomputeForExerciseAsync(Long exerciseId) {
+    public PairProgrammingStatus getPairProgrammingStatus(String teamName, String shortName) {
+        boolean hasAttendance = hasTeamAttendance(teamName, shortName);
+        boolean hasCancelledWarning = hasCancelledSessionWarning(teamName, shortName);
+        boolean pairedMandatory = isPairedMandatorySessions(teamName, shortName);
+        return PairProgrammingStatus.fromAttendanceState(hasAttendance, hasCancelledWarning, pairedMandatory);
+    }
+
+    /**
+     * Calculates the pair programming score for a team (teams of 2 only).
+     *
+     * @param teamName  the full team name
+     * @param shortName the short team name (optional fallback)
+     * @param chunks    the commit chunks
+     * @param teamSize  the number of team members
+     * @return score 0-100, or {@code null} if not applicable
+     */
+    public Double calculateScore(String teamName, String shortName,
+                                 List<CommitChunkDTO> chunks, int teamSize) {
+        if (teamName == null || teamSize != 2) {
+            return null;
+        }
         try {
-            int updatedTeams = requestService.recomputePairProgrammingForExercise(exerciseId);
-            log.info("Async recomputed pair programming metrics for {} teams (exercise={})",
-                    updatedTeams, exerciseId);
+            boolean hasAttendance = hasTeamAttendance(teamName, shortName);
+            boolean hasCancelledWarning = hasCancelledSessionWarning(teamName, shortName);
+
+            if (!hasAttendance) {
+                return null;
+            }
+
+            Set<OffsetDateTime> pairedSessions = getPairedSessions(teamName, shortName);
+            Set<OffsetDateTime> allSessions = getClassDates(teamName, shortName);
+
+            if (hasCancelledWarning) {
+                log.warn("Team '{}' has cancelled tutorial sessions; pair programming status set to WARNING", teamName);
+                return null;
+            }
+
+            if (!pairedSessions.isEmpty() && !allSessions.isEmpty()) {
+                return pairProgrammingCalculator.calculateFromChunks(
+                        pairedSessions, allSessions, chunks, teamSize);
+            }
+
+            log.warn("Team '{}' found in attendance but has no {} sessions; treating as failed (score 0)",
+                    teamName, allSessions.isEmpty() ? "mapped tutorial" : "paired");
+            return 0.0;
         } catch (Exception e) {
-            log.error("Async pair programming recomputation failed for exercise {}", exerciseId, e);
+            log.error("Failed to calculate pair programming score for team {}: {}", teamName, e.getMessage(), e);
+            return null;
         }
     }
 

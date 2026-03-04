@@ -3,6 +3,7 @@ package de.tum.cit.aet.dataProcessing.service;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
+import de.tum.cit.aet.analysis.service.AnalysisResultPersistenceService;
 import de.tum.cit.aet.analysis.service.AnalysisStateService;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
@@ -76,16 +77,6 @@ public class StreamingAnalysisPipelineService {
     // =====================================================================
     //  Synchronous analysis pipeline
     // =====================================================================
-
-    /**
-     * Fetches, analyzes, and saves all repositories for an exercise synchronously.
-     *
-     * @param credentials Artemis credentials
-     * @param exerciseId  the exercise id
-     */
-    public void fetchAnalyzeAndSaveRepositories(ArtemisCredentials credentials, Long exerciseId) {
-        fetchAnalyzeAndSaveRepositories(credentials, exerciseId, Integer.MAX_VALUE);
-    }
 
     /**
      * Fetches, analyzes, and saves repositories synchronously with a team limit.

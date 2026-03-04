@@ -48,21 +48,31 @@ export const hasValidPairProgrammingAttendanceData = (
   return pairProgrammingEnabled && !!uploadedAttendanceFileName && Object.keys(pairProgrammingAttendanceByTeamName).length > 0;
 };
 
+/**
+ * Resolves badge status from the attendance map, trying team name first then short name.
+ * So when the Excel is keyed by short name and the UI shows the full name, the badge still shows PASS/FAIL.
+ */
 export const getPairProgrammingBadgeStatus = (
   teamName: string,
   hasValidPairProgrammingData: boolean,
   pairProgrammingAttendanceByTeamName: PairProgrammingAttendanceMap,
+  shortName?: string | null,
 ): PairProgrammingBadgeStatus | null => {
   if (!hasValidPairProgrammingData) {
     return null;
   }
 
   const normalizedTeamName = normalizeTeamName(teamName);
-  const hasAttendanceEntry = Object.prototype.hasOwnProperty.call(pairProgrammingAttendanceByTeamName, normalizedTeamName);
+  let status: PairProgrammingAttendanceStatus | undefined = pairProgrammingAttendanceByTeamName[normalizedTeamName];
 
-  if (!hasAttendanceEntry) {
+  if (status === undefined && shortName != null) {
+    const normalizedShortName = normalizeTeamName(shortName);
+    status = pairProgrammingAttendanceByTeamName[normalizedShortName];
+  }
+
+  if (status === undefined) {
     return 'not_found';
   }
 
-  return pairProgrammingAttendanceByTeamName[normalizedTeamName];
+  return status;
 };

@@ -1,4 +1,4 @@
-package de.tum.cit.aet.dataProcessing.service;
+package de.tum.cit.aet.analysis.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.tum.cit.aet.ai.dto.AnalyzedChunkDTO;
@@ -29,6 +29,7 @@ import de.tum.cit.aet.analysis.service.cqi.CommitPreFilterService;
 import de.tum.cit.aet.analysis.service.cqi.ContributionBalanceCalculator;
 import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
+import de.tum.cit.aet.dataProcessing.service.ExerciseDataCleanupService;
 import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import de.tum.cit.aet.repositoryProcessing.domain.*;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
@@ -204,9 +205,10 @@ public class AnalysisResultPersistenceService {
         if (hasFailed) {
             return new ClientResponseDTO(
                     tutor != null ? tutor.getName() : "Unassigned",
-                    team.id(), team.name(), participation.submissionCount(),
+                    team.id(), participation.id(), team.name(), team.shortName(),
+                    participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
-                    null, null, null, null, 0, true);
+                    null, null, null, null, 0, true, null);
         }
 
         CQIResultDTO gitCqiDetails = calculateGitOnlyCqi(repo, teamParticipation, team, students);
@@ -218,7 +220,8 @@ public class AnalysisResultPersistenceService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), team.shortName(),
+                participation.submissionCount(),
                 studentDtos,
                 null,
                 null,
@@ -228,23 +231,13 @@ public class AnalysisResultPersistenceService {
                 null,
                 queryService.readTeamTokenTotals(teamParticipation),
                 null,
+                null,
                 null);
     }
 
     // =====================================================================
     //  Phase 3: AI analysis persistence
     // =====================================================================
-
-    /**
-     * Persists AI analysis results for a team and returns the client response.
-     *
-     * @param repo       the cloned repository with VCS logs
-     * @param exerciseId the exercise being analyzed
-     * @return client-facing response DTO
-     */
-    public ClientResponseDTO saveAIAnalysisResult(TeamRepositoryDTO repo, Long exerciseId) {
-        return saveAIAnalysisResultWithUsage(repo, exerciseId).response();
-    }
 
     /**
      * Runs the full AI analysis pipeline (orphan detection, fairness analysis,
@@ -321,7 +314,8 @@ public class AnalysisResultPersistenceService {
                     List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
                     PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
                     cqiDetails = cqiCalculatorService.calculateFallback(
-                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
+                            filterResult.chunksToAnalyze(), students.size(), filterResult.summary(),
+                            team.name(), team.shortName());
                     cqi = cqiDetails.cqi();
                 } catch (Exception e) {
                     log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -368,10 +362,11 @@ public class AnalysisResultPersistenceService {
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
                         tutor != null ? tutor.getName() : "Unassigned",
-                        team.id(), team.name(), participation.submissionCount(),
+                        team.id(), participation.id(), team.name(), team.shortName(),
+                        participation.submissionCount(),
                         studentDtos, finalCqi, isSuspicious, TeamAnalysisStatus.DONE,
                         finalCqiDetails, analysisHistory, orphanCommits,
-                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null),
+                        teamTokenTotals, teamParticipation.getOrphanCommitCount(), null, null),
                 teamTokenTotals);
     }
 
@@ -480,9 +475,32 @@ public class AnalysisResultPersistenceService {
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
-                team.id(), team.name(), participation.submissionCount(),
+                team.id(), participation.id(), team.name(), team.shortName(),
+                participation.submissionCount(),
                 studentDtos, cqi, false, TeamAnalysisStatus.DONE,
-                finalDetails, null, null, null, null, null);
+                finalDetails, null, null, null, null, null, null);
+    }
+
+    // =====================================================================
+    //  Review status
+    // =====================================================================
+
+    /**
+     * Toggles the review status of a team participation.
+     *
+     * @param exerciseId the exercise id
+     * @param teamId     the Artemis team id
+     * @return updated client response DTO
+     * @throws IllegalArgumentException if the team is not found
+     */
+    @Transactional
+    public ClientResponseDTO toggleReviewStatus(Long exerciseId, Long teamId) {
+        TeamParticipation participation = teamParticipationRepository.findByExerciseIdAndTeam(exerciseId, teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+        Boolean current = participation.getIsReviewed();
+        participation.setIsReviewed(!Boolean.TRUE.equals(current));
+        teamParticipationRepository.save(participation);
+        return queryService.mapParticipationToClientResponse(participation);
     }
 
     // =====================================================================
@@ -677,14 +695,15 @@ public class AnalysisResultPersistenceService {
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
 
             ComponentScoresDTO gitComponents = cqiCalculatorService.calculateGitOnlyComponents(
-                    filterResult.chunksToAnalyze(), students.size(), null, null, team.name());
+                    filterResult.chunksToAnalyze(), students.size(), null, null, team.name(), team.shortName());
 
             if (gitComponents != null) {
                 teamParticipation.setCqiLocBalance(gitComponents.locBalance());
                 teamParticipation.setCqiTemporalSpread(gitComponents.temporalSpread());
                 teamParticipation.setCqiOwnershipSpread(gitComponents.ownershipSpread());
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
-                teamParticipation.setCqiPairProgrammingStatus(gitComponents.pairProgrammingStatus());
+                teamParticipation.setCqiPairProgrammingStatus(
+                        gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
                 teamParticipationRepository.save(teamParticipation);
 
                 return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
@@ -704,7 +723,8 @@ public class AnalysisResultPersistenceService {
             List<CommitChunkDTO> allChunks = commitChunkerService.processRepository(repo.localPath(), commitToAuthor);
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             CQIResultDTO result = cqiCalculatorService.calculateFallback(
-                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary());
+                    filterResult.chunksToAnalyze(), students.size(), filterResult.summary(),
+                    team.name(), team.shortName());
             return result.cqi();
         } catch (Exception e) {
             log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -759,10 +779,6 @@ public class AnalysisResultPersistenceService {
         return hasFailed;
     }
 
-    private boolean shouldSkipAnalysis(TeamParticipation tp) {
-        return Boolean.TRUE.equals(tp.getIsFailed());
-    }
-
     /**
      * Checks whether a team should be skipped during the AI or simple analysis phase.
      *
@@ -770,7 +786,7 @@ public class AnalysisResultPersistenceService {
      * @return {@code true} if the team is marked as failed and should be skipped
      */
     public boolean shouldSkipTeam(TeamParticipation tp) {
-        return shouldSkipAnalysis(tp);
+        return Boolean.TRUE.equals(tp.getIsFailed());
     }
 
     private TeamRepositoryDTO buildTeamRepositoryDTO(TeamParticipation tp, TeamRepository repo) {

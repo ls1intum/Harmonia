@@ -3,6 +3,9 @@ package de.tum.cit.aet.analysis.web;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
+import de.tum.cit.aet.analysis.dto.CreateEmailMappingRequestDTO;
+import de.tum.cit.aet.analysis.dto.DismissEmailRequestDTO;
+import de.tum.cit.aet.analysis.dto.EmailMappingDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
@@ -43,27 +46,6 @@ public class EmailMappingResource {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * DTO for creating a new email mapping.
-     */
-    public record CreateEmailMappingRequest(
-            String gitEmail,
-            Long studentId,
-            String studentName,
-            Long teamParticipationId) {
-    }
-
-    /**
-     * DTO returned for each persisted mapping.
-     */
-    public record EmailMappingDTO(
-            UUID id,
-            Long exerciseId,
-            String gitEmail,
-            Long studentId,
-            String studentName) {
-    }
-
-    /**
      * Returns all email mappings for the given exercise.
      *
      * @param exerciseId the exercise ID
@@ -74,7 +56,8 @@ public class EmailMappingResource {
         List<EmailMappingDTO> dtos = emailMappingRepository.findAllByExerciseId(exerciseId)
                 .stream()
                 .map(m -> new EmailMappingDTO(m.getId(), m.getExerciseId(),
-                        m.getGitEmail(), m.getStudentId(), m.getStudentName()))
+                        m.getGitEmail(), m.getStudentId(), m.getStudentName(),
+                        m.getIsDismissed()))
                 .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -90,7 +73,7 @@ public class EmailMappingResource {
     @Transactional
     public ResponseEntity<ClientResponseDTO> createMapping(
             @PathVariable Long exerciseId,
-            @RequestBody CreateEmailMappingRequest request) {
+            @RequestBody CreateEmailMappingRequestDTO request) {
 
         log.info("POST createMapping for exerciseId={}, gitEmail={}, studentId={}",
                 exerciseId, request.gitEmail(), request.studentId());
@@ -132,15 +115,13 @@ public class EmailMappingResource {
         List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
         List<AnalyzedChunk> remappedChunks = new ArrayList<>();
         for (AnalyzedChunk chunk : chunks) {
-            if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
-                    && normalizedEmail.equals(chunk.getAuthorEmail() != null
-                            ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
+            if (isExternalChunkForEmail(chunk, normalizedEmail)) {
                 chunk.setIsExternalContributor(false);
                 chunk.setAuthorName(request.studentName());
                 remappedChunks.add(chunk);
             }
         }
-        analyzedChunkRepository.saveAll(chunks);
+        analyzedChunkRepository.saveAll(remappedChunks);
 
         // 6. Update target student's commit/line stats with the remapped chunks
         if (!remappedChunks.isEmpty()) {
@@ -152,6 +133,46 @@ public class EmailMappingResource {
 
         // 8. Return updated response
         return ResponseEntity.ok(buildResponse(participation));
+    }
+
+    /**
+     * Dismisses an orphan email without assigning it to a student.
+     * Chunks are NOT mutated — the client uses the dismissed mapping
+     * to display them in a separate "Dismissed" section.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    the dismiss request with git email and participation ID
+     * @return updated client response DTO
+     */
+    @PostMapping("/dismiss")
+    @Transactional
+    public ResponseEntity<ClientResponseDTO> dismissEmail(
+            @PathVariable Long exerciseId,
+            @RequestBody DismissEmailRequestDTO request) {
+
+        log.info("POST dismissEmail for exerciseId={}, gitEmail={}", exerciseId, request.gitEmail());
+
+        // 1. Normalize and check for duplicates
+        String normalizedEmail = request.gitEmail().toLowerCase(Locale.ROOT);
+        if (emailMappingRepository.existsByExerciseIdAndGitEmail(exerciseId, normalizedEmail)) {
+            return ResponseEntity.status(409).build();
+        }
+
+        // 2. Save dismissed mapping (no student)
+        ExerciseEmailMapping mapping = new ExerciseEmailMapping(exerciseId, normalizedEmail, true);
+        emailMappingRepository.save(mapping);
+
+        // 3. Recalculate so orphanCommitCount excludes dismissed emails
+        TeamParticipation participation = teamParticipationRepository
+                .findByExerciseIdAndTeam(exerciseId, request.teamParticipationId())
+                .orElse(null);
+
+        if (participation != null) {
+            List<AnalyzedChunk> chunks = analyzedChunkRepository.findByParticipation(participation);
+            cqiRecalculationService.recalculateFromChunks(participation, chunks);
+            return ResponseEntity.ok(buildResponse(participation));
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -169,6 +190,10 @@ public class EmailMappingResource {
 
         ExerciseEmailMapping mapping = emailMappingRepository.findById(mappingId)
                 .orElseThrow(() -> new IllegalArgumentException("Mapping not found: " + mappingId));
+
+        if (!mapping.getExerciseId().equals(exerciseId)) {
+            return ResponseEntity.notFound().build();
+        }
 
         log.info("DELETE deleteMapping for exerciseId={}, gitEmail={}, studentId={}",
                 exerciseId, mapping.getGitEmail(), mapping.getStudentId());
@@ -201,8 +226,10 @@ public class EmailMappingResource {
             }
 
             if (!orphanedChunks.isEmpty()) {
-                analyzedChunkRepository.saveAll(chunks);
-                subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
+                analyzedChunkRepository.saveAll(orphanedChunks);
+                if (!Boolean.TRUE.equals(mapping.getIsDismissed())) {
+                    subtractChunkStatsFromStudent(participation, mapping.getStudentName(), orphanedChunks);
+                }
                 cqiRecalculationService.recalculateFromChunks(participation, chunks);
                 lastResponse = buildResponse(participation);
             }
@@ -427,6 +454,12 @@ public class EmailMappingResource {
         return value != null ? value : 0;
     }
 
+    private static boolean isExternalChunkForEmail(AnalyzedChunk chunk, String normalizedEmail) {
+        return Boolean.TRUE.equals(chunk.getIsExternalContributor())
+                && normalizedEmail.equals(chunk.getAuthorEmail() != null
+                        ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null);
+    }
+
     /**
      * Builds the set of emails that are considered "known" for a participation.
      * Includes student emails and remaining exercise email mappings.
@@ -455,7 +488,9 @@ public class EmailMappingResource {
         return new ClientResponseDTO(
                 participation.getTutor() != null ? participation.getTutor().getName() : "Unassigned",
                 participation.getTeam(),
+                participation.getParticipation(),
                 participation.getName(),
+                participation.getShortName(),
                 participation.getSubmissionCount(),
                 studentDTOs,
                 participation.getCqi(),
@@ -466,7 +501,8 @@ public class EmailMappingResource {
                 null, // orphan commits not persisted
                 readTeamTokenTotals(participation),
                 participation.getOrphanCommitCount(),
-                participation.getIsFailed());
+                participation.getIsFailed(),
+                participation.getIsReviewed());
     }
 
     private List<AnalyzedChunkDTO> loadAnalyzedChunkDTOs(TeamParticipation participation) {

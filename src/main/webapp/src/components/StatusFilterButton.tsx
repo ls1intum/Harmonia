@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
-export type StatusFilter = 'all' | 'normal' | 'suspicious' | 'failed';
+export type StatusFilter = 'all' | 'normal' | 'suspicious' | 'failed' | 'has-unmatched' | 'no-unmatched' | 'reviewed' | 'unreviewed';
 
 interface StatusFilterButtonProps {
   statusFilter: StatusFilter;
@@ -45,6 +45,12 @@ export const StatusFilterButton = ({ statusFilter, setStatusFilter }: StatusFilt
             <DropdownMenuRadioItem value="normal">Normal</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="suspicious">Suspicious</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="failed">Failed</DropdownMenuRadioItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioItem value="has-unmatched">Has Unmatched</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="no-unmatched">No Unmatched</DropdownMenuRadioItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioItem value="reviewed">Reviewed</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="unreviewed">Unreviewed</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>

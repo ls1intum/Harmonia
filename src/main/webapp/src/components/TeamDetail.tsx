@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, Sparkles, Loader2, Ban } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Users, ClipboardCheck, Filter, ExternalLink, Sparkles, Loader2, Ban, CircleCheck } from 'lucide-react';
 import MetricCard from './MetricCard';
 import AnalysisFeed from './AnalysisFeed';
 import ErrorListPanel from './ErrorListPanel';
@@ -28,6 +28,7 @@ interface TeamDetailProps {
   pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
   courseAverages?: CourseAverages | null;
   onTeamUpdate?: (team: TeamDTO) => void;
+  onToggleReviewed?: () => void;
   analysisMode?: 'SIMPLE' | 'FULL';
 }
 
@@ -35,8 +36,14 @@ interface TeamDetailProps {
  * Full detail view for a single team — CQI score, student list, metrics cards,
  * orphan-commit mapping, and the AI analysis feed.
  *
- * @param props.team - team to display
- * @param props.onBack - navigate back to the teams list
+ * @param team - team to display
+ * @param onBack - navigate back to the teams list
+ * @param course - course
+ * @param exercise - exercise
+ * @param pairProgrammingBadgeStatus - status of the PP badge
+ * @param courseAverages - course average
+ * @param onTeamUpdate
+ * @param analysisMode
  */
 const TeamDetail = ({
   team,
@@ -46,10 +53,26 @@ const TeamDetail = ({
   pairProgrammingBadgeStatus = null,
   courseAverages = null,
   onTeamUpdate,
+  onToggleReviewed,
   analysisMode,
 }: TeamDetailProps) => {
   const isDevMode = readDevModeFromStorage();
   const queryClient = useQueryClient();
+
+  const artemisRepoUrl = useMemo(() => {
+    if (!course || !exercise || !team.participationId) return null;
+    let baseUrl: string | null = null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        baseUrl = window.localStorage.getItem('harmonia.serverUrl');
+      }
+    } catch {
+      baseUrl = null;
+    }
+    if (!baseUrl) return null;
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    return `${baseUrl}/course-management/${course}/programming-exercises/${exercise}/repository/USER/${team.participationId}`;
+  }, [course, exercise, team.participationId]);
 
   const { data: emailMappings = [] } = useQuery<EmailMappingDTO[]>({
     queryKey: ['emailMappings', exercise],
@@ -59,6 +82,26 @@ const TeamDetail = ({
     },
     enabled: !!exercise,
   });
+
+  const dismissedEmails = useMemo(() => {
+    const emails = new Set<string>();
+    for (const m of emailMappings) {
+      if (m.isDismissed && m.gitEmail) {
+        emails.add(m.gitEmail.toLowerCase());
+      }
+    }
+    return emails;
+  }, [emailMappings]);
+
+  const assignedEmails = useMemo(() => {
+    const map = new Map<string, { mappingId: string; studentName: string }>();
+    for (const m of emailMappings) {
+      if (!m.isDismissed && m.gitEmail && m.studentName && m.id) {
+        map.set(m.gitEmail.toLowerCase(), { mappingId: m.id, studentName: m.studentName });
+      }
+    }
+    return map;
+  }, [emailMappings]);
 
   const { data: templateAuthorEmail } = useQuery<string | undefined>({
     queryKey: ['templateAuthorEmail', exercise],
@@ -88,6 +131,28 @@ const TeamDetail = ({
   const handleMappingChange = useCallback(() => {
     mappingChangeMutation.mutate();
   }, [mappingChangeMutation]);
+
+  const handleUndoDismiss = useCallback(
+    async (email: string) => {
+      const mapping = emailMappings.find(m => m.isDismissed && m.gitEmail?.toLowerCase() === email.toLowerCase());
+      if (mapping?.id && exercise) {
+        await emailMappingApi.deleteMapping(parseInt(exercise), mapping.id);
+        handleMappingChange();
+      }
+    },
+    [emailMappings, exercise, handleMappingChange],
+  );
+
+  const handleUndoAssignment = useCallback(
+    async (email: string) => {
+      const info = assignedEmails.get(email.toLowerCase());
+      if (info && exercise) {
+        await emailMappingApi.deleteMapping(parseInt(exercise), info.mappingId);
+        handleMappingChange();
+      }
+    },
+    [assignedEmails, exercise, handleMappingChange],
+  );
 
   const getCQIColor = (cqi: number) => {
     if (cqi >= 80) return 'text-success';
@@ -208,7 +273,7 @@ const TeamDetail = ({
         value: -1,
         weight: 0,
         description: 'Is work spread over time or crammed at deadline?',
-        details: 'Will be calculated after analysis completes.',
+        details: 'Higher scores mean work was spread consistently throughout the project period. Based on prefiltered commits.',
       },
       {
         name: 'File Ownership Spread',
@@ -297,12 +362,31 @@ const TeamDetail = ({
         <p className="text-sm text-muted-foreground">
           Course: <span className="font-medium">{course}</span> | Exercise: <span className="font-medium">{exercise}</span>
         </p>
-        {canComputeAi && (
-          <Button size="sm" variant="outline" onClick={() => computeAiMutation.mutate()} disabled={isAiComputing}>
-            {isAiComputing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
-            {isAiComputing ? 'Computing AI...' : hasAiResult ? 'Recompute AI' : 'Compute AI'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {onToggleReviewed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onToggleReviewed}
+                    className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
+                  >
+                    <CircleCheck className={`h-5 w-5 ${team.isReviewed ? 'text-primary fill-primary/20' : 'text-muted-foreground/40'}`} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{team.isReviewed ? 'Mark as unreviewed' : 'Mark as reviewed'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {canComputeAi && (
+            <Button size="sm" variant="outline" onClick={() => computeAiMutation.mutate()} disabled={isAiComputing}>
+              {isAiComputing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+              {isAiComputing ? 'Computing AI...' : hasAiResult ? 'Recompute AI' : 'Compute AI'}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="shadow-elevated bg-white">
@@ -310,7 +394,20 @@ const TeamDetail = ({
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div className="space-y-4 flex-1">
               <div className="space-y-1 mb-4">
-                <h2 className="text-2xl font-bold">{team.teamName}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold">{team.teamName}</h2>
+                  {artemisRepoUrl && (
+                    <a
+                      href={artemisRepoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      title="Open repository on Artemis"
+                    >
+                      <ExternalLink className="h-5 w-5" />
+                    </a>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">Team Details</p>
               </div>
 
@@ -408,7 +505,7 @@ const TeamDetail = ({
                       Analyzing...
                     </Badge>
                   )}
-                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true} />
                 </div>
               </div>
             </div>
@@ -644,7 +741,14 @@ const TeamDetail = ({
               templateAuthorEmail={templateAuthorEmail}
             />
 
-            <AnalysisFeed chunks={team.analysisHistory || []} isDevMode={isDevMode} />
+            <AnalysisFeed
+              chunks={team.analysisHistory || []}
+              isDevMode={isDevMode}
+              dismissedEmails={dismissedEmails}
+              onUndoDismiss={handleUndoDismiss}
+              assignedEmails={assignedEmails}
+              onUndoAssignment={handleUndoAssignment}
+            />
           </>
         ) : team.isFailed ? (
           <Card className="p-8 flex items-center justify-center">

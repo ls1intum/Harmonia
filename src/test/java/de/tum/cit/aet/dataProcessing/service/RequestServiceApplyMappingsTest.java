@@ -10,6 +10,8 @@ import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
+import de.tum.cit.aet.analysis.service.AnalysisQueryService;
+import de.tum.cit.aet.analysis.service.AnalysisResultPersistenceService;
 import de.tum.cit.aet.analysis.service.GitContributionAnalysisService;
 import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -169,10 +171,10 @@ class RequestServiceApplyMappingsTest {
         verify(cqiRecalculationService, never()).recalculateFromChunks(any(), any());
     }
 
-    // ── Integration test: saveAIAnalysisResult calls applyExistingEmailMappings ──
+    // ── Integration test: saveAIAnalysisResultWithUsage calls applyExistingEmailMappings ──
 
     @Test
-    void saveAIAnalysisResult_withExistingMapping_appliesMappingToSavedChunks() {
+    void saveAIAnalysisResultWithUsage_withExistingMapping_appliesMappingToSavedChunks() {
         Long exerciseId = 42L;
 
         // Build a minimal TeamRepositoryDTO
@@ -235,7 +237,7 @@ class RequestServiceApplyMappingsTest {
         });
 
         // Act
-        service.saveAIAnalysisResult(repo, exerciseId);
+        service.saveAIAnalysisResultWithUsage(repo, exerciseId);
 
         // Assert: saveAll was called twice — once for saveAnalyzedChunks,
         // once for applyExistingEmailMappings

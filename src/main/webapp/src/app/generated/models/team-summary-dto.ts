@@ -27,9 +27,11 @@ export interface TeamSummaryDTO {
   cqi?: number;
   cqiDetails?: CQIResultDTO;
   isFailed?: boolean;
+  isReviewed?: boolean;
   isSuspicious?: boolean;
   llmTokenTotals?: LlmTokenTotalsDTO;
   orphanCommitCount?: number;
+  shortName?: string;
   students?: Array<StudentSummaryDTO>;
   teamId?: number;
   teamName?: string;

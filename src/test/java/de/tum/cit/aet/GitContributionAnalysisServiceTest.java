@@ -76,7 +76,7 @@ class GitContributionAnalysisServiceTest {
 
         // 2. Fetch, Analyze and Save
         ArtemisCredentials credentials = loader.getCredentials(jwtToken);
-        requestService.fetchAnalyzeAndSaveRepositories(credentials, 18806L);
+        requestService.fetchAnalyzeAndSaveRepositories(credentials, 18806L, Integer.MAX_VALUE);
     }
 
     @Test
