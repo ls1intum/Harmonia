@@ -21,8 +21,27 @@ interface StartAnalysisProps {
 const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [exerciseUrl, setExerciseUrl] = useState('https://artemis.tum.de/courses/478/exercises/18806');
-  const [pairProgrammingMode, setPairProgrammingMode] = useState<'yes' | 'no'>('yes');
+  const [exerciseUrl, setExerciseUrl] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem('harmonia.exerciseUrl') ?? '';
+      }
+    } catch {
+      // Ignore errors
+    }
+    return '';
+  });
+  const [pairProgrammingMode, setPairProgrammingMode] = useState<'yes' | 'no'>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = window.localStorage.getItem('harmonia.pairProgrammingMode');
+        if (stored === 'yes' || stored === 'no') return stored;
+      }
+    } catch {
+      // Ignore errors
+    }
+    return 'yes';
+  });
 
   // Parse exercise URL to extract baseUrl, courseId, and exerciseId
   const parseExerciseUrl = (urlString: string) => {
@@ -120,7 +139,14 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
             id="exerciseUrl"
             placeholder="https://artemis.../courses/30/exercises/282"
             value={exerciseUrl}
-            onChange={e => setExerciseUrl(e.target.value)}
+            onChange={e => {
+              setExerciseUrl(e.target.value);
+              try {
+                window.localStorage.setItem('harmonia.exerciseUrl', e.target.value);
+              } catch {
+                // Ignore errors
+              }
+            }}
             disabled={isLoading}
           />
         </div>
@@ -150,7 +176,14 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
 
         <div className="space-y-2">
           <Label htmlFor="pair-programming-mode">Includes pair programming</Label>
-          <Select value={pairProgrammingMode} onValueChange={value => setPairProgrammingMode(value as 'yes' | 'no')} disabled={isLoading}>
+          <Select value={pairProgrammingMode} onValueChange={value => {
+              setPairProgrammingMode(value as 'yes' | 'no');
+              try {
+                window.localStorage.setItem('harmonia.pairProgrammingMode', value);
+              } catch {
+                // Ignore errors
+              }
+            }} disabled={isLoading}>
             <SelectTrigger id="pair-programming-mode">
               <SelectValue />
             </SelectTrigger>
