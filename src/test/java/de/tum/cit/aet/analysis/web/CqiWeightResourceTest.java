@@ -1,13 +1,14 @@
 package de.tum.cit.aet.analysis.web;
 
 import de.tum.cit.aet.analysis.domain.CqiWeightConfiguration;
+import de.tum.cit.aet.analysis.dto.cqi.CqiWeightsDTO;
 import de.tum.cit.aet.analysis.repository.CqiWeightConfigurationRepository;
 import de.tum.cit.aet.analysis.service.cqi.CQIConfig;
-import de.tum.cit.aet.analysis.web.CqiWeightResource.CqiWeightsDTO;
+import de.tum.cit.aet.analysis.service.cqi.CqiWeightService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -27,8 +28,14 @@ class CqiWeightResourceTest {
     @Mock
     private CQIConfig cqiConfig;
 
-    @InjectMocks
+    private CqiWeightService cqiWeightService;
     private CqiWeightResource resource;
+
+    @BeforeEach
+    void setUp() {
+        cqiWeightService = new CqiWeightService(weightConfigRepository, cqiConfig);
+        resource = new CqiWeightResource(cqiWeightService);
+    }
 
     private CQIConfig.Weights defaultWeights() {
         CQIConfig.Weights w = new CQIConfig.Weights();
