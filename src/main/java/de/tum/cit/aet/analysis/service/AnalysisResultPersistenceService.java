@@ -742,7 +742,7 @@ public class AnalysisResultPersistenceService {
             tp.setAnalysisStatus(TeamAnalysisStatus.DONE);
             tp.setCqiEffortBalance(null);
             tp.setCqiLocBalance(null);
-            tp.setCqiTemporalSpread(null);
+            // Preserve temporal spread + daily distribution — computed from git data, useful for bar chart
             tp.setCqiOwnershipSpread(null);
             // Preserve PP fields — failed teams should still show their PP status
             tp.setCqiBaseScore(null);

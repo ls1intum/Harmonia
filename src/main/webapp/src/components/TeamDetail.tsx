@@ -3,7 +3,7 @@ import type { TeamDTO, SubMetric } from '@/data/dataLoaders';
 import { transformToComplexTeamData } from '@/data/dataLoaders';
 import type { CourseAverages } from '@/lib/courseAverages';
 import { computeBasicMetrics } from '@/lib/utils';
-import { emailMappingApi, requestApi, analysisApi } from '@/lib/apiClient';
+import { emailMappingApi, requestApi, analysisApi, pairProgrammingApi } from '@/lib/apiClient';
 import { useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,14 @@ const TeamDetail = ({
     },
     enabled: !!exercise,
   });
+
+  const { data: ppRecomputing } = useQuery({
+    queryKey: ['pairProgrammingRecomputing', exercise],
+    queryFn: () => pairProgrammingApi.isRecomputing(parseInt(exercise!)).then(res => res.data),
+    enabled: !!exercise,
+    refetchInterval: query => (query.state.data?.recomputing ? 2000 : false),
+  });
+  const isPairProgrammingRecomputing = ppRecomputing?.recomputing ?? false;
 
   const mappingChangeMutation = useMutation({
     mutationFn: async () => {
@@ -482,7 +490,11 @@ const TeamDetail = ({
                       Analyzing...
                     </Badge>
                   )}
-                  {pairProgrammingBadgeStatus ? (
+                  {isPairProgrammingRecomputing ? (
+                    <Badge variant="outline" className="text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                      PP: Recomputing...
+                    </Badge>
+                  ) : pairProgrammingBadgeStatus ? (
                     <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true} />
                   ) : team.analysisStatus !== 'ERROR' && team.analysisStatus !== 'CANCELLED' ? (
                     <Badge variant="outline" className="text-muted-foreground border-amber-500/50 bg-amber-500/10">

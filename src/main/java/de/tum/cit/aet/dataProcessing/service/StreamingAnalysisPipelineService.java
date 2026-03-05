@@ -270,10 +270,9 @@ public class StreamingAnalysisPipelineService {
 
             executor.shutdown();
             log.info("Phase 2 complete: {} of {} repositories git-analyzed", gitAnalyzedCount.get(), clonedCount);
-            eventEmitter.accept(Map.of("type", "GIT_DONE", "processed", gitAnalyzedCount.get()));
 
-            // Synchronously recompute PP statuses after git analysis so they are in the DB
-            // before AI analysis starts (async would race with AI analysis saves)
+            // Recompute PP statuses BEFORE emitting GIT_DONE so the frontend
+            // can fetch updated PP data from the DB when it handles the event
             if (pairProgrammingService.hasAttendanceData()) {
                 try {
                     int ppUpdated = pairProgrammingRecomputeService.recomputePairProgrammingForExercise(exerciseId);
@@ -282,6 +281,8 @@ public class StreamingAnalysisPipelineService {
                     log.error("PP recompute after git analysis failed for exerciseId={}: {}", exerciseId, e.getMessage());
                 }
             }
+
+            eventEmitter.accept(Map.of("type", "GIT_DONE", "processed", gitAnalyzedCount.get()));
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
