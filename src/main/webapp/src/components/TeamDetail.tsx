@@ -25,7 +25,6 @@ interface TeamDetailProps {
   onBack: () => void;
   course?: string;
   exercise?: string;
-  pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
   courseAverages?: CourseAverages | null;
   onTeamUpdate?: (team: TeamDTO) => void;
   onToggleReviewed?: () => void;
@@ -40,7 +39,6 @@ interface TeamDetailProps {
  * @param onBack - navigate back to the teams list
  * @param course - course
  * @param exercise - exercise
- * @param pairProgrammingBadgeStatus - status of the PP badge
  * @param courseAverages - course average
  * @param onTeamUpdate
  * @param onToggleReviewed
@@ -51,7 +49,6 @@ const TeamDetail = ({
   onBack,
   course,
   exercise,
-  pairProgrammingBadgeStatus = null,
   courseAverages = null,
   onTeamUpdate,
   onToggleReviewed,
@@ -236,7 +233,11 @@ const TeamDetail = ({
     );
   };
 
-  // Show Pair Programming card from server subMetrics when present; otherwise from attendance badge when available (e.g. when analysis failed)
+  // Derive PP badge status from server data
+  const pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null = team.pairProgrammingStatus
+    ? (team.pairProgrammingStatus.toLowerCase() as PairProgrammingBadgeStatus)
+    : null;
+
   const isSimpleMode = analysisMode === 'SIMPLE';
   const metricsToShow = useMemo((): SubMetric[] => {
     const effortBalancePlaceholder: SubMetric = isAiComputing
@@ -310,50 +311,8 @@ const TeamDetail = ({
         return m;
       });
     }
-    if (pairProgrammingBadgeStatus != null) {
-      const description = 'Did both students commit during pair programming sessions?';
-      const synthetic: SubMetric =
-        pairProgrammingBadgeStatus === 'pass'
-          ? {
-              name: 'Pair Programming',
-              value: 100,
-              weight: 0,
-              description,
-              details:
-                'Verifies that both team members actually collaborated by checking if they both made commits on the dates when they attended pair programming tutorials together.',
-            }
-          : pairProgrammingBadgeStatus === 'fail'
-            ? {
-                name: 'Pair Programming',
-                value: 0,
-                weight: 0,
-                description,
-                details: 'Team was found in Excel but attended fewer than the mandatory number of pair-programming sessions.',
-              }
-            : pairProgrammingBadgeStatus === 'warning'
-              ? {
-                  name: 'Pair Programming',
-                  value: -3,
-                  weight: 0,
-                  description,
-                  details:
-                    'Some pair-programming tutorials were cancelled, so mandatory attendance could not be evaluated reliably. Some sessions were attended.',
-                  status: 'WARNING',
-                }
-              : {
-                  name: 'Pair Programming',
-                  value: -2,
-                  weight: 0,
-                  description,
-                  details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
-                  status: 'NOT_FOUND',
-                };
-      // Client-side attendance data is the most current source of truth — override any server PP metric
-      const withoutServerPP = fromServer.filter(m => m.name !== 'Pair Programming');
-      return withoutServerPP.concat(synthetic);
-    }
     return fromServer;
-  }, [team.subMetrics, pairProgrammingBadgeStatus, isSimpleMode, hasAiResult, isAiComputing]);
+  }, [team.subMetrics, isSimpleMode, hasAiResult, isAiComputing]);
 
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
@@ -509,7 +468,13 @@ const TeamDetail = ({
                       Analyzing...
                     </Badge>
                   )}
-                  <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true} />
+                  {pairProgrammingBadgeStatus ? (
+                    <PairProgrammingBadge status={pairProgrammingBadgeStatus} verbose={true} />
+                  ) : team.analysisStatus !== 'ERROR' && team.analysisStatus !== 'CANCELLED' ? (
+                    <Badge variant="outline" className="text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                      PP: Pending
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
             </div>

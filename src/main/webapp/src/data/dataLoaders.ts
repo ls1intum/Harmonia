@@ -12,7 +12,11 @@ export interface SubMetric {
 }
 
 /** A ClientResponseDTO extended with client-computed sub-metrics and review status. */
-export type TeamDTO = ClientResponseDTO & { subMetrics?: SubMetric[]; isReviewed?: boolean };
+export type TeamDTO = ClientResponseDTO & {
+  subMetrics?: SubMetric[];
+  isReviewed?: boolean;
+  pairProgrammingStatus?: 'PASS' | 'FAIL' | 'NOT_FOUND' | 'WARNING' | null;
+};
 
 // ============================================================
 // DATA TRANSFORMATION - Convert DTO to Client Types
@@ -109,6 +113,7 @@ export function transformToComplexTeamData(dto: ClientResponseDTO): TeamDTO {
     cqi,
     isSuspicious,
     subMetrics,
+    pairProgrammingStatus: (pairProgrammingStatus as TeamDTO['pairProgrammingStatus']) ?? null,
   });
 }
 

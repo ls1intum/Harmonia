@@ -51,17 +51,12 @@ import FileUpload from '@/components/FileUpload';
 import { getFailedReason } from '@/lib/utils';
 import PairProgrammingBadge from '@/components/PairProgrammingBadge';
 import { PairProgrammingFilterButton, type PairProgrammingFilterValue } from '@/components/PairProgrammingFilterButton';
-import {
-  getPairProgrammingBadgeStatus,
-  hasValidPairProgrammingAttendanceData,
-  type PairProgrammingAttendanceMap,
-  type PairProgrammingBadgeStatus,
-} from '@/lib/pairProgramming';
+import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 
 interface TeamsListProps {
   teams: TeamDTO[];
   courseAverages: CourseAverages | null;
-  onTeamSelect: (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => void;
+  onTeamSelect: (team: TeamDTO) => void;
   onToggleReviewed: (teamId: string) => void;
   onBackToHome: () => void;
   onStart: (mode: AnalysisMode) => void;
@@ -74,7 +69,6 @@ interface TeamsListProps {
   pairProgrammingEnabled: boolean;
   attendanceFile: File | null;
   uploadedAttendanceFileName: string | null;
-  pairProgrammingAttendanceByTeamName: PairProgrammingAttendanceMap;
   onAttendanceFileSelect: (file: File | null) => void;
   onAttendanceUpload: () => void;
   onRemoveUploadedAttendanceFile: () => void;
@@ -112,7 +106,6 @@ const TeamsList = ({
   pairProgrammingEnabled,
   attendanceFile,
   uploadedAttendanceFileName,
-  pairProgrammingAttendanceByTeamName,
   onAttendanceFileSelect,
   onAttendanceUpload,
   onRemoveUploadedAttendanceFile,
@@ -274,14 +267,13 @@ const TeamsList = ({
   };
 
   // Get priority for analysis status (lower = shown first)
-  // Failed teams (isFailed) get a separate priority so they sort below teams with real CQI scores
+  // Active analysis (AI_ANALYZING) shown near top so progress is visible
   const getStatusPriority = (team: TeamDTO): number => {
-    if (team.isFailed) return 1; // Failed teams after successful DONE teams
     switch (team.analysisStatus) {
-      case 'DONE':
-        return 0; // Fully completed - show first
       case 'AI_ANALYZING':
-        return 2; // AI analysis in progress
+        return 0; // AI analysis in progress — show at top
+      case 'DONE':
+        return team.isFailed ? 2 : 1; // Successful after AI_ANALYZING, failed below
       case 'GIT_DONE':
         return 3; // Git analysis done, waiting for AI
       case 'GIT_ANALYZING':
@@ -298,11 +290,7 @@ const TeamsList = ({
     }
   };
 
-  const hasValidPairProgrammingData = hasValidPairProgrammingAttendanceData(
-    pairProgrammingEnabled,
-    uploadedAttendanceFileName,
-    pairProgrammingAttendanceByTeamName,
-  );
+  const hasValidPairProgrammingData = pairProgrammingEnabled && teams.some(t => t.pairProgrammingStatus != null);
 
   const sortedAndFilteredTeams = useMemo(() => {
     let filtered = teams.slice();
@@ -353,12 +341,9 @@ const TeamsList = ({
     // Apply pair programming filter (multi-select)
     if (pairProgrammingFilter.length > 0 && hasValidPairProgrammingData) {
       filtered = filtered.filter(team => {
-        const badge = getPairProgrammingBadgeStatus(
-          team.teamName ?? '',
-          hasValidPairProgrammingData,
-          pairProgrammingAttendanceByTeamName,
-          team.shortName,
-        );
+        const badge: PairProgrammingBadgeStatus | null = team.pairProgrammingStatus
+          ? (team.pairProgrammingStatus.toLowerCase() as PairProgrammingBadgeStatus)
+          : null;
         return badge != null && pairProgrammingFilter.includes(badge);
       });
     }
@@ -416,16 +401,7 @@ const TeamsList = ({
     }
 
     return filtered;
-  }, [
-    teams,
-    searchQuery,
-    sortColumn,
-    sortDirection,
-    statusFilter,
-    pairProgrammingFilter,
-    hasValidPairProgrammingData,
-    pairProgrammingAttendanceByTeamName,
-  ]);
+  }, [teams, searchQuery, sortColumn, sortDirection, statusFilter, pairProgrammingFilter, hasValidPairProgrammingData]);
 
   const renderStartDropdown = (label: string, isPending: boolean, onAction: (mode: AnalysisMode) => void) => (
     <DropdownMenu>
@@ -964,17 +940,14 @@ const TeamsList = ({
             </thead>
             <tbody>
               {sortedAndFilteredTeams.map(team => {
-                const pairProgrammingBadgeStatus = getPairProgrammingBadgeStatus(
-                  team.teamName ?? '',
-                  hasValidPairProgrammingData,
-                  pairProgrammingAttendanceByTeamName,
-                  team.shortName,
-                );
+                const pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null = team.pairProgrammingStatus
+                  ? (team.pairProgrammingStatus.toLowerCase() as PairProgrammingBadgeStatus)
+                  : null;
 
                 return (
                   <tr
                     key={String(team.teamId)}
-                    onClick={() => onTeamSelect(team, pairProgrammingBadgeStatus)}
+                    onClick={() => onTeamSelect(team)}
                     className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
                   >
                     <td className="py-4 px-3">
@@ -1088,7 +1061,13 @@ const TeamsList = ({
                     {pairProgrammingEnabled && (
                       <td className="py-4 px-6">
                         <div className="flex flex-wrap items-center gap-2">
-                          <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                          {pairProgrammingBadgeStatus ? (
+                            <PairProgrammingBadge status={pairProgrammingBadgeStatus} />
+                          ) : hasUploadedAttendanceDocument && team.analysisStatus !== 'ERROR' && team.analysisStatus !== 'CANCELLED' ? (
+                            <Badge variant="outline" className="text-muted-foreground border-amber-500/50 bg-amber-500/10">
+                              Pending
+                            </Badge>
+                          ) : null}
                         </div>
                       </td>
                     )}

@@ -11,6 +11,8 @@ import de.tum.cit.aet.ai.dto.LlmTokenTotalsDTO;
 import de.tum.cit.aet.artemis.ArtemisClientService;
 import de.tum.cit.aet.core.dto.ArtemisCredentials;
 import de.tum.cit.aet.dataProcessing.domain.AnalysisMode;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingRecomputeService;
+import de.tum.cit.aet.pairProgramming.service.PairProgrammingService;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamAnalysisStatus;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
 import de.tum.cit.aet.repositoryProcessing.dto.*;
@@ -51,6 +53,8 @@ public class StreamingAnalysisPipelineService {
     private final AnalysisTaskManager analysisTaskManager;
     private final ExerciseTeamLifecycleService exerciseDataCleanupService;
     private final AnalysisResultPersistenceService persistenceService;
+    private final PairProgrammingService pairProgrammingService;
+    private final PairProgrammingRecomputeService pairProgrammingRecomputeService;
 
     public StreamingAnalysisPipelineService(
             ArtemisClientService artemisClientService,
@@ -62,7 +66,9 @@ public class StreamingAnalysisPipelineService {
             ExerciseTemplateAuthorRepository templateAuthorRepository,
             AnalysisTaskManager analysisTaskManager,
             ExerciseTeamLifecycleService exerciseDataCleanupService,
-            AnalysisResultPersistenceService persistenceService) {
+            AnalysisResultPersistenceService persistenceService,
+            PairProgrammingService pairProgrammingService,
+            PairProgrammingRecomputeService pairProgrammingRecomputeService) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
         this.analysisStateService = analysisStateService;
@@ -73,6 +79,8 @@ public class StreamingAnalysisPipelineService {
         this.analysisTaskManager = analysisTaskManager;
         this.exerciseDataCleanupService = exerciseDataCleanupService;
         this.persistenceService = persistenceService;
+        this.pairProgrammingService = pairProgrammingService;
+        this.pairProgrammingRecomputeService = pairProgrammingRecomputeService;
     }
 
     // =====================================================================
@@ -263,6 +271,17 @@ public class StreamingAnalysisPipelineService {
             executor.shutdown();
             log.info("Phase 2 complete: {} of {} repositories git-analyzed", gitAnalyzedCount.get(), clonedCount);
             eventEmitter.accept(Map.of("type", "GIT_DONE", "processed", gitAnalyzedCount.get()));
+
+            // Synchronously recompute PP statuses after git analysis so they are in the DB
+            // before AI analysis starts (async would race with AI analysis saves)
+            if (pairProgrammingService.hasAttendanceData()) {
+                try {
+                    int ppUpdated = pairProgrammingRecomputeService.recomputePairProgrammingForExercise(exerciseId);
+                    log.info("PP recompute after git analysis: {} teams updated for exerciseId={}", ppUpdated, exerciseId);
+                } catch (Exception e) {
+                    log.error("PP recompute after git analysis failed for exerciseId={}: {}", exerciseId, e.getMessage());
+                }
+            }
 
             if (!analysisStateService.isRunning(exerciseId)) {
                 exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);

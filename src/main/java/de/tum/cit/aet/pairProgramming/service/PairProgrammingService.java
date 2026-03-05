@@ -415,6 +415,9 @@ public class PairProgrammingService {
      * @return the pair programming status
      */
     public PairProgrammingStatus getPairProgrammingStatus(String teamName, String shortName) {
+        if (!hasAttendanceData()) {
+            return null; // No Excel uploaded — PP not applicable
+        }
         boolean hasAttendance = hasTeamAttendance(teamName, shortName);
         boolean hasCancelledWarning = hasCancelledSessionWarning(teamName, shortName);
         boolean pairedMandatory = isPairedMandatorySessions(teamName, shortName);
@@ -434,6 +437,9 @@ public class PairProgrammingService {
                                  List<CommitChunkDTO> chunks, int teamSize) {
         if (teamName == null || teamSize != 2) {
             return null;
+        }
+        if (!hasAttendanceData()) {
+            return null; // No Excel uploaded — PP not applicable
         }
         try {
             boolean hasAttendance = hasTeamAttendance(teamName, shortName);

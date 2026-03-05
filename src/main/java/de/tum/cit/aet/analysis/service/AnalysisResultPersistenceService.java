@@ -190,6 +190,9 @@ public class AnalysisResultPersistenceService {
         teamRepo.setVcsLogs(vcsLogs);
         teamRepositoryRepository.save(teamRepo);
 
+        // Compute git-only CQI (including PP status) for ALL teams before the failed check
+        CQIResultDTO gitCqiDetails = calculateGitOnlyCqi(repo, teamParticipation, team, students);
+
         boolean hasFailed = checkAndMarkFailed(teamParticipation, students);
         if (hasFailed) {
             return new ClientResponseDTO(
@@ -197,10 +200,8 @@ public class AnalysisResultPersistenceService {
                     team.id(), participation.id(), team.name(), team.shortName(),
                     participation.submissionCount(),
                     studentDtos, 0.0, false, TeamAnalysisStatus.DONE,
-                    null, null, null, null, 0, true, null);
+                    gitCqiDetails, null, null, null, 0, true, null);
         }
-
-        CQIResultDTO gitCqiDetails = calculateGitOnlyCqi(repo, teamParticipation, team, students);
 
         CQIResultDTO finalDetails = gitCqiDetails;
         if (mode == AnalysisMode.SIMPLE && gitCqiDetails != null) {
@@ -730,8 +731,7 @@ public class AnalysisResultPersistenceService {
             tp.setCqiLocBalance(null);
             tp.setCqiTemporalSpread(null);
             tp.setCqiOwnershipSpread(null);
-            tp.setCqiPairProgramming(null);
-            tp.setCqiPairProgrammingStatus(null);
+            // Preserve PP fields — failed teams should still show their PP status
             tp.setCqiBaseScore(null);
             teamParticipationRepository.save(tp);
         }
