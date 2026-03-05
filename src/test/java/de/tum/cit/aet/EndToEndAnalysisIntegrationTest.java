@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -304,9 +305,9 @@ class EndToEndAnalysisIntegrationTest {
             log.info("");
             log.info("Chunks by classification:");
             chunks.stream()
-                    .collect(java.util.stream.Collectors.groupingBy(
+                    .collect(Collectors.groupingBy(
                             c -> c.getClassification() != null ? c.getClassification() : "UNKNOWN",
-                            java.util.stream.Collectors.counting()))
+                            Collectors.counting()))
                     .forEach((classification, count) -> log.info("  • {}: {}", classification, count));
 
             // Chunks per team

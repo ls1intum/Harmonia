@@ -40,6 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Persists Phase-2 (git analysis) and Phase-3 (AI analysis) results.
@@ -249,7 +250,7 @@ public class AnalysisResultPersistenceService {
         Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
                 .stream()
                 .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
         Double cqi = null;
         boolean isSuspicious = false;
@@ -532,11 +533,11 @@ public class AnalysisResultPersistenceService {
             Map<String, List<AnalyzedChunk>> remappedByStudent = new HashMap<>();
 
             for (ExerciseEmailMapping mapping : mappings) {
-                String emailLower = mapping.getGitEmail().toLowerCase(java.util.Locale.ROOT);
+                String emailLower = mapping.getGitEmail().toLowerCase(Locale.ROOT);
                 for (AnalyzedChunk chunk : chunks) {
                     if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
                             && emailLower.equals(chunk.getAuthorEmail() != null
-                            ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
+                            ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
                         chunk.setIsExternalContributor(false);
                         chunk.setAuthorName(mapping.getStudentName());
                         remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
@@ -582,7 +583,7 @@ public class AnalysisResultPersistenceService {
                 // Recompute orphan commit count from remaining external-contributor chunks,
                 // but exclude template authors (they should not be considered "unmatched")
                 Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
-                        .stream().map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT)).collect(java.util.stream.Collectors.toSet());
+                        .stream().map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
                 int remainingOrphanCommits = 0;
                 for (AnalyzedChunk c : chunks) {
                     if (Boolean.TRUE.equals(c.getIsExternalContributor())) {

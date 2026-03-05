@@ -320,7 +320,7 @@ public class StreamingAnalysisPipelineService {
                 }
             }
 
-        } catch (java.util.concurrent.RejectedExecutionException e) {
+        } catch (RejectedExecutionException e) {
             log.info("Analysis cancelled (executor shut down) for exerciseId={}", exerciseId);
             exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
             analysisStateService.cancelAnalysis(exerciseId);
