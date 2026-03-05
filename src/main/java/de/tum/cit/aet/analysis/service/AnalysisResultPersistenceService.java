@@ -644,6 +644,17 @@ public class AnalysisResultPersistenceService {
         }
     }
 
+    private String serializeDailyDistribution(List<Double> dailyDistribution) {
+        try {
+            if (dailyDistribution == null || dailyDistribution.isEmpty()) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(dailyDistribution);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     // =====================================================================
     //  Internal helpers
     // =====================================================================
@@ -665,6 +676,7 @@ public class AnalysisResultPersistenceService {
                 teamParticipation.setCqiPairProgramming(gitComponents.pairProgramming());
                 teamParticipation.setCqiPairProgrammingStatus(
                         gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
+                teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(gitComponents.dailyDistribution()));
                 teamParticipationRepository.save(teamParticipation);
 
                 return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(null), gitComponents, filterResult.summary());
@@ -701,6 +713,7 @@ public class AnalysisResultPersistenceService {
         teamParticipation.setCqiLocBalance(cqiDetails.components().locBalance());
         teamParticipation.setCqiTemporalSpread(cqiDetails.components().temporalSpread());
         teamParticipation.setCqiOwnershipSpread(cqiDetails.components().ownershipSpread());
+        teamParticipation.setCqiDailyDistribution(serializeDailyDistribution(cqiDetails.components().dailyDistribution()));
         teamParticipation.setCqiBaseScore(cqiDetails.baseScore());
     }
 

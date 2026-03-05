@@ -119,7 +119,21 @@ const TeamDetail = ({
         const response = await requestApi.getData(parseInt(exercise));
         const updatedTeam = response.data.find(d => d.teamId === team.teamId);
         if (updatedTeam) {
-          onTeamUpdate(transformToComplexTeamData(updatedTeam));
+          const transformed = transformToComplexTeamData(updatedTeam);
+          onTeamUpdate(transformed);
+          // Sync updated fields into the teams list cache
+          queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
+            old.map(t =>
+              t.teamId === team.teamId
+                ? Object.assign({}, t, {
+                    orphanCommitCount: updatedTeam.orphanCommitCount,
+                    isSuspicious: updatedTeam.isSuspicious,
+                    cqi: updatedTeam.cqi,
+                    subMetrics: transformed.subMetrics,
+                  })
+                : t,
+            ),
+          );
         }
       }
     },

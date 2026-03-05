@@ -39,6 +39,10 @@ export default function TeamDetailPage() {
     navigate(`/teams${search}`, { state: { course, exercise, pairProgrammingEnabled } });
   };
 
+  // Use cached team from the list so metrics (e.g. temporal spread bar) render instantly
+  const cachedTeams = queryClient.getQueryData<TeamDTO[]>(['teams', exercise]);
+  const cachedTeam = cachedTeams?.find(t => t.teamId === resolvedTeamId) ?? undefined;
+
   // Lazy fetch full team detail from server
   const {
     data: fetchedTeam,
@@ -56,7 +60,8 @@ export default function TeamDetailPage() {
   });
 
   const [team, setTeam] = useState<TeamDTO | undefined>(undefined);
-  const displayTeam = team ?? fetchedTeam ?? undefined;
+  // Show local state first, then fetched detail, then cached list data as fallback for instant render
+  const displayTeam = team ?? fetchedTeam ?? cachedTeam;
 
   const toggleReviewedMutation = useMutation({
     mutationFn: async () => {
@@ -88,7 +93,7 @@ export default function TeamDetailPage() {
     },
   });
 
-  if (isLoading) {
+  if (isLoading && !cachedTeam) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex items-center gap-3 text-muted-foreground">
