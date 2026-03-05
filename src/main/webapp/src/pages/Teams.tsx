@@ -231,7 +231,31 @@ export default function Teams() {
             reject(error);
           },
           undefined, // onPhaseChange
-          undefined, // onGitDone — PP statuses arrive via GIT_UPDATE events; DB is updated by synchronous recompute for page refreshes
+          async () => {
+            // PP recompute runs synchronously on the server before GIT_DONE is emitted,
+            // so PP statuses are already in the DB. Fetch from DB and merge only PP fields
+            // into the SSE-driven cache (preserving analysisStatus, cqi, etc.)
+            try {
+              const response = await requestApi.getTeamSummaries(parseInt(exercise));
+              const dbTeams = response.data.map(transformSummaryToTeamDTO);
+              queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
+                old.map(existing => {
+                  const db = dbTeams.find(d => d.teamId === existing.teamId);
+                  if (!db) return existing;
+                  return Object.assign({}, existing, {
+                    pairProgrammingStatus: db.pairProgrammingStatus,
+                    subMetrics: existing.subMetrics?.map(m =>
+                      m.name === 'Pair Programming' && db.subMetrics
+                        ? (db.subMetrics.find(dm => dm.name === 'Pair Programming') ?? m)
+                        : m,
+                    ),
+                  });
+                }),
+              );
+            } catch {
+              // Non-critical — PP badges will appear on next page refresh
+            }
+          }, // onGitDone
           info => queryClient.setQueryData(['templateAuthor', exercise], info),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
@@ -360,8 +384,27 @@ export default function Teams() {
             reject(error);
           },
           undefined, // onPhaseChange
-          () => {
-            queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+          async () => {
+            try {
+              const response = await requestApi.getTeamSummaries(parseInt(exercise));
+              const dbTeams = response.data.map(transformSummaryToTeamDTO);
+              queryClient.setQueryData(['teams', exercise], (old: TeamDTO[] = []) =>
+                old.map(existing => {
+                  const db = dbTeams.find(d => d.teamId === existing.teamId);
+                  if (!db) return existing;
+                  return Object.assign({}, existing, {
+                    pairProgrammingStatus: db.pairProgrammingStatus,
+                    subMetrics: existing.subMetrics?.map(m =>
+                      m.name === 'Pair Programming' && db.subMetrics
+                        ? (db.subMetrics.find(dm => dm.name === 'Pair Programming') ?? m)
+                        : m,
+                    ),
+                  });
+                }),
+              );
+            } catch {
+              // Non-critical
+            }
           }, // onGitDone
           info => queryClient.setQueryData(['templateAuthor', exercise], info),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
