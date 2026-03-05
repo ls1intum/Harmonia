@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -79,7 +80,7 @@ class ContributionFairnessServiceTest {
                 Map.of(),
                 Map.of("hash1", "student1@tum.de", "hash2", "student2@tum.de"));
         when(gitContributionAnalysisService.mapCommitToAuthor(any(TeamRepositoryDTO.class),
-                nullable(String.class)))
+                nullable(Set.class)))
                 .thenReturn(commitMapping);
 
         chunkA = new CommitChunkDTO(
@@ -201,7 +202,7 @@ class ContributionFairnessServiceTest {
         );
         when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
-        FairnessReportWithUsageDTO reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo);
+        FairnessReportWithUsageDTO reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo, null, null);
 
         assertEquals(2, reportWithUsage.tokenTotals().llmCalls());
         assertEquals(1, reportWithUsage.tokenTotals().callsWithUsage());
@@ -223,7 +224,7 @@ class ContributionFairnessServiceTest {
         CommitMappingResultDTO emptyMapping = new CommitMappingResultDTO(
                 Map.of(), Map.of(), Map.of());
         when(gitContributionAnalysisService.mapCommitToAuthor(any(TeamRepositoryDTO.class),
-                nullable(String.class)))
+                nullable(Set.class)))
                 .thenReturn(emptyMapping);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);

@@ -41,6 +41,7 @@ interface TeamDetailProps {
  * @param exercise - exercise
  * @param courseAverages - course average
  * @param onTeamUpdate
+ * @param onToggleReviewed
  * @param analysisMode
  */
 const TeamDetail = ({
@@ -100,11 +101,13 @@ const TeamDetail = ({
     return map;
   }, [emailMappings]);
 
-  const { data: templateAuthorEmail } = useQuery<string | undefined>({
-    queryKey: ['templateAuthorEmail', exercise],
+  const { data: templateAuthorEmails = [] } = useQuery<string[]>({
+    queryKey: ['templateAuthorEmails', exercise],
     queryFn: async () => {
-      const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise!));
-      return response.data?.templateEmail;
+      const response = await emailMappingApi.getTemplateAuthors(parseInt(exercise!));
+      const data = response.data;
+      if (!Array.isArray(data)) return [];
+      return data.map(d => (d.templateEmail ?? '').toLowerCase()).filter(Boolean);
     },
     enabled: !!exercise,
   });
@@ -704,7 +707,7 @@ const TeamDetail = ({
               teamParticipationId={String(team.teamId)}
               emailMappings={emailMappings}
               onMappingChange={handleMappingChange}
-              templateAuthorEmail={templateAuthorEmail}
+              templateAuthorEmails={templateAuthorEmails}
             />
 
             <AnalysisFeed

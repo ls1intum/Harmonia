@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,7 +66,7 @@ class RequestServiceApplyMappingsTest {
                 null, fairnessService, null,
                 gitContributionAnalysisService, null, null, null,
                 cqiRecalculationService, null,
-                null, teamParticipationRepository, null, studentRepository,
+                null, teamParticipationRepository, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
                 cleanupService, queryService, null);
     }
@@ -197,10 +198,10 @@ class RequestServiceApplyMappingsTest {
         when(studentRepository.findAllByTeam(teamParticipation)).thenReturn(List.of(student));
 
         // No template author
-        when(templateAuthorRepository.findByExerciseId(exerciseId)).thenReturn(Optional.empty());
+        when(templateAuthorRepository.findByExerciseId(exerciseId)).thenReturn(List.of());
 
         // Orphan detection returns no orphans
-        when(gitContributionAnalysisService.analyzeRepositoryWithOrphans(eq(repo), isNull()))
+        when(gitContributionAnalysisService.analyzeRepositoryWithOrphans(eq(repo), eq(Set.of())))
                 .thenReturn(new RepositoryAnalysisResultDTO(Map.of(), List.of()));
 
         // Fairness service returns one external chunk
@@ -214,7 +215,7 @@ class RequestServiceApplyMappingsTest {
                 "Team Alpha", 75.0, Map.of(), Map.of(),
                 false, List.of(), null,
                 List.of(externalChunkDTO), null);
-        when(fairnessService.analyzeFairnessWithUsage(eq(repo), isNull()))
+        when(fairnessService.analyzeFairnessWithUsage(eq(repo), eq(Set.of()), null))
                 .thenReturn(new FairnessReportWithUsageDTO(fairnessReport, LlmTokenTotalsDTO.empty()));
 
         // saveAll for chunks: capture and return the same list

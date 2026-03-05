@@ -292,7 +292,7 @@ paths:
   /api/exercises/{exerciseId}/email-mappings/template-author:
     get:
       tags: [email-mapping-resource]
-      operationId: getTemplateAuthor
+      operationId: getTemplateAuthors
       parameters:
       - name: exerciseId
         in: path
@@ -303,10 +303,12 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/TemplateAuthorDTO'}
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/TemplateAuthorDTO'}
     put:
       tags: [email-mapping-resource]
-      operationId: setTemplateAuthor
+      operationId: setTemplateAuthors
       parameters:
       - name: exerciseId
         in: path
@@ -315,7 +317,9 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/TemplateAuthorDTO'}
+            schema:
+              type: array
+              items: {$ref: '#/components/schemas/TemplateAuthorDTO'}
         required: true
       responses:
         '200':
@@ -327,7 +331,7 @@ paths:
                 items: {$ref: '#/components/schemas/ClientResponseDTO'}
     delete:
       tags: [email-mapping-resource]
-      operationId: deleteTemplateAuthor
+      operationId: deleteTemplateAuthors
       parameters:
       - name: exerciseId
         in: path

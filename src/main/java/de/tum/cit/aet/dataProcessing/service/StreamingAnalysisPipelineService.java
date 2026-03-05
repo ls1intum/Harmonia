@@ -339,7 +339,7 @@ public class StreamingAnalysisPipelineService {
                 }
             }
 
-        } catch (java.util.concurrent.RejectedExecutionException e) {
+        } catch (RejectedExecutionException e) {
             log.info("Analysis cancelled (executor shut down) for exerciseId={}", exerciseId);
             exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
             analysisStateService.cancelAnalysis(exerciseId);
@@ -620,15 +620,17 @@ public class StreamingAnalysisPipelineService {
     private void detectTemplateAuthor(Long exerciseId, Map<Long, TeamRepositoryDTO> clonedRepos,
                                        Consumer<Object> eventEmitter) {
         try {
-            ExerciseTemplateAuthor existing = templateAuthorRepository
-                    .findByExerciseId(exerciseId).orElse(null);
+            List<ExerciseTemplateAuthor> existing = templateAuthorRepository
+                    .findByExerciseId(exerciseId);
 
-            if (existing != null) {
-                synchronized (eventEmitter) {
-                    eventEmitter.accept(Map.of(
-                            "type", "TEMPLATE_AUTHOR",
-                            "email", existing.getTemplateEmail(),
-                            "autoDetected", existing.getAutoDetected()));
+            if (!existing.isEmpty()) {
+                for (ExerciseTemplateAuthor ta : existing) {
+                    synchronized (eventEmitter) {
+                        eventEmitter.accept(Map.of(
+                                "type", "TEMPLATE_AUTHOR",
+                                "email", ta.getTemplateEmail(),
+                                "autoDetected", ta.getAutoDetected()));
+                    }
                 }
                 return;
             }

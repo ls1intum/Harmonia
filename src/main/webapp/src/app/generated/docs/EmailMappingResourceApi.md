@@ -2,15 +2,15 @@
 
 All URIs are relative to _http://localhost:8080_
 
-| Method                                            | HTTP request                                                          | Description |
-| ------------------------------------------------- | --------------------------------------------------------------------- | ----------- |
-| [**createMapping**](#createmapping)               | **POST** /api/exercises/{exerciseId}/email-mappings                   |             |
-| [**deleteMapping**](#deletemapping)               | **DELETE** /api/exercises/{exerciseId}/email-mappings/{mappingId}     |             |
-| [**deleteTemplateAuthor**](#deletetemplateauthor) | **DELETE** /api/exercises/{exerciseId}/email-mappings/template-author |             |
-| [**dismissEmail**](#dismissemail)                 | **POST** /api/exercises/{exerciseId}/email-mappings/dismiss           |             |
-| [**getAllMappings**](#getallmappings)             | **GET** /api/exercises/{exerciseId}/email-mappings                    |             |
-| [**getTemplateAuthor**](#gettemplateauthor)       | **GET** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
-| [**setTemplateAuthor**](#settemplateauthor)       | **PUT** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
+| Method                                              | HTTP request                                                          | Description |
+| --------------------------------------------------- | --------------------------------------------------------------------- | ----------- |
+| [**createMapping**](#createmapping)                 | **POST** /api/exercises/{exerciseId}/email-mappings                   |             |
+| [**deleteMapping**](#deletemapping)                 | **DELETE** /api/exercises/{exerciseId}/email-mappings/{mappingId}     |             |
+| [**deleteTemplateAuthors**](#deletetemplateauthors) | **DELETE** /api/exercises/{exerciseId}/email-mappings/template-author |             |
+| [**dismissEmail**](#dismissemail)                   | **POST** /api/exercises/{exerciseId}/email-mappings/dismiss           |             |
+| [**getAllMappings**](#getallmappings)               | **GET** /api/exercises/{exerciseId}/email-mappings                    |             |
+| [**getTemplateAuthors**](#gettemplateauthors)       | **GET** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
+| [**setTemplateAuthors**](#settemplateauthors)       | **PUT** /api/exercises/{exerciseId}/email-mappings/template-author    |             |
 
 # **createMapping**
 
@@ -104,9 +104,9 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **deleteTemplateAuthor**
+# **deleteTemplateAuthors**
 
-> Array<ClientResponseDTO> deleteTemplateAuthor()
+> Array<ClientResponseDTO> deleteTemplateAuthors()
 
 ### Example
 
@@ -118,7 +118,7 @@ const apiInstance = new EmailMappingResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
 
-const { status, data } = await apiInstance.deleteTemplateAuthor(exerciseId);
+const { status, data } = await apiInstance.deleteTemplateAuthors(exerciseId);
 ```
 
 ### Parameters
@@ -238,9 +238,9 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **getTemplateAuthor**
+# **getTemplateAuthors**
 
-> TemplateAuthorDTO getTemplateAuthor()
+> Array<TemplateAuthorDTO> getTemplateAuthors()
 
 ### Example
 
@@ -252,7 +252,7 @@ const apiInstance = new EmailMappingResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
 
-const { status, data } = await apiInstance.getTemplateAuthor(exerciseId);
+const { status, data } = await apiInstance.getTemplateAuthors(exerciseId);
 ```
 
 ### Parameters
@@ -263,7 +263,7 @@ const { status, data } = await apiInstance.getTemplateAuthor(exerciseId);
 
 ### Return type
 
-**TemplateAuthorDTO**
+**Array<TemplateAuthorDTO>**
 
 ### Authorization
 
@@ -282,30 +282,30 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **setTemplateAuthor**
+# **setTemplateAuthors**
 
-> Array<ClientResponseDTO> setTemplateAuthor(templateAuthorDTO)
+> Array<ClientResponseDTO> setTemplateAuthors(templateAuthorDTO)
 
 ### Example
 
 ```typescript
-import { EmailMappingResourceApi, Configuration, TemplateAuthorDTO } from './api';
+import { EmailMappingResourceApi, Configuration } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new EmailMappingResourceApi(configuration);
 
 let exerciseId: number; // (default to undefined)
-let templateAuthorDTO: TemplateAuthorDTO; //
+let templateAuthorDTO: Array<TemplateAuthorDTO>; //
 
-const { status, data } = await apiInstance.setTemplateAuthor(exerciseId, templateAuthorDTO);
+const { status, data } = await apiInstance.setTemplateAuthors(exerciseId, templateAuthorDTO);
 ```
 
 ### Parameters
 
-| Name                  | Type                  | Description | Notes                 |
-| --------------------- | --------------------- | ----------- | --------------------- |
-| **templateAuthorDTO** | **TemplateAuthorDTO** |             |                       |
-| **exerciseId**        | [**number**]          |             | defaults to undefined |
+| Name                  | Type                         | Description | Notes                 |
+| --------------------- | ---------------------------- | ----------- | --------------------- |
+| **templateAuthorDTO** | **Array<TemplateAuthorDTO>** |             |                       |
+| **exerciseId**        | [**number**]                 |             | defaults to undefined |
 
 ### Return type
 

@@ -41,13 +41,13 @@ export default function Teams() {
 
   // --- Queries ---
 
-  const { data: templateAuthor = null } = useQuery<TemplateAuthorInfo | null>({
-    queryKey: ['templateAuthor', exercise],
+  const { data: templateAuthors = [] } = useQuery<TemplateAuthorInfo[]>({
+    queryKey: ['templateAuthors', exercise],
     queryFn: async () => {
-      const response = await emailMappingApi.getTemplateAuthor(parseInt(exercise));
+      const response = await emailMappingApi.getTemplateAuthors(parseInt(exercise));
       const data = response.data;
-      if (!data) return null;
-      return { email: data.templateEmail ?? '', autoDetected: data.autoDetected ?? false };
+      if (!Array.isArray(data)) return [];
+      return data.map(d => ({ email: d.templateEmail ?? '', autoDetected: d.autoDetected ?? false }));
     },
     enabled: !!exercise,
     staleTime: 60 * 1000,
@@ -199,7 +199,7 @@ export default function Teams() {
       toast({ title: 'Starting analysis...' });
 
       // Step 2: Start streaming (server will clear data before starting)
-      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthors', exercise], []);
       queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
@@ -256,7 +256,11 @@ export default function Teams() {
               // Non-critical — PP badges will appear on next page refresh
             }
           }, // onGitDone
-          info => queryClient.setQueryData(['templateAuthor', exercise], info),
+          info =>
+            queryClient.setQueryData(['templateAuthors', exercise], (old: TemplateAuthorInfo[] = []) => {
+              if (old.some(a => a.email === info.email)) return old;
+              return old.concat(info);
+            }),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
           statusUpdate => {
@@ -288,7 +292,7 @@ export default function Teams() {
       }
       toast({ title: 'Analysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['templateAuthors', exercise] });
       refetchStatus();
     },
     onError: (error: Error) => {
@@ -354,7 +358,7 @@ export default function Teams() {
       toast({ title: 'Forcing reanalysis...' });
 
       // Step 2: Start streaming (server will clear data before starting)
-      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthors', exercise], []);
       queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       return new Promise<void>((resolve, reject) => {
         loadBasicTeamDataStream(
@@ -406,7 +410,11 @@ export default function Teams() {
               // Non-critical
             }
           }, // onGitDone
-          info => queryClient.setQueryData(['templateAuthor', exercise], info),
+          info =>
+            queryClient.setQueryData(['templateAuthors', exercise], (old: TemplateAuthorInfo[] = []) => {
+              if (old.some(a => a.email === info.email)) return old;
+              return old.concat(info);
+            }),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
           statusUpdate => {
@@ -435,7 +443,7 @@ export default function Teams() {
       }
       toast({ title: 'Reanalysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
+      queryClient.invalidateQueries({ queryKey: ['templateAuthors', exercise] });
       refetchStatus();
     },
     onError: (error: Error) => {
@@ -480,33 +488,39 @@ export default function Teams() {
 
   const courseAverages = useMemo(() => computeCourseAverages(teams), [teams]);
 
-  const setTemplateAuthorMutation = useMutation({
-    mutationFn: async (email: string) => {
-      await emailMappingApi.setTemplateAuthor(parseInt(exercise), { templateEmail: email });
-      return email;
+  const setTemplateAuthorsMutation = useMutation({
+    mutationFn: async (emails: string[]) => {
+      await emailMappingApi.setTemplateAuthors(
+        parseInt(exercise),
+        emails.map(e => ({ templateEmail: e })),
+      );
+      return emails;
     },
-    onSuccess: email => {
-      queryClient.setQueryData(['templateAuthor', exercise], { email, autoDetected: false });
+    onSuccess: emails => {
+      queryClient.setQueryData(
+        ['templateAuthors', exercise],
+        emails.map(email => ({ email, autoDetected: false })),
+      );
       queryClient.setQueryData(['templateAuthorCandidates', exercise], null);
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      toast({ title: 'Template author set', description: email });
+      toast({ title: 'Template authors updated', description: emails.join(', ') });
     },
     onError: () => {
-      toast({ variant: 'destructive', title: 'Failed to set template author' });
+      toast({ variant: 'destructive', title: 'Failed to set template authors' });
     },
   });
 
-  const removeTemplateAuthorMutation = useMutation({
+  const removeTemplateAuthorsMutation = useMutation({
     mutationFn: async () => {
-      await emailMappingApi.deleteTemplateAuthor(parseInt(exercise));
+      await emailMappingApi.deleteTemplateAuthors(parseInt(exercise));
     },
     onSuccess: () => {
-      queryClient.setQueryData(['templateAuthor', exercise], null);
+      queryClient.setQueryData(['templateAuthors', exercise], []);
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
-      toast({ title: 'Template author removed' });
+      toast({ title: 'Template authors removed' });
     },
     onError: () => {
-      toast({ variant: 'destructive', title: 'Failed to remove template author' });
+      toast({ variant: 'destructive', title: 'Failed to remove template authors' });
     },
   });
 
@@ -548,12 +562,12 @@ export default function Teams() {
     clearAttendanceMutation.mutate();
   };
 
-  const handleTemplateAuthorSet = (email: string) => {
-    setTemplateAuthorMutation.mutate(email);
+  const handleTemplateAuthorsSet = (emails: string[]) => {
+    setTemplateAuthorsMutation.mutate(emails);
   };
 
-  const handleTemplateAuthorRemove = () => {
-    removeTemplateAuthorMutation.mutate();
+  const handleTemplateAuthorsRemove = () => {
+    removeTemplateAuthorsMutation.mutate();
   };
 
   // --- Render ---
@@ -578,10 +592,10 @@ export default function Teams() {
       onAttendanceFileSelect={setAttendanceFile}
       onAttendanceUpload={handleAttendanceUpload}
       onRemoveUploadedAttendanceFile={handleRemoveUploadedAttendanceFile}
-      templateAuthor={templateAuthor}
+      templateAuthors={templateAuthors}
       templateAuthorCandidates={templateAuthorCandidates}
-      onTemplateAuthorSet={handleTemplateAuthorSet}
-      onTemplateAuthorRemove={handleTemplateAuthorRemove}
+      onTemplateAuthorsSet={handleTemplateAuthorsSet}
+      onTemplateAuthorsRemove={handleTemplateAuthorsRemove}
       isLoading={isStatusLoading}
       isStarting={startMutation.isPending}
       isCancelling={cancelMutation.isPending}

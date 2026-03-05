@@ -634,7 +634,7 @@ class GitContributionAnalysisServiceTest {
 
         // With template author email: ALL template author commits are template
         FullCommitMappingResultDTO withTemplate = service.buildFullCommitMap(
-                taDir.toString(), List.of(), students, Map.of(), TEMPLATE_EMAIL);
+                taDir.toString(), List.of(), students, Map.of(), Set.of(TEMPLATE_EMAIL));
         assertTrue(withTemplate.templateCommitHashes().contains(rootHash),
                 "Root commit should be template with template email");
         assertTrue(withTemplate.templateCommitHashes().contains(nonRootHash),
