@@ -123,10 +123,13 @@ const AnalysisFeed = ({
   // Email-first priority: if email is dismissed, it goes to dismissed regardless of isExternalContributor (handles old data)
   const teamChunks = useMemo(
     () =>
-      (chunks ?? []).filter(chunk => {
-        const email = chunk.authorEmail?.toLowerCase();
-        return !chunk.isExternalContributor && !(email && dismissedEmails.has(email));
-      }),
+      (chunks ?? [])
+        .filter(chunk => {
+          if (chunk.isError) return false; // Error chunks are shown in ErrorListPanel
+          const email = chunk.authorEmail?.toLowerCase();
+          return !chunk.isExternalContributor && !(email && dismissedEmails.has(email));
+        })
+        .map((chunk, i) => ({ ...chunk, _stableKey: `team-${i}-${chunk.id ?? ''}` })),
     [chunks, dismissedEmails],
   );
   const externalChunks = useMemo(
@@ -146,9 +149,8 @@ const AnalysisFeed = ({
     [chunks, dismissedEmails],
   );
 
-  // Group by author for summary (filtering out errors and external contributors)
+  // Group by author for summary
   const authorSummary = teamChunks
-    .filter(chunk => !chunk.isError)
     .reduce(
       (acc, chunk) => {
         const key = chunk.authorName ?? chunk.authorEmail ?? 'unknown';
@@ -191,7 +193,8 @@ const AnalysisFeed = ({
     }
 
     if (classificationFilter !== 'all') {
-      filtered = filtered.filter(chunk => chunk.classification === classificationFilter);
+      filtered = filtered.filter(chunk =>
+        (chunk.classification ?? '').toUpperCase() === classificationFilter.toUpperCase());
     }
 
     if (searchQuery.trim()) {
@@ -262,46 +265,46 @@ const AnalysisFeed = ({
 
       {/* Per-Person Average Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {Object.entries(authorSummary).map(([email, data]) => {
-          const avgEffort = data.count > 0 ? data.effort / data.count : 0;
-          const avgComplexity = data.count > 0 ? data.complexity / data.count : 0;
-          const avgNovelty = data.count > 0 ? data.novelty / data.count : 0;
+            {Object.entries(authorSummary).map(([email, data]) => {
+              const avgEffort = data.count > 0 ? data.effort / data.count : 0;
+              const avgComplexity = data.count > 0 ? data.complexity / data.count : 0;
+              const avgNovelty = data.count > 0 ? data.novelty / data.count : 0;
 
-          return (
-            <Card key={email} className={`border-l-4 ${authorColorMap[email]?.border ?? ''}`}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{data.name}</CardTitle>
-                <p className="text-xs text-muted-foreground">{data.count} chunks analyzed</p>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <MetricLabel label="Avg. Effort" tooltip={metricInfo.effort} />
-                    <p className="text-2xl font-bold" style={{ color: getEffortColor(avgEffort) }}>
-                      {avgEffort.toFixed(1)}
-                      <span className="text-sm text-muted-foreground font-normal">/10</span>
-                    </p>
-                  </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <MetricLabel label="Avg. Complexity" tooltip={metricInfo.complexity} />
-                    <p className="text-2xl font-bold">
-                      {avgComplexity.toFixed(1)}
-                      <span className="text-sm text-muted-foreground font-normal">/10</span>
-                    </p>
-                  </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <MetricLabel label="Avg. Novelty" tooltip={metricInfo.novelty} />
-                    <p className="text-2xl font-bold">
-                      {avgNovelty.toFixed(1)}
-                      <span className="text-sm text-muted-foreground font-normal">/10</span>
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              return (
+                <Card key={email} className={`border-l-4 ${authorColorMap[email]?.border ?? ''}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">{data.name}</CardTitle>
+                    <p className="text-xs text-muted-foreground">{data.count} chunks analyzed</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <MetricLabel label="Avg. Effort" tooltip={metricInfo.effort} />
+                        <p className="text-2xl font-bold" style={{ color: getEffortColor(avgEffort) }}>
+                          {avgEffort.toFixed(1)}
+                          <span className="text-sm text-muted-foreground font-normal">/10</span>
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <MetricLabel label="Avg. Complexity" tooltip={metricInfo.complexity} />
+                        <p className="text-2xl font-bold">
+                          {avgComplexity.toFixed(1)}
+                          <span className="text-sm text-muted-foreground font-normal">/10</span>
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <MetricLabel label="Avg. Novelty" tooltip={metricInfo.novelty} />
+                        <p className="text-2xl font-bold">
+                          {avgNovelty.toFixed(1)}
+                          <span className="text-sm text-muted-foreground font-normal">/10</span>
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
       {/* Effort Distribution - Stacked Bar */}
       <Card>
@@ -349,7 +352,7 @@ const AnalysisFeed = ({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search commits, reasoning, authors..."
-                className="pl-9 pr-9 h-9"
+                className="pl-9 pr-9 h-9 bg-white"
               />
               {searchQuery && (
                 <button
@@ -361,7 +364,7 @@ const AnalysisFeed = ({
               )}
             </div>
             <Select value={authorFilter} onValueChange={setAuthorFilter}>
-              <SelectTrigger className="w-[180px] h-9">
+              <SelectTrigger className="w-[180px] h-9 bg-white">
                 <SelectValue placeholder="All Authors" />
               </SelectTrigger>
               <SelectContent>
@@ -374,7 +377,7 @@ const AnalysisFeed = ({
               </SelectContent>
             </Select>
             <Select value={classificationFilter} onValueChange={setClassificationFilter}>
-              <SelectTrigger className="w-[180px] h-9">
+              <SelectTrigger className="w-[180px] h-9 bg-white">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -386,28 +389,29 @@ const AnalysisFeed = ({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">
-              Analysis History
-              {hasActiveFilters ? ` (${filteredTeamChunks.length} of ${teamChunks.length} chunks)` : ` (${teamChunks.length} chunks)`}
-            </h3>
             {hasActiveFilters && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
                 onClick={() => {
                   setAuthorFilter('all');
                   setClassificationFilter('all');
                   setSearchQuery('');
                 }}
-                className="text-sm text-muted-foreground hover:text-foreground"
               >
+                <X className="h-3.5 w-3.5 mr-1.5" />
                 Clear filters
-              </button>
+              </Button>
             )}
           </div>
+          <h3 className="text-lg font-semibold">
+            Analysis History
+            {hasActiveFilters ? ` (${filteredTeamChunks.length} of ${teamChunks.length} chunks)` : ` (${teamChunks.length} chunks)`}
+          </h3>
         </div>
         {filteredTeamChunks.map(chunk => {
-          const chunkId = chunk.id ?? '';
+          const chunkId = chunk._stableKey;
           const isExpanded = expandedChunks.has(chunkId);
           const isError = chunk.isError;
           const badgeClass = isError ? '' : badgeColors[chunk.classification ?? 'TRIVIAL'] || badgeColors.TRIVIAL;
@@ -464,6 +468,18 @@ const AnalysisFeed = ({
                 </div>
 
                 <div className="flex items-center gap-4">
+                  {!isError && (
+                    <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <FileCode className="h-3 w-3" />
+                        {chunk.linesChanged ?? 0} lines
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(chunk.timestamp ?? new Date().toISOString()).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
                   {assignedInfo && onUndoAssignment && chunk.authorEmail && (
                     <Button
                       variant="outline"
@@ -584,17 +600,6 @@ const AnalysisFeed = ({
                     ))}
                   </div>
 
-                  {/* Metadata */}
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <FileCode className="h-3 w-3" />
-                      {chunk.linesChanged ?? 0} lines
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {new Date(chunk.timestamp ?? new Date().toISOString()).toLocaleDateString()}
-                    </span>
-                  </div>
                 </CardContent>
               )}
             </Card>
@@ -744,7 +749,7 @@ const AnalysisFeed = ({
       {/* Dismissed Contributions Section */}
       {dismissedChunks.length > 0 && (
         <Collapsible open={dismissedOpen} onOpenChange={setDismissedOpen}>
-          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-background opacity-60">
+          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-background opacity-75">
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                 <div className="flex items-center justify-between">

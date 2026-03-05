@@ -52,9 +52,10 @@ export function ActivityLog({ status }: ActivityLogProps) {
   };
 
   const getStageLabel = () => {
-    if (status.currentStage === 'DOWNLOADING') return 'Downloading';
-    if (status.currentStage === 'GIT_ANALYZING') return 'Git Analysis';
+    if (status.currentStage === 'DOWNLOADING' || status.currentStage === 'DOWNLOADED') return 'Downloading';
+    if (status.currentStage === 'GIT_ANALYZING' || status.currentStage === 'GIT_DONE') return 'Git Analysis';
     if (status.currentStage === 'AI_ANALYZING') return 'AI Analysis';
+    if (status.currentStage === 'DONE') return 'Done';
     return 'Analyzing';
   };
 
