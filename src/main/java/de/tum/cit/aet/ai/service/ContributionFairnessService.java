@@ -55,18 +55,6 @@ public class ContributionFairnessService {
     }
 
     /**
-     * Analyses a repository with optional template author exclusion (default weights).
-     *
-     * @param repositoryDTO        the repository to analyse
-     * @param templateAuthorEmails emails of the template authors to exclude (lowercase), or {@code null}
-     * @return fairness report plus token usage
-     */
-    public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
-                                                               Set<String> templateAuthorEmails) {
-        return analyzeFairnessWithUsage(repositoryDTO, templateAuthorEmails, null);
-    }
-
-    /**
      * Analyses a repository with optional template author exclusion.
      *
      * @param repositoryDTO        the repository to analyse

@@ -271,7 +271,7 @@ public class AnalysisResultPersistenceService {
         boolean fairnessSucceeded = false;
         try {
             FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
-                    repo, templateAuthorEmails);
+                    repo, templateAuthorEmails, null);
             FairnessReportDTO report = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
 
@@ -706,7 +706,7 @@ public class AnalysisResultPersistenceService {
         boolean hasFailed = false;
 
         boolean hasFailedStudent = students.stream()
-                .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 10);
+                .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 3);
         if (hasFailedStudent) {
             hasFailed = true;
         }
