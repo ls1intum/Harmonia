@@ -245,9 +245,7 @@ export default function Teams() {
                   return Object.assign({}, existing, {
                     pairProgrammingStatus: db.pairProgrammingStatus,
                     subMetrics: existing.subMetrics?.map(m =>
-                      m.name === 'Pair Programming' && db.subMetrics
-                        ? (db.subMetrics.find(dm => dm.name === 'Pair Programming') ?? m)
-                        : m,
+                      m.name === 'Pair Programming' && db.subMetrics ? (db.subMetrics.find(dm => dm.name === 'Pair Programming') ?? m) : m,
                     ),
                   });
                 }),
@@ -399,9 +397,7 @@ export default function Teams() {
                   return Object.assign({}, existing, {
                     pairProgrammingStatus: db.pairProgrammingStatus,
                     subMetrics: existing.subMetrics?.map(m =>
-                      m.name === 'Pair Programming' && db.subMetrics
-                        ? (db.subMetrics.find(dm => dm.name === 'Pair Programming') ?? m)
-                        : m,
+                      m.name === 'Pair Programming' && db.subMetrics ? (db.subMetrics.find(dm => dm.name === 'Pair Programming') ?? m) : m,
                     ),
                   });
                 }),
