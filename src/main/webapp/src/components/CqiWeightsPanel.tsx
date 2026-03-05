@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Settings, RotateCcw } from 'lucide-react';
+import { Settings, RotateCcw, ChevronRight } from 'lucide-react';
 import type { CqiWeightsDTO } from '@/app/generated';
 import { cqiWeightsApi } from '@/lib/apiClient';
 

@@ -241,15 +241,6 @@ public class CQICalculatorService {
     }
 
     /**
-     * Build a {@link ComponentWeightsDTO} from the default configuration.
-     *
-     * @return DTO containing the default weights for all CQI components
-     */
-    public ComponentWeightsDTO buildWeightsDTO() {
-        return buildWeightsDTO(null);
-    }
-
-    /**
      * Build a {@link ComponentWeightsDTO} from the exercise-specific or default configuration.
      *
      * @param exerciseId The exercise ID for resolving per-exercise weight configuration

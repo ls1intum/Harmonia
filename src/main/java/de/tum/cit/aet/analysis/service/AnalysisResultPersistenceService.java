@@ -670,7 +670,7 @@ public class AnalysisResultPersistenceService {
                         gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
                 teamParticipationRepository.save(teamParticipation);
 
-                return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
+                return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(null), gitComponents, filterResult.summary());
             }
         } catch (Exception e) {
             log.warn("Failed to calculate git-only metrics for team {}: {}", team.name(), e.getMessage());
