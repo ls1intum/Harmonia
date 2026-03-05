@@ -51,17 +51,7 @@ public class ContributionFairnessService {
      * @return fairness report
      */
     public FairnessReportDTO analyzeFairness(TeamRepositoryDTO repositoryDTO) {
-        return analyzeFairnessWithUsage(repositoryDTO).report();
-    }
-
-    /**
-     * Analyses a repository and returns both fairness report and LLM token totals.
-     *
-     * @param repositoryDTO the repository to analyse
-     * @return fairness report plus token usage
-     */
-    public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
-        return analyzeFairnessWithUsage(repositoryDTO, null, null);
+        return analyzeFairnessWithUsage(repositoryDTO, null, null).report();
     }
 
     /**

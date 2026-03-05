@@ -202,7 +202,7 @@ class ContributionFairnessServiceTest {
         );
         when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
-        FairnessReportWithUsageDTO reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo);
+        FairnessReportWithUsageDTO reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo, null, null);
 
         assertEquals(2, reportWithUsage.tokenTotals().llmCalls());
         assertEquals(1, reportWithUsage.tokenTotals().callsWithUsage());
