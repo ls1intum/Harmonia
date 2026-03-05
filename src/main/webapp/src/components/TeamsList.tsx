@@ -319,7 +319,7 @@ const TeamsList = ({
         const matches: Record<StatusFilterValue, boolean> = {
           failed: isTeamFailed(team),
           suspicious: !!team.isSuspicious,
-          normal: !team.isSuspicious && !isTeamFailed(team),
+          normal: team.analysisStatus === 'DONE' && !team.isSuspicious && !isTeamFailed(team),
           'git-done': team.analysisStatus === 'GIT_DONE',
           error: team.analysisStatus === 'ERROR',
           'has-unmatched': team.orphanCommitCount != null && team.orphanCommitCount > 0,
