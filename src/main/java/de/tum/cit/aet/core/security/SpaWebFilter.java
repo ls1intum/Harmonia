@@ -15,8 +15,8 @@ import java.io.IOException;
 public class SpaWebFilter extends OncePerRequestFilter {
 
     /**
-     * Forwards the request to {@code /} if it does not match a backend path or a static resource.
-     * Backend paths ({@code /api}, {@code /actuator}, etc.) and paths containing a file extension
+     * Forwards the request to {@code /} if it does not match a server path or a static resource.
+     * Server paths ({@code /api}, {@code /actuator}, etc.) and paths containing a file extension
      * are passed through to the next filter in the chain.
      */
     @Override
