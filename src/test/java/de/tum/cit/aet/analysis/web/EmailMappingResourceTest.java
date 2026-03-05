@@ -9,6 +9,7 @@ import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseTemplateAuthorRepository;
+import de.tum.cit.aet.analysis.service.EmailMappingService;
 import de.tum.cit.aet.analysis.service.cqi.CqiRecalculationService;
 import de.tum.cit.aet.repositoryProcessing.domain.Student;
 import de.tum.cit.aet.repositoryProcessing.domain.TeamParticipation;
@@ -53,6 +54,7 @@ class EmailMappingResourceTest {
     @Mock
     private CqiRecalculationService cqiRecalculationService;
 
+    private EmailMappingService emailMappingService;
     private EmailMappingResource resource;
 
     private static final Long EXERCISE_ID = 42L;
@@ -61,13 +63,14 @@ class EmailMappingResourceTest {
 
     @BeforeEach
     void setUp() {
-        resource = new EmailMappingResource(
+        emailMappingService = new EmailMappingService(
                 emailMappingRepository,
                 templateAuthorRepository,
                 analyzedChunkRepository,
                 teamParticipationRepository,
                 studentRepository,
                 cqiRecalculationService);
+        resource = new EmailMappingResource(emailMappingService);
     }
 
     // ================================================================
@@ -186,15 +189,16 @@ class EmailMappingResourceTest {
     }
 
     @Test
-    void createMapping_throwsIfParticipationNotFound() {
+    void createMapping_returnsBadRequestIfParticipationNotFound() {
         when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
                 .thenReturn(Optional.empty());
 
         CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 0L, "Alice", TEAM_ID);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> resource.createMapping(EXERCISE_ID, request));
+        ResponseEntity<ClientResponseDTO> response = resource.createMapping(EXERCISE_ID, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
@@ -211,7 +215,7 @@ class EmailMappingResourceTest {
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
 
-        // Student name "Unknown" does not match any student → falls back to request ID (77)
+        // Student name "Unknown" does not match any student -> falls back to request ID (77)
         CreateEmailMappingRequestDTO request = new CreateEmailMappingRequestDTO(
                 "orphan@gmail.com", 77L, "Unknown", TEAM_ID);
 
@@ -240,7 +244,7 @@ class EmailMappingResourceTest {
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
-        // No students with this email, no remaining mappings → email is unknown
+        // No students with this email, no remaining mappings -> email is unknown
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
@@ -349,7 +353,7 @@ class EmailMappingResourceTest {
 
         resource.setTemplateAuthors(EXERCISE_ID, request);
 
-        // Bug 3 fix: old email (alice@uni.de) is a known student → should NOT be marked external
+        // Bug 3 fix: old email (alice@uni.de) is a known student -> should NOT be marked external
         assertFalse(oldChunk.getIsExternalContributor());
         // New template email should be marked external
         assertTrue(newChunk.getIsExternalContributor());
@@ -420,7 +424,7 @@ class EmailMappingResourceTest {
 
         resource.deleteTemplateAuthors(EXERCISE_ID);
 
-        // Bug 2 fix: known email → chunk should be unmarked (non-external)
+        // Bug 2 fix: known email -> chunk should be unmarked (non-external)
         assertFalse(chunk.getIsExternalContributor());
         verify(analyzedChunkRepository).saveAll(anyList());
     }
@@ -438,13 +442,13 @@ class EmailMappingResourceTest {
                 .thenReturn(List.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
-        // No students or mappings match → email is unknown
+        // No students or mappings match -> email is unknown
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
         when(emailMappingRepository.findAllByExerciseId(EXERCISE_ID)).thenReturn(List.of());
 
         resource.deleteTemplateAuthors(EXERCISE_ID);
 
-        // Unknown email → chunk stays external
+        // Unknown email -> chunk stays external
         assertTrue(chunk.getIsExternalContributor());
     }
 
@@ -465,35 +469,27 @@ class EmailMappingResourceTest {
     // ================================================================
 
     @Test
-    void dismissEmail_marksChunksAsNonExternalAcrossAllParticipations() {
-        TeamParticipation p1 = makeParticipation();
-        TeamParticipation p2 = new TeamParticipation(2L, 20L, null, "Team-2", "t2",
-                "https://repo.example.com/t2", 5);
-        p2.setTeamParticipationId(UUID.randomUUID());
-        p2.setExerciseId(EXERCISE_ID);
-
-        AnalyzedChunk chunk1 = makeChunk(p1, "orphan@gmail.com", true);
-        AnalyzedChunk chunk2 = makeChunk(p2, "orphan@gmail.com", true);
+    void dismissEmail_savesDismissedMappingAndReturnsResponse() {
+        TeamParticipation participation = makeParticipation();
 
         when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
                 .thenReturn(false);
-        when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of(p1, p2));
-        when(analyzedChunkRepository.findByParticipation(p1))
-                .thenReturn(new ArrayList<>(List.of(chunk1)));
-        when(analyzedChunkRepository.findByParticipation(p2))
-                .thenReturn(new ArrayList<>(List.of(chunk2)));
-        when(studentRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
+                .thenReturn(Optional.of(participation));
+        when(analyzedChunkRepository.findByParticipation(participation))
+                .thenReturn(new ArrayList<>());
+        when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
 
         var request = new DismissEmailRequestDTO("orphan@gmail.com", TEAM_ID);
 
         ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
 
-        assertFalse(chunk1.getIsExternalContributor());
-        assertFalse(chunk2.getIsExternalContributor());
-        // Verify chunks saved for both participations
-        verify(analyzedChunkRepository, times(2)).saveAll(anyList());
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        // Mapping saved as dismissed
+        ArgumentCaptor<ExerciseEmailMapping> captor = ArgumentCaptor.forClass(ExerciseEmailMapping.class);
+        verify(emailMappingRepository).save(captor.capture());
+        assertTrue(captor.getValue().getIsDismissed());
+        assertNull(captor.getValue().getStudentName());
     }
 
     @Test
@@ -509,27 +505,17 @@ class EmailMappingResourceTest {
     }
 
     @Test
-    void dismissEmail_doesNotAddStatsToAnyStudent() {
-        TeamParticipation participation = makeParticipation();
-        AnalyzedChunk chunk = makeChunk(participation, "orphan@gmail.com", true);
-
+    void dismissEmail_returns204WhenNoParticipation() {
         when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
                 .thenReturn(false);
-        when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of(participation));
-        when(analyzedChunkRepository.findByParticipation(participation))
-                .thenReturn(new ArrayList<>(List.of(chunk)));
-        when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
+                .thenReturn(Optional.empty());
 
         var request = new DismissEmailRequestDTO("orphan@gmail.com", TEAM_ID);
 
-        resource.dismissEmail(EXERCISE_ID, request);
+        ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
 
-        // Mapping saved as dismissed
-        ArgumentCaptor<ExerciseEmailMapping> captor = ArgumentCaptor.forClass(ExerciseEmailMapping.class);
-        verify(emailMappingRepository).save(captor.capture());
-        assertTrue(captor.getValue().getIsDismissed());
-        assertNull(captor.getValue().getStudentName());
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
     }
 
     // ================================================================
