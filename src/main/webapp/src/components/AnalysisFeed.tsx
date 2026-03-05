@@ -129,7 +129,7 @@ const AnalysisFeed = ({
           const email = chunk.authorEmail?.toLowerCase();
           return !chunk.isExternalContributor && !(email && dismissedEmails.has(email));
         })
-        .map((chunk, i) => ({ ...chunk, _stableKey: `team-${i}-${chunk.id ?? ''}` })),
+        .map((chunk, i) => Object.assign({}, chunk, { _stableKey: `team-${i}-${chunk.id ?? ''}` })),
     [chunks, dismissedEmails],
   );
   const externalChunks = useMemo(
