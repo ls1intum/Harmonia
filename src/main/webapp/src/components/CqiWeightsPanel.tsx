@@ -31,7 +31,7 @@ type WeightAction =
   | { type: 'RESET'; state: WeightState };
 
 function weightReducer(state: WeightState, action: WeightAction): WeightState {
-  const clamp = (v: number) => Number.isNaN(v) ? v : Math.max(0, Math.min(100, v));
+  const clamp = (v: number) => (Number.isNaN(v) ? v : Math.max(0, Math.min(100, v)));
   switch (action.type) {
     case 'SET_EFFORT':
       return Object.assign({}, state, { effort: clamp(action.value) });
@@ -75,7 +75,8 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
 
   const val = (n: number) => (Number.isNaN(n) ? 0 : n);
   const total = val(state.effort) + val(state.loc) + val(state.temporal) + val(state.ownership);
-  const allFilled = !Number.isNaN(state.effort) && !Number.isNaN(state.loc) && !Number.isNaN(state.temporal) && !Number.isNaN(state.ownership);
+  const allFilled =
+    !Number.isNaN(state.effort) && !Number.isNaN(state.loc) && !Number.isNaN(state.temporal) && !Number.isNaN(state.ownership);
   const isValid = allFilled && total === 100;
 
   const saveMutation = useMutation({

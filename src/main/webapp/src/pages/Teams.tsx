@@ -1,52 +1,14 @@
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import TeamsList from '@/components/TeamsList';
-import type { TeamAttendanceDTO, TeamsScheduleDTO } from '@/app/generated';
 import { computeCourseAverages } from '@/lib/courseAverages';
 import { toast } from '@/hooks/use-toast';
 import { useAnalysisStatus, cancelAnalysis, clearData } from '@/hooks/useAnalysisStatus';
 import { loadBasicTeamDataStream, transformSummaryToTeamDTO, type TemplateAuthorInfo, type TeamDTO } from '@/data/dataLoaders';
 import type { AnalysisMode } from '@/hooks/useAnalysisStatus';
-import { normalizeTeamName } from '@/lib/utils';
-import {
-  getPairProgrammingAttendanceFileStorageKey,
-  getPairProgrammingAttendanceMapStorageKey,
-  readStoredPairProgrammingAttendanceMap,
-  type PairProgrammingAttendanceMap,
-  type PairProgrammingBadgeStatus,
-} from '@/lib/pairProgramming';
+import { getPairProgrammingAttendanceFileStorageKey } from '@/lib/pairProgramming';
 import { pairProgrammingApi, emailMappingApi, requestApi } from '@/lib/apiClient';
-
-type NullableAttendanceMap = Record<string, boolean | null>;
-
-const hasCancelledSessionAttendance = (attendance?: TeamAttendanceDTO): boolean => {
-  const student1Attendance = (attendance?.student1Attendance ?? {}) as NullableAttendanceMap;
-  const student2Attendance = (attendance?.student2Attendance ?? {}) as NullableAttendanceMap;
-  return Object.values(student1Attendance)
-    .concat(Object.values(student2Attendance))
-    .some(value => value === null);
-};
-
-const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairProgrammingAttendanceMap => {
-  const teams = schedule?.teams;
-  if (!teams) {
-    return {};
-  }
-
-  return Object.entries(teams).reduce<PairProgrammingAttendanceMap>((acc, [teamName, attendance]) => {
-    if (!teamName) {
-      return acc;
-    }
-    const hasCancelledSessionWarning = hasCancelledSessionAttendance(attendance);
-    acc[normalizeTeamName(teamName)] = hasCancelledSessionWarning
-      ? 'warning'
-      : attendance?.pairedMandatorySessions === true
-        ? 'pass'
-        : 'fail';
-    return acc;
-  }, {});
-};
 
 /**
  * Teams page — the main analysis dashboard.
@@ -70,13 +32,9 @@ export default function Teams() {
     pairProgrammingEnabled?: boolean;
   };
   const attendanceStorageKey = getPairProgrammingAttendanceFileStorageKey(exercise);
-  const pairProgrammingAttendanceMapStorageKey = getPairProgrammingAttendanceMapStorageKey(exercise);
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
   const [uploadedAttendanceFileName, setUploadedAttendanceFileName] = useState<string | null>(() =>
     window.sessionStorage.getItem(attendanceStorageKey),
-  );
-  const [pairProgrammingAttendanceByTeamName, setPairProgrammingAttendanceByTeamName] = useState<PairProgrammingAttendanceMap>(() =>
-    readStoredPairProgrammingAttendanceMap(pairProgrammingAttendanceMapStorageKey),
   );
   // Template author candidates — no server endpoint, managed purely via query cache
   const templateAuthorCandidates = queryClient.getQueryData<string[] | null>(['templateAuthorCandidates', exercise]) ?? null;
@@ -109,12 +67,22 @@ export default function Teams() {
   const { data: pairProgrammingRecomputing } = useQuery({
     queryKey: ['pairProgrammingRecomputing', exercise],
     queryFn: () => pairProgrammingApi.isRecomputing(parseInt(exercise)).then(res => res.data),
-    enabled: !!exercise && pairProgrammingEnabled && !!uploadedAttendanceFileName,
+    enabled: !!exercise && pairProgrammingEnabled,
     refetchInterval: query => (query.state.data?.recomputing ? 2000 : false),
     staleTime: 0,
   });
 
-  const isPairProgrammingScoresUpdating = !!uploadedAttendanceFileName && (pairProgrammingRecomputing?.recomputing ?? false);
+  const isPairProgrammingScoresUpdating = pairProgrammingRecomputing?.recomputing ?? false;
+
+  // When PP recompute finishes, refetch teams to get updated server PP status
+  const prevRecomputing = useRef(false);
+  useEffect(() => {
+    const isRecomputing = pairProgrammingRecomputing?.recomputing ?? false;
+    if (prevRecomputing.current && !isRecomputing) {
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+    }
+    prevRecomputing.current = isRecomputing;
+  }, [pairProgrammingRecomputing?.recomputing, queryClient, exercise]);
 
   // Fetch team summaries from database on load (one-time, no polling).
   // During analysis, SSE is the single source of truth for updates.
@@ -166,12 +134,9 @@ export default function Teams() {
       }
       return pairProgrammingApi.uploadAttendance(courseId, exerciseId, file);
     },
-    onSuccess: (response, file) => {
-      const pairProgrammingAttendanceMap = buildPairProgrammingAttendanceMap(response.data);
+    onSuccess: (_response, file) => {
       setUploadedAttendanceFileName(file.name);
       window.sessionStorage.setItem(attendanceStorageKey, file.name);
-      setPairProgrammingAttendanceByTeamName(pairProgrammingAttendanceMap);
-      window.sessionStorage.setItem(pairProgrammingAttendanceMapStorageKey, JSON.stringify(pairProgrammingAttendanceMap));
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       queryClient.invalidateQueries({ queryKey: ['pairProgrammingRecomputing', exercise] });
       toast({
@@ -200,9 +165,8 @@ export default function Teams() {
     onSuccess: () => {
       setAttendanceFile(null);
       setUploadedAttendanceFileName(null);
-      setPairProgrammingAttendanceByTeamName({});
       window.sessionStorage.removeItem(attendanceStorageKey);
-      window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
+      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       toast({
         title: 'Attendance file removed',
         description: 'Pair programming data was cleared.',
@@ -267,7 +231,7 @@ export default function Teams() {
             reject(error);
           },
           undefined, // onPhaseChange
-          undefined, // onGitDone
+          undefined, // onGitDone — PP statuses arrive via GIT_UPDATE events; DB is updated by synchronous recompute for page refreshes
           info => queryClient.setQueryData(['templateAuthor', exercise], info),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
@@ -396,7 +360,9 @@ export default function Teams() {
             reject(error);
           },
           undefined, // onPhaseChange
-          undefined, // onGitDone
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+          }, // onGitDone
           info => queryClient.setQueryData(['templateAuthor', exercise], info),
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
@@ -456,9 +422,7 @@ export default function Teams() {
     onSuccess: () => {
       setAttendanceFile(null);
       setUploadedAttendanceFileName(null);
-      setPairProgrammingAttendanceByTeamName({});
       window.sessionStorage.removeItem(attendanceStorageKey);
-      window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
       toast({ title: 'Data cleared successfully' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       refetchStatus();
@@ -511,14 +475,13 @@ export default function Teams() {
 
   // --- Handlers ---
 
-  const handleTeamSelect = (team: TeamDTO, pairProgrammingBadgeStatus: PairProgrammingBadgeStatus | null) => {
+  const handleTeamSelect = (team: TeamDTO) => {
     navigate(`/teams/${String(team.teamId)}`, {
       state: {
         teamId: team.teamId,
         course,
         exercise,
         pairProgrammingEnabled,
-        pairProgrammingBadgeStatus,
         courseAverages,
         analysisMode: status.analysisMode,
         teamsSearchParams: searchParams.toString(),
@@ -569,7 +532,6 @@ export default function Teams() {
       pairProgrammingEnabled={pairProgrammingEnabled}
       attendanceFile={attendanceFile}
       uploadedAttendanceFileName={uploadedAttendanceFileName}
-      pairProgrammingAttendanceByTeamName={pairProgrammingAttendanceByTeamName}
       onAttendanceFileSelect={setAttendanceFile}
       onAttendanceUpload={handleAttendanceUpload}
       onRemoveUploadedAttendanceFile={handleRemoveUploadedAttendanceFile}

@@ -238,7 +238,8 @@ public class AnalysisQueryService {
      */
     public CQIResultDTO reconstructCqiDetails(TeamParticipation participation, AnalysisMode mode) {
         if (participation.getCqiEffortBalance() == null && participation.getCqiLocBalance() == null
-                && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null) {
+                && participation.getCqiTemporalSpread() == null && participation.getCqiOwnershipSpread() == null
+                && participation.getCqiPairProgrammingStatus() == null) {
             return null;
         }
 

@@ -2,7 +2,6 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import TeamDetail from '@/components/TeamDetail';
-import type { PairProgrammingBadgeStatus } from '@/lib/pairProgramming';
 import { transformToComplexTeamData, type TeamDTO } from '@/data/dataLoaders';
 import type { CourseAverages } from '@/lib/courseAverages';
 import { requestApi } from '@/lib/apiClient';
@@ -19,7 +18,6 @@ export default function TeamDetailPage() {
     course,
     exercise,
     pairProgrammingEnabled,
-    pairProgrammingBadgeStatus,
     courseAverages,
     analysisMode,
     teamsSearchParams,
@@ -28,7 +26,6 @@ export default function TeamDetailPage() {
     course?: string;
     exercise?: string;
     pairProgrammingEnabled?: boolean;
-    pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
     courseAverages?: CourseAverages | null;
     analysisMode?: 'SIMPLE' | 'FULL';
     teamsSearchParams?: string;
@@ -121,7 +118,6 @@ export default function TeamDetailPage() {
       onBack={() => navigateBackToTeams()}
       course={course}
       exercise={exercise}
-      pairProgrammingBadgeStatus={pairProgrammingBadgeStatus}
       courseAverages={courseAverages}
       onTeamUpdate={setTeam}
       onToggleReviewed={() => toggleReviewedMutation.mutate()}
