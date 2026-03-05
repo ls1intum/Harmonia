@@ -61,11 +61,11 @@ public class ContributionFairnessService {
      * @return fairness report plus token usage
      */
     public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO) {
-        return analyzeFairnessWithUsage(repositoryDTO, null);
+        return analyzeFairnessWithUsage(repositoryDTO, null, null);
     }
 
     /**
-     * Analyses a repository with optional template author exclusion.
+     * Analyses a repository with optional template author exclusion (default weights).
      *
      * @param repositoryDTO       the repository to analyse
      * @param templateAuthorEmail email of the template author to exclude (lowercase), or {@code null}
@@ -73,6 +73,19 @@ public class ContributionFairnessService {
      */
     public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
             String templateAuthorEmail) {
+        return analyzeFairnessWithUsage(repositoryDTO, templateAuthorEmail, null);
+    }
+
+    /**
+     * Analyses a repository with optional template author exclusion.
+     *
+     * @param repositoryDTO       the repository to analyse
+     * @param templateAuthorEmail email of the template author to exclude (lowercase), or {@code null}
+     * @param exerciseId          the exercise ID for per-exercise CQI weight resolution
+     * @return fairness report plus token usage
+     */
+    public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
+            String templateAuthorEmail, Long exerciseId) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         String shortName = repositoryDTO.participation().team().shortName();
@@ -145,7 +158,7 @@ public class ContributionFairnessService {
                     .toList();
 
             CQIResultDTO cqiResult = cqiCalculatorService.calculate(
-                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName, shortName);
+                    cqiRatedChunks, teamSize, projectStart, projectEnd, filterSummary, teamName, shortName, exerciseId);
 
             // 6) Aggregate author stats
             Map<Long, AuthorStats> authorStats = aggregateStats(ratedChunks);

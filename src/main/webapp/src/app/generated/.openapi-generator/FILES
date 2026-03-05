@@ -3,6 +3,7 @@
 api.ts
 apis/analysis-resource-api.ts
 apis/auth-resource-api.ts
+apis/cqi-weight-resource-api.ts
 apis/email-mapping-resource-api.ts
 apis/export-resource-api.ts
 apis/pair-programming-resource-api.ts
@@ -18,6 +19,8 @@ docs/CQIResultDTO.md
 docs/ClientResponseDTO.md
 docs/ComponentScoresDTO.md
 docs/ComponentWeightsDTO.md
+docs/CqiWeightResourceApi.md
+docs/CqiWeightsDTO.md
 docs/CreateEmailMappingRequestDTO.md
 docs/DismissEmailRequestDTO.md
 docs/EmailMappingDTO.md
@@ -45,6 +48,7 @@ models/analyzed-chunk-dto.ts
 models/client-response-dto.ts
 models/component-scores-dto.ts
 models/component-weights-dto.ts
+models/cqi-weights-dto.ts
 models/cqiresult-dto.ts
 models/create-email-mapping-request-dto.ts
 models/dismiss-email-request-dto.ts

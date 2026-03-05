@@ -250,4 +250,40 @@
         </createTable>
     </changeSet>
 
+    <!-- initial-schema-m: cqi_weight_configurations table -->
+    <changeSet id="initial-schema-m" author="Liam">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="cqi_weight_configurations"/></not>
+        </preConditions>
+        <createTable tableName="cqi_weight_configurations">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="exercise_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="effort_weight" type="DOUBLE" defaultValueNumeric="0.55">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loc_weight" type="DOUBLE" defaultValueNumeric="0.25">
+                <constraints nullable="false"/>
+            </column>
+            <column name="temporal_weight" type="DOUBLE" defaultValueNumeric="0.05">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ownership_weight" type="DOUBLE" defaultValueNumeric="0.15">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="cqi_weight_configurations" indexName="idx_cqi_weight_config_exercise">
+            <column name="exercise_id"/>
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

@@ -12,10 +12,10 @@
  * Do not edit the class manually.
  */
 
-export * from './apis/analysis-resource-api';
-export * from './apis/auth-resource-api';
-export * from './apis/cqi-weight-resource-api';
-export * from './apis/email-mapping-resource-api';
-export * from './apis/export-resource-api';
-export * from './apis/pair-programming-resource-api';
-export * from './apis/request-resource-api';
+export interface CqiWeightsDTO {
+  effortBalance?: number;
+  isDefault?: boolean;
+  locBalance?: number;
+  ownershipSpread?: number;
+  temporalSpread?: number;
+}

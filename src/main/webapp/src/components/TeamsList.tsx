@@ -1,6 +1,7 @@
 import type { TemplateAuthorInfo, TeamDTO } from '@/data/dataLoaders';
 import type { CourseAverages } from '@/lib/courseAverages';
 import { computeBasicMetrics } from '@/lib/utils';
+import CqiWeightsPanel from '@/components/CqiWeightsPanel';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -624,6 +625,8 @@ const TeamsList = ({
           </div>
         </Card>
       )}
+
+      <CqiWeightsPanel exerciseId={exercise} disabled={analysisStatus?.state === 'RUNNING'} />
 
       <Card className="p-6 shadow-card">
         <div className="flex items-center justify-between gap-4 flex-wrap">

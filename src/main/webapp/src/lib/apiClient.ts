@@ -6,6 +6,7 @@ import {
   AuthResourceApi,
   PairProgrammingResourceApi,
   ExportResourceApi,
+  CqiWeightResourceApi,
 } from '@/app/generated';
 
 export const apiConfig = new Configuration({
@@ -19,3 +20,4 @@ export const emailMappingApi = new EmailMappingResourceApi(apiConfig);
 export const authApi = new AuthResourceApi(apiConfig);
 export const pairProgrammingApi = new PairProgrammingResourceApi(apiConfig);
 export const exportApi = new ExportResourceApi(apiConfig);
+export const cqiWeightsApi = new CqiWeightResourceApi(apiConfig);

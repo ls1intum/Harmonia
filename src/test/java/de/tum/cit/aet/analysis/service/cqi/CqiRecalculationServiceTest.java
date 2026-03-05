@@ -58,7 +58,7 @@ class CqiRecalculationServiceTest {
                 new ComponentScoresDTO(90.0, 85.0, 37.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 80.0, FilterSummaryDTO.empty());
-        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
+        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class), any()))
                 .thenReturn(cqiResult);
 
         // 2 non-external chunks, 1 external chunk
@@ -90,7 +90,7 @@ class CqiRecalculationServiceTest {
                 new ComponentScoresDTO(90.0, 85.0, 37.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 80.0, FilterSummaryDTO.empty());
-        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
+        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class), any()))
                 .thenReturn(cqiResult);
 
         // All chunks are non-external (mappings were applied)
@@ -122,7 +122,7 @@ class CqiRecalculationServiceTest {
                 new ComponentScoresDTO(98.0, 97.0, 37.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 85.0, FilterSummaryDTO.empty());
-        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
+        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class), any()))
                 .thenReturn(cqiResult);
 
         AnalyzedChunk chunk = makeChunk("alice@uni.de", false);
@@ -154,7 +154,7 @@ class CqiRecalculationServiceTest {
                 new ComponentScoresDTO(90.0, 85.0, 60.0, 50.0, null, null, null),
                 new ComponentWeightsDTO(0.55, 0.25, 0.05, 0.15),
                 80.0, FilterSummaryDTO.empty());
-        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class)))
+        when(cqiCalculatorService.calculate(anyList(), eq(2), any(), any(), any(), nullable(String.class), nullable(String.class), any()))
                 .thenReturn(cqiResult);
 
         // Chunk with mapped email (non-external after mapping was applied)

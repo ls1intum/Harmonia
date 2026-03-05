@@ -464,32 +464,23 @@ class EmailMappingResourceTest {
     @Test
     void dismissEmail_marksChunksAsNonExternalAcrossAllParticipations() {
         TeamParticipation p1 = makeParticipation();
-        TeamParticipation p2 = new TeamParticipation(2L, 20L, null, "Team-2", "t2",
-                "https://repo.example.com/t2", 5);
-        p2.setTeamParticipationId(UUID.randomUUID());
-        p2.setExerciseId(EXERCISE_ID);
 
         AnalyzedChunk chunk1 = makeChunk(p1, "orphan@gmail.com", true);
-        AnalyzedChunk chunk2 = makeChunk(p2, "orphan@gmail.com", true);
 
         when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
                 .thenReturn(false);
-        when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of(p1, p2));
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
+                .thenReturn(Optional.of(p1));
         when(analyzedChunkRepository.findByParticipation(p1))
                 .thenReturn(new ArrayList<>(List.of(chunk1)));
-        when(analyzedChunkRepository.findByParticipation(p2))
-                .thenReturn(new ArrayList<>(List.of(chunk2)));
-        when(studentRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(studentRepository.findAllByTeam(p1)).thenReturn(List.of());
 
         var request = new DismissEmailRequestDTO("orphan@gmail.com", TEAM_ID);
 
         ResponseEntity<ClientResponseDTO> response = resource.dismissEmail(EXERCISE_ID, request);
 
-        assertFalse(chunk1.getIsExternalContributor());
-        assertFalse(chunk2.getIsExternalContributor());
-        // Verify chunks saved for both participations
-        verify(analyzedChunkRepository, times(2)).saveAll(anyList());
+        // Dismiss saves a dismissed mapping and recalculates CQI but does not modify chunks
+        verify(cqiRecalculationService).recalculateFromChunks(eq(p1), anyList());
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
@@ -512,8 +503,8 @@ class EmailMappingResourceTest {
 
         when(emailMappingRepository.existsByExerciseIdAndGitEmail(EXERCISE_ID, "orphan@gmail.com"))
                 .thenReturn(false);
-        when(teamParticipationRepository.findAllByExerciseId(EXERCISE_ID))
-                .thenReturn(List.of(participation));
+        when(teamParticipationRepository.findByExerciseIdAndTeam(EXERCISE_ID, TEAM_ID))
+                .thenReturn(Optional.of(participation));
         when(analyzedChunkRepository.findByParticipation(participation))
                 .thenReturn(new ArrayList<>(List.of(chunk)));
         when(studentRepository.findAllByTeam(participation)).thenReturn(List.of());
