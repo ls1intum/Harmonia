@@ -31,7 +31,7 @@ type WeightAction =
   | { type: 'RESET'; state: WeightState };
 
 function weightReducer(state: WeightState, action: WeightAction): WeightState {
-  const clamp = (v: number) => Math.max(0, Math.min(100, v));
+  const clamp = (v: number) => Number.isNaN(v) ? v : Math.max(0, Math.min(100, v));
   switch (action.type) {
     case 'SET_EFFORT':
       return Object.assign({}, state, { effort: clamp(action.value) });
@@ -73,16 +73,18 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
     enabled: !!exerciseId,
   });
 
-  const total = state.effort + state.loc + state.temporal + state.ownership;
-  const isValid = total === 100 && state.effort >= 0 && state.loc >= 0 && state.temporal >= 0 && state.ownership >= 0;
+  const val = (n: number) => (Number.isNaN(n) ? 0 : n);
+  const total = val(state.effort) + val(state.loc) + val(state.temporal) + val(state.ownership);
+  const allFilled = !Number.isNaN(state.effort) && !Number.isNaN(state.loc) && !Number.isNaN(state.temporal) && !Number.isNaN(state.ownership);
+  const isValid = allFilled && total === 100;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const response = await cqiWeightsApi.saveWeights(parseInt(exerciseId), {
-        effortBalance: state.effort / 100,
-        locBalance: state.loc / 100,
-        temporalSpread: state.temporal / 100,
-        ownershipSpread: state.ownership / 100,
+        effortBalance: val(state.effort) / 100,
+        locBalance: val(state.loc) / 100,
+        temporalSpread: val(state.temporal) / 100,
+        ownershipSpread: val(state.ownership) / 100,
       });
       return response.data;
     },
@@ -154,8 +156,8 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
                       type="number"
                       min={0}
                       max={100}
-                      value={value}
-                      onChange={e => dispatch({ type: action, value: parseInt(e.target.value) || 0 })}
+                      value={Number.isNaN(value) ? '' : value}
+                      onChange={e => dispatch({ type: action, value: parseInt(e.target.value) })}
                       disabled={disabled}
                       className="h-8 text-sm"
                     />
