@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 public class CQICalculatorService {
 
     private final CQIConfig cqiConfig;
+    private final CqiWeightService cqiWeightService;
     private final PairProgrammingService pairProgrammingService;
 
     /**
@@ -44,6 +45,7 @@ public class CQICalculatorService {
      * @param filterSummary Summary from pre-filtering (optional)
      * @param teamName      The team name
      * @param shortName     The team short name (optional fallback for attendance lookup)
+     * @param exerciseId    The exercise ID for resolving per-exercise weight configuration
      * @return CQI result with component scores
      */
     public CQIResultDTO calculate(
@@ -53,12 +55,13 @@ public class CQICalculatorService {
             LocalDateTime projectEnd,
             FilterSummaryDTO filterSummary,
             String teamName,
-            String shortName) {
+            String shortName,
+            Long exerciseId) {
 
         PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // --- 1. Build weights and check edge cases ---
-        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO(exerciseId);
 
         if (teamSize <= 1) {
             return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
@@ -89,11 +92,23 @@ public class CQICalculatorService {
                 temporalResult.dailyDistribution());
 
         // --- 4. Compute weighted CQI ---
-        CQIConfig.Weights weights = cqiConfig.getWeights();
+        CQIConfig.Weights weights = cqiWeightService.getWeightsForExercise(exerciseId);
         double baseScore = components.weightedSum(
                 weights.getEffort(), weights.getLoc(), weights.getTemporal(), weights.getOwnership());
         double cqi = Math.max(0, Math.min(100, baseScore));
         return new CQIResultDTO(cqi, components, weightsDTO, baseScore, filterSummary);
+    }
+
+    /**
+     * Calculate CQI using fallback with default weights.
+     *
+     * @param chunks        pre-filtered commit chunks
+     * @param teamSize      number of team members
+     * @param filterSummary summary of pre-filtering results
+     * @return the calculated CQI result
+     */
+    public CQIResultDTO calculateFallback(List<CommitChunkDTO> chunks, int teamSize, FilterSummaryDTO filterSummary) {
+        return calculateFallback(chunks, teamSize, filterSummary, null, null, null);
     }
 
     /**
@@ -107,6 +122,7 @@ public class CQICalculatorService {
      * @param filterSummary Summary from pre-filtering
      * @param teamName     the team (full/formatted) name
      * @param shortName     the team short name (optional fallback for attendance lookup)
+     * @param exerciseId    The exercise ID for resolving per-exercise weight configuration
      * @return CQI result based on LoC only
      */
     public CQIResultDTO calculateFallback(
@@ -114,12 +130,13 @@ public class CQICalculatorService {
             int teamSize,
             FilterSummaryDTO filterSummary,
             String teamName,
-            String shortName) {
+            String shortName,
+            Long exerciseId) {
 
         PairProgrammingStatus pairProgrammingStatus = pairProgrammingService.getPairProgrammingStatus(teamName, shortName);
 
         // 1) Validate input
-        ComponentWeightsDTO weightsDTO = buildWeightsDTO();
+        ComponentWeightsDTO weightsDTO = buildWeightsDTO(exerciseId);
         if (teamSize <= 1) {
             return CQIResultDTO.singleContributor(weightsDTO, pairProgrammingStatus);
         }
@@ -224,12 +241,13 @@ public class CQICalculatorService {
     }
 
     /**
-     * Build a {@link ComponentWeightsDTO} from the current configuration.
+     * Build a {@link ComponentWeightsDTO} from the exercise-specific or default configuration.
      *
+     * @param exerciseId The exercise ID for resolving per-exercise weight configuration
      * @return DTO containing the configured weights for all CQI components
      */
-    public ComponentWeightsDTO buildWeightsDTO() {
-        CQIConfig.Weights w = cqiConfig.getWeights();
+    public ComponentWeightsDTO buildWeightsDTO(Long exerciseId) {
+        CQIConfig.Weights w = cqiWeightService.getWeightsForExercise(exerciseId);
         return new ComponentWeightsDTO(w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership());
     }
 
@@ -238,10 +256,11 @@ public class CQICalculatorService {
      * Used in SIMPLE mode where AI analysis is not run, so the remaining weights
      * (loc, temporal, ownership) are scaled proportionally to sum to 1.0.
      *
+     * @param exerciseId the exercise ID for resolving per-exercise weight configuration
      * @return DTO with effortBalance=0 and remaining weights summing to 1.0
      */
-    public ComponentWeightsDTO buildRenormalizedWeightsWithoutEffort() {
-        CQIConfig.Weights w = cqiConfig.getWeights();
+    public ComponentWeightsDTO buildRenormalizedWeightsWithoutEffort(Long exerciseId) {
+        CQIConfig.Weights w = cqiWeightService.getWeightsForExercise(exerciseId);
         double divisor = w.getLoc() + w.getTemporal() + w.getOwnership();
         if (divisor <= 0) {
             return new ComponentWeightsDTO(0.0, 0.0, 0.0, 0.0);
@@ -253,12 +272,13 @@ public class CQICalculatorService {
      * Returns a new {@link CQIResultDTO} with weights renormalized to exclude effort balance.
      * The component scores are preserved, only the weights are adjusted.
      *
-     * @param original the original CQI result with standard weights
+     * @param original   the original CQI result with standard weights
+     * @param exerciseId the exercise ID for resolving per-exercise weight configuration
      * @return a new CQI result with renormalized weights
      */
-    public CQIResultDTO renormalizeWithoutEffort(CQIResultDTO original) {
+    public CQIResultDTO renormalizeWithoutEffort(CQIResultDTO original, Long exerciseId) {
         return new CQIResultDTO(
-                original.cqi(), original.components(), buildRenormalizedWeightsWithoutEffort(),
+                original.cqi(), original.components(), buildRenormalizedWeightsWithoutEffort(exerciseId),
                 original.baseScore(), original.filterSummary());
     }
 

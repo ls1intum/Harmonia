@@ -96,9 +96,17 @@ public class RequestService {
     }
 
     // =====================================================================
-    //  Persistence
+    //  Per-team AI analysis
     // =====================================================================
 
+    /**
+     * Runs AI analysis for a single team on demand.
+     * Requires git analysis to have been completed first (GIT_DONE or DONE status).
+     *
+     * @param exerciseId the exercise ID
+     * @param teamId     the Artemis team ID
+     * @return the updated ClientResponseDTO, or empty if team not found
+     */
     public Optional<ClientResponseDTO> runSingleTeamAIAnalysis(Long exerciseId, Long teamId) {
         return persistenceService.runSingleTeamAIAnalysis(exerciseId, teamId);
     }

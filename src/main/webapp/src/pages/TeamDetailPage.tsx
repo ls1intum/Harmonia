@@ -22,6 +22,7 @@ export default function TeamDetailPage() {
     pairProgrammingBadgeStatus,
     courseAverages,
     analysisMode,
+    teamsSearchParams,
   } = (location.state || {}) as {
     teamId?: number;
     course?: string;
@@ -30,10 +31,16 @@ export default function TeamDetailPage() {
     pairProgrammingBadgeStatus?: PairProgrammingBadgeStatus | null;
     courseAverages?: CourseAverages | null;
     analysisMode?: 'SIMPLE' | 'FULL';
+    teamsSearchParams?: string;
   };
 
   const queryClient = useQueryClient();
   const resolvedTeamId = stateTeamId ?? (teamIdParam ? parseInt(teamIdParam) : undefined);
+
+  const navigateBackToTeams = () => {
+    const search = teamsSearchParams ? `?${teamsSearchParams}` : '';
+    navigate(`/teams${search}`, { state: { course, exercise, pairProgrammingEnabled } });
+  };
 
   // Lazy fetch full team detail from server
   const {
@@ -100,10 +107,7 @@ export default function TeamDetailPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-destructive mb-4">{error ? 'Failed to load team' : 'Team not found'}</p>
-          <button
-            onClick={() => navigate('/teams', { state: { course, exercise, pairProgrammingEnabled } })}
-            className="text-primary hover:underline"
-          >
+          <button onClick={() => navigateBackToTeams()} className="text-primary hover:underline">
             Back to Teams
           </button>
         </div>
@@ -114,7 +118,7 @@ export default function TeamDetailPage() {
   return (
     <TeamDetail
       team={displayTeam}
-      onBack={() => navigate('/teams', { state: { course, exercise, pairProgrammingEnabled } })}
+      onBack={() => navigateBackToTeams()}
       course={course}
       exercise={exercise}
       pairProgrammingBadgeStatus={pairProgrammingBadgeStatus}

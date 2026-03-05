@@ -123,7 +123,7 @@ class ContributionFairnessServiceTest {
                 50.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), anyString(), anyString())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
@@ -151,7 +151,7 @@ class ContributionFairnessServiceTest {
                 95.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), anyString(), anyString())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
@@ -175,7 +175,7 @@ class ContributionFairnessServiceTest {
                 50.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), anyString(), anyString())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportDTO report = fairnessService.analyzeFairness(dummyRepo);
 
@@ -200,7 +200,7 @@ class ContributionFairnessServiceTest {
                 70.0,
                 null
         );
-        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), anyString(), anyString())).thenReturn(cqiResult);
+        when(cqiCalculatorService.calculate(any(), anyInt(), any(), any(), any(), any(), any(), any())).thenReturn(cqiResult);
 
         FairnessReportWithUsageDTO reportWithUsage = fairnessService.analyzeFairnessWithUsage(dummyRepo);
 

@@ -130,11 +130,11 @@ public class AnalysisQueryService {
                         s.getLinesDeleted(), s.getLinesChanged()))
                 .toList();
 
-        Double cqi = participation.getCqi();
         Boolean isSuspicious = participation.getIsSuspicious() != null ? participation.getIsSuspicious() : false;
 
         AnalysisMode mode = analysisStateService.getStatus(participation.getExerciseId()).getAnalysisMode();
         CQIResultDTO cqiDetails = reconstructCqiDetails(participation, mode);
+        Double cqi = cqiDetails != null ? cqiDetails.cqi() : participation.getCqi();
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
@@ -246,25 +246,26 @@ public class AnalysisQueryService {
                 pairProgrammingStatus,
                 deserializeDailyDistribution(participation.getCqiDailyDistribution()));
 
+        Long exerciseId = participation.getExerciseId();
         ComponentWeightsDTO weights;
         if (mode == AnalysisMode.FULL) {
-            weights = cqiCalculatorService.buildWeightsDTO();
+            weights = cqiCalculatorService.buildWeightsDTO(exerciseId);
         } else if (mode == AnalysisMode.SIMPLE) {
-            weights = cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+            weights = cqiCalculatorService.buildRenormalizedWeightsWithoutEffort(exerciseId);
         } else {
             boolean hasEffortBalance = participation.getCqiEffortBalance() != null
                     && participation.getCqiEffortBalance() > 0;
             weights = hasEffortBalance
-                    ? cqiCalculatorService.buildWeightsDTO()
-                    : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort();
+                    ? cqiCalculatorService.buildWeightsDTO(exerciseId)
+                    : cqiCalculatorService.buildRenormalizedWeightsWithoutEffort(exerciseId);
         }
 
-        return new CQIResultDTO(
-                participation.getCqi() != null ? participation.getCqi() : 0.0,
-                components,
-                weights,
-                participation.getCqiBaseScore() != null ? participation.getCqiBaseScore() : 0.0,
-                null);
+        double baseScore = components.weightedSum(
+                weights.effortBalance(), weights.locBalance(),
+                weights.temporalSpread(), weights.ownershipSpread());
+        double cqi = Math.max(0, Math.min(100, baseScore));
+
+        return new CQIResultDTO(cqi, components, weights, baseScore, null);
     }
 
     /**

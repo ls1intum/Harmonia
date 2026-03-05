@@ -4,6 +4,7 @@ import de.tum.cit.aet.ai.dto.CommitChunkDTO;
 import de.tum.cit.aet.ai.dto.CommitLabel;
 import de.tum.cit.aet.ai.dto.EffortRatingDTO;
 import de.tum.cit.aet.analysis.dto.cqi.*;
+import de.tum.cit.aet.analysis.repository.CqiWeightConfigurationRepository;
 import de.tum.cit.aet.core.config.AttendanceConfiguration;
 import de.tum.cit.aet.pairProgramming.dto.TeamAttendanceDTO;
 import de.tum.cit.aet.pairProgramming.dto.TeamsScheduleDTO;
@@ -16,8 +17,12 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Test class for CQICalculatorService.
@@ -34,11 +39,14 @@ class CQICalculatorServiceTest {
     @BeforeEach
     void setUp() {
         pairProgrammingService = new PairProgrammingService(null, new AttendanceConfiguration(), new PairProgrammingCalculator(new AttendanceConfiguration()));
-        cqiService = new CQICalculatorService(new CQIConfig(), pairProgrammingService);
+        CQIConfig cqiConfig = new CQIConfig();
+        CqiWeightConfigurationRepository weightConfigRepo = mock(CqiWeightConfigurationRepository.class);
+        when(weightConfigRepo.findByExerciseId(any())).thenReturn(Optional.empty());
+        CqiWeightService cqiWeightService = new CqiWeightService(weightConfigRepo, cqiConfig);
+        cqiService = new CQICalculatorService(cqiConfig, cqiWeightService, pairProgrammingService);
         projectStart = LocalDateTime.now().minusDays(30);
         projectEnd = LocalDateTime.now();
         teamName = "team1";
-
     }
 
     // ==================== Perfect Balance Tests ====================
@@ -53,7 +61,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 50, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertTrue(result.cqi() >= 80, "Perfect balance should score >= 80, got: " + result.cqi());
     }
@@ -68,7 +76,7 @@ class CQICalculatorServiceTest {
             }
         }
 
-        CQIResultDTO result = cqiService.calculate(chunks, 3, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 3, projectStart, projectEnd, null, teamName, null, null);
 
         assertTrue(result.cqi() >= 75, "Perfect balance should score >= 75, got: " + result.cqi());
     }
@@ -86,7 +94,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 20, 5.0, CommitLabel.TRIVIAL, projectStart.plusDays(25))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertTrue(result.cqi() < 65, "Severe imbalance should score < 65, got: " + result.cqi());
     }
@@ -101,7 +109,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 10, 2.0, CommitLabel.TRIVIAL, projectStart.plusDays(20))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertTrue(result.cqi() < 60, "Solo development should score < 60, got: " + result.cqi());
     }
@@ -114,7 +122,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(10))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 1, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 1, projectStart, projectEnd, null, teamName, null, null);
 
         assertEquals(0.0, result.cqi(), "Single team member should get CQI = 0");
     }
@@ -127,7 +135,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(1L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(15))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertEquals(0.0, result.cqi(), "Only one contributor should get CQI = 0");
     }
@@ -141,7 +149,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertNotNull(result.components());
         assertTrue(result.components().effortBalance() >= 0 && result.components().effortBalance() <= 100);
@@ -162,7 +170,7 @@ class CQICalculatorServiceTest {
         );
 
         FilterSummaryDTO summary = FilterSummaryDTO.empty();
-        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, summary, teamName, null);
+        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, summary, teamName, null, null);
 
         assertTrue(result.cqi() >= 80, "Equal LoC should score well, got: " + result.cqi());
     }
@@ -175,7 +183,7 @@ class CQICalculatorServiceTest {
                 createChunk(2L, 50)
         );
 
-        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, null, teamName, null);
+        CQIResultDTO result = cqiService.calculateFallback(chunks, 2, null, teamName, null, null);
 
         assertTrue(result.cqi() < 60, "Imbalanced LoC should score low, got: " + result.cqi());
     }
@@ -184,14 +192,14 @@ class CQICalculatorServiceTest {
 
     @Test
     void testEmptyChunks() {
-        CQIResultDTO result = cqiService.calculate(List.of(), 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(List.of(), 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertEquals(0.0, result.cqi());
     }
 
     @Test
     void testNullChunks() {
-        CQIResultDTO result = cqiService.calculate(null, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(null, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertEquals(0.0, result.cqi());
     }
@@ -204,7 +212,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 1000, 10.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertTrue(result.cqi() >= 0 && result.cqi() <= 100,
                 "CQI should be 0-100, got: " + result.cqi());
@@ -266,7 +274,7 @@ class CQICalculatorServiceTest {
                 createCqiRatedChunkDTO(2L, 100, 8.0, CommitLabel.FEATURE, projectStart.plusDays(20))
         );
 
-        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null);
+        CQIResultDTO result = cqiService.calculate(chunks, 2, projectStart, projectEnd, null, teamName, null, null);
 
         assertNotNull(result.components().dailyDistribution());
         assertEquals(30, result.components().dailyDistribution().size());

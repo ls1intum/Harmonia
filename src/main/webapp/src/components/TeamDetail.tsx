@@ -310,8 +310,7 @@ const TeamDetail = ({
         return m;
       });
     }
-    const hasPairProgrammingFromServer = fromServer.some(m => m.name === 'Pair Programming');
-    if (pairProgrammingBadgeStatus != null && !hasPairProgrammingFromServer) {
+    if (pairProgrammingBadgeStatus != null) {
       const description = 'Did both students commit during pair programming sessions?';
       const synthetic: SubMetric =
         pairProgrammingBadgeStatus === 'pass'
@@ -349,7 +348,9 @@ const TeamDetail = ({
                   details: 'Team not found in attendance Excel file. Please check that the team name in the Excel matches exactly.',
                   status: 'NOT_FOUND',
                 };
-      return fromServer.concat(synthetic);
+      // Client-side attendance data is the most current source of truth — override any server PP metric
+      const withoutServerPP = fromServer.filter(m => m.name !== 'Pair Programming');
+      return withoutServerPP.concat(synthetic);
     }
     return fromServer;
   }, [team.subMetrics, pairProgrammingBadgeStatus, isSimpleMode, hasAiResult, isAiComputing]);

@@ -1,6 +1,7 @@
 import type { TemplateAuthorInfo, TeamDTO } from '@/data/dataLoaders';
 import type { CourseAverages } from '@/lib/courseAverages';
 import { computeBasicMetrics } from '@/lib/utils';
+import CqiWeightsPanel from '@/components/CqiWeightsPanel';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useState, useMemo } from 'react';
 import { SortableHeader, type SortColumn } from '@/components/SortableHeader.tsx';
-import { StatusFilterButton, type StatusFilter } from '@/components/StatusFilterButton.tsx';
+import { StatusFilterButton, type StatusFilterValue } from '@/components/StatusFilterButton.tsx';
 import { ActivityLog } from '@/components/ActivityLog';
 import type { AnalysisMode, AnalysisStatus } from '@/hooks/useAnalysisStatus';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
@@ -49,7 +50,7 @@ import ExportButton from '@/components/ExportButton';
 import FileUpload from '@/components/FileUpload';
 import { getFailedReason } from '@/lib/utils';
 import PairProgrammingBadge from '@/components/PairProgrammingBadge';
-import { PairProgrammingFilterButton, type PairProgrammingFilter } from '@/components/PairProgrammingFilterButton';
+import { PairProgrammingFilterButton, type PairProgrammingFilterValue } from '@/components/PairProgrammingFilterButton';
 import {
   getPairProgrammingBadgeStatus,
   hasValidPairProgrammingAttendanceData,
@@ -131,8 +132,8 @@ const TeamsList = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [pairProgrammingFilter, setPairProgrammingFilter] = useState<PairProgrammingFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue[]>([]);
+  const [pairProgrammingFilter, setPairProgrammingFilter] = useState<PairProgrammingFilterValue[]>([]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearType, setClearType] = useState<'db' | 'files' | 'both'>('both');
@@ -317,27 +318,40 @@ const TeamsList = ({
       });
     }
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'failed') {
-        filtered = filtered.filter(team => isTeamFailed(team));
-      } else if (statusFilter === 'suspicious') {
-        filtered = filtered.filter(team => team.isSuspicious);
-      } else if (statusFilter === 'normal') {
-        filtered = filtered.filter(team => !team.isSuspicious && !isTeamFailed(team));
-      } else if (statusFilter === 'has-unmatched') {
-        filtered = filtered.filter(team => team.orphanCommitCount != null && team.orphanCommitCount > 0);
-      } else if (statusFilter === 'no-unmatched') {
-        filtered = filtered.filter(team => team.orphanCommitCount == null || team.orphanCommitCount === 0);
-      } else if (statusFilter === 'reviewed') {
-        filtered = filtered.filter(team => team.isReviewed === true);
-      } else if (statusFilter === 'unreviewed') {
-        filtered = filtered.filter(team => !team.isReviewed);
-      }
+    // Apply status filter (multi-select)
+    // Within each category: OR (e.g. failed + error = either).
+    // Across categories: AND (e.g. error + unreviewed = must be both).
+    if (statusFilter.length > 0) {
+      const statusGroup: StatusFilterValue[] = ['normal', 'suspicious', 'failed', 'git-done', 'error'];
+      const unmatchedGroup: StatusFilterValue[] = ['has-unmatched', 'no-unmatched'];
+      const reviewGroup: StatusFilterValue[] = ['reviewed', 'unreviewed'];
+
+      const activeStatus = statusFilter.filter(f => statusGroup.includes(f));
+      const activeUnmatched = statusFilter.filter(f => unmatchedGroup.includes(f));
+      const activeReview = statusFilter.filter(f => reviewGroup.includes(f));
+
+      filtered = filtered.filter(team => {
+        const matches: Record<StatusFilterValue, boolean> = {
+          failed: isTeamFailed(team),
+          suspicious: !!team.isSuspicious,
+          normal: team.analysisStatus === 'DONE' && !team.isSuspicious && !isTeamFailed(team),
+          'git-done': team.analysisStatus === 'GIT_DONE',
+          error: team.analysisStatus === 'ERROR',
+          'has-unmatched': team.orphanCommitCount != null && team.orphanCommitCount > 0,
+          'no-unmatched': team.orphanCommitCount == null || team.orphanCommitCount === 0,
+          reviewed: team.isReviewed === true,
+          unreviewed: !team.isReviewed,
+        };
+        // Each active group must have at least one match (AND across groups, OR within)
+        if (activeStatus.length > 0 && !activeStatus.some(f => matches[f])) return false;
+        if (activeUnmatched.length > 0 && !activeUnmatched.some(f => matches[f])) return false;
+        if (activeReview.length > 0 && !activeReview.some(f => matches[f])) return false;
+        return true;
+      });
     }
 
-    // Apply pair programming filter
-    if (pairProgrammingFilter !== 'all' && hasValidPairProgrammingData) {
+    // Apply pair programming filter (multi-select)
+    if (pairProgrammingFilter.length > 0 && hasValidPairProgrammingData) {
       filtered = filtered.filter(team => {
         const badge = getPairProgrammingBadgeStatus(
           team.teamName ?? '',
@@ -345,7 +359,7 @@ const TeamsList = ({
           pairProgrammingAttendanceByTeamName,
           team.shortName,
         );
-        return badge === pairProgrammingFilter;
+        return badge != null && pairProgrammingFilter.includes(badge);
       });
     }
 
@@ -625,6 +639,8 @@ const TeamsList = ({
           </div>
         </Card>
       )}
+
+      <CqiWeightsPanel exerciseId={exercise} disabled={analysisStatus?.state === 'RUNNING'} />
 
       <Card className="p-6 shadow-card">
         <div className="flex items-center justify-between gap-4 flex-wrap">

@@ -16,7 +16,6 @@ import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.CQIResultDTO;
 import de.tum.cit.aet.analysis.dto.cqi.ComponentScoresDTO;
-import de.tum.cit.aet.analysis.dto.cqi.ComponentWeightsDTO;
 import de.tum.cit.aet.analysis.dto.cqi.PreFilterResultDTO;
 import de.tum.cit.aet.analysis.repository.AnalyzedChunkRepository;
 import de.tum.cit.aet.analysis.repository.ExerciseEmailMappingRepository;
@@ -204,7 +203,7 @@ public class AnalysisResultPersistenceService {
 
         CQIResultDTO finalDetails = gitCqiDetails;
         if (mode == AnalysisMode.SIMPLE && gitCqiDetails != null) {
-            finalDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails);
+            finalDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails, exerciseId);
         }
 
         return new ClientResponseDTO(
@@ -302,7 +301,7 @@ public class AnalysisResultPersistenceService {
                     PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
                     cqiDetails = cqiCalculatorService.calculateFallback(
                             filterResult.chunksToAnalyze(), students.size(), filterResult.summary(),
-                            team.name(), team.shortName());
+                            team.name(), team.shortName(), exerciseId);
                     cqi = cqiDetails.cqi();
                 } catch (Exception e) {
                     log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());
@@ -340,11 +339,12 @@ public class AnalysisResultPersistenceService {
                 .toList();
 
         Tutor tutor = teamParticipation.getTutor();
-        Double finalCqi = teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi;
         CQIResultDTO finalCqiDetails = queryService.reconstructCqiDetails(teamParticipation, AnalysisMode.FULL);
         if (finalCqiDetails == null) {
             finalCqiDetails = cqiDetails;
         }
+        Double finalCqi = finalCqiDetails != null ? finalCqiDetails.cqi()
+                : (teamParticipation.getCqi() != null ? teamParticipation.getCqi() : cqi);
 
         return new ClientResponseWithUsage(
                 new ClientResponseDTO(
@@ -428,22 +428,8 @@ public class AnalysisResultPersistenceService {
         Double cqi = null;
         CQIResultDTO simpleCqiDetails = gitCqiDetails;
         if (gitCqiDetails != null && gitCqiDetails.components() != null) {
-            ComponentWeightsDTO weights = cqiCalculatorService.buildWeightsDTO();
-            double wLoc = weights.locBalance();
-            double wTemporal = weights.temporalSpread();
-            double wOwnership = weights.ownershipSpread();
-            double divisor = wLoc + wTemporal + wOwnership;
-
-            if (divisor > 0) {
-                double locScore = gitCqiDetails.components().locBalance();
-                double temporalScore = gitCqiDetails.components().temporalSpread();
-                double ownershipScore = gitCqiDetails.components().ownershipSpread();
-
-                double rawCqi = (wLoc * locScore + wTemporal * temporalScore + wOwnership * ownershipScore) / divisor;
-                cqi = (double) Math.max(0, Math.min(100, Math.round(rawCqi)));
-            }
-
-            simpleCqiDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails);
+            simpleCqiDetails = cqiCalculatorService.renormalizeWithoutEffort(gitCqiDetails, exerciseId);
+            cqi = simpleCqiDetails.cqi();
         }
 
         persistCqiComponents(teamParticipation, gitCqiDetails);
@@ -459,12 +445,13 @@ public class AnalysisResultPersistenceService {
 
         Tutor tutor = teamParticipation.getTutor();
         CQIResultDTO finalDetails = simpleCqiDetails != null ? simpleCqiDetails : queryService.reconstructCqiDetails(teamParticipation, AnalysisMode.SIMPLE);
+        Double finalCqi = finalDetails != null ? finalDetails.cqi() : cqi;
 
         return new ClientResponseDTO(
                 tutor != null ? tutor.getName() : "Unassigned",
                 team.id(), participation.id(), team.name(), team.shortName(),
                 participation.submissionCount(),
-                studentDtos, cqi, false, TeamAnalysisStatus.DONE,
+                studentDtos, finalCqi, false, TeamAnalysisStatus.DONE,
                 finalDetails, null, null, null, null, null, null);
     }
 
@@ -678,7 +665,7 @@ public class AnalysisResultPersistenceService {
                         gitComponents.pairProgrammingStatus() != null ? gitComponents.pairProgrammingStatus().name() : null);
                 teamParticipationRepository.save(teamParticipation);
 
-                return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(), gitComponents, filterResult.summary());
+                return CQIResultDTO.gitOnly(cqiCalculatorService.buildWeightsDTO(null), gitComponents, filterResult.summary());
             }
         } catch (Exception e) {
             log.warn("Failed to calculate git-only metrics for team {}: {}", team.name(), e.getMessage());
@@ -696,7 +683,7 @@ public class AnalysisResultPersistenceService {
             PreFilterResultDTO filterResult = commitPreFilterService.preFilter(allChunks);
             CQIResultDTO result = cqiCalculatorService.calculateFallback(
                     filterResult.chunksToAnalyze(), students.size(), filterResult.summary(),
-                    team.name(), team.shortName());
+                    team.name(), team.shortName(), null);
             return result.cqi();
         } catch (Exception e) {
             log.warn("Fallback CQI calculation failed for team {}: {}", team.name(), e.getMessage());

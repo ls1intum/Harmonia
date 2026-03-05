@@ -185,6 +185,54 @@ paths:
         required: true
       responses:
         '200': {description: OK}
+  /api/exercises/{exerciseId}/cqi-weights:
+    get:
+      tags: [cqi-weight-resource]
+      operationId: getWeights
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CqiWeightsDTO'}
+    put:
+      tags: [cqi-weight-resource]
+      operationId: saveWeights
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CqiWeightsDTO'}
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: object}
+    delete:
+      tags: [cqi-weight-resource]
+      operationId: resetWeights
+      parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CqiWeightsDTO'}
   /api/exercises/{exerciseId}/email-mappings:
     get:
       tags: [email-mapping-resource]
@@ -581,6 +629,14 @@ components:
       type: object
       properties:
         effortBalance: {type: number, format: double}
+        locBalance: {type: number, format: double}
+        ownershipSpread: {type: number, format: double}
+        temporalSpread: {type: number, format: double}
+    CqiWeightsDTO:
+      type: object
+      properties:
+        effortBalance: {type: number, format: double}
+        isDefault: {type: boolean}
         locBalance: {type: number, format: double}
         ownershipSpread: {type: number, format: double}
         temporalSpread: {type: number, format: double}

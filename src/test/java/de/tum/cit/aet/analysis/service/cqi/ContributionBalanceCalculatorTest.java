@@ -43,7 +43,8 @@ class ContributionBalanceCalculatorTest {
         );
 
         double score = calculator.calculate(commits);
-        assertTrue(score >= 0 && score <= 100); // More lenient test
+        // stdev ≈ 4.08, maxStdev = sqrt(2) ≈ 1.41 → ratio > 1 → clamped to 0
+        assertEquals(0.0, score, 0.01);
     }
 
     @Test
@@ -56,7 +57,8 @@ class ContributionBalanceCalculatorTest {
         );
 
         double score = calculator.calculate(commits);
-        assertTrue(score < 90); // Should have 10% penalty applied
+        // stdev ≈ 10.61, maxStdev = sqrt(2) ≈ 1.41 → ratio > 1 → clamped to 0
+        assertEquals(0.0, score, 0.01);
     }
 
     @Test
@@ -98,6 +100,6 @@ class ContributionBalanceCalculatorTest {
         );
 
         double score = calculator.calculate(commits);
-        assertTrue(score < 10); // Should be very low
+        assertEquals(0.0, score, 0.01);
     }
 }
