@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Settings, RotateCcw, ChevronRight } from 'lucide-react';
+import { Settings, RotateCcw } from 'lucide-react';
 import type { CqiWeightsDTO } from '@/app/generated';
 import { cqiWeightsApi } from '@/lib/apiClient';
 
@@ -34,13 +34,13 @@ function weightReducer(state: WeightState, action: WeightAction): WeightState {
   const clamp = (v: number) => Math.max(0, Math.min(100, v));
   switch (action.type) {
     case 'SET_EFFORT':
-      return { ...state, effort: clamp(action.value) };
+      return Object.assign({}, state, { effort: clamp(action.value) });
     case 'SET_LOC':
-      return { ...state, loc: clamp(action.value) };
+      return Object.assign({}, state, { loc: clamp(action.value) });
     case 'SET_TEMPORAL':
-      return { ...state, temporal: clamp(action.value) };
+      return Object.assign({}, state, { temporal: clamp(action.value) });
     case 'SET_OWNERSHIP':
-      return { ...state, ownership: clamp(action.value) };
+      return Object.assign({}, state, { ownership: clamp(action.value) });
     case 'RESET':
       return action.state;
   }

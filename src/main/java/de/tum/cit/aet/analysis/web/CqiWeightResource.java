@@ -1,107 +1,61 @@
 package de.tum.cit.aet.analysis.web;
 
-import de.tum.cit.aet.analysis.domain.CqiWeightConfiguration;
-import de.tum.cit.aet.analysis.repository.CqiWeightConfigurationRepository;
-import de.tum.cit.aet.analysis.service.cqi.CQIConfig;
+import de.tum.cit.aet.analysis.dto.cqi.CqiWeightsDTO;
+import de.tum.cit.aet.analysis.service.cqi.CqiWeightService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST controller for per-exercise CQI weight configuration.
+ */
 @RestController
 @RequestMapping("/api/exercises/{exerciseId}/cqi-weights")
 @Slf4j
 @RequiredArgsConstructor
 public class CqiWeightResource {
 
-    private final CqiWeightConfigurationRepository weightConfigRepository;
-    private final CQIConfig cqiConfig;
-
-    public record CqiWeightsDTO(
-            double effortBalance,
-            double locBalance,
-            double temporalSpread,
-            double ownershipSpread,
-            Boolean isDefault
-    ) {}
+    private final CqiWeightService cqiWeightService;
 
     /**
-     * Get the CQI weights for an exercise, falling back to defaults if none are configured.
+     * Returns the CQI weights for an exercise, falling back to defaults if none are configured.
      *
      * @param exerciseId the exercise ID
-     * @return the current weights configuration
+     * @return the current weights
      */
     @GetMapping
     public ResponseEntity<CqiWeightsDTO> getWeights(@PathVariable Long exerciseId) {
-        return weightConfigRepository.findByExerciseId(exerciseId)
-                .map(config -> ResponseEntity.ok(new CqiWeightsDTO(
-                        config.getEffortWeight(), config.getLocWeight(),
-                        config.getTemporalWeight(), config.getOwnershipWeight(), false)))
-                .orElseGet(() -> {
-                    CQIConfig.Weights w = cqiConfig.getWeights();
-                    return ResponseEntity.ok(new CqiWeightsDTO(
-                            w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership(), true));
-                });
+        log.info("GET cqi-weights for exerciseId={}", exerciseId);
+        return ResponseEntity.ok(cqiWeightService.getWeights(exerciseId));
     }
 
     /**
-     * Save custom CQI weights for an exercise. Weights must sum to 1.0 and be non-negative.
+     * Saves custom CQI weights for an exercise.
      *
      * @param exerciseId the exercise ID
-     * @param request the weights to save
-     * @return the saved weights configuration
+     * @param request    the weights to save
+     * @return the saved weights
      */
     @PutMapping
-    @Transactional
-    public ResponseEntity<?> saveWeights(
-            @PathVariable Long exerciseId,
-            @RequestBody CqiWeightsDTO request) {
-
-        if (request.effortBalance() < 0 || request.locBalance() < 0
-                || request.temporalSpread() < 0 || request.ownershipSpread() < 0) {
-            return ResponseEntity.badRequest().body("All weights must be non-negative");
+    public ResponseEntity<?> saveWeights(@PathVariable Long exerciseId, @RequestBody CqiWeightsDTO request) {
+        log.info("PUT cqi-weights for exerciseId={}", exerciseId);
+        try {
+            return ResponseEntity.ok(cqiWeightService.saveWeights(exerciseId, request));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        double sum = request.effortBalance() + request.locBalance()
-                + request.temporalSpread() + request.ownershipSpread();
-        if (Math.abs(sum - 1.0) >= 0.001) {
-            return ResponseEntity.badRequest().body("Weights must sum to 100% (got " + Math.round(sum * 100) + "%)");
-        }
-
-        CqiWeightConfiguration config = weightConfigRepository.findByExerciseId(exerciseId)
-                .orElseGet(() -> new CqiWeightConfiguration(exerciseId,
-                        request.effortBalance(), request.locBalance(),
-                        request.temporalSpread(), request.ownershipSpread()));
-        config.setEffortWeight(request.effortBalance());
-        config.setLocWeight(request.locBalance());
-        config.setTemporalWeight(request.temporalSpread());
-        config.setOwnershipWeight(request.ownershipSpread());
-        weightConfigRepository.save(config);
-
-        log.info("Saved CQI weights for exercise {}: effort={}, loc={}, temporal={}, ownership={}",
-                exerciseId, config.getEffortWeight(), config.getLocWeight(),
-                config.getTemporalWeight(), config.getOwnershipWeight());
-
-        return ResponseEntity.ok(new CqiWeightsDTO(
-                config.getEffortWeight(), config.getLocWeight(),
-                config.getTemporalWeight(), config.getOwnershipWeight(), false));
     }
 
     /**
-     * Reset CQI weights for an exercise back to the application defaults.
+     * Resets CQI weights for an exercise back to application defaults.
      *
      * @param exerciseId the exercise ID
-     * @return the default weights configuration
+     * @return the default weights
      */
     @DeleteMapping
-    @Transactional
     public ResponseEntity<CqiWeightsDTO> resetWeights(@PathVariable Long exerciseId) {
-        weightConfigRepository.deleteByExerciseId(exerciseId);
-        CQIConfig.Weights w = cqiConfig.getWeights();
-
-        log.info("Reset CQI weights to defaults for exercise {}", exerciseId);
-
-        return ResponseEntity.ok(new CqiWeightsDTO(
-                w.getEffort(), w.getLoc(), w.getTemporal(), w.getOwnership(), true));
+        log.info("DELETE cqi-weights for exerciseId={}", exerciseId);
+        return ResponseEntity.ok(cqiWeightService.resetWeights(exerciseId));
     }
 }
