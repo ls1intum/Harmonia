@@ -65,7 +65,16 @@ public class AnalysisQueryService {
             return List.of();
         }
         return participations.stream()
-                .map(this::mapParticipationToClientResponse)
+                .map(p -> {
+                    try {
+                        return mapParticipationToClientResponse(p);
+                    } catch (Exception e) {
+                        log.warn("Failed to map participation {} (team {}): {}",
+                                p.getParticipation(), p.getName(), e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 

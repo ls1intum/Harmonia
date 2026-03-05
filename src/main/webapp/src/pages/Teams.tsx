@@ -122,17 +122,15 @@ export default function Teams() {
   const { data: teams = [] } = useQuery<TeamDTO[]>({
     queryKey: ['teams', exercise],
     queryFn: async () => {
-      try {
-        const response = await requestApi.getTeamSummaries(parseInt(exercise));
-        return response.data.map(transformSummaryToTeamDTO);
-      } catch {
-        return [];
-      }
+      const response = await requestApi.getTeamSummaries(parseInt(exercise));
+      return response.data.map(transformSummaryToTeamDTO);
     },
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     enabled: !!exercise,
     refetchOnWindowFocus: !isAnalysisRunning,
+    // On error, keep showing cached/SSE-accumulated data instead of clearing
+    retry: 1,
   });
 
   const toggleReviewedMutation = useMutation({
@@ -274,6 +272,9 @@ export default function Teams() {
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
           statusUpdate => {
+            // Don't override CANCELLED status with RUNNING from lingering SSE events
+            const currentStatus = queryClient.getQueryData<typeof status>(['analysisStatus', exercise]);
+            if (currentStatus?.state === 'CANCELLED') return;
             queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
               Object.assign({}, old, {
                 state: 'RUNNING' as const,
@@ -289,6 +290,14 @@ export default function Teams() {
       });
     },
     onSuccess: () => {
+      // Check if analysis was cancelled — the SSE CANCELLED event also resolves via onComplete
+      const currentStatus = queryClient.getQueryData<typeof status>(['analysisStatus', exercise]);
+      if (currentStatus?.state === 'CANCELLED') {
+        // Already handled by cancelMutation.onSuccess — just refetch to be safe
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+        refetchStatus();
+        return;
+      }
       toast({ title: 'Analysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
@@ -298,6 +307,13 @@ export default function Teams() {
       if (error?.message === 'ALREADY_RUNNING') {
         // Analysis was already running - this is not an error, just inform the user
         toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
+        refetchStatus();
+        return;
+      }
+      // Don't show error toast if analysis was cancelled
+      const currentStatus = queryClient.getQueryData<typeof status>(['analysisStatus', exercise]);
+      if (currentStatus?.state === 'CANCELLED') {
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
         refetchStatus();
         return;
       }
@@ -321,8 +337,10 @@ export default function Teams() {
     },
     onSuccess: () => {
       toast({ title: 'Analysis cancelled' });
-      // Invalidate to get fresh data including cancelled teams
-      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+      // Don't invalidate teams here — the server may still be processing
+      // (DB was cleared at analysis start, teams may not be re-initialized yet).
+      // The SSE stream will close shortly and startMutation/recomputeMutation
+      // handlers will refetch teams once the server is in a consistent state.
       refetchStatus();
     },
     onError: () => {
@@ -383,6 +401,8 @@ export default function Teams() {
           candidates => queryClient.setQueryData(['templateAuthorCandidates', exercise], candidates),
           mode,
           statusUpdate => {
+            const currentStatus = queryClient.getQueryData<typeof status>(['analysisStatus', exercise]);
+            if (currentStatus?.state === 'CANCELLED') return;
             queryClient.setQueryData(['analysisStatus', exercise], (old: typeof status) =>
               Object.assign({}, old, {
                 state: 'RUNNING' as const,
@@ -398,6 +418,12 @@ export default function Teams() {
       });
     },
     onSuccess: () => {
+      const currentStatus = queryClient.getQueryData<typeof status>(['analysisStatus', exercise]);
+      if (currentStatus?.state === 'CANCELLED') {
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
+        refetchStatus();
+        return;
+      }
       toast({ title: 'Reanalysis completed!' });
       queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       queryClient.invalidateQueries({ queryKey: ['templateAuthor', exercise] });
@@ -406,6 +432,12 @@ export default function Teams() {
     onError: (error: Error) => {
       if (error?.message === 'ALREADY_RUNNING') {
         toast({ title: 'Analysis already in progress', description: 'Showing current progress...' });
+        refetchStatus();
+        return;
+      }
+      const currentStatus = queryClient.getQueryData<typeof status>(['analysisStatus', exercise]);
+      if (currentStatus?.state === 'CANCELLED') {
+        queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
         refetchStatus();
         return;
       }

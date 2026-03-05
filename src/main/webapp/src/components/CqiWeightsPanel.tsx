@@ -90,6 +90,7 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cqiWeights', exerciseId] });
+      queryClient.invalidateQueries({ queryKey: ['teams', exerciseId] });
       toast({ title: 'CQI weights saved' });
     },
     onError: (error: unknown) => {
@@ -109,6 +110,7 @@ export default function CqiWeightsPanel({ exerciseId, disabled }: CqiWeightsPane
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cqiWeights', exerciseId] });
+      queryClient.invalidateQueries({ queryKey: ['teams', exerciseId] });
       toast({ title: 'CQI weights reset to defaults' });
     },
     onError: (error: unknown) => {

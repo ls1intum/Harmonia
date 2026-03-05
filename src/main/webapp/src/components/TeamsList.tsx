@@ -260,14 +260,13 @@ const TeamsList = ({
   };
 
   // Get priority for analysis status (lower = shown first)
-  // Failed teams (isFailed) get a separate priority so they sort below teams with real CQI scores
+  // Active analysis (AI_ANALYZING) shown near top so progress is visible
   const getStatusPriority = (team: TeamDTO): number => {
-    if (team.isFailed) return 1; // Failed teams after successful DONE teams
     switch (team.analysisStatus) {
       case 'DONE':
-        return 0; // Fully completed - show first
+        return team.isFailed ? 2 : 0; // Successful first, failed after AI_ANALYZING
       case 'AI_ANALYZING':
-        return 2; // AI analysis in progress
+        return 1; // AI analysis in progress — show near top
       case 'GIT_DONE':
         return 3; // Git analysis done, waiting for AI
       case 'GIT_ANALYZING':
