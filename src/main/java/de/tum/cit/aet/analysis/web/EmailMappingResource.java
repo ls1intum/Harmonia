@@ -85,7 +85,7 @@ public class EmailMappingResource {
                         "TeamParticipation not found for exercise " + exerciseId
                                 + " and team " + request.teamParticipationId()));
 
-        // 2. Resolve real Artemis student ID by name (frontend may send 0 as placeholder)
+        // 2. Resolve real Artemis student ID by name (client may send 0 as placeholder)
         Long resolvedStudentId = request.studentId();
         if (request.studentName() != null) {
             List<Student> students = studentRepository.findAllByTeam(participation);
