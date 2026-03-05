@@ -5,34 +5,56 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
-export type StatusFilter = 'all' | 'normal' | 'suspicious' | 'failed' | 'has-unmatched' | 'no-unmatched' | 'reviewed' | 'unreviewed';
+export type StatusFilterValue =
+  | 'normal'
+  | 'suspicious'
+  | 'failed'
+  | 'git-done'
+  | 'error'
+  | 'has-unmatched'
+  | 'no-unmatched'
+  | 'reviewed'
+  | 'unreviewed';
 
 interface StatusFilterButtonProps {
-  statusFilter: StatusFilter;
-  setStatusFilter: (value: StatusFilter) => void;
+  statusFilter: StatusFilterValue[];
+  setStatusFilter: (value: StatusFilterValue[]) => void;
 }
 
 /**
- * Dropdown filter for team status (all / normal / suspicious / failed).
+ * Dropdown multi-select filter for team status.
  *
- * @param props.statusFilter - currently active filter value
+ * @param props.statusFilter - currently active filter values
  * @param props.setStatusFilter - callback to change the filter
  */
 export const StatusFilterButton = ({ statusFilter, setStatusFilter }: StatusFilterButtonProps) => {
-  const isActive = statusFilter !== 'all';
+  const count = statusFilter.length;
+  const isActive = count > 0;
+
+  const toggle = (value: StatusFilterValue) => {
+    if (statusFilter.includes(value)) {
+      setStatusFilter(statusFilter.filter(v => v !== value));
+    } else {
+      setStatusFilter(statusFilter.concat(value));
+    }
+  };
 
   return (
     <div className="flex items-center gap-2">
       Status
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-6 w-6 ${isActive ? 'bg-primary/10 text-primary' : ''}`}>
-            <Filter className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className={`relative h-6 w-6 ${isActive ? 'bg-primary/10 text-primary' : ''}`}>
+            <Filter className={`h-3.5 w-3.5 ${isActive ? 'fill-primary' : ''}`} />
+            {isActive && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                {count}
+              </span>
+            )}
           </Button>
         </DropdownMenuTrigger>
 
@@ -40,18 +62,35 @@ export const StatusFilterButton = ({ statusFilter, setStatusFilter }: StatusFilt
           <DropdownMenuLabel>Filter by</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
-          <DropdownMenuRadioGroup value={statusFilter} onValueChange={value => setStatusFilter(value as StatusFilter)}>
-            <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="normal">Normal</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="suspicious">Suspicious</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="failed">Failed</DropdownMenuRadioItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuRadioItem value="has-unmatched">Has Unmatched</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="no-unmatched">No Unmatched</DropdownMenuRadioItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuRadioItem value="reviewed">Reviewed</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="unreviewed">Unreviewed</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('normal')} onCheckedChange={() => toggle('normal')}>
+            Normal
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('suspicious')} onCheckedChange={() => toggle('suspicious')}>
+            Suspicious
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('failed')} onCheckedChange={() => toggle('failed')}>
+            Failed
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('git-done')} onCheckedChange={() => toggle('git-done')}>
+            Git Done
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('error')} onCheckedChange={() => toggle('error')}>
+            Error
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('has-unmatched')} onCheckedChange={() => toggle('has-unmatched')}>
+            Has Unmatched
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('no-unmatched')} onCheckedChange={() => toggle('no-unmatched')}>
+            No Unmatched
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('reviewed')} onCheckedChange={() => toggle('reviewed')}>
+            Reviewed
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={statusFilter.includes('unreviewed')} onCheckedChange={() => toggle('unreviewed')}>
+            Unreviewed
+          </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

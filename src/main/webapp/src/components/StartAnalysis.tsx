@@ -137,6 +137,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           <Label htmlFor="exerciseUrl">Artemis Exercise URL</Label>
           <Input
             id="exerciseUrl"
+            className="bg-white"
             placeholder="https://artemis.../courses/30/exercises/282"
             value={exerciseUrl}
             onChange={e => {
@@ -155,6 +156,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           <Label htmlFor="username">Artemis Username</Label>
           <Input
             id="username"
+            className="bg-white"
             placeholder="Enter your username"
             value={username}
             onChange={e => setUsername(e.target.value)}
@@ -166,6 +168,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
           <Label htmlFor="password">Artemis Password</Label>
           <Input
             id="password"
+            className="bg-white"
             type="password"
             placeholder="Enter your password"
             value={password}
@@ -188,7 +191,7 @@ const StartAnalysis = ({ onStart }: StartAnalysisProps) => {
             }}
             disabled={isLoading}
           >
-            <SelectTrigger id="pair-programming-mode">
+            <SelectTrigger id="pair-programming-mode" className="bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

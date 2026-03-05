@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
 import TeamsList from '@/components/TeamsList';
@@ -58,6 +58,7 @@ const buildPairProgrammingAttendanceMap = (schedule?: TeamsScheduleDTO): PairPro
 export default function Teams() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const {
     course,
@@ -204,7 +205,6 @@ export default function Teams() {
       setPairProgrammingAttendanceByTeamName({});
       window.sessionStorage.removeItem(attendanceStorageKey);
       window.sessionStorage.removeItem(pairProgrammingAttendanceMapStorageKey);
-      queryClient.invalidateQueries({ queryKey: ['teams', exercise] });
       toast({
         title: 'Attendance file removed',
         description: 'Pair programming data was cleared.',
@@ -489,6 +489,7 @@ export default function Teams() {
         pairProgrammingBadgeStatus,
         courseAverages,
         analysisMode: status.analysisMode,
+        teamsSearchParams: searchParams.toString(),
       },
     });
   };
