@@ -79,13 +79,13 @@ public class ContributionFairnessService {
     /**
      * Analyses a repository with optional template author exclusion.
      *
-     * @param repositoryDTO       the repository to analyse
-     * @param templateAuthorEmail email of the template author to exclude (lowercase), or {@code null}
-     * @param exerciseId          the exercise ID for per-exercise CQI weight resolution
+     * @param repositoryDTO        the repository to analyse
+     * @param templateAuthorEmails emails of the template authors to exclude (lowercase), or {@code null}
+     * @param exerciseId           the exercise ID for per-exercise CQI weight resolution
      * @return fairness report plus token usage
      */
     public FairnessReportWithUsageDTO analyzeFairnessWithUsage(TeamRepositoryDTO repositoryDTO,
-            String templateAuthorEmail, Long exerciseId) {
+            Set<String> templateAuthorEmails, Long exerciseId) {
         String repoPath = repositoryDTO.localPath();
         String teamName = repositoryDTO.participation().team().name();
         String shortName = repositoryDTO.participation().team().shortName();
