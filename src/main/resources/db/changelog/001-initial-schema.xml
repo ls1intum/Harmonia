@@ -241,13 +241,16 @@
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="exercise_id" type="BIGINT">
-                <constraints nullable="false" unique="true"/>
+                <constraints nullable="false"/>
             </column>
             <column name="template_email" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
             <column name="auto_detected" type="BOOLEAN" defaultValueBoolean="false"/>
         </createTable>
+        <addUniqueConstraint tableName="exercise_template_authors"
+            columnNames="exercise_id, template_email"
+            constraintName="uc_template_author_exercise_email"/>
     </changeSet>
 
     <!-- initial-schema-m: cqi_weight_configurations table -->

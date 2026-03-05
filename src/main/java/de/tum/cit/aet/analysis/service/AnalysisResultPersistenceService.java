@@ -11,7 +11,6 @@ import de.tum.cit.aet.ai.service.CommitChunkerService;
 import de.tum.cit.aet.ai.service.ContributionFairnessService;
 import de.tum.cit.aet.analysis.domain.AnalyzedChunk;
 import de.tum.cit.aet.analysis.domain.ExerciseEmailMapping;
-import de.tum.cit.aet.analysis.domain.ExerciseTemplateAuthor;
 import de.tum.cit.aet.analysis.dto.AuthorContributionDTO;
 import de.tum.cit.aet.analysis.dto.OrphanCommitDTO;
 import de.tum.cit.aet.analysis.dto.RepositoryAnalysisResultDTO;
@@ -33,7 +32,6 @@ import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.StudentRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamRepositoryRepository;
-import de.tum.cit.aet.repositoryProcessing.repository.TutorRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,11 +39,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Persists Phase-2 (git analysis) and Phase-3 (AI analysis) results.
@@ -68,7 +63,6 @@ public class AnalysisResultPersistenceService {
 
     private final TeamRepositoryRepository teamRepositoryRepository;
     private final TeamParticipationRepository teamParticipationRepository;
-    private final TutorRepository tutorRepository;
     private final StudentRepository studentRepository;
     private final AnalyzedChunkRepository analyzedChunkRepository;
     private final ExerciseTemplateAuthorRepository templateAuthorRepository;
@@ -94,7 +88,6 @@ public class AnalysisResultPersistenceService {
             PairProgrammingService pairProgrammingService,
             TeamRepositoryRepository teamRepositoryRepository,
             TeamParticipationRepository teamParticipationRepository,
-            TutorRepository tutorRepository,
             StudentRepository studentRepository,
             AnalyzedChunkRepository analyzedChunkRepository,
             ExerciseTemplateAuthorRepository templateAuthorRepository,
@@ -113,7 +106,6 @@ public class AnalysisResultPersistenceService {
         this.pairProgrammingService = pairProgrammingService;
         this.teamRepositoryRepository = teamRepositoryRepository;
         this.teamParticipationRepository = teamParticipationRepository;
-        this.tutorRepository = tutorRepository;
         this.studentRepository = studentRepository;
         this.analyzedChunkRepository = analyzedChunkRepository;
         this.templateAuthorRepository = templateAuthorRepository;
@@ -255,9 +247,10 @@ public class AnalysisResultPersistenceService {
         teamParticipationRepository.save(teamParticipation);
 
         List<Student> students = studentRepository.findAllByTeam(teamParticipation);
-        String templateAuthorEmail = templateAuthorRepository.findByExerciseId(exerciseId)
-                .map(ExerciseTemplateAuthor::getTemplateEmail)
-                .orElse(null);
+        Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                .stream()
+                .map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
 
         Double cqi = null;
         boolean isSuspicious = false;
@@ -269,7 +262,7 @@ public class AnalysisResultPersistenceService {
         // 1) Detect orphan commits
         try {
             RepositoryAnalysisResultDTO analysisResult = gitContributionAnalysisService
-                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmail);
+                    .analyzeRepositoryWithOrphans(repo, templateAuthorEmails);
             orphanCommits = analysisResult.orphanCommits();
         } catch (Exception e) {
             log.warn("Failed to detect orphan commits for team {}: {}", team.name(), e.getMessage());
@@ -279,7 +272,7 @@ public class AnalysisResultPersistenceService {
         boolean fairnessSucceeded = false;
         try {
             FairnessReportWithUsageDTO fairnessResult = fairnessService.analyzeFairnessWithUsage(
-                    repo, templateAuthorEmail);
+                    repo, templateAuthorEmails, null);
             FairnessReportDTO report = fairnessResult.report();
             teamTokenTotals = fairnessResult.tokenTotals();
 
@@ -540,11 +533,11 @@ public class AnalysisResultPersistenceService {
             Map<String, List<AnalyzedChunk>> remappedByStudent = new HashMap<>();
 
             for (ExerciseEmailMapping mapping : mappings) {
-                String emailLower = mapping.getGitEmail().toLowerCase(java.util.Locale.ROOT);
+                String emailLower = mapping.getGitEmail().toLowerCase(Locale.ROOT);
                 for (AnalyzedChunk chunk : chunks) {
                     if (Boolean.TRUE.equals(chunk.getIsExternalContributor())
                             && emailLower.equals(chunk.getAuthorEmail() != null
-                                    ? chunk.getAuthorEmail().toLowerCase(java.util.Locale.ROOT) : null)) {
+                            ? chunk.getAuthorEmail().toLowerCase(Locale.ROOT) : null)) {
                         chunk.setIsExternalContributor(false);
                         chunk.setAuthorName(mapping.getStudentName());
                         remappedByStudent.computeIfAbsent(mapping.getStudentName(), k -> new ArrayList<>())
@@ -586,6 +579,27 @@ public class AnalysisResultPersistenceService {
                     }
                 }
                 cqiRecalculationService.recalculateFromChunks(participation, chunks);
+
+                // Recompute orphan commit count from remaining external-contributor chunks,
+                // but exclude template authors (they should not be considered "unmatched")
+                Set<String> templateAuthorEmails = templateAuthorRepository.findByExerciseId(exerciseId)
+                        .stream().map(ta -> ta.getTemplateEmail().toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
+                int remainingOrphanCommits = 0;
+                for (AnalyzedChunk c : chunks) {
+                    if (Boolean.TRUE.equals(c.getIsExternalContributor())) {
+                        String chunkEmail = c.getAuthorEmail() != null ? c.getAuthorEmail().toLowerCase(Locale.ROOT) : null;
+                        if (chunkEmail != null && templateAuthorEmails.contains(chunkEmail)) {
+                            // skip template authors
+                            continue;
+                        }
+                        if (c.getCommitShas() != null && !c.getCommitShas().isEmpty()) {
+                            remainingOrphanCommits += c.getCommitShas().split(",").length;
+                        }
+                    }
+                }
+                participation.setOrphanCommitCount(remainingOrphanCommits);
+                // persist updated participation so UI queries see new value
+                teamParticipationRepository.save(participation);
             }
         } catch (Exception e) {
             log.warn("Failed to apply existing email mappings for team {}: {}",
@@ -626,24 +640,6 @@ public class AnalysisResultPersistenceService {
             return objectMapper.writeValueAsString(messages);
         } catch (Exception e) {
             return "[]";
-        }
-    }
-
-    /**
-     * Serializes a weekly effort distribution to a JSON string.
-     *
-     * @param weeklyDistribution the weekly effort values
-     * @return JSON array string, or {@code null} if empty or on error
-     */
-    public String serializeWeeklyDistribution(List<Double> weeklyDistribution) {
-        try {
-            if (weeklyDistribution == null || weeklyDistribution.isEmpty()) {
-                return null;
-            }
-            return objectMapper.writeValueAsString(weeklyDistribution);
-        } catch (Exception e) {
-            log.warn("Failed to serialize weekly distribution: {}", e.getMessage());
-            return null;
         }
     }
 

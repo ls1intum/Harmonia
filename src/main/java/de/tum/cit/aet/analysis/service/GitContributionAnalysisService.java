@@ -33,12 +33,12 @@ public class GitContributionAnalysisService {
      * When a template author email is provided, ALL commits from that author are
      * marked as template commits (not just unassigned root commits).
      *
-     * @param repo                the repository DTO (must have a non-null localPath)
-     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @param repo                 the repository DTO (must have a non-null localPath)
+     * @param templateAuthorEmails emails of the template authors (lowercase), or null/empty
      * @return mapping result covering all reachable commits
      */
     public FullCommitMappingResultDTO buildFullCommitMap(TeamRepositoryDTO repo,
-            String templateAuthorEmail) {
+            Set<String> templateAuthorEmails) {
         if (repo.localPath() == null) {
             return FullCommitMappingResultDTO.empty();
         }
@@ -47,18 +47,18 @@ public class GitContributionAnalysisService {
         List<ParticipantDTO> students = repo.participation().team().students();
 
         return buildFullCommitMap(repo.localPath(), vcsLogs, students, Map.of(),
-                templateAuthorEmail);
+                templateAuthorEmails);
     }
 
     /**
      * Walks the full git history from HEAD and maps every commit to an author
      * using raw parameters (local path, VCS logs, participant list).
      *
-     * @param localPath            path to the local git repository
-     * @param vcsLogs              VCS log entries from Artemis
-     * @param students             participants whose contributions are analysed
-     * @param manualMappings       gitEmail (lowercase) -> studentId from ExerciseEmailMappings
-     * @param templateAuthorEmail  email of the template author (lowercase), or null
+     * @param localPath             path to the local git repository
+     * @param vcsLogs               VCS log entries from Artemis
+     * @param students              participants whose contributions are analysed
+     * @param manualMappings        gitEmail (lowercase) -> studentId from ExerciseEmailMappings
+     * @param templateAuthorEmails  emails of the template authors (lowercase), or null/empty
      * @return mapping result containing per-student commit data
      */
     public FullCommitMappingResultDTO buildFullCommitMap(
@@ -66,7 +66,7 @@ public class GitContributionAnalysisService {
             List<VCSLogDTO> vcsLogs,
             List<ParticipantDTO> students,
             Map<String, Long> manualMappings,
-            String templateAuthorEmail) {
+            Set<String> templateAuthorEmails) {
 
         if (localPath == null) {
             return FullCommitMappingResultDTO.empty();
@@ -235,8 +235,9 @@ public class GitContributionAnalysisService {
             }
 
             // --- Pass 3: Detect template commits ---
-            // If a template author email is configured, ALL their commits are template.
+            // If template author emails are configured, ALL their commits are template.
             // Otherwise, only unassigned root commits are detected as template.
+            Set<String> templateEmailSet = templateAuthorEmails != null ? templateAuthorEmails : Set.of();
             for (RevCommit commit : allCommits) {
                 String hash = commit.getName();
                 if (commitToAuthor.containsKey(hash)) {
@@ -247,9 +248,9 @@ public class GitContributionAnalysisService {
                 String gitEmailLower = gitEmail != null ? gitEmail.toLowerCase(Locale.ROOT) : "";
 
                 boolean isTemplate = false;
-                if (templateAuthorEmail != null
-                        && templateAuthorEmail.equalsIgnoreCase(gitEmailLower)) {
-                    isTemplate = true; // All commits from template author
+                if (!templateEmailSet.isEmpty()
+                        && templateEmailSet.contains(gitEmailLower)) {
+                    isTemplate = true; // All commits from template authors
                 } else if (commit.getParentCount() == 0) {
                     isTemplate = true; // Fallback: unassigned root commits
                 }
@@ -353,12 +354,12 @@ public class GitContributionAnalysisService {
      * Maps commits to authors and separates orphan commits (excluding templates).
      * Template commits are already excluded by {@link #buildFullCommitMap}.
      *
-     * @param repo                the repository DTO
-     * @param templateAuthorEmail email of the template author (lowercase), or null
+     * @param repo                 the repository DTO
+     * @param templateAuthorEmails emails of the template authors (lowercase), or null/empty
      * @return mapping result with assigned and orphan commits
      */
-    public CommitMappingResultDTO mapCommitToAuthor(TeamRepositoryDTO repo, String templateAuthorEmail) {
-        FullCommitMappingResultDTO full = buildFullCommitMap(repo, templateAuthorEmail);
+    public CommitMappingResultDTO mapCommitToAuthor(TeamRepositoryDTO repo, Set<String> templateAuthorEmails) {
+        FullCommitMappingResultDTO full = buildFullCommitMap(repo, templateAuthorEmails);
         return new CommitMappingResultDTO(
                 full.commitToAuthor(),
                 full.orphanCommitEmails(),
@@ -369,13 +370,13 @@ public class GitContributionAnalysisService {
      * Analyzes the Git repository and returns contributions and orphan commits,
      * excluding any commits authored by the template author.
      *
-     * @param repo                The TeamRepositoryDTO to analyze.
-     * @param templateAuthorEmail Email of the template author (lowercase), or null.
+     * @param repo                 The TeamRepositoryDTO to analyze.
+     * @param templateAuthorEmails Emails of the template authors (lowercase), or null/empty.
      * @return RepositoryAnalysisResultDTO with contributions and orphans.
      */
     public RepositoryAnalysisResultDTO analyzeRepositoryWithOrphans(
-            TeamRepositoryDTO repo, String templateAuthorEmail) {
-        CommitMappingResultDTO mapping = mapCommitToAuthor(repo, templateAuthorEmail);
+            TeamRepositoryDTO repo, Set<String> templateAuthorEmails) {
+        CommitMappingResultDTO mapping = mapCommitToAuthor(repo, templateAuthorEmails);
         String localPath = repo.localPath();
 
         try {

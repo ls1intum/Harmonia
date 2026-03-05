@@ -16,7 +16,7 @@ interface OrphanCommitsPanelProps {
   teamParticipationId?: string;
   emailMappings: EmailMappingDTO[];
   onMappingChange: () => void;
-  templateAuthorEmail?: string;
+  templateAuthorEmails?: string[];
 }
 
 /**
@@ -33,7 +33,7 @@ const OrphanCommitsPanel = ({
   teamParticipationId,
   emailMappings,
   onMappingChange,
-  templateAuthorEmail,
+  templateAuthorEmails,
 }: OrphanCommitsPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<Record<string, string>>({});
@@ -83,22 +83,22 @@ const OrphanCommitsPanel = ({
     },
   });
 
-  const templateEmailLower = templateAuthorEmail?.toLowerCase();
+  const templateEmailSet = new Set((templateAuthorEmails ?? []).map(e => e.toLowerCase()));
 
-  // Derive external chunks from analysisHistory for this team (excluding template author)
+  // Derive external chunks from analysisHistory for this team (excluding template authors)
   const externalChunks =
-    analysisHistory?.filter(c => c.isExternalContributor && c.authorEmail && c.authorEmail.toLowerCase() !== templateEmailLower) || [];
+    analysisHistory?.filter(c => c.isExternalContributor && c.authorEmail && !templateEmailSet.has(c.authorEmail.toLowerCase())) || [];
 
-  // Get unique orphan emails from commits OR from external chunks (excluding template author)
+  // Get unique orphan emails from commits OR from external chunks (excluding template authors)
   const orphanEmailsFromCommits = new Set(
-    commits.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+    commits.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && !templateEmailSet.has(e)),
   );
   const orphanEmailsFromChunks = new Set(
-    externalChunks.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+    externalChunks.map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && !templateEmailSet.has(e)),
   );
   // Include mapping emails that have chunks in this team (even after assignment mutates is_external)
   const allChunkEmails = new Set(
-    (analysisHistory ?? []).map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && e !== templateEmailLower),
+    (analysisHistory ?? []).map(c => c.authorEmail?.toLowerCase()).filter((e): e is string => !!e && !templateEmailSet.has(e)),
   );
   const mappingEmails = emailMappings
     .filter(m => m.gitEmail && allChunkEmails.has(m.gitEmail.toLowerCase()))
@@ -229,7 +229,7 @@ const OrphanCommitsPanel = ({
               {(assignedMappings.length > 0 || dismissedMappings.length > 0) && (
                 <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Unmapped Emails</h4>
               )}
-              <div className="max-h-[300px] w-full overflow-y-auto pr-2">
+              <div className="max-h-75 w-full overflow-y-auto pr-2">
                 <div className="space-y-3">
                   {unmappedEmails.map(email => {
                     if (!email) return null;
@@ -249,7 +249,7 @@ const OrphanCommitsPanel = ({
                                 value={selectedStudents[email] || ''}
                                 onValueChange={v => setSelectedStudents(prev => Object.assign({}, prev, { [email]: v }))}
                               >
-                                <SelectTrigger className="h-8 w-[180px] text-xs">
+                                <SelectTrigger className="h-8 w-45 text-xs">
                                   <SelectValue placeholder="Assign to student..." />
                                 </SelectTrigger>
                                 <SelectContent>

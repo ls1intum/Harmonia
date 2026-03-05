@@ -78,10 +78,10 @@ interface TeamsListProps {
   onAttendanceFileSelect: (file: File | null) => void;
   onAttendanceUpload: () => void;
   onRemoveUploadedAttendanceFile: () => void;
-  templateAuthor: TemplateAuthorInfo | null;
+  templateAuthors: TemplateAuthorInfo[];
   templateAuthorCandidates: string[] | null;
-  onTemplateAuthorSet: (email: string) => void;
-  onTemplateAuthorRemove: () => void;
+  onTemplateAuthorsSet: (emails: string[]) => void;
+  onTemplateAuthorsRemove: () => void;
   isLoading?: boolean;
   isStarting?: boolean;
   isCancelling?: boolean;
@@ -116,10 +116,10 @@ const TeamsList = ({
   onAttendanceFileSelect,
   onAttendanceUpload,
   onRemoveUploadedAttendanceFile,
-  templateAuthor,
+  templateAuthors,
   templateAuthorCandidates,
-  onTemplateAuthorSet,
-  onTemplateAuthorRemove,
+  onTemplateAuthorsSet,
+  onTemplateAuthorsRemove,
   isLoading = false,
   isStarting = false,
   isCancelling = false,
@@ -144,12 +144,26 @@ const TeamsList = ({
   const [pendingStartMode, setPendingStartMode] = useState<AnalysisMode>('FULL');
   const [pendingStartAction, setPendingStartAction] = useState<((mode: AnalysisMode) => void) | null>(null);
   const [templateAuthorDialogOpen, setTemplateAuthorDialogOpen] = useState(false);
-  const [templateAuthorInput, setTemplateAuthorInput] = useState('');
+  const [templateAuthorEmails, setTemplateAuthorEmails] = useState<string[]>([]);
+  const [newEmailInput, setNewEmailInput] = useState('');
   const hasUploadedAttendanceDocument = !!uploadedAttendanceFileName;
 
   const openTemplateAuthorDialog = () => {
-    setTemplateAuthorInput(templateAuthor?.email || '');
+    setTemplateAuthorEmails(templateAuthors.map(a => a.email));
+    setNewEmailInput('');
     setTemplateAuthorDialogOpen(true);
+  };
+
+  const addEmailToList = () => {
+    const email = newEmailInput.trim().toLowerCase();
+    if (email && !templateAuthorEmails.includes(email)) {
+      setTemplateAuthorEmails(prev => prev.concat(email));
+      setNewEmailInput('');
+    }
+  };
+
+  const removeEmailFromList = (email: string) => {
+    setTemplateAuthorEmails(prev => prev.filter(e => e !== email));
   };
 
   const getCQIColor = (cqi: number) => {
@@ -630,18 +644,21 @@ const TeamsList = ({
 
       <Card className="p-6 shadow-card">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
             <GitBranch className="h-4 w-4" />
-            {templateAuthor ? (
+            {templateAuthors.length > 0 ? (
               <>
-                <span>
-                  Template author: <span className="font-medium text-foreground">{templateAuthor.email}</span>
-                </span>
-                {templateAuthor.autoDetected && (
-                  <Badge variant="outline" className="text-xs py-0 h-5">
-                    auto-detected
-                  </Badge>
-                )}
+                <span>Template author{templateAuthors.length > 1 ? 's' : ''}:</span>
+                {templateAuthors.map(ta => (
+                  <span key={ta.email} className="inline-flex items-center gap-1">
+                    <span className="font-medium text-foreground">{ta.email}</span>
+                    {ta.autoDetected && (
+                      <Badge variant="outline" className="text-xs py-0 h-5">
+                        auto-detected
+                      </Badge>
+                    )}
+                  </span>
+                ))}
               </>
             ) : (
               <span>No template author configured</span>
@@ -649,7 +666,7 @@ const TeamsList = ({
           </div>
           <Button variant="outline" onClick={openTemplateAuthorDialog}>
             <Pencil className="h-4 w-4" />
-            {templateAuthor ? 'Edit' : 'Set'}
+            {templateAuthors.length > 0 ? 'Edit' : 'Set'}
           </Button>
         </div>
       </Card>
@@ -702,45 +719,78 @@ const TeamsList = ({
       <AlertDialog open={templateAuthorDialogOpen} onOpenChange={setTemplateAuthorDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Template Author</AlertDialogTitle>
-            <AlertDialogDescription>All commits from this email address will be excluded from the CQI calculation.</AlertDialogDescription>
+            <AlertDialogTitle>Template Authors</AlertDialogTitle>
+            <AlertDialogDescription>
+              All commits from these email addresses will be excluded from the CQI calculation.
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          {templateAuthor && (
+          {templateAuthors.length > 0 && (
             <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
-              Commits from the previous template author ({templateAuthor.email}) were not analyzed and cannot be included retroactively.
-              Re-run the analysis for a full recalculation.
+              Commits from previous template authors were not analyzed and cannot be included retroactively. Re-run the analysis for a full
+              recalculation.
             </p>
           )}
-          <Input
-            value={templateAuthorInput}
-            onChange={e => setTemplateAuthorInput(e.target.value)}
-            placeholder="e.g. template-bot@university.edu"
-          />
-          {templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
+          {templateAuthorEmails.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {templateAuthorCandidates.map(email => (
-                <Badge
-                  key={email}
-                  variant="outline"
-                  className="cursor-pointer hover:bg-accent"
-                  onClick={() => setTemplateAuthorInput(email)}
-                >
+              {templateAuthorEmails.map(email => (
+                <Badge key={email} variant="secondary" className="gap-1 pr-1">
                   {email}
+                  <button onClick={() => removeEmailFromList(email)} className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20">
+                    <X className="h-3 w-3" />
+                  </button>
                 </Badge>
               ))}
             </div>
           )}
+          <div className="flex gap-2">
+            <Input
+              value={newEmailInput}
+              onChange={e => setNewEmailInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addEmailToList();
+                }
+              }}
+              placeholder="e.g. template-bot@university.edu"
+              className="flex-1"
+            />
+            <Button variant="outline" onClick={addEmailToList} disabled={!newEmailInput.trim()}>
+              Add
+            </Button>
+          </div>
+          {templateAuthorCandidates && templateAuthorCandidates.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {templateAuthorCandidates
+                .filter(email => !templateAuthorEmails.includes(email.toLowerCase()))
+                .map(email => (
+                  <Badge
+                    key={email}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-accent"
+                    onClick={() => {
+                      const lower = email.toLowerCase();
+                      if (!templateAuthorEmails.includes(lower)) {
+                        setTemplateAuthorEmails(prev => prev.concat(lower));
+                      }
+                    }}
+                  >
+                    {email}
+                  </Badge>
+                ))}
+            </div>
+          )}
           <AlertDialogFooter>
-            {templateAuthor && (
+            {templateAuthors.length > 0 && (
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90 mr-auto"
-                onClick={() => onTemplateAuthorRemove()}
+                onClick={() => onTemplateAuthorsRemove()}
               >
-                Remove
+                Remove All
               </AlertDialogAction>
             )}
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={!templateAuthorInput.trim()} onClick={() => onTemplateAuthorSet(templateAuthorInput.trim())}>
+            <AlertDialogAction disabled={templateAuthorEmails.length === 0} onClick={() => onTemplateAuthorsSet(templateAuthorEmails)}>
               Save
             </AlertDialogAction>
           </AlertDialogFooter>
