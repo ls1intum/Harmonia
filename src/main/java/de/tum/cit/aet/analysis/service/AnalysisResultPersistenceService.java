@@ -706,7 +706,7 @@ public class AnalysisResultPersistenceService {
         boolean hasFailed = false;
 
         boolean hasFailedStudent = students.stream()
-                .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 3);
+                .anyMatch(s -> s.getCommitCount() != null && s.getCommitCount() < 10);
         if (hasFailedStudent) {
             hasFailed = true;
         }
