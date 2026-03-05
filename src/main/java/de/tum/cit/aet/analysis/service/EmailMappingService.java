@@ -49,6 +49,12 @@ public class EmailMappingService {
     //  Email mapping operations
     // ================================================================
 
+    /**
+     * Returns all email mappings for the given exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return list of email mapping DTOs
+     */
     public List<EmailMappingDTO> getAllMappings(Long exerciseId) {
         return emailMappingRepository.findAllByExerciseId(exerciseId)
                 .stream()
@@ -58,6 +64,17 @@ public class EmailMappingService {
                 .toList();
     }
 
+    /**
+     * Creates a new email-to-student mapping. Resolves the student ID by name,
+     * re-assigns matching orphan chunks to the student, updates commit/line stats,
+     * and recalculates the CQI.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    the mapping request with git email, student info and participation ID
+     * @return updated client response DTO
+     * @throws IllegalArgumentException      if participation not found or student ID is invalid
+     * @throws EmailMappingConflictException  if a mapping for the email already exists
+     */
     @Transactional
     public ClientResponseDTO createMapping(Long exerciseId, CreateEmailMappingRequestDTO request) {
         // 1. Find the team participation
@@ -117,6 +134,16 @@ public class EmailMappingService {
         return buildResponse(participation);
     }
 
+    /**
+     * Dismisses an orphan email without assigning it to a student.
+     * Chunks are NOT mutated; the dismissed mapping is used by clients
+     * to filter them into a separate section.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    the dismiss request with git email and participation ID
+     * @return updated client response, or empty if participation not found
+     * @throws EmailMappingConflictException if a mapping for the email already exists
+     */
     @Transactional
     public Optional<ClientResponseDTO> dismissEmail(Long exerciseId, DismissEmailRequestDTO request) {
         // 1. Normalize and check for duplicates
@@ -143,6 +170,15 @@ public class EmailMappingService {
         return Optional.empty();
     }
 
+    /**
+     * Deletes an email mapping and reverts affected chunks back to external/orphan status.
+     * Subtracts the chunk stats from the previously assigned student and recalculates CQI.
+     *
+     * @param exerciseId the exercise ID
+     * @param mappingId  the mapping ID to delete
+     * @return updated client response for the last affected team, or empty if no chunks changed
+     * @throws IllegalArgumentException if mapping not found or does not belong to the exercise
+     */
     @Transactional
     public Optional<ClientResponseDTO> deleteMapping(Long exerciseId, UUID mappingId) {
         ExerciseEmailMapping mapping = emailMappingRepository.findById(mappingId)
@@ -196,6 +232,12 @@ public class EmailMappingService {
     //  Template author operations
     // ================================================================
 
+    /**
+     * Returns all configured template authors for the given exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return list of template author DTOs
+     */
     public List<TemplateAuthorDTO> getTemplateAuthors(Long exerciseId) {
         return templateAuthorRepository.findByExerciseId(exerciseId)
                 .stream()
@@ -203,6 +245,15 @@ public class EmailMappingService {
                 .toList();
     }
 
+    /**
+     * Replaces all template authors for an exercise. Chunks from removed template emails
+     * become regular orphans if not known via students or mappings. Chunks matching new
+     * template emails are marked as external. CQI is recalculated for all teams.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    list of template author DTOs with emails
+     * @return list of updated client response DTOs for all teams
+     */
     @Transactional
     public List<ClientResponseDTO> setTemplateAuthors(Long exerciseId, List<TemplateAuthorDTO> request) {
         // Collect old emails
@@ -261,6 +312,14 @@ public class EmailMappingService {
         return responses;
     }
 
+    /**
+     * Removes all template author configurations for an exercise.
+     * Chunks from old template authors that match a known student or mapping
+     * are unmarked as external. CQI is recalculated for all teams.
+     *
+     * @param exerciseId the exercise ID
+     * @return list of updated client response DTOs, or empty if none were configured
+     */
     @Transactional
     public Optional<List<ClientResponseDTO>> deleteTemplateAuthors(Long exerciseId) {
         List<ExerciseTemplateAuthor> existing = templateAuthorRepository.findByExerciseId(exerciseId);

@@ -30,12 +30,25 @@ public class EmailMappingResource {
     //  Email mapping endpoints
     // ================================================================
 
+    /**
+     * Returns all email mappings for the given exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return list of email mapping DTOs
+     */
     @GetMapping
     public ResponseEntity<List<EmailMappingDTO>> getAllMappings(@PathVariable Long exerciseId) {
         log.info("GET getAllMappings for exerciseId={}", exerciseId);
         return ResponseEntity.ok(emailMappingService.getAllMappings(exerciseId));
     }
 
+    /**
+     * Creates a new email mapping and recalculates CQI for the affected team.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    the mapping request with git email, student info and participation ID
+     * @return updated client response DTO, 409 if mapping already exists, or 400 if invalid
+     */
     @PostMapping
     public ResponseEntity<ClientResponseDTO> createMapping(
             @PathVariable Long exerciseId,
@@ -51,6 +64,13 @@ public class EmailMappingResource {
         }
     }
 
+    /**
+     * Dismisses an orphan email without assigning it to a student.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    the dismiss request with git email and participation ID
+     * @return updated client response DTO, 409 if already mapped, or 204 if no participation found
+     */
     @PostMapping("/dismiss")
     public ResponseEntity<ClientResponseDTO> dismissEmail(
             @PathVariable Long exerciseId,
@@ -65,6 +85,13 @@ public class EmailMappingResource {
         }
     }
 
+    /**
+     * Deletes an email mapping and recalculates CQI for affected teams.
+     *
+     * @param exerciseId the exercise ID
+     * @param mappingId  the mapping ID to delete
+     * @return updated client response DTO, or 204 if no chunks were affected
+     */
     @DeleteMapping("/{mappingId}")
     public ResponseEntity<ClientResponseDTO> deleteMapping(
             @PathVariable Long exerciseId,
@@ -88,12 +115,25 @@ public class EmailMappingResource {
             Boolean autoDetected) {
     }
 
+    /**
+     * Returns all configured template authors for the given exercise.
+     *
+     * @param exerciseId the exercise ID
+     * @return list of template author DTOs
+     */
     @GetMapping("/template-author")
     public ResponseEntity<List<TemplateAuthorDTO>> getTemplateAuthors(@PathVariable Long exerciseId) {
         log.info("GET getTemplateAuthors for exerciseId={}", exerciseId);
         return ResponseEntity.ok(emailMappingService.getTemplateAuthors(exerciseId));
     }
 
+    /**
+     * Sets or replaces all template authors for an exercise and recalculates CQI.
+     *
+     * @param exerciseId the exercise ID
+     * @param request    list of template author DTOs with emails
+     * @return list of updated client response DTOs for all teams
+     */
     @PutMapping("/template-author")
     public ResponseEntity<List<ClientResponseDTO>> setTemplateAuthors(
             @PathVariable Long exerciseId,
@@ -102,6 +142,12 @@ public class EmailMappingResource {
         return ResponseEntity.ok(emailMappingService.setTemplateAuthors(exerciseId, request));
     }
 
+    /**
+     * Removes all template author configurations for an exercise and recalculates CQI.
+     *
+     * @param exerciseId the exercise ID
+     * @return list of updated client response DTOs, or 204 if none configured
+     */
     @DeleteMapping("/template-author")
     public ResponseEntity<List<ClientResponseDTO>> deleteTemplateAuthors(
             @PathVariable Long exerciseId) {
