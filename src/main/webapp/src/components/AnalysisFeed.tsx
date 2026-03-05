@@ -150,29 +150,28 @@ const AnalysisFeed = ({
   );
 
   // Group by author for summary
-  const authorSummary = teamChunks
-    .reduce(
-      (acc, chunk) => {
-        const key = chunk.authorName ?? chunk.authorEmail ?? 'unknown';
-        if (!acc[key]) {
-          acc[key] = {
-            name: chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0],
-            effort: 0,
-            complexity: 0,
-            novelty: 0,
-            confidence: 0,
-            count: 0,
-          };
-        }
-        acc[key].effort += chunk.effortScore ?? 0;
-        acc[key].complexity += chunk.complexity ?? 0;
-        acc[key].novelty += chunk.novelty ?? 0;
-        acc[key].confidence += chunk.confidence ?? 0;
-        acc[key].count += 1;
-        return acc;
-      },
-      {} as Record<string, { name: string; effort: number; complexity: number; novelty: number; confidence: number; count: number }>,
-    );
+  const authorSummary = teamChunks.reduce(
+    (acc, chunk) => {
+      const key = chunk.authorName ?? chunk.authorEmail ?? 'unknown';
+      if (!acc[key]) {
+        acc[key] = {
+          name: chunk.authorName ?? (chunk.authorEmail ?? 'unknown').split('@')[0],
+          effort: 0,
+          complexity: 0,
+          novelty: 0,
+          confidence: 0,
+          count: 0,
+        };
+      }
+      acc[key].effort += chunk.effortScore ?? 0;
+      acc[key].complexity += chunk.complexity ?? 0;
+      acc[key].novelty += chunk.novelty ?? 0;
+      acc[key].confidence += chunk.confidence ?? 0;
+      acc[key].count += 1;
+      return acc;
+    },
+    {} as Record<string, { name: string; effort: number; complexity: number; novelty: number; confidence: number; count: number }>,
+  );
 
   const totalEffort = Object.values(authorSummary).reduce((sum, a) => sum + a.effort, 0);
 
@@ -193,8 +192,7 @@ const AnalysisFeed = ({
     }
 
     if (classificationFilter !== 'all') {
-      filtered = filtered.filter(chunk =>
-        (chunk.classification ?? '').toUpperCase() === classificationFilter.toUpperCase());
+      filtered = filtered.filter(chunk => (chunk.classification ?? '').toUpperCase() === classificationFilter.toUpperCase());
     }
 
     if (searchQuery.trim()) {
@@ -265,46 +263,46 @@ const AnalysisFeed = ({
 
       {/* Per-Person Average Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(authorSummary).map(([email, data]) => {
-              const avgEffort = data.count > 0 ? data.effort / data.count : 0;
-              const avgComplexity = data.count > 0 ? data.complexity / data.count : 0;
-              const avgNovelty = data.count > 0 ? data.novelty / data.count : 0;
+        {Object.entries(authorSummary).map(([email, data]) => {
+          const avgEffort = data.count > 0 ? data.effort / data.count : 0;
+          const avgComplexity = data.count > 0 ? data.complexity / data.count : 0;
+          const avgNovelty = data.count > 0 ? data.novelty / data.count : 0;
 
-              return (
-                <Card key={email} className={`border-l-4 ${authorColorMap[email]?.border ?? ''}`}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">{data.name}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{data.count} chunks analyzed</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center p-3 bg-muted/30 rounded-lg">
-                        <MetricLabel label="Avg. Effort" tooltip={metricInfo.effort} />
-                        <p className="text-2xl font-bold" style={{ color: getEffortColor(avgEffort) }}>
-                          {avgEffort.toFixed(1)}
-                          <span className="text-sm text-muted-foreground font-normal">/10</span>
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-muted/30 rounded-lg">
-                        <MetricLabel label="Avg. Complexity" tooltip={metricInfo.complexity} />
-                        <p className="text-2xl font-bold">
-                          {avgComplexity.toFixed(1)}
-                          <span className="text-sm text-muted-foreground font-normal">/10</span>
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-muted/30 rounded-lg">
-                        <MetricLabel label="Avg. Novelty" tooltip={metricInfo.novelty} />
-                        <p className="text-2xl font-bold">
-                          {avgNovelty.toFixed(1)}
-                          <span className="text-sm text-muted-foreground font-normal">/10</span>
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          return (
+            <Card key={email} className={`border-l-4 ${authorColorMap[email]?.border ?? ''}`}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{data.name}</CardTitle>
+                <p className="text-xs text-muted-foreground">{data.count} chunks analyzed</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <MetricLabel label="Avg. Effort" tooltip={metricInfo.effort} />
+                    <p className="text-2xl font-bold" style={{ color: getEffortColor(avgEffort) }}>
+                      {avgEffort.toFixed(1)}
+                      <span className="text-sm text-muted-foreground font-normal">/10</span>
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <MetricLabel label="Avg. Complexity" tooltip={metricInfo.complexity} />
+                    <p className="text-2xl font-bold">
+                      {avgComplexity.toFixed(1)}
+                      <span className="text-sm text-muted-foreground font-normal">/10</span>
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <MetricLabel label="Avg. Novelty" tooltip={metricInfo.novelty} />
+                    <p className="text-2xl font-bold">
+                      {avgNovelty.toFixed(1)}
+                      <span className="text-sm text-muted-foreground font-normal">/10</span>
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
       {/* Effort Distribution - Stacked Bar */}
       <Card>
@@ -599,7 +597,6 @@ const AnalysisFeed = ({
                       </div>
                     ))}
                   </div>
-
                 </CardContent>
               )}
             </Card>

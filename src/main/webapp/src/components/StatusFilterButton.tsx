@@ -9,7 +9,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
-export type StatusFilterValue = 'normal' | 'suspicious' | 'failed' | 'git-done' | 'error' | 'has-unmatched' | 'no-unmatched' | 'reviewed' | 'unreviewed';
+export type StatusFilterValue =
+  | 'normal'
+  | 'suspicious'
+  | 'failed'
+  | 'git-done'
+  | 'error'
+  | 'has-unmatched'
+  | 'no-unmatched'
+  | 'reviewed'
+  | 'unreviewed';
 
 interface StatusFilterButtonProps {
   statusFilter: StatusFilterValue[];

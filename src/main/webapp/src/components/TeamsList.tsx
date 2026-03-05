@@ -317,15 +317,15 @@ const TeamsList = ({
 
       filtered = filtered.filter(team => {
         const matches: Record<StatusFilterValue, boolean> = {
-          'failed': isTeamFailed(team),
-          'suspicious': !!team.isSuspicious,
-          'normal': !team.isSuspicious && !isTeamFailed(team),
+          failed: isTeamFailed(team),
+          suspicious: !!team.isSuspicious,
+          normal: !team.isSuspicious && !isTeamFailed(team),
           'git-done': team.analysisStatus === 'GIT_DONE',
-          'error': team.analysisStatus === 'ERROR',
+          error: team.analysisStatus === 'ERROR',
           'has-unmatched': team.orphanCommitCount != null && team.orphanCommitCount > 0,
           'no-unmatched': team.orphanCommitCount == null || team.orphanCommitCount === 0,
-          'reviewed': team.isReviewed === true,
-          'unreviewed': !team.isReviewed,
+          reviewed: team.isReviewed === true,
+          unreviewed: !team.isReviewed,
         };
         // Each active group must have at least one match (AND across groups, OR within)
         if (activeStatus.length > 0 && !activeStatus.some(f => matches[f])) return false;

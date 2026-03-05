@@ -107,10 +107,7 @@ export default function TeamDetailPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-destructive mb-4">{error ? 'Failed to load team' : 'Team not found'}</p>
-          <button
-            onClick={() => navigateBackToTeams()}
-            className="text-primary hover:underline"
-          >
+          <button onClick={() => navigateBackToTeams()} className="text-primary hover:underline">
             Back to Teams
           </button>
         </div>
