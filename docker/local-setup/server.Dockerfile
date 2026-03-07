@@ -1,5 +1,5 @@
 # Build the Spring Boot application
-FROM eclipse-temurin:25.0.1_8-jdk AS builder
+FROM eclipse-temurin:25.0.2_10-jdk AS builder
 WORKDIR /app
 
 COPY . .
@@ -10,7 +10,7 @@ RUN ./gradlew --no-daemon bootJar -x test \
     && cp "${JAR_FILE}" /app/application.jar
 
 # Run the packaged jar with a lightweight JRE
-FROM eclipse-temurin:25.0.1_8-jre
+FROM eclipse-temurin:25.0.2_10-jre
 WORKDIR /app
 
 # Install curl for health checks
