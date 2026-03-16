@@ -80,8 +80,6 @@
   // --- Paragraphs ---
   set par(leading: 1em)
 
-  // --- Citations ---
-  set cite(style: "alphanumeric")
 
   // --- Figures ---
   show figure: set text(size: 0.85em)
@@ -147,5 +145,7 @@
   include("/layout/appendix.typ")
 
   pagebreak()
-  bibliography("/thesis.yml")
+
+  //Citation
+  bibliography("/thesis.bib", style: "ieee")
 }

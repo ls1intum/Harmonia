@@ -1,3 +1,11 @@
 = Introduction
 
-#lorem(200)
+At many universities, team-based software projects have become a central component of programming education. These projects not only teach technical skills but also foster collaboration and communication. However, assessing how well students actually work together remains difficult. A common issue is unequal contribution, where one team member does significantly less work than the other. Detecting such imbalances reliably and at scale is very challenging  for instructors.
+
+In most cases, instructors rely on manual inspections of Git repositories. This process is time-consuming, hard to scale, and often lacks transparency. At the same time, Git repositories contain rich data on how teams collaborate, including commit frequency and contribution balance, as well as the quality of commit messages. Yet this data is rarely analyzed systematically or automatically.
+
+Previous research has explored approaches to automated contribution analysis and code quality assessment @ferrao2025llm@hundhausen2023combining@chen2022codequality@ramesh2025ericsson. However, existing solutions tend to focus on isolated aspects, such as commit counts or coding style compliance, rather than offering a comprehensive view of team collaboration. A more detailed discussion of related work is provided in Section 3.
+
+This paper presents two complementary contributions that address these limitations. The first is Harmonia, an instructor-facing tool that automatically analyzes Git repositories and computes collaboration metrics across all teams in a course. It provides a centralized overview with transparent, evidence-based insights to support fair and consistent grading. The second is a student-facing feedback system that provides teams with direct feedback on their code quality throughout the project, helping them learn and improve along the way.
+
+The remainder of this paper is structured as follows. Section 2 provides the necessary background on the course and its grading process. Section 3 discusses related work. Section 4 presents Harmonia and its underlying concepts. Section 5 analyzes its effectiveness. Section 6 introduces the student-facing feedback system. Finally, Sections 7 and 8 conclude the paper and outline directions for future work.
