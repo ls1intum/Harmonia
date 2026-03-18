@@ -27,12 +27,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,6 +57,7 @@ class RequestServiceApplyMappingsTest {
     @Mock private CqiRecalculationService cqiRecalculationService;
     @Mock private ExerciseTeamLifecycleService cleanupService;
     @Mock private AnalysisQueryService queryService;
+    @Mock private TransactionTemplate transactionTemplate;
 
     @Captor private ArgumentCaptor<List<AnalyzedChunk>> chunksCaptor;
 
@@ -68,7 +71,7 @@ class RequestServiceApplyMappingsTest {
                 cqiRecalculationService, null,
                 null, teamParticipationRepository, studentRepository,
                 analyzedChunkRepository, templateAuthorRepository, emailMappingRepository,
-                cleanupService, queryService, null);
+                cleanupService, queryService, transactionTemplate);
     }
 
     // ── Unit tests for applyExistingEmailMappings ──────────────────────────
@@ -175,7 +178,14 @@ class RequestServiceApplyMappingsTest {
     // ── Integration test: saveAIAnalysisResultWithUsage calls applyExistingEmailMappings ──
 
     @Test
+    @SuppressWarnings("unchecked")
     void saveAIAnalysisResultWithUsage_withExistingMapping_appliesMappingToSavedChunks() {
+        // Make transactionTemplate.executeWithoutResult actually run the callback
+        doAnswer(inv -> {
+            inv.getArgument(0, Consumer.class).accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
         Long exerciseId = 42L;
 
         // Build a minimal TeamRepositoryDTO
@@ -215,7 +225,7 @@ class RequestServiceApplyMappingsTest {
                 "Team Alpha", 75.0, Map.of(), Map.of(),
                 false, List.of(), null,
                 List.of(externalChunkDTO), null);
-        when(fairnessService.analyzeFairnessWithUsage(eq(repo), eq(Set.of()), null))
+        when(fairnessService.analyzeFairnessWithUsage(eq(repo), eq(Set.of()), isNull()))
                 .thenReturn(new FairnessReportWithUsageDTO(fairnessReport, LlmTokenTotalsDTO.empty()));
 
         // saveAll for chunks: capture and return the same list

@@ -49,6 +49,7 @@ harmonia:
       - "http://localhost:3000"
       - "http://localhost:8080"
   ai:
+    parallelism: 4
     enabled: true
     commit-classifier:
       enabled: true

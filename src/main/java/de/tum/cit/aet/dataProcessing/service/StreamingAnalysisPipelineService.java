@@ -19,6 +19,7 @@ import de.tum.cit.aet.repositoryProcessing.dto.*;
 import de.tum.cit.aet.repositoryProcessing.repository.TeamParticipationRepository;
 import de.tum.cit.aet.repositoryProcessing.service.GitOperationsService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -55,6 +56,7 @@ public class StreamingAnalysisPipelineService {
     private final AnalysisResultPersistenceService persistenceService;
     private final PairProgrammingService pairProgrammingService;
     private final PairProgrammingRecomputeService pairProgrammingRecomputeService;
+    private final int aiParallelism;
 
     public StreamingAnalysisPipelineService(
             ArtemisClientService artemisClientService,
@@ -68,7 +70,8 @@ public class StreamingAnalysisPipelineService {
             ExerciseTeamLifecycleService exerciseDataCleanupService,
             AnalysisResultPersistenceService persistenceService,
             PairProgrammingService pairProgrammingService,
-            PairProgrammingRecomputeService pairProgrammingRecomputeService) {
+            PairProgrammingRecomputeService pairProgrammingRecomputeService,
+            @Value("${harmonia.ai.parallelism:4}") int aiParallelism) {
         this.artemisClientService = artemisClientService;
         this.gitOperationsService = gitOperationsService;
         this.analysisStateService = analysisStateService;
@@ -81,6 +84,7 @@ public class StreamingAnalysisPipelineService {
         this.persistenceService = persistenceService;
         this.pairProgrammingService = pairProgrammingService;
         this.pairProgrammingRecomputeService = pairProgrammingRecomputeService;
+        this.aiParallelism = aiParallelism;
     }
 
     // =====================================================================
@@ -162,6 +166,7 @@ public class StreamingAnalysisPipelineService {
         analysisTaskManager.registerStreamThread(exerciseId, Thread.currentThread());
 
         ExecutorService executor = null;
+        ExecutorService aiExecutor = null;
         try {
             // 1) Clear existing data for a clean slate
             transactionTemplate.executeWithoutResult(status ->
@@ -298,46 +303,8 @@ public class StreamingAnalysisPipelineService {
             if (mode == AnalysisMode.SIMPLE) {
                 finalizeSimpleMode(validParticipations, clonedRepos, exerciseId, eventEmitter);
             } else {
-                eventEmitter.accept(Map.of("type", "PHASE", "phase", "AI_ANALYSIS", "total", clonedRepos.size()));
-
-                AtomicInteger aiAnalyzedCount = new AtomicInteger(0);
-                LlmTokenTotalsDTO runTokenTotals = LlmTokenTotalsDTO.empty();
-
-                for (ParticipationDTO participation : validParticipations) {
-                    if (!analysisStateService.isRunning(exerciseId) || Thread.currentThread().isInterrupted()) {
-                        break;
-                    }
-
-                    TeamRepositoryDTO repo = clonedRepos.get(participation.id());
-                    if (repo == null) {
-                        aiAnalyzedCount.incrementAndGet();
-                        continue;
-                    }
-
-                    TeamParticipation tp = teamParticipationRepository.findByParticipation(participation.id()).orElse(null);
-                    if (tp != null && persistenceService.shouldSkipTeam(tp)) {
-                        aiAnalyzedCount.incrementAndGet();
-                        continue;
-                    }
-
-                    runTokenTotals = processAIAnalysis(participation, repo, exerciseId,
-                            aiAnalyzedCount, clonedRepos.size(), runTokenTotals, eventEmitter);
-                }
-
-                log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
-                log.info("LLM_USAGE scope=stream exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
-                        exerciseId, aiAnalyzedCount.get(),
-                        runTokenTotals.llmCalls(), runTokenTotals.promptTokens(),
-                        runTokenTotals.completionTokens(), runTokenTotals.totalTokens());
-
-                if (analysisStateService.isRunning(exerciseId)) {
-                    analysisStateService.completeAnalysis(exerciseId);
-                    eventEmitter.accept(Map.of("type", "DONE"));
-                } else {
-                    exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
-                    eventEmitter.accept(Map.of("type", "CANCELLED",
-                            "processed", aiAnalyzedCount.get(), "total", totalToProcess));
-                }
+                aiExecutor = finalizeFullMode(validParticipations, clonedRepos, exerciseId,
+                        totalToProcess, eventEmitter);
             }
 
         } catch (RejectedExecutionException e) {
@@ -351,8 +318,10 @@ public class StreamingAnalysisPipelineService {
             eventEmitter.accept(Map.of("type", "ERROR", "message", e.getMessage()));
         } finally {
             analysisTaskManager.unregisterExecutor(exerciseId);
+            analysisTaskManager.unregisterAiExecutor(exerciseId);
             analysisTaskManager.unregisterStreamThread(exerciseId);
             shutdownExecutorQuietly(executor);
+            shutdownExecutorQuietly(aiExecutor);
         }
     }
 
@@ -488,7 +457,7 @@ public class StreamingAnalysisPipelineService {
     private LlmTokenTotalsDTO processAIAnalysis(ParticipationDTO participation, TeamRepositoryDTO repo,
                                               Long exerciseId,
                                               AtomicInteger aiAnalyzedCount,
-                                              int total, LlmTokenTotalsDTO runTokenTotals,
+                                              int total,
                                               Consumer<Object> eventEmitter) {
         String teamName = participation.team() != null ? participation.team().name() : "Unknown";
 
@@ -500,13 +469,9 @@ public class StreamingAnalysisPipelineService {
                         "teamId", participation.team().id(), "teamName", teamName));
             }
 
-            final TeamRepositoryDTO finalRepo = repo;
-            AnalysisResultPersistenceService.ClientResponseWithUsage aiResult = transactionTemplate
-                    .execute(status -> persistenceService.saveAIAnalysisResultWithUsage(finalRepo, exerciseId));
+            AnalysisResultPersistenceService.ClientResponseWithUsage aiResult =
+                    persistenceService.saveAIAnalysisResultWithUsage(repo, exerciseId);
             ClientResponseDTO aiDto = aiResult != null ? aiResult.response() : null;
-            if (aiResult != null) {
-                runTokenTotals = runTokenTotals.merge(aiResult.tokenTotals());
-            }
 
             int current = aiAnalyzedCount.incrementAndGet();
             analysisStateService.updateProgress(exerciseId, teamName, "DONE", current);
@@ -519,17 +484,25 @@ public class StreamingAnalysisPipelineService {
             log.debug("AI analysis {}/{}: {} (CQI={})", current, total,
                     teamName, aiDto != null ? aiDto.cqi() : "N/A");
 
+            return aiResult != null ? aiResult.tokenTotals() : LlmTokenTotalsDTO.empty();
+
         } catch (Exception e) {
-            log.error("Error in AI analysis for team {}", teamName, e);
-            aiAnalyzedCount.incrementAndGet();
-            analysisStateService.updateProgress(exerciseId, teamName, "AI_ERROR", aiAnalyzedCount.get());
-            synchronized (eventEmitter) {
-                eventEmitter.accept(Map.of("type", "AI_ERROR",
-                        "teamId", participation.team().id(), "teamName", teamName,
-                        "error", e.getMessage()));
+            if (Thread.currentThread().isInterrupted() || e.getCause() instanceof InterruptedException) {
+                log.info("AI analysis cancelled for team {}", teamName);
+                Thread.currentThread().interrupt();
+            } else {
+                log.error("Error in AI analysis for team {}", teamName, e);
+                aiAnalyzedCount.incrementAndGet();
+                persistenceService.markTeamAsErrorAndClearAiResults(participation.id());
+                analysisStateService.updateProgress(exerciseId, teamName, "AI_ERROR", aiAnalyzedCount.get());
+                synchronized (eventEmitter) {
+                    eventEmitter.accept(Map.of("type", "AI_ERROR",
+                            "teamId", participation.team().id(), "teamName", teamName,
+                            "error", e.getMessage()));
+                }
             }
+            return LlmTokenTotalsDTO.empty();
         }
-        return runTokenTotals;
     }
 
     private void finalizeSimpleMode(List<ParticipationDTO> validParticipations,
@@ -585,6 +558,84 @@ public class StreamingAnalysisPipelineService {
             eventEmitter.accept(Map.of("type", "CANCELLED",
                     "processed", processedCount.get(), "total", total));
         }
+    }
+
+    private ExecutorService finalizeFullMode(List<ParticipationDTO> validParticipations,
+                                                Map<Long, TeamRepositoryDTO> clonedRepos,
+                                                Long exerciseId, int totalToProcess,
+                                                Consumer<Object> eventEmitter) {
+        record AiCandidate(ParticipationDTO participation, TeamRepositoryDTO repo) {}
+        List<AiCandidate> aiCandidates = new ArrayList<>();
+        for (ParticipationDTO participation : validParticipations) {
+            TeamRepositoryDTO repo = clonedRepos.get(participation.id());
+            if (repo == null) {
+                continue;
+            }
+            TeamParticipation tp = teamParticipationRepository
+                    .findByParticipation(participation.id()).orElse(null);
+            if (tp != null && persistenceService.shouldSkipTeam(tp)) {
+                continue;
+            }
+            aiCandidates.add(new AiCandidate(participation, repo));
+        }
+
+        int aiTotal = aiCandidates.size();
+        eventEmitter.accept(Map.of("type", "PHASE", "phase", "AI_ANALYSIS", "total", aiTotal));
+
+        AtomicInteger aiAnalyzedCount = new AtomicInteger(0);
+        ConcurrentLinkedQueue<LlmTokenTotalsDTO> tokenBag = new ConcurrentLinkedQueue<>();
+
+        int aiThreadCount = Math.max(1, Math.min(aiTotal, aiParallelism));
+        ExecutorService aiExecutor = Executors.newFixedThreadPool(aiThreadCount);
+        analysisTaskManager.registerAiExecutor(exerciseId, aiExecutor);
+
+        CountDownLatch aiLatch = new CountDownLatch(aiTotal);
+
+        for (AiCandidate candidate : aiCandidates) {
+            aiExecutor.submit(() -> {
+                try {
+                    if (!analysisStateService.isRunning(exerciseId)) {
+                        return;
+                    }
+                    LlmTokenTotalsDTO teamTokens = processAIAnalysis(
+                            candidate.participation(), candidate.repo(), exerciseId,
+                            aiAnalyzedCount, aiTotal, eventEmitter);
+                    tokenBag.add(teamTokens);
+                } catch (Exception e) {
+                    log.error("Unexpected error in AI analysis thread for participation {}",
+                            candidate.participation().id(), e);
+                } finally {
+                    aiLatch.countDown();
+                }
+            });
+        }
+
+        try {
+            aiLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.info("AI analysis phase interrupted for exerciseId={}", exerciseId);
+        }
+
+        LlmTokenTotalsDTO runTokenTotals = tokenBag.stream()
+                .reduce(LlmTokenTotalsDTO.empty(), LlmTokenTotalsDTO::merge);
+
+        log.info("Phase 3 complete: AI analysis done for {} teams", aiAnalyzedCount.get());
+        log.info("LLM_USAGE scope=stream exerciseId={} teams={} llmCalls={} promptTokens={} completionTokens={} totalTokens={}",
+                exerciseId, aiAnalyzedCount.get(),
+                runTokenTotals.llmCalls(), runTokenTotals.promptTokens(),
+                runTokenTotals.completionTokens(), runTokenTotals.totalTokens());
+
+        if (analysisStateService.isRunning(exerciseId)) {
+            analysisStateService.completeAnalysis(exerciseId);
+            eventEmitter.accept(Map.of("type", "DONE"));
+        } else {
+            exerciseDataCleanupService.markPendingTeamsAsCancelled(exerciseId);
+            eventEmitter.accept(Map.of("type", "CANCELLED",
+                    "processed", aiAnalyzedCount.get(), "total", totalToProcess));
+        }
+
+        return aiExecutor;
     }
 
     private void emitPendingTeams(List<ParticipationDTO> validParticipations,

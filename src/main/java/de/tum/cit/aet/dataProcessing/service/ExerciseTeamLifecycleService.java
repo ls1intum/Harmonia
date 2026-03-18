@@ -158,12 +158,13 @@ public class ExerciseTeamLifecycleService {
      */
     public void markPendingTeamsAsCancelled(Long exerciseId) {
         try {
-            List<TeamParticipation> pendingTeams = teamParticipationRepository
-                    .findAllByExerciseIdAndAnalysisStatus(exerciseId, TeamAnalysisStatus.PENDING);
-
-            for (TeamParticipation team : pendingTeams) {
-                team.setAnalysisStatus(TeamAnalysisStatus.CANCELLED);
-                teamParticipationRepository.save(team);
+            for (TeamAnalysisStatus status : List.of(TeamAnalysisStatus.PENDING, TeamAnalysisStatus.AI_ANALYZING)) {
+                List<TeamParticipation> teams = teamParticipationRepository
+                        .findAllByExerciseIdAndAnalysisStatus(exerciseId, status);
+                for (TeamParticipation team : teams) {
+                    team.setAnalysisStatus(TeamAnalysisStatus.CANCELLED);
+                    teamParticipationRepository.save(team);
+                }
             }
         } catch (Exception e) {
             log.error("Failed to mark pending teams as cancelled for exerciseId={}", exerciseId, e);
