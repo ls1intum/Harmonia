@@ -90,7 +90,7 @@ Harmonia uses a relational database to persist all analysis results. The schema 
 
 Version-controlled migration scripts manage all database schema changes, ensuring that the schema evolves consistently across deployments. The database stores all intermediate and final results, which enables the client to display partial results during an ongoing analysis and to retrieve historical results for past exercises.
 
-== Collaboration Quality Index
+== Collaboration Quality Index <cqi>
 
 The central metric Harmonia produces is the *Collaboration Quality Index (CQI)*, a composite score between 0 and 100 that quantifies how well a team collaborated during the project. The CQI captures multiple dimensions of collaboration rather than relying on a single indicator. This section describes the composition, calculation, and filtering logic behind the CQI.
 
@@ -150,7 +150,7 @@ The analysis pipeline follows a three-phase architecture designed to maximize th
 
 The third phase, the *AI Analysis Phase*, processes each team's commits sequentially through the AI model to classify commit types and estimate effort. The server then computes the final CQI by combining the AI-based scores with the Git-based components from the previous phase. Throughout all three phases, the server streams progress updates to the client in real time using Server-Sent Events. Instructors can monitor the analysis as it progresses and begin reviewing completed teams while others are still being processed. The pipeline handles failures gracefully: if the analysis of an individual team fails at any phase, the server logs the error and continues processing the remaining teams.
 
-== Pair Programming Verification
+== Pair Programming Verification <pp>
 
 Harmonia supports the verification of pair programming compliance alongside the CQI. The ITP course requires students to attend mandatory pair programming sessions, and verifying this attendance manually is time-consuming for tutors and instructors.
 
