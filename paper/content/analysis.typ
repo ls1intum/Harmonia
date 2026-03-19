@@ -51,6 +51,33 @@ Looking at the three score dimensions ("Effort", "Complexity", and "Novelty"), T
 Because Team H and Team A1 represent the two most contrasting cases, the lowest and highest inter-rater agreement respectively, we selected these two teams for a more detailed per-commit comparison with Harmonia later in this section (see *TODO fig-teamh and TODO fig-teama1*).
 
 
+We then compared the average scores assigned by human reviewers with those produced by Harmonia. @fig-scores shows the mean "Effort", "Complexity", and "Novelty" scores per team.
+#figure(
+image("../figures/02_manual_vs_harmonia_scores.png", width: 95%),
+caption: [Average "Effort", "Complexity", and "Novelty" scores per team as assessed by human reviewers and Harmonia.],
+) <fig-scores>
+
+For "Effort", Harmonia consistently assigns lower scores than the human reviewers. The gap is small for Team H (+0.5) and Team L (+0.2) but grows significantly for Team A1 (+1.6) and Team A2 (+1.9). This suggests that Harmonia tends to underestimate the amount of meaningful work in a commit, particularly for teams with higher overall contribution quality.
+
+For "Complexity", the pattern is reversed. Harmonia rates Team H and Team L higher than the human reviewers, with differences of -0.5 and -0.9 respectively. For Team A1, both assessments are nearly identical (-0.2). Only for Team A2 does the human assessment exceed Harmonia's (+0.5). This indicates that Harmonia perceives more technical difficulty in commits than human reviewers do, especially for lower-performing teams.
+
+For "Novelty", the two assessments are very close for Team H (difference of 0.0) and Team L (-0.2). However, the gap widens for Team A1 (+0.8) and Team A2 (+1.4), following a similar pattern as "Effort".
+
+
+@fig-categories shows the distribution of commit categories assigned by both the human reviewers and Harmonia.
+#figure(
+image("../figures/03_category_distribution.png", width: 100%),
+caption: [Distribution of commit categories as classified by human reviewers and Harmonia.],
+) <fig-categories>
+
+Across all teams, a consistent pattern emerges. Harmonia classifies a larger proportion of commits as "Feature" compared to the human reviewers. For Team H, the difference is most pronounced: humans assigned 48% of commits to "Feature", while Harmonia assigned 66%. A similar gap is visible for Team L (58% vs. 72%).
+
+At the same time, Harmonia assigns far fewer commits to the "Trivial" category. In Team H, human reviewers classified 39% of commits as "Trivial", while Harmonia assigned only 13%. For Team A1, the difference is even more striking: humans rated 18% of commits as "Trivial", but Harmonia assigned 0%. This suggests that Harmonia tends to overestimate the significance of smaller commits and rarely classifies a commit as low-effort.
+
+For "Bug Fix", Harmonia consistently assigns higher percentages than the human reviewers. The difference is moderate for most teams but more noticeable for Team A2 (26% vs. 33%) and Team A1 (12% vs. 21%). "Refactor" shows a more mixed picture, with both assessments being relatively close across most teams.
+
+Overall, Harmonia appears to shift commits away from the "Trivial" category and distribute them primarily into "Feature" and "Bug Fix". This pattern is consistent across all analyzed teams and should be considered when interpreting Harmonia's category-level output.
+
 
 
 == Limitations
