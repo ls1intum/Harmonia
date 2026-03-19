@@ -39,7 +39,7 @@ The grey dashed line marks the 70% threshold, which is commonly considered the b
 
 Looking at the three score dimensions ("Effort", "Complexity", and "Novelty"), Team H shows the largest disagreement between the two reviewers, with an average correlation of 70%. Its "Complexity" score of 67% is the lowest single value across all teams. Team A2 follows with an average of 72%, where "Effort" drops to 68%. In contrast, Team F and Team L both show stable agreement above 72% across all three dimensions.
 
-Because Team H and Team A1 represent the two most contrasting cases, the lowest and highest inter-rater agreement respectively, we selected these two teams for a more detailed per-commit comparison with Harmonia later in this section (see @fig-teamh and @fig-teama1).Team H and Team A1 represent the two most contrasting cases, the lowest and highest inter-rater agreement respectively, we selected these two teams for a more detailed per-commit comparison with Harmonia later in this section (see @fig-teamh and @fig-teama1).
+Because Team H and Team A1 represent the two most contrasting cases, the lowest and highest inter-rater agreement respectively, we selected these two teams for a more detailed per-commit comparison with Harmonia later in this section (see @fig-teamh and @fig-teama1).
 
 Overall @fig-irr shows that the manual evaluation is sufficiently consistent across both reviewers to serve as a reliable ground truth for evaluating Harmonia.
 
@@ -106,7 +106,7 @@ image("../figures/05_comparison_team_a1.png", width: 100%),
 caption: [Comparison of "Effort", "Complexity", and "Novelty" scores for Team A1: two manual assessments vs. Harmonia.],
 ) <fig-teama1>
 
-For Team A1, the two human reviewers are nearly identical across all three dimensions, confirming the high inter-rater reliability. Harmonia again stays within a narrow range, with "Effort" never exceeding 4.5 while human reviewers regularly assign scores of 8.0 or above. The gap between human and AI scores is more pronounced for this team than for Team H, which aligns with the higher manual averages observed in @fig-scores. As with Team H, Harmonia captures the relative pattern but compresses all values into roughly the lower half of the scale
+For Team A1, the two human reviewers are nearly identical across all three dimensions, confirming the high inter-rater reliability. Harmonia again stays within a narrow range, with "Effort" never exceeding 4.5 while human reviewers regularly assign scores of 8.0 or above. The gap between human and AI scores is more pronounced for this team than for Team H, which aligns with the higher manual averages observed in @fig-scores. As with Team H, Harmonia captures the relative pattern but compresses all values into roughly the lower half of the scale.
 
 
 == Limitations
