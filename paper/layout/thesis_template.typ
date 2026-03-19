@@ -116,14 +116,16 @@
 
   // List of figures.
   pagebreak()
-  heading(numbering: none)[List of Figures]
   show outline: it => { // Show only the short caption here
     in-outline.update(true)
     it
     in-outline.update(false)
   }
   outline(
-    title:"",
+    title: [
+      #text(font: fonts.body, 1.5em, weight: 700, "List of Figures")
+      #v(6mm)
+    ],
     target: figure.where(kind: image),
   )
 
@@ -131,9 +133,11 @@
   context[
     #if query(figure.where(kind: table)).len() > 0 {
       pagebreak()
-      heading(numbering: none)[List of Tables]
       outline(
-        title: "",
+        title: [
+          #text(font: fonts.body, 1.5em, weight: 700, "List of Tables")
+          #v(6mm)
+        ],
         target: figure.where(kind: table)
       )
     }
