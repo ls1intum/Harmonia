@@ -55,18 +55,18 @@ Six quality requirements complement the functional capabilities and ensure that 
 
 == System Design
 
-Harmonia follows a monolithic architecture with three main components: a server that performs the analysis and exposes a REST API, a client that provides the instructor-facing user interface, and a database that persists all analysis results. @fig:subsystem-decomposition illustrates the subsystem decomposition of the system. The server communicates with two external systems, namely the Artemis learning management platform and a large language model (LLM) API, while the client interacts exclusively with the server through the Harmonia API.
+Harmonia follows a monolithic architecture with three main components: a server that performs the analysis and exposes a REST API, a client that provides the instructor-facing user interface, and a database that persists all analysis results. The system has three main subsystems. The server communicates with two external systems, namely the Artemis learning management platform and a large language model (LLM) API, while the client interacts exclusively with the server through the Harmonia API.
 
 The following subsections describe each component and external dependency in detail. The server subsection explains the internal service architecture, the external systems subsection covers the two third-party integrations, and the client and database subsections outline the user interface layer and the persistence layer, respectively.
 
-#figure(
-  image("/figures/Subsystem_Decomposition.pdf", width: 100%),
-  caption: [Subsystem decomposition of Harmonia.],
-) <fig:subsystem-decomposition>
+// #figure(
+//   image("/figures/Subsystem_Decomposition.pdf", width: 100%),
+//   caption: [Subsystem decomposition of Harmonia.],
+// ) <fig:subsystem-decomposition>
 
 === Server
 
-The server forms the core of Harmonia and handles all data retrieval, analysis logic, and result computation. @fig:subsystem-decomposition shows that it consists of several services organized into two main subsystems: the Data Processing System and the Analysis System.
+The server forms the core of Harmonia and handles all data retrieval, analysis logic, and result computation. It consists of several services organized into two main subsystems: the Data Processing System and the Analysis System.
 
 The *Data Processing System* manages all external communication and data ingestion. The _Repository Processing Service_ clones and fetches Git repositories from Artemis, extracts commit metadata such as author, timestamp, changed files, insertions, and deletions, and computes file ownership through blame analysis. The _Authentication Service_ manages the connection to the Artemis server and handles credential resolution and session management. The _Request Processing Service_ exposes the Harmonia API through RESTful endpoints that allow the client to trigger analyses, retrieve team data, and configure scoring parameters. This service also provides a Server-Sent Events (SSE) endpoint that streams real-time progress updates to the client during an analysis run.
 
@@ -74,7 +74,7 @@ The *Analysis System* contains the scoring and evaluation logic. The _CQI Calcul
 
 === External Systems
 
-Harmonia communicates with two external systems, both depicted in @fig:subsystem-decomposition. The *Artemis Server* provides access to course data, team compositions, Git repositories, and version control access logs through its API. Harmonia authenticates with Artemis and retrieves all necessary data programmatically, eliminating the need for manual data exports.
+Harmonia communicates with two external systems. The *Artemis Server* provides access to course data, team compositions, Git repositories, and version control access logs through its API. Harmonia authenticates with Artemis and retrieves all necessary data programmatically, eliminating the need for manual data exports.
 
 The *LLM API* provides the AI capabilities required for commit classification and effort estimation. The server sends commit metadata, including the commit message, changed file paths, and diff statistics, to the LLM, which returns a classification label, an effort score, and a confidence value. These results enable the Effort Balance component of the CQI, which carries the largest weight in the overall score.
 
@@ -90,7 +90,7 @@ Harmonia uses a relational database to persist all analysis results. The schema 
 
 Version-controlled migration scripts manage all database schema changes, ensuring that the schema evolves consistently across deployments. The database stores all intermediate and final results, which enables the client to display partial results during an ongoing analysis and to retrieve historical results for past exercises.
 
-== Collaboration Quality Index
+== Collaboration Quality Index <cqi>
 
 The central metric Harmonia produces is the *Collaboration Quality Index (CQI)*, a composite score between 0 and 100 that quantifies how well a team collaborated during the project. The CQI captures multiple dimensions of collaboration rather than relying on a single indicator. This section describes the composition, calculation, and filtering logic behind the CQI.
 
@@ -150,7 +150,7 @@ The analysis pipeline follows a three-phase architecture designed to maximize th
 
 The third phase, the *AI Analysis Phase*, processes each team's commits sequentially through the AI model to classify commit types and estimate effort. The server then computes the final CQI by combining the AI-based scores with the Git-based components from the previous phase. Throughout all three phases, the server streams progress updates to the client in real time using Server-Sent Events. Instructors can monitor the analysis as it progresses and begin reviewing completed teams while others are still being processed. The pipeline handles failures gracefully: if the analysis of an individual team fails at any phase, the server logs the error and continues processing the remaining teams.
 
-== Pair Programming Verification
+== Pair Programming Verification <pp>
 
 Harmonia supports the verification of pair programming compliance alongside the CQI. The ITP course requires students to attend mandatory pair programming sessions, and verifying this attendance manually is time-consuming for tutors and instructors.
 
