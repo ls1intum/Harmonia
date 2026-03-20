@@ -102,10 +102,11 @@
   pagebreak()
 
 
-    // Main body. Reset page numbering.
+  // Main body. Reset page numbering.
   set page(numbering: "1")
   counter(page).update(1)
   set par(justify: true, first-line-indent: 2em)
+  set cite(style: "alphanumeric")
 
   // Start each chapter on a new page
   show heading.where(level: 1): it => {
@@ -143,13 +144,6 @@
     }
   ]
 
-  // Appendix.
   pagebreak()
-  heading(numbering: none)[Appendix A: Supplementary Material]
-  include("/layout/appendix.typ")
-
-  pagebreak()
-
-  //Citation
-  bibliography("/thesis.bib", style: "ieee")
+  bibliography("/seminar_paper.bib")
 }

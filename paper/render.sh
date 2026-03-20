@@ -10,5 +10,5 @@ if ! command -v typst &> /dev/null; then
     exit 1
 fi
 
-typst compile thesis.typ
-echo "Compiled thesis.pdf successfully."
+typst compile seminar_paper.typ
+echo "Compiled seminar_paper.pdf successfully."
