@@ -1,8 +1,8 @@
 = Student View <student_view>
 
-Harmonia addresses the instructor's assessment and transparency challenge by aggregating collaboration metrics and providing a data-driven overview of team performance. Equally important, however, is supporting students themselves during development. Discrete, summative feedback delivered only at project submission offers limited opportunity for learning and improvement. This chapter presents a complementary system that delivers formative feedback to students in real time through large language models, enabling continuous code quality assessment and iteration.
+Harmonia addresses the instructor's assessment and transparency challenge by aggregating collaboration metrics and providing a data-driven overview of team performance. Equally important is supporting students themselves during development. Discrete, summative feedback delivered only at project submission offers limited opportunity for learning and improvement. This chapter presents a complementary system that delivers formative feedback to students in real time through large language models, enabling continuous code quality assessment and iteration.
 
-The student feedback system provides low-friction access to code quality critique throughout the project lifecycle. By integrating with the course's online development environment, it removes barriers to feedback requests and presents guidance at the moment of need. The system's non-graded, constructive nature encourages students to seek critical feedback without apprehension, supporting a growth mindset and deeper engagement with code quality principles.
+The student feedback system provides low-friction access to code quality critique throughout the project lifecycle. By integrating with the course's online development environment "Artemis", it removes barriers to feedback requests and presents guidance at the moment of need. The system's non-graded, constructive nature encourages students to seek critical feedback without apprehension, supporting a growth mindset and deeper engagement with code quality principles.
 
 == Requirements Analysis
 
@@ -18,11 +18,11 @@ The student feedback system operates under fundamentally different design princi
     table.header(
       [*ID*], [*Requirement*], [*Description*],
     ),
-    [FR-01], [Request Feedback Button], [The system must provide a simple, accessible mechanism (such as a button in the IDE) by which students can initiate code quality assessment on demand.],
+    [FR-01], [Request Feedback Button], [The system must provide a simple, accessible mechanism (such as a button in Artemis) by which students can initiate code quality assessment on demand.],
     [FR-02], [Repository Retrieval], [The system must automatically fetch the current repository state; students must not be required to manually export or upload code.],
     [FR-03], [Analysis Execution], [The system must process submitted code through an LLM that evaluates code quality, design patterns, and adherence to learning objectives.],
     [FR-04], [Feedback Generation], [The system must categorize all feedback into four priority tiers---critical, major, minor, and nice to have---to facilitate student triage and effort allocation.],
-    [FR-05], [Feedback Display], [The system must present feedback both as an aggregated list and as line-level inline annotations within the IDE.],
+    [FR-05], [Feedback Display], [The system must present feedback both as an aggregated list and as line-level inline annotations within Artemis' online IDE.],
     [FR-06], [Unscored Assessment], [Feedback must be explicitly designated as educational guidance, not graded assessment, to encourage students to seek feedback without fear of evaluation penalties.],
   ),
   caption: [Functional requirements for the student feedback system.],
@@ -38,11 +38,11 @@ The student feedback system operates under fundamentally different design princi
     table.header(
       [*ID*], [*Category*], [*Description*],
     ),
-    [QR-01], [Performance], [Feedback generation and delivery must complete within a reasonable timeframe (target: under five minutes) to provide timely guidance during development.],
+    [QR-01], [Performance], [Feedback generation and delivery must complete within a reasonable timeframe to provide timely guidance during development.],
     [QR-02], [Scalability], [The system must process concurrent requests from all course teams without significant performance degradation.],
     [QR-03], [Reliability], [System failures must not result in loss of previously generated feedback; historical results must remain accessible to students.],
     [QR-04], [Usability], [Feedback language and priority categories must be comprehensible to students at the skill level of introductory programming courses.],
-    [QR-05], [Maintainability], [The LLM prompt, priority definitions, and assessment logic must be version-controlled and modifiable to adapt to different courses or assessment goals.],
+    [QR-05], [Maintainability], [The LLM prompt, priority definitions, and assessment logic must be version-controlled and modifiable to adapt to future improvement or expanded assessment goals.],
     [QR-06], [Understandability], [Each feedback item must reference specific code locations and provide sufficient context for improvement action, yet must not disclose solution implementations.],
   ),
   caption: [Quality requirements for the student feedback system.],
@@ -56,9 +56,9 @@ The student feedback system enhances the existing course infrastructure by intro
 
 The system comprises three core functional units: a user-facing request mechanism, an LLM-driven analysis engine, and a feedback delivery subsystem.
 
-The *Request Interface* is implemented as a button within the online code editor, allowing students to submit their current code for analysis. Upon activation, the system captures the repository state (specifically the diff between the student's implementation and the problem template) and routes it to the analysis pipeline. This integration minimizes friction; students need not navigate away from their IDE or perform manual code preparation.
+The *Request Interface* is implemented as a button within the exercise details view of Artemis, allowing students to submit their current code for analysis. Upon activation, the system captures the repository state (specifically the diff between the student's implementation and the problem template) and routes it to the analysis pipeline. This integration minimizes friction as students are using Artemis already for version control and for the exercise or project description.
 
-The *Analysis Engine* is realized as a containerized Athena module (written in Python and executed in Docker) that orchestrates the feedback generation process. The module first constructs a unified diff of the student's current code against the reference template. It then assembles a prompt containing the problem statement, a reference to coding standards and style expectations, and the diff. This prompt is submitted to a large language model with demonstrated proficiency in code analysis. The model returns feedback in structured format, which the module parses and organizes into the four priority categories (Critical, Major, Minor, Nice to Have).
+The *Analysis Engine* is realized as a containerized Athena module (written in Python and executed in Docker) that orchestrates the feedback generation process. The module first constructs a unified diff of the student's current code against the reference template. It then assembles a prompt containing the problem statement, a reference to coding standards and style expectations, and the diff. This prompt is submitted to a large language model. The model returns feedback in structured format, which the module parses and organizes into the four priority categories (Critical, Major, Minor, Nice to Have).
 
 The *Feedback Delivery Layer* transmits the categorized feedback back to the learning platform, making it available to students through two complementary visualizations: an aggregated list view for overall assessment, and inline IDE annotations linked to specific lines of code.
 
@@ -99,7 +99,7 @@ The feedback interface employs a two-level presentation strategy that balances o
 
 === Feedback Request Initiation
 
-Within the IDE, a distinctly labeled button ("Request AI Feedback") provides the entry point for analysis. Upon activation, the system displays a progress indicator and confirmation that processing has begun. This provides clear feedback to students about system state and manages expectations regarding response latency.
+Within Artemis a distinctly labeled button ("Request AI Feedback") provides the entry point for analysis. Upon activation, the system displays a progress indicator and confirmation that processing has begun. This provides clear feedback to students about system state and manages expectations regarding response latency.
 
 === Summary View
 
@@ -107,11 +107,11 @@ Upon completion, the system presents an aggregated list of identified issues. Ea
 
 === Inline Annotations
 
-When students open or edit a source file, feedback relevant to that file appears as interactive inline annotations at the exact lines of code in question. Each annotation displays the priority category, a brief explanation, and (where applicable) the specific code construct or pattern that triggered the finding. This integrated presentation supports in-situ code improvement, reducing context switching and cognitive load.
+When students open or edit a source file, feedback relevant to that file appears as interactive inline annotations at the exact lines of code in question when using Artemis' online IDE. Each annotation displays the priority category, a brief explanation, and (where applicable) the specific code construct or pattern that triggered the finding.
 
 == Implementation Status
 
-@tab:student-implementation-status summarizes the realization of each functional and quality requirement. The student feedback system has been integrated into the course infrastructure and deployed for use during the winter semester 2025/26.
+@tab:student-implementation-status summarizes the realization of each functional and quality requirement. The student feedback system has been implemented and integrated technically, but it has not yet been used in a live course run. It is prepared for deployment in future iterations of the course and for adaptation to other courses.
 
 #figure(
   table(
@@ -138,4 +138,4 @@ When students open or edit a source file, feedback relevant to that file appears
   caption: [Implementation status of student feedback system requirements.],
 ) <tab:student-implementation-status>
 
-The system has proven effective in supporting student learning during development. The non-graded framing encourages early and frequent feedback requests, and the priority taxonomy helps students focus improvement efforts efficiently. Minor enhancements to terminology clarity and scalability under peak load remain opportunities for refinement.
+The system is designed to support student learning during development through timely, non-graded feedback and a clear priority taxonomy for issue triage. Its effectiveness will be evaluated in future course iterations once it is used in practice. Beyond the current course context, the architecture and module design also enable transfer to other courses with similar programming assessment needs.
