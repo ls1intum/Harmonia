@@ -24,7 +24,7 @@ As already discussed, most existing approaches rely on Git commit counts, lines 
 
 == Code Quality and Automated Assessment Systems
 In contrast to systems that support instructors in evaluating student performance, student-facing approaches give immediate feedback to help students improve their code quality.
-Krusche et al. developed the tool Artemis, which automatically tests student code for correctness and performs static analysis to identify style issues and programming errors @krusche2018artemis. This feedback encourages students to adopt clean and maintainable coding practices.
+Krusche and Seitz developed the tool Artemis, which automatically tests student code for correctness and performs static analysis to identify style issues and programming errors @krusche2018artemis. This feedback encourages students to adopt clean and maintainable coding practices.
 Similarly, Chen et al.'s automated programming assessment system employs the linters and style analyzers HTMLHint, Stylelint and SonarQube, to guide students with their code style and quality in real time @chen2022codequality. 
 Both systems effectively encourage students to address issues early and iteratively refine their code through resubmissions, helping them identify and correct specific problems. Their results showcase that such systems can effectively support the reduction of coding errors and the overall improvement of code quality over time. Building on these approaches, recent work has also explored the use of LLMs to provide more flexible and context-aware analyses of code and contributions for both students and instructors.
 
