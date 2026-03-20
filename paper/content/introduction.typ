@@ -1,0 +1,9 @@
+= Introduction
+
+Team-based software projects form a central component of programming education at many universities. These projects teach technical skills while fostering collaboration and communication among students. However, evaluating how well students work together remains an open challenge, particularly in large courses where instructors must assess hundreds of teams within a limited timeframe.
+
+Previous research has explored approaches to automated contribution analysis and code quality assessment @ferrao2025llm@hundhausen2023combining@chen2022codequality@ramesh2025ericsson. Existing solutions tend to focus on isolated aspects such as commit counts or coding style compliance rather than offering a combined view of team collaboration. Section 3 discusses related work in more detail and positions our contributions relative to these existing approaches.
+
+This paper presents two complementary contributions. The first is Harmonia, an instructor-facing tool that automatically analyzes Git repositories and computes collaboration metrics across all teams in a course. Harmonia provides a centralized overview with transparent, evidence-based insights to support fair and consistent grading. The second contribution is a student-facing feedback system that provides teams with direct feedback on their code quality throughout the project, helping them learn and improve along the way.
+
+The remainder of this paper follows this structure. Section 2 provides the necessary background on the course, its grading process, and the problems that motivate this work. Section 3 discusses related work. Section 4 presents Harmonia and its underlying concepts. Section 5 analyzes its effectiveness. Section 6 introduces the student-facing feedback system. Sections 7 and 8 conclude the paper and outline directions for future work.
