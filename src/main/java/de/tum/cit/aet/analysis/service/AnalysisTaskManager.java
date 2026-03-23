@@ -20,6 +20,9 @@ public class AnalysisTaskManager {
     /** Active download/git-analysis executors by exerciseId (for cancellation). */
     private final Map<Long, ExecutorService> activeExecutors = new ConcurrentHashMap<>();
 
+    /** Active AI-analysis executors by exerciseId (for cancellation). */
+    private final Map<Long, ExecutorService> activeAiExecutors = new ConcurrentHashMap<>();
+
     /** Main stream-analysis threads by exerciseId (for interrupt-based cancellation). */
     private final Map<Long, Thread> runningStreamTasks = new ConcurrentHashMap<>();
 
@@ -40,16 +43,9 @@ public class AnalysisTaskManager {
             future.cancel(true);
         }
 
-        // 2) Shut down the download/git-analysis executor
-        ExecutorService executor = activeExecutors.remove(exerciseId);
-        if (executor != null) {
-            executor.shutdownNow();
-            try {
-                executor.awaitTermination(2, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        // 2) Shut down the download/git-analysis executor and the AI-analysis executor
+        shutdownTrackedExecutor(activeExecutors.remove(exerciseId));
+        shutdownTrackedExecutor(activeAiExecutors.remove(exerciseId));
 
         // 3) Interrupt the main stream thread (stops AI analysis phase)
         Thread streamThread = runningStreamTasks.remove(exerciseId);
@@ -94,6 +90,25 @@ public class AnalysisTaskManager {
 
     public void unregisterExecutor(Long exerciseId) {
         activeExecutors.remove(exerciseId);
+    }
+
+    public void registerAiExecutor(Long exerciseId, ExecutorService executor) {
+        activeAiExecutors.put(exerciseId, executor);
+    }
+
+    public void unregisterAiExecutor(Long exerciseId) {
+        activeAiExecutors.remove(exerciseId);
+    }
+
+    private void shutdownTrackedExecutor(ExecutorService executor) {
+        if (executor != null) {
+            executor.shutdownNow();
+            try {
+                executor.awaitTermination(2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     public void registerStreamThread(Long exerciseId, Thread thread) {
