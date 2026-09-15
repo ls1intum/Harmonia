@@ -27,7 +27,7 @@ configurations {
 }
 
 wrapper {
-    gradleVersion = "9.4.0"
+    gradleVersion = "9.7.1"
 }
 
 repositories {
